@@ -1,4 +1,5 @@
 type SourcePlayer = { player_id?: string; full_name?: string; first_name?: string; last_name?: string; position?: string; team?: string; injury_status?: string | null; search_rank?: number };
+type SourceProjection = { player_id?: string; stats?: { pts_ppr?: number; pts_half_ppr?: number; pts_std?: number } };
 
 export async function GET(request: Request) {
   const id = new URL(request.url).searchParams.get("id")?.trim();
@@ -11,10 +12,16 @@ export async function GET(request: Request) {
       fetch("https://api.sleeper.app/v1/players/nfl?active=true", { next: { revalidate: 86400 } }),
     ]);
     if (!leagueResponse.ok || !rostersResponse.ok || !usersResponse.ok || !playersResponse.ok) throw new Error("League unavailable");
-    const league = await leagueResponse.json() as { name?: string; total_rosters?: number; season?: string; roster_positions?: string[] };
+    const league = await leagueResponse.json() as { name?: string; total_rosters?: number; season?: string; leg?: number; roster_positions?: string[]; scoring_settings?: { rec?: number } };
     const rosters = await rostersResponse.json() as { owner_id?: string; players?: string[]; starters?: string[] }[];
     const users = await usersResponse.json() as { user_id?: string; display_name?: string; metadata?: { team_name?: string } }[];
     const sourcePlayers = await playersResponse.json() as Record<string, SourcePlayer>;
+    const projectionResponse = await fetch(`https://api.sleeper.com/projections/nfl/${league.season ?? new Date().getUTCFullYear()}/${league.leg ?? 1}?season_type=regular`, { next: { revalidate: 3600 } }).catch(() => null);
+    const projectionPayload: unknown = projectionResponse?.ok ? await projectionResponse.json().catch(() => []) : [];
+    const sourceProjections = Array.isArray(projectionPayload) ? projectionPayload as SourceProjection[] : [];
+    const receptionValue = league.scoring_settings?.rec ?? 1;
+    const projectionKey = receptionValue >= .75 ? "pts_ppr" : receptionValue >= .25 ? "pts_half_ppr" : "pts_std";
+    const leagueProjections = new Map(sourceProjections.flatMap((entry) => entry.player_id && typeof entry.stats?.[projectionKey] === "number" ? [[entry.player_id, entry.stats[projectionKey]]] : []));
     const roster = rosters[0];
     const starterIds = roster?.starters ?? [];
     const starterSet = new Set(starterIds);
@@ -27,7 +34,7 @@ export async function GET(request: Request) {
       const player = sourcePlayers[playerId];
       if (!player) return [];
       const projection = Math.max(5, 21 - index * .72 - Math.max(0, (player.search_rank ?? 100) - 50) * .01);
-      return [{ id: player.player_id ?? playerId, name: player.full_name ?? `${player.first_name ?? ""} ${player.last_name ?? ""}`.trim(), position: player.position ?? "FLEX", team: player.team ?? "FA", opponent: "Matchup pending", projection: Number(projection.toFixed(1)), floor: Number((projection * .58).toFixed(1)), ceiling: Number((projection * 1.52).toFixed(1)), trend: 0, status: player.injury_status ?? "Healthy", role }];
+      return [{ id: player.player_id ?? playerId, name: player.full_name ?? `${player.first_name ?? ""} ${player.last_name ?? ""}`.trim(), position: player.position ?? "FLEX", team: player.team ?? "FA", opponent: "Matchup pending", projection: Number(projection.toFixed(1)), leagueProjection: leagueProjections.get(playerId) ?? null, floor: Number((projection * .58).toFixed(1)), ceiling: Number((projection * 1.52).toFixed(1)), trend: 0, status: player.injury_status ?? "Healthy", role }];
     });
     const managers = users.flatMap((user, index) => user.user_id ? [{ id: user.user_id, name: user.display_name ?? `Manager ${index + 1}`, teamName: user.metadata?.team_name ?? `${user.display_name ?? `Manager ${index + 1}`}'s Team`, style: "Neutral" as const }] : []);
     return Response.json({ league: { name: league.name ?? "Imported League", teams: league.total_rosters, season: league.season, managers: users.length }, roster: normalized, managers });
