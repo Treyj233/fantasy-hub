@@ -9,6 +9,7 @@ type PlayerWeek = { season: string; week: number; points: number; totalYards: nu
 type PlayerHistory = { sourceStatus: "available" | "unavailable"; player: { id: string; age?: number; yearsExp?: number; college?: string; height?: string; weight?: string }; seasons: { season: string; games: number; points: number; pointsPerGame: number; positionRank: number | null; yards: number; touchdowns: number; receptions: number }[]; recentWeeks: { week: number; points: number; yards: number; touchdowns: number; targets: number }[]; weeks: PlayerWeek[] };
 type TradeStyle = "Aggressive" | "Neutral" | "Strict";
 type LeagueManager = { id: string; name: string; teamName: string; style: TradeStyle };
+type LeagueTeam = { id: string; ownerId?: string; managerName: string; teamName: string; roster: Player[] };
 type TradeSuggestion = { id: string; title: string; receive: { name: string; meta: string; value: number }[]; send: { name: string; meta: string; value: number }[]; yourBenefit: number; partnerBenefit: number; acceptance: number; confidence: number; whyYou: string; whyThem: string };
 
 const nav: { label: View; mark: string }[] = [
@@ -87,6 +88,8 @@ export default function FantasyHub() {
   const [simShift, setSimShift] = useState(0);
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
   const [managers, setManagers] = useState<LeagueManager[]>(demoManagers);
+  const [leagueTeams, setLeagueTeams] = useState<LeagueTeam[]>([]);
+  const [selectedTeamId, setSelectedTeamId] = useState("");
 
   const totals = useMemo(() => ({
     projection: players.filter((p) => p.role !== "Bench").reduce((sum, p) => sum + p.projection, 0),
@@ -99,9 +102,16 @@ export default function FantasyHub() {
     try {
       const response = await fetch(`/api/league?id=${encodeURIComponent(leagueId.trim())}`);
       if (!response.ok) throw new Error("League not found");
-      const data = await response.json() as { league: { name: string }; roster?: Player[]; managers?: LeagueManager[] };
+      const data = await response.json() as { league: { name: string }; teams?: LeagueTeam[]; managers?: LeagueManager[] };
       setLeagueName(data.league.name);
-      if (data.roster?.length) setPlayers(data.roster);
+      const importedTeams = data.teams ?? [];
+      setLeagueTeams(importedTeams);
+      if (importedTeams.length === 1) {
+        setSelectedTeamId(importedTeams[0].id);
+        if (importedTeams[0].roster.length) setPlayers(importedTeams[0].roster);
+      } else {
+        setSelectedTeamId("");
+      }
       if (data.managers?.length) setManagers(data.managers);
       setImportState("success");
     } catch {
@@ -113,17 +123,27 @@ export default function FantasyHub() {
     setSimShift(Number((Math.random() * 4 - 1.5).toFixed(1)));
   }
 
+  function selectLeagueTeam(teamId: string) {
+    setSelectedTeamId(teamId);
+    const team = leagueTeams.find((candidate) => candidate.id === teamId);
+    if (team?.roster.length) setPlayers(team.roster);
+  }
+
+  const selectedLeagueTeam = leagueTeams.find((team) => team.id === selectedTeamId);
+
   return (
     <main className="app-shell">
       <aside className="sidebar">
         <div className="brand"><span className="brand-mark">FH</span><div><strong>Fantasy Hub</strong><small>Make every week count.</small></div></div>
-        <div className="league-card"><span>ACTIVE LEAGUE</span><strong>{leagueName}</strong><small>12-team · PPR · Week 8</small></div>
+        <div className="league-card"><span>ACTIVE LEAGUE</span><strong>{leagueName}</strong><small>{selectedLeagueTeam ? `${selectedLeagueTeam.teamName} · ` : ""}PPR · Week 8</small></div>
         <nav aria-label="Fantasy Hub sections">{nav.map((item) => <button key={item.label} className={view === item.label ? "active" : ""} onClick={() => setView(item.label)}><i>{item.mark}</i>{item.label}</button>)}</nav>
         <div className="sidebar-bottom"><div><span className="live-dot" /> DATA CURRENT</div><small>Lineups lock Sunday · 12:00 PM</small></div>
       </aside>
 
       <section className="workspace">
         <header className="topbar"><div><p>WEEK 8 · 2026 SEASON</p><h1>{view}</h1></div><div className="top-actions"><button className="ghost" onClick={() => setView("Simulator")}>Roll the season 🎲</button><div className="avatar">JM</div></div></header>
+
+        {leagueTeams.length > 1 && <section className={`team-picker-strip ${selectedTeamId ? "selected" : ""}`}><div><span>{selectedTeamId ? "YOUR TEAM IS ACTIVE" : "ONE MORE STEP"}</span><strong>{selectedLeagueTeam ? selectedLeagueTeam.teamName : "Which team is yours?"}</strong><small>{selectedLeagueTeam ? `Managed by ${selectedLeagueTeam.managerName}. Your roster now powers every dashboard view.` : "Choose your fantasy team so another manager’s roster never replaces yours."}</small></div><label>Fantasy team<select value={selectedTeamId} onChange={(event) => selectLeagueTeam(event.target.value)}><option value="">Choose your team</option>{leagueTeams.map((team) => <option key={team.id} value={team.id}>{team.teamName} · {team.managerName}</option>)}</select></label></section>}
 
         {view === "Command Center" && <CommandCenter players={players} totals={totals} setView={setView} setSelectedPlayer={setSelectedPlayer} starterChoice={starterChoice} setStarterChoice={setStarterChoice} />}
         {view === "My Team" && <MyTeam players={players} setSelectedPlayer={setSelectedPlayer} />}
@@ -138,7 +158,7 @@ export default function FantasyHub() {
           <div><span>CONNECT YOUR LEAGUE</span><strong>Replace demo data with your actual roster</strong><small>Enter a public league ID to import settings, managers, rosters, and scoring.</small></div>
           <div className="connect-form"><input value={leagueId} onChange={(e) => setLeagueId(e.target.value)} placeholder="League ID" aria-label="League ID" /><button onClick={importLeague} disabled={importState === "loading"}>{importState === "loading" ? "Connecting…" : "Import league"}</button></div>
           {importState === "error" && <p className="form-error">We couldn’t find that league. Confirm the ID and try again.</p>}
-          {importState === "success" && <p className="form-success">League connected. Your workspace has been updated.</p>}
+          {importState === "success" && <p className="form-success">{leagueTeams.length > 1 && !selectedTeamId ? "League connected. Choose your team above to finish setup." : "League connected. Your roster is ready."}</p>}
         </section>
       </section>
 
@@ -149,10 +169,14 @@ export default function FantasyHub() {
 
 function CommandCenter({ players, totals, setView, setSelectedPlayer, starterChoice, setStarterChoice }: { players: Player[]; totals: { projection: number; ceiling: number }; setView: (v: View) => void; setSelectedPlayer: (p: Player) => void; starterChoice: string; setStarterChoice: (v: string) => void }) {
   const concern = players.find((p) => p.status !== "Healthy");
+  const flexCandidates = players.filter((player) => player.position !== "QB" && player.position !== "DEF");
+  const primaryDecision = players.find((player) => player.name === "Rome Odunze") ?? flexCandidates.at(-2) ?? players[0];
+  const secondaryDecision = players.find((player) => player.name === "Emeka Egbuka") ?? flexCandidates.at(-1) ?? players[1] ?? primaryDecision;
+  const activeStarter = [primaryDecision.name, secondaryDecision.name].includes(starterChoice) ? starterChoice : primaryDecision.name;
   return <div className="page-content">
     <section className="hero"><div><p>LINEUP LOCK · GAME DAY HQ</p><h2>Let’s go win<br /><em>Week 8.</em></h2><span>Your roster is in the mix. One smart FLEX call and an early waiver swing can turn a good week into a statement win.</span><div className="game-day-pills"><b>🔥 3-week heater</b><b>⚡ 2 lineup edges</b><b>🎯 64% win odds</b></div></div><div className="hero-score"><small>YOU’RE PROJECTED FOR</small><strong>{totals.projection.toFixed(1)}</strong><span>Ceiling {totals.ceiling.toFixed(1)} · Let it fly</span></div></section>
     <div className="metric-grid"><Metric label="Win probability" value="64%" detail="+7% after lineup optimization" tone="good" /><Metric label="Projected rank" value="3rd" detail="of 12 teams this week" /><Metric label="Playoff odds" value="72%" detail="+4.2% over last week" tone="good" /><Metric label="Roster health" value="86" detail={concern ? `Monitor ${concern.name}` : "No active concerns"} tone="warn" /></div>
-    <div className="main-grid"><section className="panel decision-panel"><Header eyebrow="TOP DECISION" title="Set the final FLEX spot" action="Open Start / Sit" onClick={() => setView("Start / Sit")} /><div className="player-versus"><PlayerChoice player={players.find((p) => p.name === "Rome Odunze")!} active={starterChoice === "Rome Odunze"} onClick={() => setStarterChoice("Rome Odunze")} /><div className="versus">VS</div><PlayerChoice player={players.find((p) => p.name === "Emeka Egbuka")!} active={starterChoice === "Emeka Egbuka"} onClick={() => setStarterChoice("Emeka Egbuka")} /></div><div className="recommendation"><b>START {starterChoice.toUpperCase()}</b><p>Higher route certainty and a better projected game environment create the stronger median outcome.</p></div></section>
+    <div className="main-grid"><section className="panel decision-panel"><Header eyebrow="TOP DECISION" title="Set the final FLEX spot" action="Open Start / Sit" onClick={() => setView("Start / Sit")} /><div className="player-versus"><PlayerChoice player={primaryDecision} active={activeStarter === primaryDecision.name} onClick={() => setStarterChoice(primaryDecision.name)} /><div className="versus">VS</div><PlayerChoice player={secondaryDecision} active={activeStarter === secondaryDecision.name} onClick={() => setStarterChoice(secondaryDecision.name)} /></div><div className="recommendation"><b>START {activeStarter.toUpperCase()}</b><p>Higher route certainty and a better projected game environment create the stronger median outcome.</p></div></section>
       <section className="panel"><Header eyebrow="LINEUP PULSE" title="Your core starters" action="View team" onClick={() => setView("My Team")} /><div className="player-list">{players.slice(0, 4).map((p) => <button key={p.id} onClick={() => setSelectedPlayer(p)}><span className={`pos pos-${p.position.toLowerCase()}`}>{p.position}</span><div><strong>{p.name}</strong><small>{p.team} · {p.opponent}</small></div><div className="points"><strong>{p.projection}</strong><small>PTS</small></div></button>)}</div></section>
     </div>
     <div className="lower-grid"><section className="panel"><Header eyebrow="WAIVER PRIORITY" title="Move before your league does" action="See all" onClick={() => setView("Waiver Wire")} /><div className="waiver-preview">{waivers.slice(0, 2).map((w, i) => <div key={w.name}><b>0{i + 1}</b><span className="pos pos-wr">{w.pos}</span><p><strong>{w.name}</strong><small>{w.team} · {w.rostered}% rostered</small></p><em>{w.faab} FAAB</em></div>)}</div></section>
