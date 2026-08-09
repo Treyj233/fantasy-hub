@@ -10,6 +10,8 @@ type PlayerHistory = { sourceStatus: "available" | "unavailable"; player: { id: 
 type TradeStyle = "Aggressive" | "Neutral" | "Strict";
 type LeagueManager = { id: string; name: string; teamName: string; style: TradeStyle };
 type LeagueTeam = { id: string; ownerId?: string; managerName: string; teamName: string; roster: Player[] };
+type LeagueRanking = Player & { overallRank: number; rankingValue: number; age?: number | null; ageAdjustment: number; lineupAdjustment: number };
+type RankingContext = { format: "Dynasty" | "Keeper" | "Redraft"; scoring: string; teams: number; rosterSlots: string[]; positionDemand: Record<string, number>; tePremium: number; passTouchdown: number };
 type TradeSuggestion = { id: string; title: string; receive: { name: string; meta: string; value: number }[]; send: { name: string; meta: string; value: number }[]; yourBenefit: number; partnerBenefit: number; acceptance: number; confidence: number; whyYou: string; whyThem: string };
 
 const nav: { label: View; mark: string }[] = [
@@ -90,6 +92,8 @@ export default function FantasyHub() {
   const [managers, setManagers] = useState<LeagueManager[]>(demoManagers);
   const [leagueTeams, setLeagueTeams] = useState<LeagueTeam[]>([]);
   const [selectedTeamId, setSelectedTeamId] = useState("");
+  const [leagueRankings, setLeagueRankings] = useState<LeagueRanking[]>([]);
+  const [rankingContext, setRankingContext] = useState<RankingContext | null>(null);
 
   const totals = useMemo(() => ({
     projection: players.filter((p) => p.role !== "Bench").reduce((sum, p) => sum + p.projection, 0),
@@ -102,7 +106,7 @@ export default function FantasyHub() {
     try {
       const response = await fetch(`/api/league?id=${encodeURIComponent(leagueId.trim())}`);
       if (!response.ok) throw new Error("League not found");
-      const data = await response.json() as { league: { name: string }; teams?: LeagueTeam[]; managers?: LeagueManager[] };
+      const data = await response.json() as { league: { name: string }; teams?: LeagueTeam[]; managers?: LeagueManager[]; rankings?: LeagueRanking[]; rankingContext?: RankingContext };
       setLeagueName(data.league.name);
       const importedTeams = data.teams ?? [];
       setLeagueTeams(importedTeams);
@@ -113,6 +117,8 @@ export default function FantasyHub() {
         setSelectedTeamId("");
       }
       if (data.managers?.length) setManagers(data.managers);
+      setLeagueRankings(data.rankings ?? []);
+      setRankingContext(data.rankingContext ?? null);
       setImportState("success");
     } catch {
       setImportState("error");
@@ -147,7 +153,7 @@ export default function FantasyHub() {
 
         {view === "Command Center" && <CommandCenter players={players} totals={totals} setView={setView} setSelectedPlayer={setSelectedPlayer} starterChoice={starterChoice} setStarterChoice={setStarterChoice} />}
         {view === "My Team" && <MyTeam players={players} setSelectedPlayer={setSelectedPlayer} />}
-        {view === "Player Ranks" && <PlayerRanks roster={players} setSelectedPlayer={setSelectedPlayer} />}
+        {view === "Player Ranks" && <PlayerRanks roster={players} leagueRankings={leagueRankings} context={rankingContext} setSelectedPlayer={setSelectedPlayer} />}
         {view === "Start / Sit" && <StartSit players={players} choice={starterChoice} setChoice={setStarterChoice} teamProjection={totals.projection} />}
         {view === "Waiver Wire" && <WaiverWire />}
         {view === "Trade Lab" && <TradeLab managers={managers} />}
@@ -195,15 +201,25 @@ function RosterSection({ title, detail, players, setSelectedPlayer }: { title: s
   return <section className="roster-section panel"><header><div><span>{title === "Starters" ? "ACTIVE LINEUP" : "RESERVES"}</span><h3>{title}</h3></div><small>{detail}</small></header><div className="table-panel"><table><thead><tr><th>Player</th><th>Slot</th><th>Matchup</th><th>League projection</th><th>Fantasy Hub</th><th>FH edge</th><th>Status</th></tr></thead><tbody>{players.map((player) => { const hasLeagueProjection = typeof player.leagueProjection === "number"; const edge = hasLeagueProjection ? player.projection - player.leagueProjection! : null; return <tr key={player.id} onClick={() => setSelectedPlayer(player)}><td><span className={`pos pos-${player.position.toLowerCase()}`}>{player.position}</span><strong>{player.name}</strong><small>{player.team}</small></td><td><span className={player.role === "Bench" ? "roster-slot bench" : "roster-slot"}>{player.role}</span></td><td>{player.opponent}</td><td><span className="league-projection">{hasLeagueProjection ? player.leagueProjection!.toFixed(1) : "—"}</span></td><td><b className="hub-projection">{player.projection.toFixed(1)}</b></td><td><span className={edge === null ? "projection-edge neutral" : edge >= 0 ? "projection-edge positive" : "projection-edge negative"}>{edge === null ? "N/A" : `${edge >= 0 ? "+" : ""}${edge.toFixed(1)}`}</span></td><td><Status value={player.status} /></td></tr>; })}</tbody></table>{!players.length && <p className="empty-roster">No players are assigned to this section.</p>}</div></section>;
 }
 
-function PlayerRanks({ roster, setSelectedPlayer }: { roster: Player[]; setSelectedPlayer: (player: Player) => void }) {
+function PlayerRanks({ roster, leagueRankings, context, setSelectedPlayer }: { roster: Player[]; leagueRankings: LeagueRanking[]; context: RankingContext | null; setSelectedPlayer: (player: Player) => void }) {
   const [position, setPosition] = useState("ALL");
   const [query, setQuery] = useState("");
   const rosterNames = new Set(roster.map((player) => player.name.toLowerCase()));
-  const pool = [...rankedPlayers, ...roster.filter((player) => !rankedPlayers.some((ranked) => ranked.name === player.name)).map((player, index) => ({ ...player, overallRank: rankedPlayers.length + index + 1, positionRank: rankedPlayers.filter((ranked) => ranked.position === player.position).length + index + 1, tier: 4 as const, outlook: "Roster player awaiting a larger league-wide projection sample." }))];
+  const teamCount = context?.teams ?? 12;
+  const positionRanks = new Map<string, number>();
+  const personalizedPool: RankedPlayer[] = leagueRankings.map((player) => {
+    const positionRank = (positionRanks.get(player.position) ?? 0) + 1;
+    positionRanks.set(player.position, positionRank);
+    const tier: 1 | 2 | 3 | 4 = player.overallRank <= teamCount ? 1 : player.overallRank <= teamCount * 3 ? 2 : player.overallRank <= teamCount * 8 ? 3 : 4;
+    const ageNote = context?.format === "Dynasty" && player.age ? `${player.age}-year-old ${player.ageAdjustment >= 0 ? "timeline boost" : "age adjustment"}` : `${context?.format ?? "Redraft"} horizon`;
+    const lineupNote = player.lineupAdjustment >= 3 ? "high lineup demand" : player.lineupAdjustment <= -1 ? "lower positional demand" : "balanced positional demand";
+    return { ...player, positionRank, tier, outlook: `${ageNote}; ${lineupNote} in this league.` };
+  });
+  const pool = personalizedPool.length ? personalizedPool : rankedPlayers;
   const filtered = pool.filter((player) => (position === "ALL" || player.position === position) && player.name.toLowerCase().includes(query.trim().toLowerCase()));
   const tiers = [1, 2, 3, 4] as const;
   const tierLabels = { 1: "Elite difference-makers", 2: "Weekly advantages", 3: "Strong starters", 4: "Depth and emerging value" };
-  return <div className="page-content"><SectionIntro kicker="PLAYER RANKINGS" title="Rank the player pool in decision-ready tiers" text="Ranks combine projected production, floor, ceiling, role stability, health, and positional advantage. Tiers matter more than tiny differences between adjacent players." /><section className="rank-controls panel"><div className="position-filters" role="group" aria-label="Filter rankings by position">{["ALL","QB","RB","WR","TE"].map((value) => <button key={value} className={position === value ? "active" : ""} onClick={() => setPosition(value)}>{value}</button>)}</div><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search players" aria-label="Search player rankings" /><span>{filtered.length} players</span></section><div className="tier-list">{tiers.map((tier) => { const tierPlayers = filtered.filter((player) => player.tier === tier); if (!tierPlayers.length) return null; return <section className={`tier-section tier-${tier}`} key={tier}><header><div><span>TIER {tier}</span><h3>{tierLabels[tier]}</h3></div><small>{tierPlayers.length} players</small></header><div className="rank-table"><div className="rank-row rank-head"><span>Rank</span><span>Player</span><span>Pos.</span><span>FH projection</span><span>Range</span><span>Outlook</span></div>{tierPlayers.map((player) => { const onRoster = rosterNames.has(player.name.toLowerCase()); return <button className={`rank-row ${onRoster ? "on-roster" : ""}`} key={`${player.name}-${player.team}`} onClick={() => setSelectedPlayer(player)}><b>#{player.overallRank}</b><span className="rank-player"><strong>{player.name}</strong><small>{player.team}{onRoster ? " · YOUR TEAM" : ""}</small></span><span><i className={`pos pos-${player.position.toLowerCase()}`}>{player.position}{player.positionRank}</i></span><strong className="rank-projection">{player.projection.toFixed(1)}</strong><span className="rank-range">{player.floor.toFixed(1)}–{player.ceiling.toFixed(1)}</span><p>{player.outlook}</p></button>; })}</div></section>; })}{!filtered.length && <section className="panel rank-empty">No players match this filter.</section>}</div></div>;
+  return <div className="page-content"><SectionIntro kicker="PLAYER RANKINGS" title="Rank the player pool for your league" text={context ? `Calibrated for ${context.teams}-team ${context.format.toLowerCase()}, ${context.scoring}, ${context.passTouchdown}-point passing touchdowns, and your exact starting lineup.` : "Import a league to personalize every rank for scoring, format, lineup demand, and positional scarcity."} />{context && <section className="ranking-context"><span><b>{context.format}</b> roster horizon</span><span><b>{context.scoring}</b> reception scoring</span><span><b>{context.rosterSlots.filter((slot) => slot !== "BN").length}</b> starter slots</span><span><b>{context.positionDemand.QB > 1.4 ? "Superflex / 2QB" : "1QB"}</b> quarterback value</span>{context.tePremium > 0 && <span><b>+{context.tePremium} TE PPR</b> premium active</span>}</section>}<section className="rank-controls panel"><div className="position-filters" role="group" aria-label="Filter rankings by position">{["ALL","QB","RB","WR","TE","K","DEF"].map((value) => <button key={value} className={position === value ? "active" : ""} onClick={() => setPosition(value)}>{value}</button>)}</div><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search all ranked players" aria-label="Search player rankings" /><span>{filtered.length} players</span></section><div className="tier-list">{tiers.map((tier) => { const tierPlayers = filtered.filter((player) => player.tier === tier); if (!tierPlayers.length) return null; return <section className={`tier-section tier-${tier}`} key={tier}><header><div><span>TIER {tier}</span><h3>{tierLabels[tier]}</h3></div><small>{tierPlayers.length} players</small></header><div className="rank-table"><div className="rank-row rank-head"><span>Rank</span><span>Player</span><span>Pos.</span><span>League projection</span><span>Range</span><span>Why here</span></div>{tierPlayers.map((player) => { const onRoster = rosterNames.has(player.name.toLowerCase()); return <button className={`rank-row ${onRoster ? "on-roster" : ""}`} key={`${player.name}-${player.team}`} onClick={() => setSelectedPlayer(player)}><b>#{player.overallRank}</b><span className="rank-player"><strong>{player.name}</strong><small>{player.team}{onRoster ? " · YOUR TEAM" : ""}</small></span><span><i className={`pos pos-${player.position.toLowerCase()}`}>{player.position}{player.positionRank}</i></span><strong className="rank-projection">{player.projection.toFixed(1)}</strong><span className="rank-range">{player.floor.toFixed(1)}–{player.ceiling.toFixed(1)}</span><p>{player.outlook}</p></button>; })}</div></section>; })}{!filtered.length && <section className="panel rank-empty">No players match this filter.</section>}</div></div>;
 }
 
 function StartSit({ players, choice, setChoice, teamProjection }: { players: Player[]; choice: string; setChoice: (v: string) => void; teamProjection: number }) {
