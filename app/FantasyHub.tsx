@@ -2,15 +2,16 @@
 
 import { useMemo, useState } from "react";
 
-type View = "Command Center" | "My Team" | "Start / Sit" | "Waiver Wire" | "Trade Lab" | "Matchups" | "Simulator";
+type View = "Command Center" | "My Team" | "Player Ranks" | "Start / Sit" | "Waiver Wire" | "Trade Lab" | "Matchups" | "Simulator";
 type Player = { id: string; name: string; position: string; team: string; opponent: string; projection: number; leagueProjection?: number | null; floor: number; ceiling: number; trend: number; status: string; role: string };
+type RankedPlayer = Player & { overallRank: number; positionRank: number; tier: 1 | 2 | 3 | 4; outlook: string };
 type TradeStyle = "Aggressive" | "Neutral" | "Strict";
 type LeagueManager = { id: string; name: string; teamName: string; style: TradeStyle };
 type TradeSuggestion = { id: string; title: string; receive: { name: string; meta: string; value: number }[]; send: { name: string; meta: string; value: number }[]; yourBenefit: number; partnerBenefit: number; acceptance: number; confidence: number; whyYou: string; whyThem: string };
 
 const nav: { label: View; mark: string }[] = [
   { label: "Command Center", mark: "C" }, { label: "My Team", mark: "T" },
-  { label: "Start / Sit", mark: "S" }, { label: "Waiver Wire", mark: "W" },
+  { label: "Player Ranks", mark: "R" }, { label: "Start / Sit", mark: "S" }, { label: "Waiver Wire", mark: "W" },
   { label: "Trade Lab", mark: "↔" }, { label: "Matchups", mark: "M" },
   { label: "Simulator", mark: "%" },
 ];
@@ -24,6 +25,25 @@ const demoPlayers: Player[] = [
   { id: "6", name: "RJ Harvey", position: "RB", team: "DEN", opponent: "vs LV", projection: 11.8, floor: 6.4, ceiling: 20.1, trend: 1.2, status: "Healthy", role: "RB2" },
   { id: "7", name: "Emeka Egbuka", position: "WR", team: "TB", opponent: "@ CAR", projection: 10.9, floor: 5.3, ceiling: 27.8, trend: 1.9, status: "Healthy", role: "Bench" },
   { id: "8", name: "Tyler Warren", position: "TE", team: "IND", opponent: "vs TEN", projection: 9.8, floor: 4.9, ceiling: 17.7, trend: 0.8, status: "Healthy", role: "Bench" },
+];
+
+const rankedPlayers: RankedPlayer[] = [
+  { id:"rank-1",name:"Ja'Marr Chase",position:"WR",team:"CIN",opponent:"vs PIT",projection:22.8,floor:14.1,ceiling:35.4,trend:1.8,status:"Healthy",role:"WR1",overallRank:1,positionRank:1,tier:1,outlook:"League-winning target volume and touchdown ceiling." },
+  { id:"1",name:"Jahmyr Gibbs",position:"RB",team:"DET",opponent:"@ GB",projection:20.8,floor:13.2,ceiling:31.4,trend:2.1,status:"Healthy",role:"RB1",overallRank:2,positionRank:1,tier:1,outlook:"Elite efficiency, receiving work, and explosive-play access." },
+  { id:"rank-3",name:"Bijan Robinson",position:"RB",team:"ATL",opponent:"vs NO",projection:21.2,floor:13.8,ceiling:32.1,trend:1.2,status:"Healthy",role:"RB1",overallRank:3,positionRank:2,tier:1,outlook:"Three-down usage creates one of fantasy's safest ceilings." },
+  { id:"rank-4",name:"Justin Jefferson",position:"WR",team:"MIN",opponent:"@ CHI",projection:21.5,floor:13.5,ceiling:34.2,trend:.9,status:"Healthy",role:"WR1",overallRank:4,positionRank:2,tier:1,outlook:"Elite talent and historical production sustain a top-tier range." },
+  { id:"2",name:"CeeDee Lamb",position:"WR",team:"DAL",opponent:"vs NYG",projection:19.4,floor:11.8,ceiling:30.2,trend:1.4,status:"Healthy",role:"WR1",overallRank:5,positionRank:3,tier:1,outlook:"Dominant target share keeps both floor and spike-week upside intact." },
+  { id:"rank-6",name:"Josh Allen",position:"QB",team:"BUF",opponent:"vs MIA",projection:24.9,floor:17.2,ceiling:36.5,trend:.6,status:"Healthy",role:"QB1",overallRank:6,positionRank:1,tier:1,outlook:"Rushing equity separates him from most weekly quarterback outcomes." },
+  { id:"rank-7",name:"Amon-Ra St. Brown",position:"WR",team:"DET",opponent:"@ GB",projection:20.1,floor:13.1,ceiling:29.8,trend:1.1,status:"Healthy",role:"WR1",overallRank:7,positionRank:4,tier:2,outlook:"High-confidence volume anchors an elite weekly floor." },
+  { id:"3",name:"Trey McBride",position:"TE",team:"ARI",opponent:"@ LAR",projection:15.7,floor:9.6,ceiling:24.8,trend:1.8,status:"Healthy",role:"TE1",overallRank:8,positionRank:1,tier:2,outlook:"Wide-receiver usage at tight end creates positional leverage." },
+  { id:"rank-9",name:"Brock Bowers",position:"TE",team:"LV",opponent:"@ DEN",projection:15.3,floor:9.1,ceiling:25.2,trend:1.3,status:"Healthy",role:"TE1",overallRank:9,positionRank:2,tier:2,outlook:"Target earning and yards after catch support elite TE upside." },
+  { id:"rank-10",name:"Lamar Jackson",position:"QB",team:"BAL",opponent:"vs CLE",projection:23.7,floor:16.2,ceiling:35.1,trend:.4,status:"Healthy",role:"QB1",overallRank:10,positionRank:2,tier:2,outlook:"Dual-threat ceiling remains capable of deciding a matchup." },
+  { id:"rank-11",name:"Saquon Barkley",position:"RB",team:"PHI",opponent:"@ WAS",projection:19.2,floor:11.7,ceiling:30.8,trend:-.2,status:"Healthy",role:"RB1",overallRank:11,positionRank:3,tier:2,outlook:"High-value touches preserve elite upside with modest workload risk." },
+  { id:"rank-12",name:"Puka Nacua",position:"WR",team:"LAR",opponent:"vs ARI",projection:19.6,floor:11.9,ceiling:31.6,trend:.8,status:"Healthy",role:"WR1",overallRank:12,positionRank:5,tier:2,outlook:"Volume and after-catch production drive a strong weekly range." },
+  { id:"rank-13",name:"Jalen Hurts",position:"QB",team:"PHI",opponent:"@ WAS",projection:22.9,floor:15.8,ceiling:33.7,trend:.1,status:"Healthy",role:"QB1",overallRank:13,positionRank:3,tier:3,outlook:"Goal-line role protects his ceiling even when passing volume dips." },
+  { id:"rank-14",name:"De'Von Achane",position:"RB",team:"MIA",opponent:"@ BUF",projection:18.6,floor:9.8,ceiling:33.2,trend:1.5,status:"Healthy",role:"RB1",overallRank:14,positionRank:4,tier:3,outlook:"Volatility is offset by rare per-touch upside." },
+  { id:"rank-15",name:"George Kittle",position:"TE",team:"SF",opponent:"vs SEA",projection:13.8,floor:7.4,ceiling:23.9,trend:-.7,status:"Questionable",role:"TE1",overallRank:15,positionRank:3,tier:3,outlook:"Efficiency remains elite, with availability and volume adding risk." },
+  { id:"rank-16",name:"Malik Nabers",position:"WR",team:"NYG",opponent:"@ DAL",projection:18.2,floor:10.7,ceiling:29.7,trend:1.6,status:"Healthy",role:"WR1",overallRank:16,positionRank:6,tier:3,outlook:"Target dominance supports WR1 outcomes despite team volatility." },
 ];
 
 const waivers = [
@@ -105,6 +125,7 @@ export default function FantasyHub() {
 
         {view === "Command Center" && <CommandCenter players={players} totals={totals} setView={setView} setSelectedPlayer={setSelectedPlayer} starterChoice={starterChoice} setStarterChoice={setStarterChoice} />}
         {view === "My Team" && <MyTeam players={players} setSelectedPlayer={setSelectedPlayer} />}
+        {view === "Player Ranks" && <PlayerRanks roster={players} setSelectedPlayer={setSelectedPlayer} />}
         {view === "Start / Sit" && <StartSit players={players} choice={starterChoice} setChoice={setStarterChoice} teamProjection={totals.projection} />}
         {view === "Waiver Wire" && <WaiverWire />}
         {view === "Trade Lab" && <TradeLab managers={managers} />}
@@ -146,6 +167,17 @@ function MyTeam({ players, setSelectedPlayer }: { players: Player[]; setSelected
 
 function RosterSection({ title, detail, players, setSelectedPlayer }: { title: string; detail: string; players: Player[]; setSelectedPlayer: (player: Player) => void }) {
   return <section className="roster-section panel"><header><div><span>{title === "Starters" ? "ACTIVE LINEUP" : "RESERVES"}</span><h3>{title}</h3></div><small>{detail}</small></header><div className="table-panel"><table><thead><tr><th>Player</th><th>Slot</th><th>Matchup</th><th>League projection</th><th>Fantasy Hub</th><th>FH edge</th><th>Status</th></tr></thead><tbody>{players.map((player) => { const hasLeagueProjection = typeof player.leagueProjection === "number"; const edge = hasLeagueProjection ? player.projection - player.leagueProjection! : null; return <tr key={player.id} onClick={() => setSelectedPlayer(player)}><td><span className={`pos pos-${player.position.toLowerCase()}`}>{player.position}</span><strong>{player.name}</strong><small>{player.team}</small></td><td><span className={player.role === "Bench" ? "roster-slot bench" : "roster-slot"}>{player.role}</span></td><td>{player.opponent}</td><td><span className="league-projection">{hasLeagueProjection ? player.leagueProjection!.toFixed(1) : "—"}</span></td><td><b className="hub-projection">{player.projection.toFixed(1)}</b></td><td><span className={edge === null ? "projection-edge neutral" : edge >= 0 ? "projection-edge positive" : "projection-edge negative"}>{edge === null ? "N/A" : `${edge >= 0 ? "+" : ""}${edge.toFixed(1)}`}</span></td><td><Status value={player.status} /></td></tr>; })}</tbody></table>{!players.length && <p className="empty-roster">No players are assigned to this section.</p>}</div></section>;
+}
+
+function PlayerRanks({ roster, setSelectedPlayer }: { roster: Player[]; setSelectedPlayer: (player: Player) => void }) {
+  const [position, setPosition] = useState("ALL");
+  const [query, setQuery] = useState("");
+  const rosterNames = new Set(roster.map((player) => player.name.toLowerCase()));
+  const pool = [...rankedPlayers, ...roster.filter((player) => !rankedPlayers.some((ranked) => ranked.name === player.name)).map((player, index) => ({ ...player, overallRank: rankedPlayers.length + index + 1, positionRank: rankedPlayers.filter((ranked) => ranked.position === player.position).length + index + 1, tier: 4 as const, outlook: "Roster player awaiting a larger league-wide projection sample." }))];
+  const filtered = pool.filter((player) => (position === "ALL" || player.position === position) && player.name.toLowerCase().includes(query.trim().toLowerCase()));
+  const tiers = [1, 2, 3, 4] as const;
+  const tierLabels = { 1: "Elite difference-makers", 2: "Weekly advantages", 3: "Strong starters", 4: "Depth and emerging value" };
+  return <div className="page-content"><SectionIntro kicker="PLAYER RANKINGS" title="Rank the player pool in decision-ready tiers" text="Ranks combine projected production, floor, ceiling, role stability, health, and positional advantage. Tiers matter more than tiny differences between adjacent players." /><section className="rank-controls panel"><div className="position-filters" role="group" aria-label="Filter rankings by position">{["ALL","QB","RB","WR","TE"].map((value) => <button key={value} className={position === value ? "active" : ""} onClick={() => setPosition(value)}>{value}</button>)}</div><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search players" aria-label="Search player rankings" /><span>{filtered.length} players</span></section><div className="tier-list">{tiers.map((tier) => { const tierPlayers = filtered.filter((player) => player.tier === tier); if (!tierPlayers.length) return null; return <section className={`tier-section tier-${tier}`} key={tier}><header><div><span>TIER {tier}</span><h3>{tierLabels[tier]}</h3></div><small>{tierPlayers.length} players</small></header><div className="rank-table"><div className="rank-row rank-head"><span>Rank</span><span>Player</span><span>Pos.</span><span>FH projection</span><span>Range</span><span>Outlook</span></div>{tierPlayers.map((player) => { const onRoster = rosterNames.has(player.name.toLowerCase()); return <button className={`rank-row ${onRoster ? "on-roster" : ""}`} key={`${player.name}-${player.team}`} onClick={() => setSelectedPlayer(player)}><b>#{player.overallRank}</b><span className="rank-player"><strong>{player.name}</strong><small>{player.team}{onRoster ? " · YOUR TEAM" : ""}</small></span><span><i className={`pos pos-${player.position.toLowerCase()}`}>{player.position}{player.positionRank}</i></span><strong className="rank-projection">{player.projection.toFixed(1)}</strong><span className="rank-range">{player.floor.toFixed(1)}–{player.ceiling.toFixed(1)}</span><p>{player.outlook}</p></button>; })}</div></section>; })}{!filtered.length && <section className="panel rank-empty">No players match this filter.</section>}</div></div>;
 }
 
 function StartSit({ players, choice, setChoice, teamProjection }: { players: Player[]; choice: string; setChoice: (v: string) => void; teamProjection: number }) {
