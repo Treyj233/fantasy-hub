@@ -12,6 +12,9 @@ type LeagueManager = { id: string; name: string; teamName: string; style: TradeS
 type LeagueTeam = { id: string; ownerId?: string; managerName: string; teamName: string; roster: Player[] };
 type LeagueRanking = Player & { overallRank: number; rankingValue: number; age?: number | null; ageAdjustment: number; lineupAdjustment: number };
 type RankingContext = { format: "Dynasty" | "Keeper" | "Redraft"; scoring: string; teams: number; rosterSlots: string[]; positionDemand: Record<string, number>; tePremium: number; passTouchdown: number };
+type AccountUser = { displayName: string; email: string };
+type SleeperConnection = { sleeperUserId: string; sleeperUsername: string; displayName: string; avatar?: string | null };
+type ConnectedLeague = { id: string; name: string; season?: string; teams: number; format: string; scoring: string; rosterId: string; starterCount: number };
 type TradeSuggestion = { id: string; title: string; receive: { name: string; meta: string; value: number }[]; send: { name: string; meta: string; value: number }[]; yourBenefit: number; partnerBenefit: number; acceptance: number; confidence: number; whyYou: string; whyThem: string };
 
 const nav: { label: View; mark: string }[] = [
@@ -79,7 +82,7 @@ const tradeSuggestions: Record<TradeStyle, TradeSuggestion[]> = {
   ],
 };
 
-export default function FantasyHub() {
+export default function FantasyHub({ accountUser }: { accountUser: AccountUser | null }) {
   const [view, setView] = useState<View>("Command Center");
   const [players, setPlayers] = useState(demoPlayers);
   const [leagueId, setLeagueId] = useState("");
@@ -94,25 +97,51 @@ export default function FantasyHub() {
   const [selectedTeamId, setSelectedTeamId] = useState("");
   const [leagueRankings, setLeagueRankings] = useState<LeagueRanking[]>([]);
   const [rankingContext, setRankingContext] = useState<RankingContext | null>(null);
+  const [connection, setConnection] = useState<SleeperConnection | null>(null);
+  const [availableLeagues, setAvailableLeagues] = useState<ConnectedLeague[]>([]);
+  const [accountLoading, setAccountLoading] = useState(Boolean(accountUser));
+  const [accountError, setAccountError] = useState("");
+  const [sleeperUsername, setSleeperUsername] = useState("");
+  const [connectingAccount, setConnectingAccount] = useState(false);
+
+  useEffect(() => {
+    if (!accountUser) return;
+    void (async () => {
+      try {
+        const response = await fetch("/api/account");
+        if (!response.ok) throw new Error("Account unavailable");
+        const data = await response.json() as { connection?: SleeperConnection | null };
+        setConnection(data.connection ?? null);
+        if (data.connection) await loadLeagues();
+      } catch {
+        setAccountError("We couldn’t load your Fantasy Hub account. Refresh and try again.");
+      } finally {
+        setAccountLoading(false);
+      }
+    })();
+  }, [accountUser]);
 
   const totals = useMemo(() => ({
     projection: players.filter((p) => p.role !== "Bench").reduce((sum, p) => sum + p.projection, 0),
     ceiling: players.filter((p) => p.role !== "Bench").reduce((sum, p) => sum + p.ceiling, 0),
   }), [players]);
 
-  async function importLeague() {
-    if (!leagueId.trim()) return;
+  async function importLeague(idOverride?: string, ownerIdOverride?: string) {
+    const requestedLeagueId = idOverride?.trim() || leagueId.trim();
+    if (!requestedLeagueId) return;
     setImportState("loading");
     try {
-      const response = await fetch(`/api/league?id=${encodeURIComponent(leagueId.trim())}`);
+      const response = await fetch(`/api/league?id=${encodeURIComponent(requestedLeagueId)}`);
       if (!response.ok) throw new Error("League not found");
       const data = await response.json() as { league: { name: string }; teams?: LeagueTeam[]; managers?: LeagueManager[]; rankings?: LeagueRanking[]; rankingContext?: RankingContext };
       setLeagueName(data.league.name);
       const importedTeams = data.teams ?? [];
       setLeagueTeams(importedTeams);
-      if (importedTeams.length === 1) {
-        setSelectedTeamId(importedTeams[0].id);
-        if (importedTeams[0].roster.length) setPlayers(importedTeams[0].roster);
+      const ownedTeam = ownerIdOverride ? importedTeams.find((team) => team.ownerId === ownerIdOverride) : undefined;
+      if (ownedTeam || importedTeams.length === 1) {
+        const activeTeam = ownedTeam ?? importedTeams[0];
+        setSelectedTeamId(activeTeam.id);
+        if (activeTeam.roster.length) setPlayers(activeTeam.roster);
       } else {
         setSelectedTeamId("");
       }
@@ -123,6 +152,36 @@ export default function FantasyHub() {
     } catch {
       setImportState("error");
     }
+  }
+
+  async function loadLeagues() {
+    const response = await fetch("/api/account/leagues");
+    if (!response.ok) throw new Error("Leagues unavailable");
+    const data = await response.json() as { connection: SleeperConnection; leagues: ConnectedLeague[] };
+    setConnection(data.connection);
+    setAvailableLeagues(data.leagues);
+  }
+
+  async function connectSleeper() {
+    if (!sleeperUsername.trim()) return;
+    setConnectingAccount(true);
+    setAccountError("");
+    try {
+      const response = await fetch("/api/account", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ username: sleeperUsername }) });
+      const data = await response.json() as { connection?: SleeperConnection; error?: string };
+      if (!response.ok || !data.connection) throw new Error(data.error ?? "Unable to connect account");
+      setConnection(data.connection);
+      await loadLeagues();
+    } catch (error) {
+      setAccountError(error instanceof Error ? error.message : "Unable to connect account");
+    } finally {
+      setConnectingAccount(false);
+    }
+  }
+
+  async function openConnectedLeague(league: ConnectedLeague) {
+    setLeagueId(league.id);
+    await importLeague(league.id, connection?.sleeperUserId);
   }
 
   function runSimulation() {
@@ -137,6 +196,10 @@ export default function FantasyHub() {
 
   const selectedLeagueTeam = leagueTeams.find((team) => team.id === selectedTeamId);
 
+  if (!accountUser) return <SignInScreen />;
+  if (accountLoading) return <AccountLoading />;
+  if (!connection) return <ConnectSleeper user={accountUser} username={sleeperUsername} setUsername={setSleeperUsername} connect={connectSleeper} loading={connectingAccount} error={accountError} />;
+
   return (
     <main className="app-shell">
       <aside className="sidebar">
@@ -147,7 +210,9 @@ export default function FantasyHub() {
       </aside>
 
       <section className="workspace">
-        <header className="topbar"><div><p>WEEK 8 · 2026 SEASON</p><h1>{view}</h1></div><div className="top-actions"><button className="ghost" onClick={() => setView("Simulator")}>Roll the season 🎲</button><div className="avatar">JM</div></div></header>
+        <header className="topbar"><div><p>WEEK 8 · 2026 SEASON</p><h1>{view}</h1></div><div className="top-actions"><button className="ghost" onClick={() => setView("Simulator")}>Roll the season 🎲</button><a className="account-chip" href="/signout-with-chatgpt?return_to=/"><span>{accountUser.displayName.slice(0, 1).toUpperCase()}</span><small>{connection.displayName}<b>Sign out</b></small></a></div></header>
+
+        <section className="league-switcher"><div><span>MY LEAGUES</span><strong>{availableLeagues.length} leagues connected</strong><small>Choose a league and Fantasy Hub will open your roster automatically.</small></div><div className="league-pills">{availableLeagues.map((league) => <button key={league.id} className={leagueId === league.id ? "active" : ""} onClick={() => openConnectedLeague(league)} disabled={importState === "loading"}><b>{league.name}</b><small>{league.season} · {league.teams} teams · {league.format} · {league.scoring}</small></button>)}{!availableLeagues.length && <p>No leagues were found for the current or previous NFL season.</p>}</div></section>
 
         {leagueTeams.length > 1 && <section className={`team-picker-strip ${selectedTeamId ? "selected" : ""}`}><div><span>{selectedTeamId ? "YOUR TEAM IS ACTIVE" : "ONE MORE STEP"}</span><strong>{selectedLeagueTeam ? selectedLeagueTeam.teamName : "Which team is yours?"}</strong><small>{selectedLeagueTeam ? `Managed by ${selectedLeagueTeam.managerName}. Your roster now powers every dashboard view.` : "Choose your fantasy team so another manager’s roster never replaces yours."}</small></div><label>Fantasy team<select value={selectedTeamId} onChange={(event) => selectLeagueTeam(event.target.value)}><option value="">Choose your team</option>{leagueTeams.map((team) => <option key={team.id} value={team.id}>{team.teamName} · {team.managerName}</option>)}</select></label></section>}
 
@@ -162,7 +227,7 @@ export default function FantasyHub() {
 
         <section className="connect-strip">
           <div><span>CONNECT YOUR LEAGUE</span><strong>Replace demo data with your actual roster</strong><small>Enter a public league ID to import settings, managers, rosters, and scoring.</small></div>
-          <div className="connect-form"><input value={leagueId} onChange={(e) => setLeagueId(e.target.value)} placeholder="League ID" aria-label="League ID" /><button onClick={importLeague} disabled={importState === "loading"}>{importState === "loading" ? "Connecting…" : "Import league"}</button></div>
+          <div className="connect-form"><input value={leagueId} onChange={(e) => setLeagueId(e.target.value)} placeholder="League ID" aria-label="League ID" /><button onClick={() => importLeague()} disabled={importState === "loading"}>{importState === "loading" ? "Connecting…" : "Import league"}</button></div>
           {importState === "error" && <p className="form-error">We couldn’t find that league. Confirm the ID and try again.</p>}
           {importState === "success" && <p className="form-success">{leagueTeams.length > 1 && !selectedTeamId ? "League connected. Choose your team above to finish setup." : "League connected. Your roster is ready."}</p>}
         </section>
@@ -171,6 +236,18 @@ export default function FantasyHub() {
       {selectedPlayer && <PlayerPanel key={selectedPlayer.id} player={selectedPlayer} close={() => setSelectedPlayer(null)} />}
     </main>
   );
+}
+
+function SignInScreen() {
+  return <main className="auth-shell"><section className="auth-brand"><span className="brand-mark">FH</span><strong>Fantasy Hub</strong><small>Make every week count.</small></section><section className="auth-card"><span>YOUR LEAGUES. ONE HOME.</span><h1>Set smarter lineups.<br /><em>Own every matchup.</em></h1><p>Sign in to save your Fantasy Hub profile, connect your Sleeper username, and open every league from one personalized dashboard.</p><a className="auth-primary" href="/signin-with-chatgpt?return_to=/">Sign in to Fantasy Hub</a><small className="auth-safety">Fantasy Hub never asks for or stores your Sleeper password.</small><div className="auth-features"><b>Command Center</b><b>Player Ranks</b><b>Waiver Wire</b><b>Trade Lab</b></div></section></main>;
+}
+
+function AccountLoading() {
+  return <main className="auth-shell"><section className="auth-card auth-loading"><span>FANTASY HUB</span><h1>Loading your leagues…</h1><p>Pulling together your saved account and league workspace.</p><i /><i /><i /></section></main>;
+}
+
+function ConnectSleeper({ user, username, setUsername, connect, loading, error }: { user: AccountUser; username: string; setUsername: (value: string) => void; connect: () => void; loading: boolean; error: string }) {
+  return <main className="auth-shell connect-account"><section className="auth-brand"><span className="brand-mark">FH</span><strong>Fantasy Hub</strong><small>Signed in as {user.email}</small></section><section className="auth-card"><span>CONNECT YOUR LEAGUES</span><h1>Find every team<br /><em>with one username.</em></h1><p>Enter your public Sleeper username. We’ll match your user ID to the teams you own and remember the connection for your Fantasy Hub account.</p><label>Sleeper username<input value={username} onChange={(event) => setUsername(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") connect(); }} placeholder="Your Sleeper username" autoComplete="username" /></label><button className="auth-primary" onClick={connect} disabled={loading}>{loading ? "Finding your leagues…" : "Connect Sleeper"}</button>{error && <p className="auth-error">{error}</p>}<small className="auth-safety">No Sleeper password or private account access is required.</small><a className="auth-signout" href="/signout-with-chatgpt?return_to=/">Use a different Fantasy Hub account</a></section></main>;
 }
 
 function CommandCenter({ players, totals, setView, setSelectedPlayer, starterChoice, setStarterChoice }: { players: Player[]; totals: { projection: number; ceiling: number }; setView: (v: View) => void; setSelectedPlayer: (p: Player) => void; starterChoice: string; setStarterChoice: (v: string) => void }) {
