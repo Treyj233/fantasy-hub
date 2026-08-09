@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-type View = "Command Center" | "My Team" | "Player Ranks" | "Start / Sit" | "Waiver Wire" | "Trade Lab" | "Matchups" | "Simulator";
+type View = "Command Center" | "Scoreboard" | "My Team" | "Player Ranks" | "Start / Sit" | "Waiver Wire" | "Trade Lab" | "Matchups" | "Simulator";
 type Player = { id: string; name: string; position: string; team: string; opponent: string; projection: number; leagueProjection?: number | null; floor: number; ceiling: number; trend: number; status: string; role: string };
 type RankedPlayer = Player & { overallRank: number; positionRank: number; tier: 1 | 2 | 3 | 4; outlook: string };
 type PlayerWeek = { season: string; week: number; points: number; totalYards: number; touchdowns: number; passYards: number; passTouchdowns: number; interceptions: number; rushAttempts: number; rushYards: number; rushTouchdowns: number; targets: number; receptions: number; receivingYards: number; receivingTouchdowns: number };
@@ -15,10 +15,13 @@ type RankingContext = { format: "Dynasty" | "Keeper" | "Redraft"; scoring: strin
 type AccountUser = { displayName: string; email: string };
 type SleeperConnection = { sleeperUserId: string; sleeperUsername: string; displayName: string; avatar?: string | null };
 type ConnectedLeague = { id: string; name: string; season?: string; teams: number; format: string; scoring: string; rosterId: string; starterCount: number };
+type ScoreboardPlayer = { id: string; name: string; position: string; nflTeam: string; points: number; isStarter: boolean; yards: number; touchdowns: number; receptions: number; targets: number };
+type ScoreboardTeam = { rosterId: string; managerName: string; teamName: string; points: number; isMine: boolean; topPlayers: ScoreboardPlayer[] };
+type ScoreboardData = { league: { name: string; season: string; currentWeek: number }; week: number; updatedAt: string; matchups: { matchupId: number; status: string; teams: ScoreboardTeam[] }[] };
 type TradeSuggestion = { id: string; title: string; receive: { name: string; meta: string; value: number }[]; send: { name: string; meta: string; value: number }[]; yourBenefit: number; partnerBenefit: number; acceptance: number; confidence: number; whyYou: string; whyThem: string };
 
 const nav: { label: View; mark: string }[] = [
-  { label: "Command Center", mark: "★" }, { label: "My Team", mark: "●" },
+  { label: "Command Center", mark: "★" }, { label: "Scoreboard", mark: "▣" }, { label: "My Team", mark: "●" },
   { label: "Player Ranks", mark: "♛" }, { label: "Start / Sit", mark: "⚡" }, { label: "Waiver Wire", mark: "+" },
   { label: "Trade Lab", mark: "↔" }, { label: "Matchups", mark: "◎" },
   { label: "Simulator", mark: "✦" },
@@ -217,6 +220,7 @@ export default function FantasyHub({ accountUser }: { accountUser: AccountUser |
         {leagueTeams.length > 1 && <section className={`team-picker-strip ${selectedTeamId ? "selected" : ""}`}><div><span>{selectedTeamId ? "YOUR TEAM IS ACTIVE" : "ONE MORE STEP"}</span><strong>{selectedLeagueTeam ? selectedLeagueTeam.teamName : "Which team is yours?"}</strong><small>{selectedLeagueTeam ? `Managed by ${selectedLeagueTeam.managerName}. Your roster now powers every dashboard view.` : "Choose your fantasy team so another manager’s roster never replaces yours."}</small></div><label>Fantasy team<select value={selectedTeamId} onChange={(event) => selectLeagueTeam(event.target.value)}><option value="">Choose your team</option>{leagueTeams.map((team) => <option key={team.id} value={team.id}>{team.teamName} · {team.managerName}</option>)}</select></label></section>}
 
         {view === "Command Center" && <CommandCenter players={players} totals={totals} setView={setView} setSelectedPlayer={setSelectedPlayer} starterChoice={starterChoice} setStarterChoice={setStarterChoice} />}
+        {view === "Scoreboard" && <Scoreboard leagueId={leagueId} />}
         {view === "My Team" && <MyTeam players={players} setSelectedPlayer={setSelectedPlayer} />}
         {view === "Player Ranks" && <PlayerRanks roster={players} leagueRankings={leagueRankings} context={rankingContext} setSelectedPlayer={setSelectedPlayer} />}
         {view === "Start / Sit" && <StartSit players={players} choice={starterChoice} setChoice={setStarterChoice} teamProjection={totals.projection} />}
@@ -248,6 +252,41 @@ function AccountLoading() {
 
 function ConnectSleeper({ user, username, setUsername, connect, loading, error }: { user: AccountUser; username: string; setUsername: (value: string) => void; connect: () => void; loading: boolean; error: string }) {
   return <main className="auth-shell connect-account"><section className="auth-brand"><span className="brand-mark">FH</span><strong>Fantasy Hub</strong><small>Signed in as {user.email}</small></section><section className="auth-card"><span>CONNECT YOUR LEAGUES</span><h1>Find every team<br /><em>with one username.</em></h1><p>Enter your public Sleeper username. We’ll match your user ID to the teams you own and remember the connection for your Fantasy Hub account.</p><label>Sleeper username<input value={username} onChange={(event) => setUsername(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") connect(); }} placeholder="Your Sleeper username" autoComplete="username" /></label><button className="auth-primary" onClick={connect} disabled={loading}>{loading ? "Finding your leagues…" : "Connect Sleeper"}</button>{error && <p className="auth-error">{error}</p>}<small className="auth-safety">No Sleeper password or private account access is required.</small><a className="auth-signout" href="/signout-with-chatgpt?return_to=/">Use a different Fantasy Hub account</a></section></main>;
+}
+
+function Scoreboard({ leagueId }: { leagueId: string }) {
+  const [week, setWeek] = useState<number | null>(null);
+  const [data, setData] = useState<ScoreboardData | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!leagueId) return;
+    let active = true;
+    const refresh = async () => {
+      setLoading(true);
+      try {
+        const query = week ? `&week=${week}` : "";
+        const response = await fetch(`/api/scoreboard?leagueId=${encodeURIComponent(leagueId)}${query}`);
+        const payload = await response.json() as ScoreboardData & { error?: string };
+        if (!response.ok) throw new Error(payload.error ?? "Scores unavailable");
+        if (!active) return;
+        setData(payload);
+        setWeek((current) => current ?? payload.week);
+        setError("");
+      } catch (requestError) {
+        if (active) setError(requestError instanceof Error ? requestError.message : "Scores unavailable");
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+    void refresh();
+    const timer = window.setInterval(refresh, 30000);
+    return () => { active = false; window.clearInterval(timer); };
+  }, [leagueId, week]);
+
+  if (!leagueId) return <div className="page-content"><SectionIntro kicker="WEEKLY SCOREBOARD" title="Choose a league to see every matchup" text="Select one of your connected leagues above and the live scoreboard will identify your matchup automatically." /><section className="panel scoreboard-empty">No league selected.</section></div>;
+  return <div className="page-content"><section className="scoreboard-head"><div><span>WEEKLY SCOREBOARD</span><h2>{data?.league.name ?? "Loading league scores…"}</h2><p>Scores and player stat lines refresh automatically every 30 seconds.</p></div><label>Week<select value={week ?? ""} onChange={(event) => setWeek(Number(event.target.value))}>{Array.from({ length: 18 }, (_, index) => index + 1).map((value) => <option key={value} value={value}>Week {value}</option>)}</select></label><div className="live-refresh"><i />{loading ? "Refreshing" : `Updated ${data ? new Date(data.updatedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "—"}`}</div></section>{error && <section className="scoreboard-error">{error}</section>}<div className="scoreboard-grid">{data?.matchups.map((matchup) => { const away = matchup.teams[0]; const home = matchup.teams[1]; const leader = home && away ? (away.points > home.points ? away.rosterId : home.rosterId) : ""; return <article className={`score-game ${matchup.teams.some((team) => team.isMine) ? "my-game" : ""}`} key={matchup.matchupId}><header><span className={matchup.status === "Live" ? "game-live" : ""}>{matchup.status === "Live" ? "● LIVE" : matchup.status}</span><b>{matchup.teams.some((team) => team.isMine) ? "YOUR MATCHUP" : `MATCHUP ${matchup.matchupId}`}</b></header><div className="score-bug">{[away, home].filter(Boolean).map((team) => <div className={team.isMine ? "mine" : ""} key={team.rosterId}><span>{team.teamName.slice(0, 3).toUpperCase()}</span><p><strong>{team.teamName}</strong><small>{team.managerName}{team.isMine ? " · YOU" : ""}</small></p><b>{team.points.toFixed(2)}</b>{leader === team.rosterId && <i>▲</i>}</div>)}</div><div className="game-stats">{[away, home].filter(Boolean).map((team) => <section key={team.rosterId}><h4>{team.teamName} leaders</h4>{team.topPlayers.slice(0, 3).map((player) => <div key={player.id}><span className={`pos pos-${player.position.toLowerCase()}`}>{player.position}</span><p><strong>{player.name}</strong><small>{player.nflTeam} · {player.isStarter ? "Starter" : "Bench"}</small></p><b>{player.points.toFixed(1)}<small>PTS</small></b><em>{player.yards} YDS{player.touchdowns ? ` · ${player.touchdowns} TD` : ""}{player.targets ? ` · ${player.receptions}/${player.targets} REC` : ""}</em></div>)}</section>)}</div></article>; })}</div>{data && !data.matchups.length && <section className="panel scoreboard-empty">No matchups have been posted for Week {data.week}.</section>}</div>;
 }
 
 function CommandCenter({ players, totals, setView, setSelectedPlayer, starterChoice, setStarterChoice }: { players: Player[]; totals: { projection: number; ceiling: number }; setView: (v: View) => void; setSelectedPlayer: (p: Player) => void; starterChoice: string; setStarterChoice: (v: string) => void }) {
