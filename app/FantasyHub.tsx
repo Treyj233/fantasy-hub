@@ -12,10 +12,10 @@ type LeagueManager = { id: string; name: string; teamName: string; style: TradeS
 type TradeSuggestion = { id: string; title: string; receive: { name: string; meta: string; value: number }[]; send: { name: string; meta: string; value: number }[]; yourBenefit: number; partnerBenefit: number; acceptance: number; confidence: number; whyYou: string; whyThem: string };
 
 const nav: { label: View; mark: string }[] = [
-  { label: "Command Center", mark: "C" }, { label: "My Team", mark: "T" },
-  { label: "Player Ranks", mark: "R" }, { label: "Start / Sit", mark: "S" }, { label: "Waiver Wire", mark: "W" },
-  { label: "Trade Lab", mark: "↔" }, { label: "Matchups", mark: "M" },
-  { label: "Simulator", mark: "%" },
+  { label: "Command Center", mark: "★" }, { label: "My Team", mark: "●" },
+  { label: "Player Ranks", mark: "♛" }, { label: "Start / Sit", mark: "⚡" }, { label: "Waiver Wire", mark: "+" },
+  { label: "Trade Lab", mark: "↔" }, { label: "Matchups", mark: "◎" },
+  { label: "Simulator", mark: "✦" },
 ];
 
 const demoPlayers: Player[] = [
@@ -123,7 +123,7 @@ export default function FantasyHub() {
       </aside>
 
       <section className="workspace">
-        <header className="topbar"><div><p>WEEK 8 · 2026 SEASON</p><h1>{view}</h1></div><div className="top-actions"><button className="ghost" onClick={() => setView("Simulator")}>Run season sim</button><div className="avatar">JM</div></div></header>
+        <header className="topbar"><div><p>WEEK 8 · 2026 SEASON</p><h1>{view}</h1></div><div className="top-actions"><button className="ghost" onClick={() => setView("Simulator")}>Roll the season 🎲</button><div className="avatar">JM</div></div></header>
 
         {view === "Command Center" && <CommandCenter players={players} totals={totals} setView={setView} setSelectedPlayer={setSelectedPlayer} starterChoice={starterChoice} setStarterChoice={setStarterChoice} />}
         {view === "My Team" && <MyTeam players={players} setSelectedPlayer={setSelectedPlayer} />}
@@ -150,7 +150,7 @@ export default function FantasyHub() {
 function CommandCenter({ players, totals, setView, setSelectedPlayer, starterChoice, setStarterChoice }: { players: Player[]; totals: { projection: number; ceiling: number }; setView: (v: View) => void; setSelectedPlayer: (p: Player) => void; starterChoice: string; setStarterChoice: (v: string) => void }) {
   const concern = players.find((p) => p.status !== "Healthy");
   return <div className="page-content">
-    <section className="hero"><div><p>FANTASY INTELLIGENCE · LIVE DECISION BOARD</p><h2>Your clearest path to<br /><em>winning Week 8.</em></h2><span>One lineup decision and two waiver opportunities can materially raise your weekly ceiling.</span></div><div className="hero-score"><small>PROJECTED SCORE</small><strong>{totals.projection.toFixed(1)}</strong><span>Ceiling {totals.ceiling.toFixed(1)}</span></div></section>
+    <section className="hero"><div><p>LINEUP LOCK · GAME DAY HQ</p><h2>Let’s go win<br /><em>Week 8.</em></h2><span>Your roster is in the mix. One smart FLEX call and an early waiver swing can turn a good week into a statement win.</span><div className="game-day-pills"><b>🔥 3-week heater</b><b>⚡ 2 lineup edges</b><b>🎯 64% win odds</b></div></div><div className="hero-score"><small>YOU’RE PROJECTED FOR</small><strong>{totals.projection.toFixed(1)}</strong><span>Ceiling {totals.ceiling.toFixed(1)} · Let it fly</span></div></section>
     <div className="metric-grid"><Metric label="Win probability" value="64%" detail="+7% after lineup optimization" tone="good" /><Metric label="Projected rank" value="3rd" detail="of 12 teams this week" /><Metric label="Playoff odds" value="72%" detail="+4.2% over last week" tone="good" /><Metric label="Roster health" value="86" detail={concern ? `Monitor ${concern.name}` : "No active concerns"} tone="warn" /></div>
     <div className="main-grid"><section className="panel decision-panel"><Header eyebrow="TOP DECISION" title="Set the final FLEX spot" action="Open Start / Sit" onClick={() => setView("Start / Sit")} /><div className="player-versus"><PlayerChoice player={players.find((p) => p.name === "Rome Odunze")!} active={starterChoice === "Rome Odunze"} onClick={() => setStarterChoice("Rome Odunze")} /><div className="versus">VS</div><PlayerChoice player={players.find((p) => p.name === "Emeka Egbuka")!} active={starterChoice === "Emeka Egbuka"} onClick={() => setStarterChoice("Emeka Egbuka")} /></div><div className="recommendation"><b>START {starterChoice.toUpperCase()}</b><p>Higher route certainty and a better projected game environment create the stronger median outcome.</p></div></section>
       <section className="panel"><Header eyebrow="LINEUP PULSE" title="Your core starters" action="View team" onClick={() => setView("My Team")} /><div className="player-list">{players.slice(0, 4).map((p) => <button key={p.id} onClick={() => setSelectedPlayer(p)}><span className={`pos pos-${p.position.toLowerCase()}`}>{p.position}</span><div><strong>{p.name}</strong><small>{p.team} · {p.opponent}</small></div><div className="points"><strong>{p.projection}</strong><small>PTS</small></div></button>)}</div></section>
