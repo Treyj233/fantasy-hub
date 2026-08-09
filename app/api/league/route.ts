@@ -13,7 +13,7 @@ export async function GET(request: Request) {
     if (!leagueResponse.ok || !rostersResponse.ok || !usersResponse.ok || !playersResponse.ok) throw new Error("League unavailable");
     const league = await leagueResponse.json() as { name?: string; total_rosters?: number; season?: string };
     const rosters = await rostersResponse.json() as { owner_id?: string; players?: string[]; starters?: string[] }[];
-    const users = await usersResponse.json() as { user_id?: string; display_name?: string }[];
+    const users = await usersResponse.json() as { user_id?: string; display_name?: string; metadata?: { team_name?: string } }[];
     const sourcePlayers = await playersResponse.json() as Record<string, SourcePlayer>;
     const roster = rosters[0];
     const starters = new Set(roster?.starters ?? []);
@@ -23,7 +23,8 @@ export async function GET(request: Request) {
       const projection = Math.max(5, 21 - index * .72 - Math.max(0, (player.search_rank ?? 100) - 50) * .01);
       return [{ id: player.player_id ?? playerId, name: player.full_name ?? `${player.first_name ?? ""} ${player.last_name ?? ""}`.trim(), position: player.position ?? "FLEX", team: player.team ?? "FA", opponent: "Matchup pending", projection: Number(projection.toFixed(1)), floor: Number((projection * .58).toFixed(1)), ceiling: Number((projection * 1.52).toFixed(1)), trend: 0, status: player.injury_status ?? "Healthy", role: starters.has(playerId) ? "Starter" : "Bench" }];
     });
-    return Response.json({ league: { name: league.name ?? "Imported League", teams: league.total_rosters, season: league.season, managers: users.length }, roster: normalized });
+    const managers = users.flatMap((user, index) => user.user_id ? [{ id: user.user_id, name: user.display_name ?? `Manager ${index + 1}`, teamName: user.metadata?.team_name ?? `${user.display_name ?? `Manager ${index + 1}`}'s Team`, style: "Neutral" as const }] : []);
+    return Response.json({ league: { name: league.name ?? "Imported League", teams: league.total_rosters, season: league.season, managers: users.length }, roster: normalized, managers });
   } catch {
     return Response.json({ error: "League unavailable" }, { status: 502 });
   }
