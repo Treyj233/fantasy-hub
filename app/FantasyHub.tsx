@@ -313,6 +313,11 @@ type LeagueScan = {
   week: number;
   projection: number;
   status: "ready" | "review" | "urgent" | "unavailable";
+  health: number;
+  roster: Player[];
+  waiverPlayers: WaiverPlayer[];
+  opponentName: string;
+  opponentProjection: number;
   issues: {
     id: string;
     severity: "critical" | "warning" | "watch";
@@ -322,22 +327,22 @@ type LeagueScan = {
   }[];
 };
 
-const nav: { label: View; mark: string }[] = [
-  { label: "All Leagues", mark: "◆" },
-  { label: "Command Center", mark: "★" },
-  { label: "Scoreboard", mark: "▣" },
-  { label: "NFL Games", mark: "🏈" },
-  { label: "My Team", mark: "●" },
-  { label: "Dynasty Analytics", mark: "◈" },
-  { label: "Team Rankings", mark: "↥" },
-  { label: "Player Rankings", mark: "♛" },
-  { label: "ADP", mark: "⌁" },
-  { label: "Start / Sit", mark: "⚡" },
-  { label: "Waiver Wire", mark: "+" },
-  { label: "Trade Lab", mark: "↔" },
-  { label: "Matchups", mark: "◎" },
-  { label: "Simulator", mark: "✦" },
-  { label: "Manage Leagues", mark: "⚙" },
+const nav: { label: View; mark: string; group: "Portfolio" | "League" | "Live" }[] = [
+  { label: "All Leagues", mark: "◆", group: "Portfolio" },
+  { label: "Manage Leagues", mark: "⚙", group: "Portfolio" },
+  { label: "Command Center", mark: "★", group: "League" },
+  { label: "My Team", mark: "●", group: "League" },
+  { label: "Dynasty Analytics", mark: "◈", group: "League" },
+  { label: "Team Rankings", mark: "↥", group: "League" },
+  { label: "Player Rankings", mark: "♛", group: "League" },
+  { label: "ADP", mark: "⌁", group: "League" },
+  { label: "Start / Sit", mark: "⚡", group: "League" },
+  { label: "Waiver Wire", mark: "+", group: "League" },
+  { label: "Trade Lab", mark: "↔", group: "League" },
+  { label: "Simulator", mark: "✦", group: "League" },
+  { label: "Scoreboard", mark: "▣", group: "Live" },
+  { label: "NFL Games", mark: "🏈", group: "Live" },
+  { label: "Matchups", mark: "◎", group: "Live" },
 ];
 
 const normalizeNflTeam = (team: string) =>
@@ -870,7 +875,7 @@ export default function FantasyHub({
 }: {
   accountUser: AccountUser | null;
 }) {
-  const [view, setView] = useState<View>("Command Center");
+  const [view, setView] = useState<View>("All Leagues");
   const [players, setPlayers] = useState<Player[]>([]);
   const [leagueId, setLeagueId] = useState("");
   const [leagueName, setLeagueName] = useState("No league selected");
@@ -897,6 +902,7 @@ export default function FantasyHub({
     [],
   );
   const [managedLeagues, setManagedLeagues] = useState<ManagedLeague[]>([]);
+  const [portfolioScans, setPortfolioScans] = useState<LeagueScan[]>([]);
   const [accountLoading, setAccountLoading] = useState(Boolean(accountUser));
   const [accountError, setAccountError] = useState("");
   const [theme, setTheme] = useState<Theme>("light");
@@ -974,7 +980,6 @@ export default function FantasyHub({
         setConnection(data.connection ?? null);
         await loadManagedLeagues();
         if (data.connection) await loadLeagues();
-        else setView("Manage Leagues");
       } catch {
         setAccountError(
           "We couldn’t load your Fantasy Hub account. Refresh and try again.",
@@ -1239,15 +1244,20 @@ export default function FantasyHub({
           </small>
         </div>
         <nav aria-label="Fantasy Hub sections">
-          {visibleNav.map((item) => (
-            <button
-              key={item.label}
-              className={view === item.label ? "active" : ""}
-              onClick={() => setView(item.label)}
-            >
-              <i>{item.mark}</i>
-              {item.label}
-            </button>
+          {(["Portfolio", "League", "Live"] as const).map((group) => (
+            <div className="nav-group" key={group}>
+              <span>{group}</span>
+              {visibleNav.filter((item) => item.group === group).map((item) => (
+                <button
+                  key={item.label}
+                  className={view === item.label ? "active" : ""}
+                  onClick={() => setView(item.label)}
+                >
+                  <i>{item.mark}</i>
+                  {item.label}
+                </button>
+              ))}
+            </div>
           ))}
         </nav>
         <div className="sidebar-bottom">
@@ -1382,9 +1392,11 @@ export default function FantasyHub({
         {view === "All Leagues" && (
           <AllLeagues
             leagues={availableLeagues}
-            onOpen={async (league) => {
+            onScansChange={setPortfolioScans}
+            onManage={() => setView("Manage Leagues")}
+            onOpen={async (league, destination = "Command Center") => {
               await openConnectedLeague(league);
-              setView("Command Center");
+              setView(destination);
             }}
           />
         )}
@@ -1524,6 +1536,7 @@ export default function FantasyHub({
         <PlayerPanel
           key={selectedPlayer.id}
           player={selectedPlayer}
+          portfolioScans={portfolioScans}
           close={() => setSelectedPlayer(null)}
         />
       )}
@@ -1823,6 +1836,29 @@ function ManageLeagues({
           </button>
         ))}
       </section>
+      <section className="integration-status panel">
+        <div className="panel-header">
+          <div>
+            <span>CONNECTION COVERAGE</span>
+            <h3>One model, honest source status</h3>
+          </div>
+          <b>NO DEMO LEAGUE DATA</b>
+        </div>
+        <p>
+          Fantasy Hub normalizes rosters, scoring, matchups, transactions, and
+          player IDs only after a provider connection is verified. Saved league
+          references never appear as live data.
+        </p>
+        <div className="integration-matrix">
+          <article><i>S</i><span><strong>Sleeper</strong><small>Rosters · scoring · matchups · waivers</small></span><b className="live">LIVE</b></article>
+          <article><i>E</i><span><strong>ESPN</strong><small>League reference supported · authenticated sync next</small></span><b className="auth">AUTH SETUP</b></article>
+          <article><i>Y!</i><span><strong>Yahoo</strong><small>OAuth authorization required for private leagues</small></span><b className="auth">AUTH SETUP</b></article>
+          <article><i>N</i><span><strong>NFL.com</strong><small>Provider adapter planned</small></span><b>PLANNED</b></article>
+          <article><i>C</i><span><strong>CBS</strong><small>Provider adapter planned</small></span><b>PLANNED</b></article>
+          <article><i>M</i><span><strong>MFL</strong><small>Provider adapter planned</small></span><b>PLANNED</b></article>
+          <article><i>F</i><span><strong>Fantrax</strong><small>Provider adapter planned</small></span><b>PLANNED</b></article>
+        </div>
+      </section>
       <section className="manage-connect panel">
         <div className="panel-header">
           <div>
@@ -1971,9 +2007,13 @@ function ManageLeagues({
 function AllLeagues({
   leagues,
   onOpen,
+  onManage,
+  onScansChange,
 }: {
   leagues: ConnectedLeague[];
-  onOpen: (league: ConnectedLeague) => Promise<void>;
+  onOpen: (league: ConnectedLeague, destination?: View) => Promise<void>;
+  onManage: () => void;
+  onScansChange: (scans: LeagueScan[]) => void;
 }) {
   const [scans, setScans] = useState<LeagueScan[]>([]);
   const [loading, setLoading] = useState(false);
@@ -2182,6 +2222,32 @@ function AllLeagues({
           const ordered = issues.sort(
             (a, b) => severityRank[a.severity] - severityRank[b.severity],
           );
+          const opponent = payload.teams.find(
+            (candidate) =>
+              candidate.id !== team.id &&
+              candidate.matchupId != null &&
+              candidate.matchupId === team.matchupId,
+          );
+          const opponentProjection = Number(
+            (opponent?.roster ?? [])
+              .filter(isStartingPlayer)
+              .reduce((sum, player) => sum + player.projection, 0)
+              .toFixed(1),
+          );
+          const health = Math.max(
+            0,
+            100 -
+              ordered.reduce(
+                (sum, issue) =>
+                  sum +
+                  (issue.severity === "critical"
+                    ? 18
+                    : issue.severity === "warning"
+                      ? 9
+                      : 3),
+                0,
+              ),
+          );
           return {
             league,
             teamName: team.teamName,
@@ -2196,6 +2262,11 @@ function AllLeagues({
               : ordered.some((issue) => issue.severity === "warning")
                 ? "review"
                 : "ready",
+            health,
+            roster: team.roster,
+            waiverPlayers: payload.waiverPlayers ?? [],
+            opponentName: opponent?.teamName ?? "Opponent pending",
+            opponentProjection,
             issues: ordered,
           };
         } catch {
@@ -2205,6 +2276,11 @@ function AllLeagues({
             week: 1,
             projection: 0,
             status: "unavailable",
+            health: 0,
+            roster: [],
+            waiverPlayers: [],
+            opponentName: "Opponent unavailable",
+            opponentProjection: 0,
             issues: [
               {
                 id: `${league.id}-unavailable`,
@@ -2225,10 +2301,13 @@ function AllLeagues({
           unavailable: 2,
           ready: 3,
         } as const;
-        if (!controller.signal.aborted)
-          setScans(
-            results.sort((a, b) => statusRank[a.status] - statusRank[b.status]),
+        if (!controller.signal.aborted) {
+          const orderedResults = results.sort(
+            (a, b) => statusRank[a.status] - statusRank[b.status],
           );
+          setScans(orderedResults);
+          onScansChange(orderedResults);
+        }
       })
       .finally(() => {
         if (!controller.signal.aborted) setLoading(false);
@@ -2237,7 +2316,7 @@ function AllLeagues({
       controller.abort();
       window.clearTimeout(loadingTimer);
     };
-  }, [leagues, refreshKey]);
+  }, [leagues, refreshKey, onScansChange]);
 
   const issueCount = scans.reduce((sum, scan) => sum + scan.issues.length, 0);
   const urgentCount = scans.reduce(
@@ -2246,6 +2325,58 @@ function AllLeagues({
     0,
   );
   const readyCount = scans.filter((scan) => scan.status === "ready").length;
+  const inbox = scans.flatMap((scan) =>
+    scan.issues.map((issue) => ({ scan, issue })),
+  );
+  const playerExposure = Array.from(
+    scans.reduce<
+      Map<string, { player: Player; leagues: LeagueScan[] }>
+    >((map, scan) => {
+      scan.roster.forEach((player) => {
+        const key = `${player.name}-${player.position}`;
+        const current = map.get(key) ?? { player, leagues: [] };
+        current.leagues.push(scan);
+        map.set(key, current);
+      });
+      return map;
+    }, new Map()),
+  )
+    .map(([, value]) => value)
+    .filter((item) => item.leagues.length > 1)
+    .sort((a, b) => b.leagues.length - a.leagues.length);
+  const waiverOpportunities = Array.from(
+    scans.reduce<Map<string, { player: WaiverPlayer; scans: LeagueScan[] }>>(
+      (map, scan) => {
+        scan.waiverPlayers.slice(0, 20).forEach((player) => {
+          const key = `${player.name}-${player.position}`;
+          const current = map.get(key) ?? { player, scans: [] };
+          current.scans.push(scan);
+          map.set(key, current);
+        });
+        return map;
+      },
+      new Map(),
+    ),
+  )
+    .map(([, value]) => value)
+    .sort(
+      (a, b) =>
+        b.scans.length - a.scans.length ||
+        b.player.projection - a.player.projection,
+    )
+    .slice(0, 6);
+  const healthiest = [...scans].sort((a, b) => b.health - a.health)[0];
+  const biggestProjection = [...scans].sort(
+    (a, b) => b.projection - a.projection,
+  )[0];
+  const actionView = (category: string): View =>
+    category === "Waivers"
+      ? "Waiver Wire"
+      : ["Lineup", "Availability", "Injury", "Bye week", "Role", "Weather"].includes(category)
+        ? "Start / Sit"
+        : category === "Exposure"
+          ? "Matchups"
+          : "Command Center";
   if (!leagues.length)
     return (
       <div className="page-content">
@@ -2254,8 +2385,10 @@ function AllLeagues({
           title="Connect your leagues to build a weekly action list"
           text="Once leagues are connected, Fantasy Hub will scan every roster for lineup, injury, bye-week, weather, and waiver decisions."
         />
-        <section className="panel scoreboard-empty">
-          No leagues are connected yet.
+        <section className="panel portfolio-empty">
+          <strong>Your portfolio starts with one connection.</strong>
+          <p>Add a username or league ID. Fantasy Hub will keep each league isolated while bringing every decision into this one home.</p>
+          <button onClick={onManage}>Connect a league</button>
         </section>
       </div>
     );
@@ -2303,6 +2436,59 @@ function AllLeagues({
           <small>lineups clear</small>
         </article>
       </section>
+      {!loading && scans.length > 0 && (
+        <>
+          <section className="portfolio-section portfolio-inbox panel">
+            <div className="portfolio-heading">
+              <div><span>FANTASY INBOX</span><h3>Your next best actions</h3></div>
+              <b>{urgentCount ? `${urgentCount} urgent` : "All clear"}</b>
+            </div>
+            <div className="portfolio-action-list">
+              {inbox.slice(0, 8).map(({ scan, issue }) => (
+                <article className={issue.severity} key={`inbox-${issue.id}`}>
+                  <i>{issue.severity === "critical" ? "!" : issue.severity === "warning" ? "△" : "•"}</i>
+                  <p><span>{scan.league.name} · {issue.category}</span><strong>{issue.title}</strong><small>{issue.detail}</small></p>
+                  <button onClick={() => void onOpen(scan.league, actionView(issue.category))}>Take action →</button>
+                </article>
+              ))}
+              {!inbox.length && <div className="portfolio-clear"><i>✓</i><p><strong>Nothing needs immediate attention</strong><small>Every connected lineup passed the current availability, projection, bye, weather, and waiver scan.</small></p></div>}
+            </div>
+          </section>
+          <section className="portfolio-grid">
+            <article className="portfolio-section panel">
+              <div className="portfolio-heading"><div><span>LEAGUE HEALTH</span><h3>Readiness across your portfolio</h3></div></div>
+              <div className="health-list">
+                {scans.map((scan) => <button key={`health-${scan.league.id}`} onClick={() => void onOpen(scan.league)}><span><strong>{scan.league.name}</strong><small>{scan.teamName}</small></span><i><em style={{ width: `${scan.health}%` }} /></i><b>{scan.health}</b></button>)}
+              </div>
+            </article>
+            <article className="portfolio-section panel">
+              <div className="portfolio-heading"><div><span>LIVE PORTFOLIO</span><h3>This week’s matchup board</h3></div></div>
+              <div className="portfolio-matchups">
+                {scans.map((scan) => { const edge = scan.projection - scan.opponentProjection; return <button key={`matchup-${scan.league.id}`} onClick={() => void onOpen(scan.league, "Scoreboard")}><span><strong>{scan.teamName}</strong><small>vs {scan.opponentName}</small></span><b className={edge >= 0 ? "positive" : "negative"}>{scan.opponentProjection ? `${edge >= 0 ? "+" : ""}${edge.toFixed(1)}` : "—"}</b><em>{scan.projection.toFixed(1)}–{scan.opponentProjection ? scan.opponentProjection.toFixed(1) : "—"}</em></button>; })}
+              </div>
+            </article>
+          </section>
+          <section className="portfolio-grid">
+            <article className="portfolio-section panel">
+              <div className="portfolio-heading"><div><span>PORTFOLIO EXPOSURE</span><h3>Concentration and correlated risk</h3></div><b>{playerExposure.length} repeated</b></div>
+              <div className="exposure-list">
+                {playerExposure.slice(0, 6).map(({ player, leagues: playerLeagues }) => <div key={`exposure-${player.id}-${player.name}`}><i>{player.position}</i><p><strong>{player.name}</strong><small>{player.team} · {player.status} · {playerLeagues.map((scan) => scan.league.name).join(", ")}</small></p><b>{playerLeagues.length}/{scans.length}</b></div>)}
+                {!playerExposure.length && <p className="portfolio-note">No player appears on more than one connected roster.</p>}
+              </div>
+            </article>
+            <article className="portfolio-section panel">
+              <div className="portfolio-heading"><div><span>CROSS-LEAGUE WAIVERS</span><h3>Players available around your portfolio</h3></div></div>
+              <div className="waiver-opportunity-list">
+                {waiverOpportunities.map(({ player, scans: available }) => <button key={`portfolio-waiver-${player.id}-${player.name}`} onClick={() => void onOpen(available[0].league, "Waiver Wire")}><i>{player.position}</i><p><strong>{player.name}</strong><small>Available in {available.map((scan) => scan.league.name).join(", ")}</small></p><b>{player.projection.toFixed(1)}</b></button>)}
+              </div>
+            </article>
+          </section>
+          <section className="portfolio-recap panel">
+            <div className="portfolio-heading"><div><span>WEEKLY CLUBHOUSE</span><h3>Your portfolio superlatives</h3></div></div>
+            <div><article><i>🏆</i><span><small>BEST PREPARED</small><strong>{healthiest?.league.name}</strong><em>{healthiest?.health}/100 league health</em></span></article><article><i>🚀</i><span><small>BIGGEST LINEUP</small><strong>{biggestProjection?.teamName}</strong><em>{biggestProjection?.projection.toFixed(1)} projected points</em></span></article><article><i>🎯</i><span><small>PORTFOLIO ANCHOR</small><strong>{playerExposure[0]?.player.name ?? "No repeat player"}</strong><em>{playerExposure[0] ? `Rostered in ${playerExposure[0].leagues.length} leagues` : "Diversified rosters"}</em></span></article></div>
+          </section>
+        </>
+      )}
       {loading && !scans.length ? (
         <section className="all-leagues-loading panel">
           Scanning league settings, starters, injuries, waivers, schedule, and
@@ -6108,7 +6294,15 @@ function Simulator({
   );
 }
 
-function PlayerPanel({ player, close }: { player: Player; close: () => void }) {
+function PlayerPanel({
+  player,
+  close,
+  portfolioScans,
+}: {
+  player: Player;
+  close: () => void;
+  portfolioScans: LeagueScan[];
+}) {
   const [history, setHistory] = useState<PlayerHistory | null>(null);
   const [historyState, setHistoryState] = useState<
     "loading" | "ready" | "unavailable"
@@ -6148,6 +6342,20 @@ function PlayerPanel({ player, close }: { player: Player; close: () => void }) {
     ? playedWeeks.reduce((total, week) => total + week.points, 0) /
       playedWeeks.length
     : 0;
+  const rosteredIn = portfolioScans.filter((scan) =>
+    scan.roster.some(
+      (candidate) =>
+        candidate.id === player.id ||
+        (candidate.name === player.name && candidate.position === player.position),
+    ),
+  );
+  const availableIn = portfolioScans.filter((scan) =>
+    scan.waiverPlayers.some(
+      (candidate) =>
+        candidate.id === player.id ||
+        (candidate.name === player.name && candidate.position === player.position),
+    ),
+  );
   return (
     <div
       className="modal-backdrop"
@@ -6216,6 +6424,16 @@ function PlayerPanel({ player, close }: { player: Player; close: () => void }) {
             <strong>{history?.player.age ?? "—"}</strong>
           </div>
         </section>
+        {portfolioScans.length > 0 && (
+          <section className="portfolio-player-footprint">
+            <header><div><span>PORTFOLIO FOOTPRINT</span><h3>Across all connected leagues</h3></div><b>{rosteredIn.length}/{portfolioScans.length} rostered</b></header>
+            <div>
+              {rosteredIn.map((scan) => <article key={`owned-${scan.league.id}`}><i>OWNED</i><p><strong>{scan.league.name}</strong><small>{scan.teamName} · {scan.league.format} · {scan.league.scoring}</small></p></article>)}
+              {availableIn.map((scan) => <article key={`available-${scan.league.id}`}><i className="available">AVAILABLE</i><p><strong>{scan.league.name}</strong><small>On this league’s waiver wire</small></p></article>)}
+              {!rosteredIn.length && !availableIn.length && <p className="history-empty">No ownership or top-waiver footprint found in the current portfolio scan.</p>}
+            </div>
+          </section>
+        )}
         <section className="history-section">
           <header>
             <div>
