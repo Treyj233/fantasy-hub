@@ -60,6 +60,7 @@ type MatchupStrengthData = {
   positions: Record<string, Record<string, MatchupStrength>>;
 };
 const PlayerOpenContext = createContext<(player: Player) => void>(() => undefined);
+const ProjectionPlatformContext = createContext("League platform");
 const nflLogoCode = (team: string) =>
   ({ JAX: "jax", WAS: "wsh", LAR: "lar", LAC: "lac" })[team] ??
   team.toLowerCase();
@@ -1050,6 +1051,7 @@ export default function FantasyHub({
     String(new Date().getFullYear()),
   );
   const [connection, setConnection] = useState<SleeperConnection | null>(null);
+  const [leaguePlatform, setLeaguePlatform] = useState("Sleeper");
   const [availableLeagues, setAvailableLeagues] = useState<ConnectedLeague[]>(
     [],
   );
@@ -1192,6 +1194,7 @@ export default function FantasyHub({
       const data = (await response.json()) as {
         league: {
           name: string;
+          platform?: string;
           status?: string;
           season?: string;
           currentWeek?: number;
@@ -1226,6 +1229,7 @@ export default function FantasyHub({
       }
       if (requestNumber !== importRequest.current) return;
       setLeagueName(data.league.name);
+      setLeaguePlatform(data.league.platform ?? "Sleeper");
       const importedTeams = (data.teams ?? []).map((team) => ({
         ...team,
         roster: team.roster.map((player) =>
@@ -1477,6 +1481,7 @@ export default function FantasyHub({
   if (!accountUser) return <SignInScreen />;
   if (accountLoading) return <AccountLoading />;
   return (
+    <ProjectionPlatformContext.Provider value={leaguePlatform}>
     <PlayerOpenContext.Provider value={setSelectedPlayer}>
     <main className={`app-shell ${sidebarCollapsed ? "sidebar-collapsed" : ""}`}>
       <aside className="sidebar">
@@ -1904,6 +1909,7 @@ export default function FantasyHub({
       )}
     </main>
     </PlayerOpenContext.Provider>
+    </ProjectionPlatformContext.Provider>
   );
 }
 
@@ -4148,6 +4154,7 @@ function CommandCenter({
   setStarterChoice: (v: string) => void;
   periodLabel: string;
 }) {
+  const projectionPlatform = useContext(ProjectionPlatformContext);
   const concern = players.find((p) => p.status !== "Healthy");
   const decision = startSitDecision(players);
   const primaryDecision = decision?.starter;
@@ -4179,11 +4186,11 @@ function CommandCenter({
           <div className="game-day-pills">
             <b>🔥 Roster ready</b>
             <b>⚡ Lineup edges</b>
-            <b>🎯 Platform projections</b>
+            <b>🎯 {projectionPlatform} projections</b>
           </div>
         </div>
         <div className="hero-score">
-          <small>LEAGUE PLATFORM PROJECTION</small>
+          <small>{projectionPlatform.toUpperCase()} PROJECTION</small>
           <strong>{totals.projection.toFixed(1)}</strong>
           <span>Current starting lineup</span>
         </div>
@@ -4409,6 +4416,7 @@ function RosterSection({
   emptySlots?: string[];
   setSelectedPlayer: (player: Player) => void;
 }) {
+  const projectionPlatform = useContext(ProjectionPlatformContext);
   return (
     <section className="roster-section panel">
       <header>
@@ -4425,7 +4433,7 @@ function RosterSection({
               <th>Player</th>
               <th>Slot</th>
               <th>Matchup</th>
-              <th>Platform projection</th>
+              <th>{projectionPlatform} projection</th>
               <th>Status</th>
             </tr>
           </thead>
@@ -5269,6 +5277,7 @@ function StartSit({
   setChoice: (v: string) => void;
   context: RankingContext | null;
 }) {
+  const projectionPlatform = useContext(ProjectionPlatformContext);
   const decisions = startSitDecisions(players);
   const [selectedBySlot, setSelectedBySlot] = useState<Record<string, string>>({});
   const yourTeam = teams.find((team) => team.id === selectedTeamId);
@@ -5359,7 +5368,7 @@ function StartSit({
             </span>
           )}
           <span>
-            <b>League platform</b> projection source
+            <b>{projectionPlatform}</b> projection source
           </span>
         </section>
       )}
@@ -7408,6 +7417,7 @@ function PlayerPanel({
   close: () => void;
   portfolioScans: LeagueScan[];
 }) {
+  const projectionPlatform = useContext(ProjectionPlatformContext);
   const [history, setHistory] = useState<PlayerHistory | null>(null);
   const [historyState, setHistoryState] = useState<
     "loading" | "ready" | "unavailable"
@@ -7487,13 +7497,13 @@ function PlayerPanel({
         </header>
         <section className="dossier-hero">
           <div>
-            <span>LEAGUE PLATFORM PROJECTION</span>
+            <span>{projectionPlatform.toUpperCase()} PROJECTION</span>
             <strong>
               {typeof player.leagueProjection === "number"
                 ? player.leagueProjection.toFixed(1)
                 : "—"}
             </strong>
-            <small>Weekly estimate from the connected league platform</small>
+            <small>Weekly estimate from {projectionPlatform}</small>
           </div>
           <div className="outcome-range">
             <span>
