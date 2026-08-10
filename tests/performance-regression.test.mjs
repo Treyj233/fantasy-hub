@@ -29,7 +29,7 @@ test("large dashboard bundle loads behind a lightweight client shell", async () 
   const source = await readFile(new URL("../app/FantasyHubLoader.tsx", import.meta.url), "utf8");
   assert.match(source, /dynamic\(\(\) => import\("\.\/FantasyHub"\)/);
   assert.match(source, /ssr: false/);
-  assert.match(source, /Math\.min\(92/);
+  assert.match(source, /Math\.min\(99/);
   assert.match(source, /roundedProgress/);
 });
 
@@ -39,5 +39,6 @@ test("league scans expose visible determinate progress", async () => {
   assert.match(source, /aria-label="Scanning connected leagues"/);
   assert.match(source, /useEstimatedLoadingProgress\(scanIsActive\)/);
   assert.match(source, /const visibleScanCount = Math\.min/);
+  assert.match(source, /Math\.pow\(visibleScanProgress \/ 100, 2\.2\)/);
   assert.match(source, /About \{visibleScanCount\} of \{leagues\.length\} leagues scanned/);
 });

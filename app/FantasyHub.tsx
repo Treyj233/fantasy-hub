@@ -2107,7 +2107,7 @@ function useEstimatedLoadingProgress(active: boolean) {
     const reset = window.setTimeout(() => setProgress(8), 0);
     const timer = window.setInterval(() => {
       setProgress((current) =>
-        Math.min(92, current + Math.max(0.7, (92 - current) * 0.07)),
+        Math.min(99, current + Math.max(0.7, (99 - current) * 0.07)),
       );
     }, 350);
     return () => {
@@ -2646,7 +2646,7 @@ function AllLeagues({
     Math.max(0, leagues.length - 1),
     Math.max(
       scanCompleted,
-      Math.ceil((visibleScanProgress / 100) * leagues.length),
+      Math.floor(Math.pow(visibleScanProgress / 100, 2.2) * leagues.length),
     ),
   );
 

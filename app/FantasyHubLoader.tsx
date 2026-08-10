@@ -9,7 +9,7 @@ function InitialLoadingShell() {
   useEffect(() => {
     const timer = window.setInterval(() => {
       setProgress((current) =>
-        Math.min(92, current + Math.max(0.7, (92 - current) * 0.07)),
+        Math.min(99, current + Math.max(0.7, (99 - current) * 0.07)),
       );
     }, 350);
     return () => window.clearInterval(timer);
