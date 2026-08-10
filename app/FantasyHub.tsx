@@ -1146,8 +1146,47 @@ export default function FantasyHub({
       connection: SleeperConnection;
       leagues: ConnectedLeague[];
     };
+    const savedOrder = (() => {
+      try {
+        return JSON.parse(
+          window.localStorage.getItem("fantasy-hub-league-order") ?? "[]",
+        ) as string[];
+      } catch {
+        return [];
+      }
+    })();
+    const orderIndex = new Map(savedOrder.map((id, index) => [id, index]));
+    const orderedLeagues = [...data.leagues].sort((a, b) => {
+      const aIndex = orderIndex.get(a.id);
+      const bIndex = orderIndex.get(b.id);
+      if (aIndex == null && bIndex == null) return 0;
+      if (aIndex == null) return 1;
+      if (bIndex == null) return -1;
+      return aIndex - bIndex;
+    });
     setConnection(data.connection);
-    setAvailableLeagues(data.leagues);
+    setAvailableLeagues(orderedLeagues);
+  }
+
+  function moveConnectedLeague(leagueIdToMove: string, direction: -1 | 1) {
+    setAvailableLeagues((current) => {
+      const currentIndex = current.findIndex(
+        (league) => league.id === leagueIdToMove,
+      );
+      const nextIndex = currentIndex + direction;
+      if (currentIndex < 0 || nextIndex < 0 || nextIndex >= current.length)
+        return current;
+      const ordered = [...current];
+      [ordered[currentIndex], ordered[nextIndex]] = [
+        ordered[nextIndex],
+        ordered[currentIndex],
+      ];
+      window.localStorage.setItem(
+        "fantasy-hub-league-order",
+        JSON.stringify(ordered.map((league) => league.id)),
+      );
+      return ordered;
+    });
   }
 
   async function loadManagedLeagues() {
@@ -1595,6 +1634,7 @@ export default function FantasyHub({
             }}
             onAdd={addManagedLeague}
             onRemove={removeManagedLeague}
+            onMove={moveConnectedLeague}
           />
         )}
       </section>
@@ -1709,6 +1749,7 @@ function ManageLeagues({
   onOpen,
   onAdd,
   onRemove,
+  onMove,
 }: {
   connectedLeagues: ConnectedLeague[];
   managedLeagues: ManagedLeague[];
@@ -1722,6 +1763,7 @@ function ManageLeagues({
     identifier: string,
   ) => Promise<void>;
   onRemove: (id: string) => Promise<void>;
+  onMove: (id: string, direction: -1 | 1) => void;
 }) {
   const [provider, setProvider] = useState<LeagueProvider>("sleeper");
   const [identifierType, setIdentifierType] = useState<
@@ -2010,7 +2052,7 @@ function ManageLeagues({
           </div>
           <b>{connectedLeagues.length + managedLeagues.length} records</b>
         </div>
-        {connectedLeagues.map((league) => (
+        {connectedLeagues.map((league, index) => (
           <article key={`live-${league.id}`}>
             <i className="provider-badge sleeper">S</i>
             <p>
@@ -2021,9 +2063,23 @@ function ManageLeagues({
               </small>
             </p>
             <span className="connection-status live">● LIVE</span>
-            <button className="open-league" onClick={() => void onOpen(league)}>
-              Open
-            </button>
+            <div className="league-order-actions">
+              <button
+                onClick={() => onMove(league.id, -1)}
+                disabled={index === 0}
+                aria-label={`Move ${league.name} earlier`}
+                title="Move earlier"
+              >↑</button>
+              <button
+                onClick={() => onMove(league.id, 1)}
+                disabled={index === connectedLeagues.length - 1}
+                aria-label={`Move ${league.name} later`}
+                title="Move later"
+              >↓</button>
+              <button className="open-league" onClick={() => void onOpen(league)}>
+                Open
+              </button>
+            </div>
           </article>
         ))}
         {managedLeagues.map((league) => (
