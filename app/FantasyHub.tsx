@@ -3670,6 +3670,22 @@ function AllLeagueScoreboard({
       };
     });
     const leveragePlayers = [...playerGroups.entries()].map(([id, items]) => ({ id, name: items[0].playerName, ...playerLeverage(items), exposures: items })).sort((a, b) => b.score - a.score);
+    const performerGroups = new Map<string, { player: ScoreboardPlayer; status: string; leagues: { id: string; name: string; side: "helps" | "hurts" }[] }>();
+    matchups.forEach((item) => {
+      [...item.mineStarters.map((player) => ({ player, side: "helps" as const })), ...item.opponentStarters.map((player) => ({ player, side: "hurts" as const }))].forEach(({ player, side }) => {
+        const current = performerGroups.get(player.id);
+        performerGroups.set(player.id, {
+          player: !current || player.points > current.player.points ? player : current.player,
+          status: item.matchup.status,
+          leagues: [...(current?.leagues ?? []), { id: item.league.id, name: item.league.name, side }],
+        });
+      });
+    });
+    const onFire = [...performerGroups.values()]
+      .filter((item) => item.player.points > 0)
+      .map((item) => ({ ...item, temperature: playerTemperature(item.player, item.status), performanceScore: item.player.points + Math.max(0, item.player.points - (item.player.projection ?? item.player.points)) * .8 }))
+      .sort((a, b) => b.performanceScore - a.performanceScore)
+      .slice(0, 5);
     const activePlayers = matchups.flatMap((item) => [...item.mineStarters, ...item.opponentStarters]).filter((player) => player.points > 0 && (player.projection == null || player.points < player.projection)).length;
     const completedPlayers = matchups.reduce(
       (count, matchup) =>
@@ -3682,7 +3698,7 @@ function AllLeagueScoreboard({
       0,
     );
     const totalStarters = matchups.reduce((sum, item) => sum + item.mineStarters.length + item.opponentStarters.length, 0);
-    return { matchups, interests, leveragePlayers, activePlayers, completedPlayers, remainingPlayers: Math.max(0, totalStarters - activePlayers - completedPlayers) };
+    return { matchups, interests, leveragePlayers, onFire, activePlayers, completedPlayers, remainingPlayers: Math.max(0, totalStarters - activePlayers - completedPlayers) };
   }, [leagues, scores]);
   useEffect(() => {
     const changes = gameDay.matchups.flatMap((item) => {
@@ -3788,6 +3804,18 @@ function AllLeagueScoreboard({
         <div className="spotlight-story"><strong>{Math.abs((featured.winProbability ?? 50) - 50) <= 10 ? "One play can swing this matchup." : (featured.winProbability ?? 0) >= 50 ? "Protect the lead as the late window develops." : "Your comeback path is still alive."}</strong><small>{featured.mineRemaining.toFixed(1)} of your projected points and {featured.opponentRemaining.toFixed(1)} opponent points remain.</small></div>
         <button type="button" onClick={() => void onOpenLeague(featured.league)}>Watch matchup →</button>
       </section>}
+      <section className="on-fire-board panel">
+        <header><div><span>🔥 ON FIRE</span><h3>Week {week}&apos;s hottest performers</h3><small>Top production currently affecting your matchups across every connected league.</small></div><b>{gameDay.onFire.length ? "LIVE LEADERS" : "WAITING FOR KICKOFF"}</b></header>
+        {gameDay.onFire.length ? <div className="on-fire-grid">{gameDay.onFire.map((item, index) => {
+          const helps = item.leagues.filter((league) => league.side === "helps").length;
+          const hurts = item.leagues.length - helps;
+          return <button type="button" key={item.player.id} onClick={() => openPlayer(playerShell(item.player))}>
+            <em>#{index + 1}</em><div className="fire-player-visual"><NflTeamLogo team={item.player.nflTeam} /><PlayerHeadshot id={item.player.id} position={item.player.position} /><i aria-hidden="true">🔥</i></div>
+            <p><span>{item.temperature.label}</span><strong>{item.player.name}</strong><small>{item.player.nflTeam} · {item.player.position} · {item.player.yards} YDS{item.player.touchdowns ? ` · ${item.player.touchdowns} TD` : ""}{item.player.targets ? ` · ${item.player.receptions}/${item.player.targets} REC` : ""}</small><span className="fire-leagues">{item.leagues.slice(0, 3).map((league) => <b className={league.side} key={`${item.player.id}-${league.id}`}>{league.side === "helps" ? "↑" : "↓"} {league.name}</b>)}</span></p>
+            <div className="fire-score"><strong>{item.player.points.toFixed(1)}</strong><small>PTS</small><span><i style={{ width: `${item.temperature.value}%` }} /></span><em>{helps ? `${helps} help` : ""}{helps && hurts ? " · " : ""}{hurts ? `${hurts} hurt` : ""}</em></div>
+          </button>;
+        })}</div> : <p className="game-day-empty">Current weekly leaders will ignite here as players begin scoring.</p>}
+      </section>
       <div className="game-day-insights">
         <section className="panel rooting-interests"><header><div><span>ROOTING INTERESTS</span><h3>Who to cheer—and who to stop</h3></div><b>📣 GAME-DAY PULSE</b></header>{gameDay.interests.length ? gameDay.interests.map((interest) => <article className={`rooting-${interest.sentiment}`} key={interest.playerId}><div className="rooting-visual"><NflTeamLogo team={interest.nflTeam} /><PlayerHeadshot id={interest.playerId} position={interest.position} /><i aria-hidden="true">{interest.sentiment === "cheer" ? "📣" : interest.sentiment === "fade" ? "🛑" : "⚖️"}</i></div><p><span>{interest.sentiment === "cheer" ? "ROOT FOR" : interest.sentiment === "fade" ? "ROOT AGAINST" : "MIXED ROOTING INTEREST"}</span><strong>{interest.playerName}</strong><small>{interest.text}</small><span className="rooting-leagues">{interest.affectedLeagues.map((league) => <b className={league.impact} key={`${interest.playerId}-${league.id}`}>{league.impact === "helps" ? "↑" : "↓"} {league.name}</b>)}</span></p><em><small>{interest.level}</small>{interest.score}</em></article>) : <p className="game-day-empty">Rooting interests appear when weekly lineups and projections are available.</p>}</section>
         <section className={`panel sunday-swing ${!swingFeed.length && sundaySwingPreview.length ? "preview" : ""}`}><header><div><span>SUNDAY SWING</span><h3>{swingFeed.length ? "Observed this session" : "Live scoring preview"}</h3></div>{!swingFeed.length && sundaySwingPreview.length && <b>TEST MODE</b>}</header>{swingFeed.length ? swingFeed.map((item) => <article key={item.id}><b className={item.current >= item.previous ? "positive" : "negative"}>{item.current >= item.previous ? "↑" : "↓"} {Math.abs(item.current - item.previous)} pts</b><p><strong>{item.league}</strong><small>{item.text}</small></p><time>{item.at ? new Date(item.at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "Now"}</time></article>) : sundaySwingPreview.length ? <><p className="swing-preview-note">Illustrative preview using your connected matchups. These are not live events and will disappear when real scoring swings are observed.</p>{sundaySwingPreview.map((item, index) => <article className="swing-preview-card" key={item.id}><b className={item.current >= item.previous ? "positive" : "negative"}>{item.current >= item.previous ? "↑" : "↓"} {Math.abs(item.current - item.previous)} pts</b><p><strong>{item.league}</strong><small>{item.text}</small><span><i style={{ width: `${item.current}%` }} /></span></p><time>Q{Math.min(4, index + 1)} · DEMO</time></article>)}</> : <p className="game-day-empty">Changes will appear after Fantasy Hub observes a scoring refresh. No event history is fabricated.</p>}</section>
