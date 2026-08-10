@@ -1,7 +1,8 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { getDb } from "../../../db";
-import { sleeperConnections } from "../../../db/schema";
+import { managedLeagues, sleeperConnections } from "../../../db/schema";
 import { getChatGPTUser } from "../../chatgpt-auth";
+import { fetchEspnLeague, normalizeEspnScoreboard } from "../espn";
 
 type MatchupRow = { roster_id?: number; matchup_id?: number | null; points?: number; custom_points?: number | null; players?: string[]; starters?: string[]; players_points?: Record<string, number> };
 type SourcePlayer = { full_name?: string; first_name?: string; last_name?: string; position?: string; team?: string };
@@ -14,6 +15,18 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const leagueId = url.searchParams.get("leagueId")?.trim();
   const requestedWeek = Number(url.searchParams.get("week"));
+  if (leagueId?.startsWith("espn:")) {
+    const [, season, sourceLeagueId] = leagueId.split(":");
+    if (!sourceLeagueId) return Response.json({ error: "Select an ESPN league first" }, { status: 400 });
+    const db = await getDb();
+    const [record] = await db.select().from(managedLeagues).where(and(eq(managedLeagues.userId, user.userId), eq(managedLeagues.provider, "espn"), eq(managedLeagues.identifier, sourceLeagueId))).limit(1);
+    if (!record?.rosterId) return Response.json({ error: "Select your ESPN team in Manage Leagues" }, { status: 409 });
+    try {
+      return Response.json(normalizeEspnScoreboard(await fetchEspnLeague(sourceLeagueId, Number(season)), record.rosterId, requestedWeek));
+    } catch (error) {
+      return Response.json({ error: error instanceof Error ? error.message : "ESPN scores unavailable" }, { status: 502 });
+    }
+  }
   if (!leagueId || !/^\d{6,24}$/.test(leagueId)) return Response.json({ error: "Select a league first" }, { status: 400 });
   const db = await getDb();
   const [connection] = await db.select().from(sleeperConnections).where(eq(sleeperConnections.userId, user.userId)).limit(1);

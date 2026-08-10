@@ -1,7 +1,8 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { getDb } from "../../../db";
-import { sleeperConnections } from "../../../db/schema";
+import { managedLeagues, sleeperConnections } from "../../../db/schema";
 import { getChatGPTUser } from "../../chatgpt-auth";
+import { fetchEspnLeague, normalizeEspnSimulation } from "../espn";
 
 type MatchupRow = { roster_id?: number; matchup_id?: number | null; points?: number; custom_points?: number | null };
 
@@ -9,6 +10,18 @@ export async function GET(request: Request) {
   const user = await getChatGPTUser();
   if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
   const leagueId = new URL(request.url).searchParams.get("leagueId")?.trim();
+  if (leagueId?.startsWith("espn:")) {
+    const [, season, sourceLeagueId] = leagueId.split(":");
+    if (!sourceLeagueId) return Response.json({ error: "Select an ESPN league first" }, { status: 400 });
+    const db = await getDb();
+    const [record] = await db.select().from(managedLeagues).where(and(eq(managedLeagues.userId, user.userId), eq(managedLeagues.provider, "espn"), eq(managedLeagues.identifier, sourceLeagueId ?? ""))).limit(1);
+    if (!record?.rosterId) return Response.json({ error: "Select your ESPN team in Manage Leagues" }, { status: 409 });
+    try {
+      return Response.json(normalizeEspnSimulation(await fetchEspnLeague(sourceLeagueId, Number(season))));
+    } catch (error) {
+      return Response.json({ error: error instanceof Error ? error.message : "ESPN simulation details unavailable" }, { status: 502 });
+    }
+  }
   if (!leagueId || !/^\d{6,24}$/.test(leagueId)) return Response.json({ error: "Select a league first" }, { status: 400 });
   const db = await getDb();
   const [connection] = await db.select().from(sleeperConnections).where(eq(sleeperConnections.userId, user.userId)).limit(1);

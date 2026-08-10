@@ -269,6 +269,8 @@ type SleeperConnection = {
 };
 type ConnectedLeague = {
   id: string;
+  sourceId?: string;
+  provider?: LeagueProvider;
   name: string;
   season?: string;
   teams: number;
@@ -279,6 +281,10 @@ type ConnectedLeague = {
 };
 const sleeperLeagueUrl = (leagueId: string) =>
   `https://sleeper.com/leagues/${encodeURIComponent(leagueId)}`;
+const platformLeagueUrl = (league: ConnectedLeague) =>
+  league.provider === "espn"
+    ? `https://fantasy.espn.com/football/league?leagueId=${encodeURIComponent(league.sourceId ?? league.id.split(":").at(-1) ?? league.id)}`
+    : sleeperLeagueUrl(league.sourceId ?? league.id);
 function PlatformLogo({ provider = "Sleeper" }: { provider?: string }) {
   return provider.toLowerCase() === "sleeper" ? <span className="platform-logo" role="img" aria-label="Sleeper" /> : <span className="platform-logo-fallback">{provider}</span>;
 }
@@ -287,20 +293,23 @@ const rememberDecision = (decision: { id: string; leagueId: string; week: number
   void fetch("/api/decisions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(decision) }).catch(() => undefined);
 };
 
-const platformActionLabel = (view: View) =>
+const platformActionLabel = (view: View, provider = "Sleeper") =>
   view === "Start / Sit" || view === "My Team"
-    ? "Open lineup in Sleeper"
+    ? `Open lineup in ${provider}`
     : view === "Trade Lab"
-      ? "Prepare trade in Sleeper"
+      ? `Prepare trade in ${provider}`
       : view === "Waiver Wire"
-        ? "Open waivers in Sleeper"
-        : "Open league in Sleeper";
+        ? `Open waivers in ${provider}`
+        : `Open league in ${provider}`;
 type LeagueProvider = "sleeper" | "espn" | "yahoo";
 type ManagedLeague = {
   id: string;
   provider: LeagueProvider;
   identifierType: "username" | "league_id";
   identifier: string;
+  rosterId?: string | null;
+  leagueName?: string | null;
+  season?: string | null;
   status: "live" | "saved" | "oauth_required";
   updatedAt: string;
 };
@@ -1205,7 +1214,7 @@ export default function FantasyHub({
         setAccountLoading(false);
         const results = await Promise.allSettled([
           loadManagedLeagues(),
-          data.connection ? loadLeagues(true) : Promise.resolve(),
+          loadLeagues(true),
         ]);
         if (results.some((result) => result.status === "rejected"))
           setAccountError(
@@ -1224,8 +1233,8 @@ export default function FantasyHub({
   }, [accountUser]);
 
   useEffect(() => {
-    if (!connection || !portfolioScans.length) return;
-    const cacheKey = `fantasy-hub-portfolio-scans:${connection.sleeperUserId}`;
+    if (!accountUser || !portfolioScans.length) return;
+    const cacheKey = `fantasy-hub-portfolio-scans:${connection?.sleeperUserId ?? accountUser.email}`;
     if (portfolioScans.some((scan) => scan.status === "unavailable")) {
       window.localStorage.removeItem(cacheKey);
       return;
@@ -1235,7 +1244,7 @@ export default function FantasyHub({
       savedAt: Date.now(),
       scans: portfolioScans,
     }));
-  }, [connection, portfolioScans]);
+  }, [accountUser, connection, portfolioScans]);
 
   const totals = useMemo(
     () => ({
@@ -1249,7 +1258,7 @@ export default function FantasyHub({
     [players],
   );
 
-  async function importLeague(idOverride?: string, ownerIdOverride?: string) {
+  async function importLeague(idOverride?: string, ownerIdOverride?: string, rosterIdOverride?: string) {
     const requestedLeagueId = idOverride?.trim() || leagueId.trim();
     if (!requestedLeagueId) return;
     const requestNumber = ++importRequest.current;
@@ -1311,7 +1320,9 @@ export default function FantasyHub({
         ),
       }));
       setLeagueTeams(importedTeams);
-      const ownedTeam = ownerIdOverride
+      const ownedTeam = rosterIdOverride
+        ? importedTeams.find((team) => team.id === rosterIdOverride)
+        : ownerIdOverride
         ? importedTeams.find((team) => team.ownerId === ownerIdOverride)
         : undefined;
       if (ownedTeam || importedTeams.length === 1) {
@@ -1346,7 +1357,7 @@ export default function FantasyHub({
     const response = await fetch("/api/account/leagues");
     if (!response.ok) throw new Error("Leagues unavailable");
     const data = (await response.json()) as {
-      connection: SleeperConnection;
+      connection: SleeperConnection | null;
       leagues: ConnectedLeague[];
     };
     const savedOrder = (() => {
@@ -1370,7 +1381,7 @@ export default function FantasyHub({
     try {
       const cached = JSON.parse(
         window.localStorage.getItem(
-          `fantasy-hub-portfolio-scans:${data.connection.sleeperUserId}`,
+          `fantasy-hub-portfolio-scans:${data.connection?.sleeperUserId ?? accountUser?.email ?? "account"}`,
         ) ?? "null",
       ) as { version?: number; savedAt?: number; scans?: LeagueScan[] } | null;
       const leagueIds = new Set(orderedLeagues.map((league) => league.id));
@@ -1384,16 +1395,16 @@ export default function FantasyHub({
         setPortfolioScans(cached.scans);
     } catch {
       window.localStorage.removeItem(
-        `fantasy-hub-portfolio-scans:${data.connection.sleeperUserId}`,
+        `fantasy-hub-portfolio-scans:${data.connection?.sleeperUserId ?? accountUser?.email ?? "account"}`,
       );
     }
-    setConnection(data.connection);
+    if (data.connection) setConnection(data.connection);
     setAvailableLeagues(orderedLeagues);
     if (activateFirst && orderedLeagues.length) {
       const defaultLeague = orderedLeagues[0];
       setLeagueId(defaultLeague.id);
       setLeagueName(defaultLeague.name);
-      await importLeague(defaultLeague.id, data.connection.sleeperUserId);
+      await importLeague(defaultLeague.id, data.connection?.sleeperUserId, defaultLeague.rosterId);
     }
   }
 
@@ -1490,6 +1501,7 @@ export default function FantasyHub({
     provider: LeagueProvider,
     identifierType: "username" | "league_id",
     identifier: string,
+    rosterId?: string,
   ) {
     setAccountError("");
     if (provider === "sleeper" && identifierType === "username") {
@@ -1500,19 +1512,24 @@ export default function FantasyHub({
     const response = await fetch("/api/account/managed-leagues", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ provider, identifierType, identifier }),
+      body: JSON.stringify({ provider, identifierType, identifier, rosterId }),
     });
     const data = (await response.json()) as {
       league?: ManagedLeague;
+      teamSelection?: { id: string; name: string; season: string; teams: { id: string; name: string; managerName: string }[] };
       error?: string;
     };
-    if (!response.ok || !data.league)
+    if (!response.ok)
       throw new Error(data.error ?? "Unable to save league");
+    if (data.teamSelection) return data.teamSelection;
+    if (!data.league) throw new Error(data.error ?? "Unable to save league");
     await loadManagedLeagues();
     if (provider === "sleeper" && identifierType === "league_id") {
       setLeagueId(identifier);
       await importLeague(identifier, connection?.sleeperUserId);
     }
+    await loadLeagues();
+    return null;
   }
 
   async function removeManagedLeague(id: string) {
@@ -1531,7 +1548,7 @@ export default function FantasyHub({
     setLeagueName(league.name);
     if (league.format !== "Dynasty" && view === "Dynasty Analytics")
       setView("Command Center");
-    await importLeague(league.id, connection?.sleeperUserId);
+    await importLeague(league.id, connection?.sleeperUserId, league.rosterId);
   }
 
   function selectLeagueTeam(teamId: string) {
@@ -1675,13 +1692,13 @@ export default function FantasyHub({
             {leagueId && (
               <a
                 className="platform-open"
-                href={sleeperLeagueUrl(leagueId)}
+                href={selectedConnectedLeague ? platformLeagueUrl(selectedConnectedLeague) : sleeperLeagueUrl(leagueId)}
                 target="_blank"
                 rel="noopener noreferrer"
-                aria-label={`${platformActionLabel(view)} (opens in a new tab)`}
+                aria-label={`${platformActionLabel(view, leaguePlatform)} (opens in a new tab)`}
               >
-                <PlatformLogo />
-                <span>{platformActionLabel(view)}</span>
+                <PlatformLogo provider={leaguePlatform} />
+                <span>{platformActionLabel(view, leaguePlatform)}</span>
                 <b aria-hidden="true">↗</b>
               </a>
             )}
@@ -2177,7 +2194,8 @@ function ManageLeagues({
     provider: LeagueProvider,
     identifierType: "username" | "league_id",
     identifier: string,
-  ) => Promise<void>;
+    rosterId?: string,
+  ) => Promise<{ id: string; name: string; season: string; teams: { id: string; name: string; managerName: string }[] } | null>;
   onRemove: (id: string) => Promise<void>;
   onMove: (id: string, direction: -1 | 1) => void;
   onReorder: (
@@ -2199,6 +2217,7 @@ function ManageLeagues({
   } | null>(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [espnSelection, setEspnSelection] = useState<{ id: string; name: string; season: string; teams: { id: string; name: string; managerName: string }[] } | null>(null);
   const providers: {
     id: LeagueProvider;
     name: string;
@@ -2217,7 +2236,7 @@ function ManageLeagues({
       name: "ESPN",
       short: "E",
       description:
-        "Save a public league ID while the live ESPN connector is prepared.",
+        "Public league rosters, scoring, matchups, waivers, and settings by league ID.",
     },
     {
       id: "yahoo",
@@ -2237,13 +2256,18 @@ function ManageLeagues({
     setError("");
     setSuccess("");
     try {
-      await onAdd(provider, identifierType, identifier.trim());
+      const selection = await onAdd(provider, identifierType, identifier.trim());
+      if (selection) {
+        setEspnSelection(selection);
+        setSuccess("ESPN league found. Select the team you manage to finish connecting.");
+        return;
+      }
       setSuccess(
         provider === "sleeper"
           ? "Sleeper connected. Your live leagues are ready."
           : provider === "yahoo"
             ? "Yahoo reference saved. Live sync will require Yahoo authorization."
-            : "ESPN league reference saved to your account.",
+            : "ESPN league connected. Your live roster is ready.",
       );
       setIdentifier("");
     } catch (requestError) {
@@ -2275,7 +2299,7 @@ function ManageLeagues({
         <div className="manage-count">
           <strong>
             {connectedLeagues.length +
-              managedLeagues.filter((item) => item.provider !== "sleeper")
+              managedLeagues.filter((item) => item.provider !== "sleeper" && item.status !== "live")
                 .length}
           </strong>
           <span>LEAGUES & ACCOUNTS</span>
@@ -2359,6 +2383,8 @@ function ManageLeagues({
             }
             onClick={() => {
               setProvider(item.id);
+              if (item.id === "espn") setIdentifierType("league_id");
+              setEspnSelection(null);
               setError("");
               setSuccess("");
             }}
@@ -2387,7 +2413,7 @@ function ManageLeagues({
         </p>
         <div className="integration-matrix">
           <article><i>S</i><span><strong>Sleeper</strong><small>Rosters · scoring · matchups · waivers</small></span><b className="live">LIVE</b></article>
-          <article><i>E</i><span><strong>ESPN</strong><small>League reference supported · authenticated sync next</small></span><b className="auth">AUTH SETUP</b></article>
+          <article><i>E</i><span><strong>ESPN</strong><small>Public leagues · rosters · scoring · matchups · waivers</small></span><b className="live">LIVE</b></article>
           <article><i>Y!</i><span><strong>Yahoo</strong><small>OAuth authorization required for private leagues</small></span><b className="auth">AUTH SETUP</b></article>
           <article><i>N</i><span><strong>NFL.com</strong><small>Provider adapter planned</small></span><b>PLANNED</b></article>
           <article><i>C</i><span><strong>CBS</strong><small>Provider adapter planned</small></span><b>PLANNED</b></article>
@@ -2406,6 +2432,7 @@ function ManageLeagues({
           <div className="method-toggle">
             <button
               className={identifierType === "username" ? "active" : ""}
+              disabled={provider === "espn"}
               onClick={() => setIdentifierType("username")}
             >
               Username
@@ -2446,7 +2473,7 @@ function ManageLeagues({
               ? "Connecting…"
               : provider === "sleeper"
                 ? "Connect league"
-                : "Save league"}
+                : provider === "espn" ? "Find ESPN league" : "Save league"}
           </button>
         </div>
         {(error || accountError) && (
@@ -2459,16 +2486,39 @@ function ManageLeagues({
               ? "LIVE CONNECTION"
               : provider === "yahoo"
                 ? "AUTHORIZATION NEEDED"
-                : "SAVED REFERENCE"}
+                : "PUBLIC LEAGUE CONNECTION"}
           </b>
           <p>
             {provider === "sleeper"
               ? "Username finds every team you own. League ID adds one public league directly."
               : provider === "yahoo"
                 ? "Yahoo requires account authorization before Fantasy Hub can read private rosters or scoring."
-                : "ESPN league IDs are saved now. Live roster sync is not shown until a reliable provider connection is available."}
+                : "Enter a public ESPN league ID, then select the team you manage. Private ESPN leagues cannot be read through league-ID access."}
           </p>
         </div>
+        {espnSelection && (
+          <section className="espn-team-picker">
+            <header><span>SELECT YOUR TEAM</span><strong>{espnSelection.name} · {espnSelection.season}</strong></header>
+            <div>
+              {espnSelection.teams.map((team) => (
+                <button key={team.id} disabled={busy} onClick={() => {
+                  setBusy(true);
+                  setError("");
+                  void onAdd("espn", "league_id", identifier.trim(), team.id)
+                    .then(() => {
+                      setSuccess(`${team.name} connected from ESPN.`);
+                      setEspnSelection(null);
+                      setIdentifier("");
+                    })
+                    .catch((requestError) => setError(requestError instanceof Error ? requestError.message : "Unable to connect ESPN team"))
+                    .finally(() => setBusy(false));
+                }}>
+                  <strong>{team.name}</strong><small>{team.managerName}</small><b>Choose →</b>
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
       </section>
       <section className="managed-list panel">
         <div className="panel-header">
@@ -2523,11 +2573,11 @@ function ManageLeagues({
             title="Drag to reorder this league"
           >
             <i className="manage-drag-handle" aria-hidden="true">⋮⋮</i>
-            <i className="provider-badge sleeper">S</i>
+            <i className={`provider-badge ${league.provider ?? "sleeper"}`}>{league.provider === "espn" ? "E" : "S"}</i>
             <p>
               <strong>{league.name}</strong>
               <small>
-                Sleeper · {league.season} · {league.teams} teams ·{" "}
+                {league.provider === "espn" ? "ESPN" : "Sleeper"} · {league.season} · {league.teams} teams ·{" "}
                 {league.format} · {league.scoring}
               </small>
             </p>
@@ -2551,7 +2601,7 @@ function ManageLeagues({
             </div>
           </article>
         ))}
-        {managedLeagues.map((league) => (
+        {managedLeagues.filter((league) => league.status !== "live").map((league) => (
           <article key={league.id}>
             <i className={`provider-badge ${league.provider}`}>
               {league.provider === "yahoo"
@@ -3155,7 +3205,7 @@ function AllLeagues({
                   <p><span>{priority} · {scan.league.name} · {issue.category}</span><strong>{issue.title}</strong><small>{issue.detail}</small></p>
                   <div className="portfolio-action-buttons">
                     <button onClick={() => void onOpen(scan.league, actionView(issue.category))}>Review in Hub</button>
-                    <a className="platform-link" href={sleeperLeagueUrl(scan.league.id)} target="_blank" rel="noopener noreferrer" aria-label="Open league in Sleeper (opens in a new tab)"><PlatformLogo /><span>Open</span><b aria-hidden="true">↗</b></a>
+                    <a className="platform-link" href={platformLeagueUrl(scan.league)} target="_blank" rel="noopener noreferrer" aria-label={`Open league in ${scan.league.provider === "espn" ? "ESPN" : "Sleeper"} (opens in a new tab)`}><PlatformLogo provider={scan.league.provider === "espn" ? "ESPN" : "Sleeper"} /><span>Open</span><b aria-hidden="true">↗</b></a>
                   </div>
                 </article>
               ))}
@@ -3281,7 +3331,7 @@ function AllLeagues({
                 </span>
                 <div className="league-scan-actions">
                   <button onClick={() => void onOpen(scan.league)}>Open in Hub</button>
-                  <a className="platform-link" href={sleeperLeagueUrl(scan.league.id)} target="_blank" rel="noopener noreferrer" aria-label="Open league in Sleeper (opens in a new tab)"><PlatformLogo /><b aria-hidden="true">↗</b></a>
+                  <a className="platform-link" href={platformLeagueUrl(scan.league)} target="_blank" rel="noopener noreferrer" aria-label={`Open league in ${scan.league.provider === "espn" ? "ESPN" : "Sleeper"} (opens in a new tab)`}><PlatformLogo provider={scan.league.provider === "espn" ? "ESPN" : "Sleeper"} /><b aria-hidden="true">↗</b></a>
                 </div>
               </footer>
             </article>
