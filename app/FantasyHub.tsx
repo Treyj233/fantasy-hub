@@ -365,6 +365,7 @@ type LeagueScan = {
   waiverPlayers: WaiverPlayer[];
   opponentName: string;
   opponentProjection: number;
+  preDraft?: boolean;
   issues: {
     id: string;
     severity: "critical" | "warning" | "watch";
@@ -2183,6 +2184,31 @@ function AllLeagues({
             (item) => item.id === league.rosterId,
           );
           if (!team) throw new Error("Roster unavailable");
+          if (payload.league.status === "pre_draft") {
+            return {
+              league,
+              teamName: team.teamName,
+              week: 1,
+              projection: 0,
+              status: "review",
+              health: 100,
+              roster: team.roster,
+              waiverPlayers: [],
+              opponentName: "Schedule begins after the draft",
+              opponentProjection: 0,
+              preDraft: true,
+              issues: [
+                {
+                  id: `${league.id}-draft-prep`,
+                  severity: "watch",
+                  category: "Draft Prep",
+                  title: "Prepare for your upcoming draft",
+                  detail:
+                    "Your league has not drafted yet. Review rankings, tiers, ADP, and roster settings before draft day.",
+                },
+              ],
+            };
+          }
           const starters = team.roster.filter(isStartingPlayer);
           const bench = team.roster.filter((player) => player.role === "Bench");
           const healthyBench = bench.filter(
@@ -2449,7 +2475,9 @@ function AllLeagues({
       sum + scan.issues.filter((issue) => issue.severity === "critical").length,
     0,
   );
-  const readyCount = scans.filter((scan) => scan.status === "ready").length;
+  const readyCount = scans.filter(
+    (scan) => scan.status === "ready" && !scan.preDraft,
+  ).length;
   const inbox = scans.flatMap((scan) =>
     scan.issues.map((issue) => ({ scan, issue })),
   );
@@ -2586,13 +2614,13 @@ function AllLeagues({
             <article className="portfolio-section panel">
               <div className="portfolio-heading"><div><span>WEEKLY READINESS</span><h3>Lineup preparation across your portfolio</h3></div></div>
               <div className="health-list">
-                {scans.map((scan) => <button key={`health-${scan.league.id}`} onClick={() => void onOpen(scan.league)}><span><strong>{scan.league.name}</strong><small>{scan.teamName}</small></span><i><em style={{ width: `${scan.health}%` }} /></i><b>{scan.health}</b></button>)}
+                {scans.map((scan) => <button key={`health-${scan.league.id}`} onClick={() => void onOpen(scan.league, scan.preDraft ? "Player Ranks" : undefined)}><span><strong>{scan.league.name}</strong><small>{scan.preDraft ? "Draft preparation" : scan.teamName}</small></span>{scan.preDraft ? <em className="draft-prep-label">PRE-DRAFT</em> : <><i><em style={{ width: `${scan.health}%` }} /></i><b>{scan.health}</b></>}</button>)}
               </div>
             </article>
             <article className="portfolio-section panel">
               <div className="portfolio-heading"><div><span>LIVE PORTFOLIO</span><h3>This week’s matchup board</h3></div></div>
               <div className="portfolio-matchups">
-                {scans.map((scan) => { const edge = scan.projection - scan.opponentProjection; return <button key={`matchup-${scan.league.id}`} onClick={() => void onOpen(scan.league, "Scoreboard")}><span><strong>{scan.teamName}</strong><small>vs {scan.opponentName}</small></span><b className={edge >= 0 ? "positive" : "negative"}>{scan.opponentProjection ? `${edge >= 0 ? "+" : ""}${edge.toFixed(1)}` : "—"}</b><em>{scan.projection.toFixed(1)}–{scan.opponentProjection ? scan.opponentProjection.toFixed(1) : "—"}</em></button>; })}
+                {scans.map((scan) => scan.preDraft ? <button key={`matchup-${scan.league.id}`} className="pre-draft-matchup" onClick={() => void onOpen(scan.league, "Player Ranks")}><span><strong>{scan.teamName}</strong><small>Draft preparation is open</small></span><b>DRAFT</b><em>View rankings →</em></button> : (() => { const edge = scan.projection - scan.opponentProjection; return <button key={`matchup-${scan.league.id}`} onClick={() => void onOpen(scan.league, "Scoreboard")}><span><strong>{scan.teamName}</strong><small>vs {scan.opponentName}</small></span><b className={edge >= 0 ? "positive" : "negative"}>{scan.opponentProjection ? `${edge >= 0 ? "+" : ""}${edge.toFixed(1)}` : "—"}</b><em>{scan.projection.toFixed(1)}–{scan.opponentProjection ? scan.opponentProjection.toFixed(1) : "—"}</em></button>; })())}
               </div>
             </article>
           </section>
@@ -2632,16 +2660,18 @@ function AllLeagues({
               <header>
                 <div>
                   <span>
-                    WEEK {scan.week} · {scan.league.format.toUpperCase()}
+                    {scan.preDraft ? "DRAFT PREP" : `WEEK ${scan.week}`} · {scan.league.format.toUpperCase()}
                   </span>
                   <h3>{scan.league.name}</h3>
                   <small>
-                    {scan.teamName} · {scan.league.scoring} ·{" "}
-                    {scan.projection.toFixed(1)} projected points
+                    {scan.teamName} · {scan.league.scoring}
+                    {!scan.preDraft && ` · ${scan.projection.toFixed(1)} projected points`}
                   </small>
                 </div>
                 <b>
-                  {scan.status === "urgent"
+                  {scan.preDraft
+                    ? "PRE-DRAFT"
+                    : scan.status === "urgent"
                     ? "ACTION NEEDED"
                     : scan.status === "review"
                       ? "REVIEW"
