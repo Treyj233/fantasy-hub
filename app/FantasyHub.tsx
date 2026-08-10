@@ -1650,7 +1650,7 @@ function SignInScreen() {
 
 function AccountLoading() {
   return (
-    <main className="auth-shell">
+    <main className="auth-shell account-loading-shell">
       <section className="auth-card auth-loading">
         <span>FANTASY HUB</span>
         <h1>Loading your leagues…</h1>
