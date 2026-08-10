@@ -3933,9 +3933,6 @@ function NflGames({
                     })
                   : game.broadcast || game.venue}
               </small>
-              {game.impactPlayers.length > 0 && (
-                <em>{game.impactPlayers.length} MATCHUP PLAYERS</em>
-              )}
               <b className={`game-impact-level leverage-${gameLeverageLevel.toLowerCase().replace(" ", "-")}`}>{gameLeverageLevel} Impact{gameLeverageScore ? ` · ${gameLeverageScore}` : ""}</b>
               {gameWeather &&
                 (gameWeather.indoor || gameWeather.forecastAvailable) && (
@@ -3979,7 +3976,6 @@ function NflGames({
                 </div>
               ))}
             </div>
-            {game.impactPlayers.length > 0 && <section className="why-game-matters"><span>WHY THIS GAME MATTERS</span><strong>{consequentialPlayers[0]?.player.name} is the most consequential player in this game.</strong><small>{yourPlayerCount} player{yourPlayerCount === 1 ? "" : "s"} help you · {opponentPlayerCount} hurt you · {Math.abs(matchupMargin).toFixed(1)}-point current fantasy margin. {game.venue ? `${game.venue} · ` : ""}{game.broadcast || "Kickoff status shown above"}.</small></section>}
             {game.impactPlayers.length > 0 ? (
               <section className="impact-roster">
                 <button
@@ -3990,16 +3986,18 @@ function NflGames({
                   onClick={() => toggleGamePlayers(game.id)}
                 >
                   <span>
-                    <strong>Players in your fantasy matchup</strong>
+                    <strong>{isExpanded ? "Hide matchup players" : "Show matchup players"}</strong>
                     <small>
                       <b>{yourPlayerCount}</b> your team ·{" "}
-                      <b>{opponentPlayerCount}</b> opponent
+                      <b>{opponentPlayerCount}</b> opponent · {game.impactPlayers.length} total
                     </small>
                   </span>
                   <i aria-hidden="true">⌄</i>
                 </button>
                 {isExpanded && (
-                  <div className="impact-roster-players" id={playerPanelId}>
+                  <div className="impact-roster-expanded" id={playerPanelId}>
+                    <section className="why-game-matters"><span>WHY THIS GAME MATTERS</span><strong>{consequentialPlayers[0]?.player.name} is the most consequential player in this game.</strong><small>{yourPlayerCount} player{yourPlayerCount === 1 ? "" : "s"} help you · {opponentPlayerCount} hurt you · {Math.abs(matchupMargin).toFixed(1)}-point current fantasy margin. {game.venue ? `${game.venue} · ` : ""}{game.broadcast || "Kickoff status shown above"}.</small></section>
+                  <div className="impact-roster-players">
                     {(["You", "Opponent"] as const).map((side) => {
                       const sidePlayers = game.impactPlayers.filter(
                         (player) => player.side === side,
@@ -4030,6 +4028,7 @@ function NflGames({
                         </section>
                       );
                     })}
+                  </div>
                   </div>
                 )}
               </section>

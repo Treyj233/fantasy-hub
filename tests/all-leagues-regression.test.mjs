@@ -42,4 +42,6 @@ test("expanded NFL games separate readable player groups", async () => {
   assert.match(source, /YOUR TEAM/);
   assert.match(source, /OPPONENT/);
   assert.match(source, /sidePlayers\.map/);
+  assert.match(source, /isExpanded \? "Hide matchup players" : "Show matchup players"/);
+  assert.match(source, /impact-roster-expanded/);
 });
