@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-type View = "Command Center" | "Scoreboard" | "My Team" | "Player Ranks" | "Start / Sit" | "Waiver Wire" | "Trade Lab" | "Matchups" | "Simulator";
+type View = "Command Center" | "Scoreboard" | "Dynasty Analytics" | "My Team" | "Player Ranks" | "Start / Sit" | "Waiver Wire" | "Trade Lab" | "Matchups" | "Simulator";
 type Player = { id: string; name: string; position: string; team: string; opponent: string; projection: number; leagueProjection?: number | null; floor: number; ceiling: number; trend: number; status: string; role: string };
 type RankedPlayer = Player & { overallRank: number; positionRank: number; tier: 1 | 2 | 3 | 4; outlook: string };
 type PlayerWeek = { season: string; week: number; points: number; totalYards: number; touchdowns: number; passYards: number; passTouchdowns: number; interceptions: number; rushAttempts: number; rushYards: number; rushTouchdowns: number; targets: number; receptions: number; receivingYards: number; receivingTouchdowns: number };
@@ -22,6 +22,7 @@ type TradeSuggestion = { id: string; title: string; receive: { name: string; met
 
 const nav: { label: View; mark: string }[] = [
   { label: "Command Center", mark: "★" }, { label: "Scoreboard", mark: "▣" }, { label: "My Team", mark: "●" },
+  { label: "Dynasty Analytics", mark: "◈" },
   { label: "Player Ranks", mark: "♛" }, { label: "Start / Sit", mark: "⚡" }, { label: "Waiver Wire", mark: "+" },
   { label: "Trade Lab", mark: "↔" }, { label: "Matchups", mark: "◎" },
   { label: "Simulator", mark: "✦" },
@@ -184,6 +185,7 @@ export default function FantasyHub({ accountUser }: { accountUser: AccountUser |
 
   async function openConnectedLeague(league: ConnectedLeague) {
     setLeagueId(league.id);
+    if (league.format !== "Dynasty" && view === "Dynasty Analytics") setView("Command Center");
     await importLeague(league.id, connection?.sleeperUserId);
   }
 
@@ -198,6 +200,9 @@ export default function FantasyHub({ accountUser }: { accountUser: AccountUser |
   }
 
   const selectedLeagueTeam = leagueTeams.find((team) => team.id === selectedTeamId);
+  const selectedConnectedLeague = availableLeagues.find((league) => league.id === leagueId);
+  const isDynastyLeague = selectedConnectedLeague?.format === "Dynasty" || rankingContext?.format === "Dynasty";
+  const visibleNav = nav.filter((item) => item.label !== "Dynasty Analytics" || isDynastyLeague);
 
   if (!accountUser) return <SignInScreen />;
   if (accountLoading) return <AccountLoading />;
@@ -208,7 +213,7 @@ export default function FantasyHub({ accountUser }: { accountUser: AccountUser |
       <aside className="sidebar">
         <div className="brand"><span className="brand-mark">FH</span><div><strong>Fantasy Hub</strong><small>Make every week count.</small></div></div>
         <div className="league-card"><span>ACTIVE LEAGUE</span><strong>{leagueName}</strong><small>{selectedLeagueTeam ? `${selectedLeagueTeam.teamName} · ` : ""}PPR · Week 8</small></div>
-        <nav aria-label="Fantasy Hub sections">{nav.map((item) => <button key={item.label} className={view === item.label ? "active" : ""} onClick={() => setView(item.label)}><i>{item.mark}</i>{item.label}</button>)}</nav>
+        <nav aria-label="Fantasy Hub sections">{visibleNav.map((item) => <button key={item.label} className={view === item.label ? "active" : ""} onClick={() => setView(item.label)}><i>{item.mark}</i>{item.label}</button>)}</nav>
         <div className="sidebar-bottom"><div><span className="live-dot" /> DATA CURRENT</div><small>Lineups lock Sunday · 12:00 PM</small></div>
       </aside>
 
@@ -221,6 +226,7 @@ export default function FantasyHub({ accountUser }: { accountUser: AccountUser |
 
         {view === "Command Center" && <CommandCenter players={players} totals={totals} setView={setView} setSelectedPlayer={setSelectedPlayer} starterChoice={starterChoice} setStarterChoice={setStarterChoice} />}
         {view === "Scoreboard" && <Scoreboard leagueId={leagueId} />}
+        {view === "Dynasty Analytics" && isDynastyLeague && <DynastyAnalytics players={players} rankings={leagueRankings} context={rankingContext} setSelectedPlayer={setSelectedPlayer} />}
         {view === "My Team" && <MyTeam players={players} setSelectedPlayer={setSelectedPlayer} />}
         {view === "Player Ranks" && <PlayerRanks roster={players} leagueRankings={leagueRankings} context={rankingContext} setSelectedPlayer={setSelectedPlayer} />}
         {view === "Start / Sit" && <StartSit players={players} choice={starterChoice} setChoice={setStarterChoice} teamProjection={totals.projection} />}
@@ -287,6 +293,50 @@ function Scoreboard({ leagueId }: { leagueId: string }) {
 
   if (!leagueId) return <div className="page-content"><SectionIntro kicker="WEEKLY SCOREBOARD" title="Choose a league to see every matchup" text="Select one of your connected leagues above and the live scoreboard will identify your matchup automatically." /><section className="panel scoreboard-empty">No league selected.</section></div>;
   return <div className="page-content"><section className="scoreboard-head"><div><span>WEEKLY SCOREBOARD</span><h2>{data?.league.name ?? "Loading league scores…"}</h2><p>Scores and player stat lines refresh automatically every 30 seconds.</p></div><label>Week<select value={week ?? ""} onChange={(event) => setWeek(Number(event.target.value))}>{Array.from({ length: 18 }, (_, index) => index + 1).map((value) => <option key={value} value={value}>Week {value}</option>)}</select></label><div className="live-refresh"><i />{loading ? "Refreshing" : `Updated ${data ? new Date(data.updatedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "—"}`}</div></section>{error && <section className="scoreboard-error">{error}</section>}<div className="scoreboard-grid">{data?.matchups.map((matchup) => { const away = matchup.teams[0]; const home = matchup.teams[1]; const leader = home && away ? (away.points > home.points ? away.rosterId : home.rosterId) : ""; return <article className={`score-game ${matchup.teams.some((team) => team.isMine) ? "my-game" : ""}`} key={matchup.matchupId}><header><span className={matchup.status === "Live" ? "game-live" : ""}>{matchup.status === "Live" ? "● LIVE" : matchup.status}</span><b>{matchup.teams.some((team) => team.isMine) ? "YOUR MATCHUP" : `MATCHUP ${matchup.matchupId}`}</b></header><div className="score-bug">{[away, home].filter(Boolean).map((team) => <div className={team.isMine ? "mine" : ""} key={team.rosterId}><span>{team.teamName.slice(0, 3).toUpperCase()}</span><p><strong>{team.teamName}</strong><small>{team.managerName}{team.isMine ? " · YOU" : ""}</small></p><b>{team.points.toFixed(2)}</b>{leader === team.rosterId && <i>▲</i>}</div>)}</div><div className="game-stats">{[away, home].filter(Boolean).map((team) => <section key={team.rosterId}><h4>{team.teamName} leaders</h4>{team.topPlayers.slice(0, 3).map((player) => <div key={player.id}><span className={`pos pos-${player.position.toLowerCase()}`}>{player.position}</span><p><strong>{player.name}</strong><small>{player.nflTeam} · {player.isStarter ? "Starter" : "Bench"}</small></p><b>{player.points.toFixed(1)}<small>PTS</small></b><em>{player.yards} YDS{player.touchdowns ? ` · ${player.touchdowns} TD` : ""}{player.targets ? ` · ${player.receptions}/${player.targets} REC` : ""}</em></div>)}</section>)}</div></article>; })}</div>{data && !data.matchups.length && <section className="panel scoreboard-empty">No matchups have been posted for Week {data.week}.</section>}</div>;
+}
+
+const dynastyCurves: Record<string, { peakEnd: number; annualDecline: number }> = {
+  QB: { peakEnd: 34, annualDecline: 1.5 }, RB: { peakEnd: 27, annualDecline: 4.2 }, WR: { peakEnd: 30, annualDecline: 2.6 }, TE: { peakEnd: 31, annualDecline: 2.1 }, K: { peakEnd: 34, annualDecline: 1.4 }, DEF: { peakEnd: 99, annualDecline: 0 },
+};
+
+function DynastyAnalytics({ players, rankings, context, setSelectedPlayer }: { players: Player[]; rankings: LeagueRanking[]; context: RankingContext | null; setSelectedPlayer: (player: Player) => void }) {
+  const rosterIds = new Set(players.map((player) => player.id));
+  const assets = rankings.filter((player) => rosterIds.has(player.id) && player.age).map((player) => {
+    const curve = dynastyCurves[player.position] ?? { peakEnd: 29, annualDecline: 2.5 };
+    const yearsToCliff = curve.peakEnd - (player.age ?? curve.peakEnd);
+    const phase = yearsToCliff >= 3 ? "Development" : yearsToCliff >= 0 ? "Prime" : "Cliff watch";
+    return { ...player, curve, yearsToCliff, phase };
+  });
+  const starters = assets.filter((player) => players.find((rosterPlayer) => rosterPlayer.id === player.id)?.role !== "Bench");
+  const averageAge = assets.length ? assets.reduce((sum, player) => sum + (player.age ?? 0), 0) / assets.length : 0;
+  const cliffWatch = assets.filter((player) => player.yearsToCliff <= 1 && player.position !== "K" && player.position !== "DEF").sort((a, b) => a.yearsToCliff - b.yearsToCliff || a.overallRank - b.overallRank);
+  const youngCore = assets.filter((player) => player.yearsToCliff >= 3 && player.overallRank <= (context?.teams ?? 12) * 8).sort((a, b) => a.overallRank - b.overallRank);
+  const positionCounts = assets.reduce<Record<string, number>>((counts, player) => ({ ...counts, [player.position]: (counts[player.position] ?? 0) + 1 }), {});
+  const baseStrength = starters.length ? starters.reduce((sum, player) => sum + Math.max(20, 105 - player.overallRank * .7), 0) / starters.length : 50;
+  const outlook = [0, 1, 2, 3].map((year) => {
+    const score = starters.length ? starters.reduce((sum, player) => {
+      const futureAge = (player.age ?? player.curve.peakEnd) + year;
+      const decline = Math.max(0, futureAge - player.curve.peakEnd) * player.curve.annualDecline;
+      const development = futureAge <= player.curve.peakEnd - 3 ? Math.min(5, year * 1.3) : 0;
+      return sum + Math.max(15, 105 - player.overallRank * .7 - decline + development);
+    }, 0) / starters.length : 50;
+    return { year: new Date().getUTCFullYear() + year, score: Math.round(Math.min(99, Math.max(20, score))) };
+  });
+  const trajectory = outlook[3].score - outlook[0].score;
+  const strategy = baseStrength >= 72 && trajectory >= -7 ? "Compete while protecting the next window" : baseStrength >= 62 ? "Re-tool without stripping the core" : "Accumulate ascending assets and future flexibility";
+
+  if (!assets.length) return <div className="page-content"><SectionIntro kicker="DYNASTY ANALYTICS" title="Your long-term roster model is loading" text="Reopen this dynasty league to refresh player ages, values, and roster ownership." /><section className="panel scoreboard-empty">No dynasty player-age sample is available yet.</section></div>;
+  return <div className="page-content dynasty-page"><section className="dynasty-hero"><div><span>DYNASTY COMMAND CENTER</span><h2>{strategy}</h2><p>Age curves, league-adjusted player value, positional scarcity, lineup role, and multi-year trajectory shape this roster plan.</p></div><div className="window-score"><small>WINDOW SCORE</small><strong>{Math.round(baseStrength)}</strong><span>{trajectory >= 0 ? "+" : ""}{trajectory} over three years</span></div></section><div className="dynasty-metrics"><Metric label="Roster age" value={averageAge.toFixed(1)} detail={`${assets.length} age-qualified assets`} /><Metric label="Young core" value={String(youngCore.length)} detail="High-value assets 3+ years from cliff" tone="good" /><Metric label="Cliff watch" value={String(cliffWatch.length)} detail="At or within one year of peak end" tone={cliffWatch.length ? "warn" : "good"} /><Metric label="Three-year trend" value={`${trajectory >= 0 ? "+" : ""}${trajectory}`} detail="Modeled starter-window movement" tone={trajectory >= 0 ? "good" : "warn"} /></div><div className="dynasty-main"><section className="panel dynasty-trajectory"><Header eyebrow="COMPETITIVE WINDOW" title="Four-year roster trajectory" /><div className="window-bars">{outlook.map((season, index) => <div key={season.year}><span>{season.score}</span><i style={{ height: `${season.score}%` }} className={season.score >= 72 ? "open" : season.score >= 60 ? "fringe" : "build"} /><b>{season.year}</b><small>{index === 0 ? "Now" : index === 3 ? "3-year" : `Year ${index}`}</small></div>)}</div><p>The window score blends starter quality with position-specific development and decline. It is a planning range, not a guarantee of standings.</p></section><section className="panel dynasty-allocation"><Header eyebrow="ASSET ALLOCATION" title="Roster timeline by position" /><div className="allocation-grid">{["QB","RB","WR","TE"].map((position) => { const room = assets.filter((player) => player.position === position); const prime = room.filter((player) => player.phase === "Prime").length; const development = room.filter((player) => player.phase === "Development").length; const cliff = room.filter((player) => player.phase === "Cliff watch").length; return <article key={position}><strong>{position}</strong><span>{positionCounts[position] ?? 0} assets</span><div><i className="develop" style={{ width: `${room.length ? development / room.length * 100 : 0}%` }} /><i className="prime" style={{ width: `${room.length ? prime / room.length * 100 : 0}%` }} /><i className="cliff" style={{ width: `${room.length ? cliff / room.length * 100 : 0}%` }} /></div><small>{development} developing · {prime} prime · {cliff} cliff</small></article>; })}</div></section></div><div className="dynasty-lists"><section className="panel"><Header eyebrow="AGE CLIFF" title="Succession-plan watchlist" /><p className="model-caveat">A cliff flag does not mean “sell.” It signals rising downside and a need to preserve options before urgency reduces leverage.</p><div className="dynasty-player-list">{cliffWatch.slice(0, 6).map((player) => <button key={player.id} onClick={() => setSelectedPlayer(player)}><span className={`pos pos-${player.position.toLowerCase()}`}>{player.position}</span><p><strong>{player.name}</strong><small>Age {player.age} · {player.yearsToCliff < 0 ? `${Math.abs(player.yearsToCliff)} past peak end` : player.yearsToCliff === 0 ? "At modeled peak end" : `${player.yearsToCliff} year to peak end`}</small></p><b>#{player.overallRank}<small>League rank</small></b><em className={player.yearsToCliff < 0 ? "danger" : "watch"}>{player.yearsToCliff < 0 ? "Succession now" : "Prepare"}</em></button>)}{!cliffWatch.length && <p className="dynasty-empty">No core skill-position assets are inside the immediate cliff window.</p>}</div></section><section className="panel"><Header eyebrow="CORE ASSETS" title="Build-around timeline" /><p className="model-caveat">Young age alone is not value. These players combine runway with useful league-adjusted rank and roster role.</p><div className="dynasty-player-list">{youngCore.slice(0, 6).map((player) => <button key={player.id} onClick={() => setSelectedPlayer(player)}><span className={`pos pos-${player.position.toLowerCase()}`}>{player.position}</span><p><strong>{player.name}</strong><small>Age {player.age} · {player.yearsToCliff} years to peak end</small></p><b>#{player.overallRank}<small>League rank</small></b><em className="core">Build around</em></button>)}{!youngCore.length && <p className="dynasty-empty">No high-confidence young core has emerged from the current roster sample.</p>}</div></section></div><section className="panel dynasty-plan"><Header eyebrow="GM HUB PLAYBOOK" title="Three dynasty management priorities" /><div>{buildDynastyPriorities({ cliffWatch, youngCore, trajectory, positionCounts }).map((priority, index) => <article key={priority.title}><b>0{index + 1}</b><span><strong>{priority.title}</strong><p>{priority.detail}</p></span><em>{priority.horizon}</em></article>)}</div></section></div>;
+}
+
+function buildDynastyPriorities({ cliffWatch, youngCore, trajectory, positionCounts }: { cliffWatch: (LeagueRanking & { yearsToCliff: number })[]; youngCore: LeagueRanking[]; trajectory: number; positionCounts: Record<string, number> }) {
+  const firstCliff = cliffWatch[0];
+  const firstCore = youngCore[0];
+  return [
+    firstCliff ? { title: `Create optionality behind ${firstCliff.name}`, detail: `${firstCliff.position} decline risk typically accelerates after this modeled window. Add a developmental alternative or test the market without forcing a sale below value.`, horizon: firstCliff.yearsToCliff < 0 ? "Now" : "This season" } : { title: "Preserve the clean age curve", detail: "No immediate cliff concentration is present. Avoid replacing useful prime production simply to become younger.", horizon: "Ongoing" },
+    firstCore ? { title: `Build the next window around ${firstCore.name}`, detail: `The roster’s strongest combination of league-adjusted value and runway should anchor multi-year trade decisions. Avoid exchanging that runway for marginal weekly gains.`, horizon: "2–3 years" } : { title: "Acquire one foundational young asset", detail: "The roster lacks a clear high-value player with three or more seasons of modeled runway. Prioritize quality over collecting low-upside youth.", horizon: "Next market" },
+    trajectory < -5 ? { title: "Reduce synchronized decline risk", detail: `The starter window falls ${Math.abs(trajectory)} points over three years. Stagger veteran exits so several positions do not lose value in the same offseason.`, horizon: "Before decline" } : { title: "Use depth to extend the competitive window", detail: `The three-year window is stable. Convert excess concentration${(positionCounts.WR ?? 0) >= 6 ? " at wide receiver" : " in deep rooms"} into scarcer starting value or future flexibility.`, horizon: "Trade window" },
+  ];
 }
 
 function CommandCenter({ players, totals, setView, setSelectedPlayer, starterChoice, setStarterChoice }: { players: Player[]; totals: { projection: number; ceiling: number }; setView: (v: View) => void; setSelectedPlayer: (p: Player) => void; starterChoice: string; setStarterChoice: (v: string) => void }) {
