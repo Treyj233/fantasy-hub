@@ -5383,7 +5383,13 @@ function tradeAsset(
 ): TradeAssetValue {
   const ranking = rankingById.get(player.id);
   const rankValue = ranking
-    ? Math.max(20, Math.min(99, Math.round(103 - ranking.overallRank * 0.28)))
+    ? Math.max(
+        12,
+        Math.min(
+          96,
+          Math.round(104 - Math.log(ranking.overallRank + 1) * 13),
+        ),
+      )
     : Math.max(10, Math.min(82, Math.round(player.projection * 3.2)));
   const age = ranking?.age ?? null;
   const dynastyAge = !age
@@ -5451,7 +5457,11 @@ function tradeRosterStrength(
   const positionScore = (player: Player) => {
     const ranking = rankingById.get(player.id);
     return ranking
-      ? Math.max(10, 110 - ranking.overallRank * 0.35)
+      ? tradeAsset(
+          player,
+          rankingById,
+          context?.format ?? "Redraft",
+        ).value
       : player.projection * 3;
   };
   const take = (position: string, count: number) =>
@@ -5548,10 +5558,26 @@ function buildTradeSuggestions(
       const partnerTargetNeedRank = partnerNeedOrder.get(target.position) ?? 9;
       if (yourNeedRank > 2 || partnerNeedRank > 2) return [];
       if (yourOfferNeedRank === 0 || partnerTargetNeedRank === 0) return [];
+      const targetRank = rankingById.get(target.id)?.overallRank ?? 999;
+      const offerRank = rankingById.get(offer.id)?.overallRank ?? 999;
+      const betterRank = Math.min(targetRank, offerRank);
+      const worseRank = Math.max(targetRank, offerRank);
+      const leagueSize = context?.teams ?? 12;
+      const eliteAsset = betterRank <= leagueSize;
+      if (
+        (eliteAsset && worseRank > leagueSize * 3) ||
+        (betterRank <= leagueSize * 3 && worseRank > betterRank * 2.5)
+      )
+        return [];
       const valueGap =
         Math.abs(offer.value - target.value * premium) /
         Math.max(1, target.value);
-      if (valueGap > 0.28) return [];
+      const maximumValueGap = eliteAsset
+        ? 0.12
+        : betterRank <= leagueSize * 3
+          ? 0.18
+          : 0.25;
+      if (valueGap > maximumValueGap) return [];
       const targetPlayer = partner.roster.find(
         (player) => player.id === target.id,
       )!;
