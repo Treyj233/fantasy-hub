@@ -1276,10 +1276,19 @@ export default function FantasyHub({
     targetLeagueId: string,
     position: "before" | "after",
   ) {
-    if (!draggedLeagueId || draggedLeagueId === targetLeagueId) return;
+    if (!draggedLeagueId) return;
+    reorderConnectedLeague(draggedLeagueId, targetLeagueId, position);
+  }
+
+  function reorderConnectedLeague(
+    sourceLeagueId: string,
+    targetLeagueId: string,
+    position: "before" | "after",
+  ) {
+    if (sourceLeagueId === targetLeagueId) return;
     setAvailableLeagues((current) => {
       const fromIndex = current.findIndex(
-        (league) => league.id === draggedLeagueId,
+        (league) => league.id === sourceLeagueId,
       );
       if (fromIndex < 0) return current;
       const ordered = [...current];
@@ -1832,6 +1841,7 @@ export default function FantasyHub({
             onAdd={addManagedLeague}
             onRemove={removeManagedLeague}
             onMove={moveConnectedLeague}
+            onReorder={reorderConnectedLeague}
           />
         )}
       </section>
@@ -1947,6 +1957,7 @@ function ManageLeagues({
   onAdd,
   onRemove,
   onMove,
+  onReorder,
 }: {
   connectedLeagues: ConnectedLeague[];
   managedLeagues: ManagedLeague[];
@@ -1961,6 +1972,11 @@ function ManageLeagues({
   ) => Promise<void>;
   onRemove: (id: string) => Promise<void>;
   onMove: (id: string, direction: -1 | 1) => void;
+  onReorder: (
+    sourceId: string,
+    targetId: string,
+    position: "before" | "after",
+  ) => void;
 }) {
   const [provider, setProvider] = useState<LeagueProvider>("sleeper");
   const [identifierType, setIdentifierType] = useState<
@@ -1968,6 +1984,11 @@ function ManageLeagues({
   >("username");
   const [identifier, setIdentifier] = useState("");
   const [busy, setBusy] = useState(false);
+  const [draggedLeagueId, setDraggedLeagueId] = useState("");
+  const [dropTarget, setDropTarget] = useState<{
+    id: string;
+    position: "before" | "after";
+  } | null>(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const providers: {
@@ -2250,7 +2271,50 @@ function ManageLeagues({
           <b>{connectedLeagues.length + managedLeagues.length} records</b>
         </div>
         {connectedLeagues.map((league, index) => (
-          <article key={`live-${league.id}`}>
+          <article
+            key={`live-${league.id}`}
+            className={`connected-league-row ${draggedLeagueId === league.id ? "dragging" : ""} ${dropTarget?.id === league.id && draggedLeagueId !== league.id ? `drop-${dropTarget.position}` : ""}`}
+            draggable
+            onDragStart={(event) => {
+              setDraggedLeagueId(league.id);
+              event.dataTransfer.effectAllowed = "move";
+              event.dataTransfer.setData("text/plain", league.id);
+            }}
+            onDragOver={(event) => {
+              event.preventDefault();
+              event.dataTransfer.dropEffect = "move";
+              if (draggedLeagueId !== league.id) {
+                const bounds = event.currentTarget.getBoundingClientRect();
+                setDropTarget({
+                  id: league.id,
+                  position:
+                    event.clientY < bounds.top + bounds.height / 2
+                      ? "before"
+                      : "after",
+                });
+              }
+            }}
+            onDrop={(event) => {
+              event.preventDefault();
+              if (draggedLeagueId && draggedLeagueId !== league.id) {
+                const bounds = event.currentTarget.getBoundingClientRect();
+                onReorder(
+                  draggedLeagueId,
+                  league.id,
+                  event.clientY < bounds.top + bounds.height / 2
+                    ? "before"
+                    : "after",
+                );
+              }
+              setDropTarget(null);
+            }}
+            onDragEnd={() => {
+              setDraggedLeagueId("");
+              setDropTarget(null);
+            }}
+            title="Drag to reorder this league"
+          >
+            <i className="manage-drag-handle" aria-hidden="true">⋮⋮</i>
             <i className="provider-badge sleeper">S</i>
             <p>
               <strong>{league.name}</strong>
