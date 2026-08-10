@@ -13,6 +13,7 @@ type LeagueManager = { id: string; name: string; teamName: string; style: TradeS
 type DraftPick = { season: number; round: number; originalRosterId: number; ownerRosterId: number; value: number };
 type LeagueTeam = { id: string; ownerId?: string; managerName: string; teamName: string; roster: Player[]; draftCapital?: { score: number; picks: DraftPick[] } };
 type LeagueRanking = Player & { overallRank: number; rankingValue: number; age?: number | null; ageAdjustment: number; lineupAdjustment: number };
+type WaiverPlayer = LeagueRanking;
 type RankingContext = { format: "Dynasty" | "Keeper" | "Redraft"; scoring: string; teams: number; rosterSlots: string[]; positionDemand: Record<string, number>; tePremium: number; passTouchdown: number; interception: number; bonusRuleCount: number; scoringRuleCount: number };
 type AccountUser = { displayName: string; email: string };
 type SleeperConnection = { sleeperUserId: string; sleeperUsername: string; displayName: string; avatar?: string | null };
@@ -49,12 +50,6 @@ const rankedPlayers: RankedPlayer[] = [
   { id:"rank-14",name:"De'Von Achane",position:"RB",team:"MIA",opponent:"@ BUF",projection:18.6,floor:9.8,ceiling:33.2,trend:1.5,status:"Healthy",role:"RB1",overallRank:14,positionRank:4,tier:3,outlook:"Volatility is offset by rare per-touch upside." },
   { id:"rank-15",name:"George Kittle",position:"TE",team:"SF",opponent:"vs SEA",projection:13.8,floor:7.4,ceiling:23.9,trend:-.7,status:"Questionable",role:"TE1",overallRank:15,positionRank:3,tier:3,outlook:"Efficiency remains elite, with availability and volume adding risk." },
   { id:"rank-16",name:"Malik Nabers",position:"WR",team:"NYG",opponent:"@ DAL",projection:18.2,floor:10.7,ceiling:29.7,trend:1.6,status:"Healthy",role:"WR1",overallRank:16,positionRank:6,tier:3,outlook:"Target dominance supports WR1 outcomes despite team volatility." },
-];
-
-const waivers = [
-  { name: "Tre Harris", pos: "WR", team: "LAC", rostered: 38, score: 91, faab: "12–17%", why: "Route participation and red-zone role are rising together." },
-  { name: "Bhayshul Tuten", pos: "RB", team: "JAX", rostered: 31, score: 87, faab: "9–13%", why: "High-leverage touches create an immediate contingent ceiling." },
-  { name: "Harold Fannin Jr.", pos: "TE", team: "CLE", rostered: 19, score: 82, faab: "5–8%", why: "Target share is stronger than his current roster rate implies." },
 ];
 
 const demoManagers: LeagueManager[] = [
@@ -94,6 +89,8 @@ export default function FantasyHub({ accountUser }: { accountUser: AccountUser |
   const [selectedTeamId, setSelectedTeamId] = useState("");
   const [leagueRankings, setLeagueRankings] = useState<LeagueRanking[]>([]);
   const [rankingContext, setRankingContext] = useState<RankingContext | null>(null);
+  const [waiverPlayers, setWaiverPlayers] = useState<WaiverPlayer[]>([]);
+  const [leagueStatus, setLeagueStatus] = useState("unknown");
   const [connection, setConnection] = useState<SleeperConnection | null>(null);
   const [availableLeagues, setAvailableLeagues] = useState<ConnectedLeague[]>([]);
   const [accountLoading, setAccountLoading] = useState(Boolean(accountUser));
@@ -148,12 +145,14 @@ export default function FantasyHub({ accountUser }: { accountUser: AccountUser |
     setSelectedTeamId("");
     setLeagueRankings([]);
     setRankingContext(null);
+    setWaiverPlayers([]);
+    setLeagueStatus("unknown");
     setManagers([]);
     setSelectedPlayer(null);
     try {
       const response = await fetch(`/api/league?id=${encodeURIComponent(requestedLeagueId)}`);
       if (!response.ok) throw new Error("League not found");
-      const data = await response.json() as { league: { name: string }; teams?: LeagueTeam[]; managers?: LeagueManager[]; rankings?: LeagueRanking[]; rankingContext?: RankingContext };
+      const data = await response.json() as { league: { name: string; status?: string }; teams?: LeagueTeam[]; managers?: LeagueManager[]; rankings?: LeagueRanking[]; waiverPlayers?: WaiverPlayer[]; rankingContext?: RankingContext };
       if (requestNumber !== importRequest.current) return;
       setLeagueName(data.league.name);
       const importedTeams = data.teams ?? [];
@@ -168,6 +167,8 @@ export default function FantasyHub({ accountUser }: { accountUser: AccountUser |
       }
       setManagers(data.managers ?? []);
       setLeagueRankings(data.rankings ?? []);
+      setWaiverPlayers(data.waiverPlayers ?? []);
+      setLeagueStatus(data.league.status ?? "unknown");
       setRankingContext(data.rankingContext ?? null);
       setImportState("success");
     } catch {
@@ -246,7 +247,7 @@ export default function FantasyHub({ accountUser }: { accountUser: AccountUser |
 
         {leagueTeams.length > 1 && <section className={`team-picker-strip ${selectedTeamId ? "selected" : ""}`}><div><span>{selectedTeamId ? "YOUR TEAM IS ACTIVE" : "ONE MORE STEP"}</span><strong>{selectedLeagueTeam ? selectedLeagueTeam.teamName : "Which team is yours?"}</strong><small>{selectedLeagueTeam ? `Managed by ${selectedLeagueTeam.managerName}. Your roster now powers every dashboard view.` : "Choose your fantasy team so another manager’s roster never replaces yours."}</small></div><label>Fantasy team<select value={selectedTeamId} onChange={(event) => selectLeagueTeam(event.target.value)}><option value="">Choose your team</option>{leagueTeams.map((team) => <option key={team.id} value={team.id}>{team.teamName} · {team.managerName}</option>)}</select></label></section>}
 
-        {view === "Command Center" && (rosterReady ? <CommandCenter players={players} totals={totals} setView={setView} setSelectedPlayer={setSelectedPlayer} starterChoice={starterChoice} setStarterChoice={setStarterChoice} /> : rosterEmptyState)}
+        {view === "Command Center" && (rosterReady ? <CommandCenter players={players} waiverPlayers={waiverPlayers} totals={totals} setView={setView} setSelectedPlayer={setSelectedPlayer} starterChoice={starterChoice} setStarterChoice={setStarterChoice} /> : rosterEmptyState)}
         {view === "Scoreboard" && <Scoreboard leagueId={leagueId} />}
         {view === "NFL Games" && <NflGames leagueId={leagueId} />}
         {view === "Dynasty Analytics" && isDynastyLeague && (rosterReady ? <DynastyAnalytics players={players} rankings={leagueRankings} context={rankingContext} setSelectedPlayer={setSelectedPlayer} /> : rosterEmptyState)}
@@ -254,7 +255,7 @@ export default function FantasyHub({ accountUser }: { accountUser: AccountUser |
         {view === "Team Rankings" && <TeamRankings teams={leagueTeams} selectedTeamId={selectedTeamId} rankings={leagueRankings} context={rankingContext} setSelectedPlayer={setSelectedPlayer} />}
         {view === "Player Ranks" && <PlayerRanks roster={players} leagueRankings={leagueRankings} context={rankingContext} setSelectedPlayer={setSelectedPlayer} />}
         {view === "Start / Sit" && (rosterReady ? <StartSit players={players} choice={starterChoice} setChoice={setStarterChoice} teamProjection={totals.projection} context={rankingContext} /> : rosterEmptyState)}
-        {view === "Waiver Wire" && <WaiverWire />}
+        {view === "Waiver Wire" && <WaiverWire key={leagueId || "no-league"} players={waiverPlayers} leagueSelected={Boolean(leagueId)} leagueStatus={leagueStatus} context={rankingContext} setSelectedPlayer={setSelectedPlayer} />}
         {view === "Trade Lab" && <TradeLab managers={managers} />}
         {view === "Matchups" && (rosterReady ? <Matchups players={players} /> : rosterEmptyState)}
         {view === "Simulator" && (rosterReady ? <Simulator simulations={simulations} setSimulations={setSimulations} shift={simShift} run={runSimulation} /> : rosterEmptyState)}
@@ -411,7 +412,7 @@ function buildDynastyPriorities({ cliffWatch, youngCore, trajectory, positionCou
   ];
 }
 
-function CommandCenter({ players, totals, setView, setSelectedPlayer, starterChoice, setStarterChoice }: { players: Player[]; totals: { projection: number; ceiling: number }; setView: (v: View) => void; setSelectedPlayer: (p: Player) => void; starterChoice: string; setStarterChoice: (v: string) => void }) {
+function CommandCenter({ players, waiverPlayers, totals, setView, setSelectedPlayer, starterChoice, setStarterChoice }: { players: Player[]; waiverPlayers: WaiverPlayer[]; totals: { projection: number; ceiling: number }; setView: (v: View) => void; setSelectedPlayer: (p: Player) => void; starterChoice: string; setStarterChoice: (v: string) => void }) {
   const concern = players.find((p) => p.status !== "Healthy");
   const flexCandidates = players.filter((player) => player.position !== "QB" && player.position !== "DEF");
   const primaryDecision = players.find((player) => player.name === "Rome Odunze") ?? flexCandidates.at(-2) ?? players[0];
@@ -423,7 +424,7 @@ function CommandCenter({ players, totals, setView, setSelectedPlayer, starterCho
     <div className="main-grid"><section className="panel decision-panel"><Header eyebrow="TOP DECISION" title="Set the final FLEX spot" action="Open Start / Sit" onClick={() => setView("Start / Sit")} /><div className="player-versus"><PlayerChoice player={primaryDecision} active={activeStarter === primaryDecision.name} onClick={() => setStarterChoice(primaryDecision.name)} /><div className="versus">VS</div><PlayerChoice player={secondaryDecision} active={activeStarter === secondaryDecision.name} onClick={() => setStarterChoice(secondaryDecision.name)} /></div><div className="recommendation"><b>START {activeStarter.toUpperCase()}</b><p>Higher route certainty and a better projected game environment create the stronger median outcome.</p></div></section>
       <section className="panel"><Header eyebrow="LINEUP PULSE" title="Your core starters" action="View team" onClick={() => setView("My Team")} /><div className="player-list">{players.slice(0, 4).map((p) => <button key={p.id} onClick={() => setSelectedPlayer(p)}><span className={`pos pos-${p.position.toLowerCase()}`}>{p.position}</span><div><strong>{p.name}</strong><small>{p.team} · {p.opponent}</small></div><div className="points"><strong>{p.projection}</strong><small>PTS</small></div></button>)}</div></section>
     </div>
-    <div className="lower-grid"><section className="panel"><Header eyebrow="WAIVER PRIORITY" title="Move before your league does" action="See all" onClick={() => setView("Waiver Wire")} /><div className="waiver-preview">{waivers.slice(0, 2).map((w, i) => <div key={w.name}><b>0{i + 1}</b><span className="pos pos-wr">{w.pos}</span><p><strong>{w.name}</strong><small>{w.team} · {w.rostered}% rostered</small></p><em>{w.faab} FAAB</em></div>)}</div></section>
+    <div className="lower-grid"><section className="panel"><Header eyebrow="WAIVER PRIORITY" title="Move before your league does" action="See all" onClick={() => setView("Waiver Wire")} /><div className="waiver-preview">{waiverPlayers.slice(0, 2).map((player, i) => <div key={player.id}><b>0{i + 1}</b><span className={`pos pos-${player.position.toLowerCase()}`}>{player.position}</span><p><strong>{player.name}</strong><small>{player.team} · Available in this league</small></p><em>{waiverBid(player, i)}</em></div>)}{!waiverPlayers.length && <p className="waiver-empty">No available-player recommendations yet.</p>}</div></section>
       <section className="panel matchup-card"><Header eyebrow="MATCHUP EDGE" title="Attack this coverage profile" action="Explore" onClick={() => setView("Matchups")} /><strong>DAL receivers vs NYG secondary</strong><p>New York’s zone-heavy profile elevates CeeDee Lamb’s target floor and yards-after-catch opportunity.</p><div><span>Zone rate <b>71%</b></span><span>WR advantage <b>+8.4</b></span></div></section>
     </div>
   </div>;
@@ -517,7 +518,28 @@ function StartSit({ players, choice, setChoice, teamProjection, context }: { pla
   </div>;
 }
 
-function WaiverWire() { const [claimed, setClaimed] = useState<string[]>([]); return <div className="page-content"><SectionIntro kicker="ROSTER MARKET" title="Turn available players into weekly leverage" text="Recommendations account for your roster, role growth, positional scarcity, and FAAB opportunity cost." /><div className="waiver-grid">{waivers.map((w, i) => <article className="waiver-card" key={w.name}><div><b>0{i + 1}</b><span className="score">{w.score} FIT</span></div><span className="pos pos-wr">{w.pos}</span><h3>{w.name}</h3><small>{w.team} · {w.rostered}% rostered</small><p>{w.why}</p><dl><div><dt>Recommended bid</dt><dd>{w.faab}</dd></div><div><dt>Priority</dt><dd>{i === 0 ? "Aggressive" : "Measured"}</dd></div></dl><button onClick={() => setClaimed((c) => c.includes(w.name) ? c.filter((n) => n !== w.name) : [...c, w.name])}>{claimed.includes(w.name) ? "Added to plan" : "Add to waiver plan"}</button></article>)}</div></div>; }
+function waiverBid(player: WaiverPlayer, index: number) {
+  const positionPremium = player.position === "RB" ? 3 : player.position === "WR" ? 2 : player.position === "TE" ? 1 : 0;
+  const midpoint = Math.max(1, Math.min(24, Math.round(player.projection * .55 + player.lineupAdjustment * .35 + positionPremium - index * .35)));
+  return `${Math.max(1, midpoint - 3)}–${Math.min(30, midpoint + 3)}% FAAB`;
+}
+
+function waiverReason(player: WaiverPlayer, context: RankingContext | null) {
+  if (player.status !== "Healthy") return `${player.status} status lowers certainty, but the league-adjusted value keeps this player on the watchlist.`;
+  if (context?.format === "Dynasty" && player.age && player.age <= 24) return `Youth, roster runway, and ${context.scoring} scoring create one of the strongest available dynasty profiles.`;
+  if (player.lineupAdjustment >= 3) return `Your league’s lineup requirements increase ${player.position} scarcity and make this availability more valuable.`;
+  if (player.projection >= 12) return `The current league-scored projection supports immediate lineup utility with usable weekly upside.`;
+  return `This is one of the highest-ranked unrostered players under the league’s scoring and positional demand.`;
+}
+
+function WaiverWire({ players, leagueSelected, leagueStatus, context, setSelectedPlayer }: { players: WaiverPlayer[]; leagueSelected: boolean; leagueStatus: string; context: RankingContext | null; setSelectedPlayer: (player: Player) => void }) {
+  const [planned, setPlanned] = useState<string[]>([]);
+  const [position, setPosition] = useState("ALL");
+  const filtered = players.filter((player) => position === "ALL" || player.position === position).slice(0, 18);
+  if (!leagueSelected) return <div className="page-content"><SectionIntro kicker="ROSTER MARKET" title="Choose a league to open its waiver wire" text="Available players are determined separately for every league." /><section className="panel scoreboard-empty">No league selected.</section></div>;
+  if (leagueStatus === "pre_draft") return <div className="page-content"><SectionIntro kicker="ROSTER MARKET" title="The waiver wire opens after your draft" text="This league has not drafted, so players are not yet classified as rostered or available waiver options." /><section className="panel scoreboard-empty">No post-draft free-agent pool is available yet.</section></div>;
+  return <div className="page-content"><SectionIntro kicker="LIVE LEAGUE AVAILABILITY" title="Turn available players into weekly leverage" text="Every player shown is currently unrostered across this league. Rankings adjust for league scoring, format, lineup demand, positional scarcity, projection, age, and availability." /><section className="waiver-controls panel"><div className="position-filters" role="group" aria-label="Filter waiver wire by position">{["ALL","QB","RB","WR","TE","K","DEF"].map((value) => <button key={value} className={position === value ? "active" : ""} onClick={() => setPosition(value)}>{value}</button>)}</div><span>{filtered.length} available recommendations</span></section><div className="waiver-grid">{filtered.map((player, index) => { const fit = Math.max(55, Math.min(98, Math.round(96 - index * 1.7 + Math.max(-3, player.lineupAdjustment)))); return <article className="waiver-card" key={player.id}><button className="waiver-player-open" onClick={() => setSelectedPlayer(player)} aria-label={`Open ${player.name}`}><div><b>{String(index + 1).padStart(2, "0")}</b><span className="score">{fit} FIT</span></div><span className={`pos pos-${player.position.toLowerCase()}`}>{player.position}</span><h3>{player.name}</h3><small>{player.team} · Available in this league · Overall #{player.overallRank}</small><p>{waiverReason(player, context)}</p></button><dl><div><dt>Recommended bid</dt><dd>{waiverBid(player, index)}</dd></div><div><dt>Priority</dt><dd>{index < 3 ? "Aggressive" : index < 9 ? "Measured" : "Watchlist"}</dd></div></dl><button onClick={() => setPlanned((current) => current.includes(player.id) ? current.filter((id) => id !== player.id) : [...current, player.id])}>{planned.includes(player.id) ? "Added to plan" : "Add to waiver plan"}</button></article>; })}</div>{!filtered.length && <section className="panel scoreboard-empty">No unrostered {position === "ALL" ? "players" : position} options were returned for this league.</section>}</div>;
+}
 
 function TradeLab({ managers }: { managers: LeagueManager[] }) {
   const [selectedId, setSelectedId] = useState(managers[0]?.id ?? "");
