@@ -1,0 +1,72 @@
+.adp-controls {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.8fr) minmax(420px, 1.7fr);
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 15px;
+  padding: 15px 17px;
+}
+.adp-controls > div:first-child span,
+.adp-controls > div:first-child strong {
+  display: block;
+}
+.adp-controls > div:first-child span {
+  color: var(--green);
+  font-size: 8px;
+  font-weight: 950;
+  letter-spacing: 0.13em;
+}
+.adp-controls > div:first-child strong {
+  margin-top: 4px;
+  font-size: 12px;
+}
+.adp-controls > small {
+  grid-column: 1/-1;
+  color: var(--muted);
+  font-size: 9px;
+}
+.adp-sites {
+  display: flex;
+  justify-content: flex-end;
+  gap: 5px;
+  overflow-x: auto;
+}
+.adp-sites button {
+  padding: 8px 10px;
+  color: var(--muted);
+  background: var(--cream);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 9px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+.adp-sites button.active {
+  color: #fff;
+  background: var(--green);
+  border-color: var(--green);
+}
+.rank-adp {
+  color: var(--green);
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+}
+html[data-theme="dark"] .adp-sites button {
+  background: color-mix(in srgb, var(--deep) 48%, #303030);
+  border-color: color-mix(in srgb, var(--green) 35%, #4a4a4a);
+}
+html[data-theme="dark"] .adp-sites button.active {
+  color: #fff;
+  background: var(--green);
+}
+@media (max-width: 800px) {
+  .adp-controls {
+    grid-template-columns: 1fr;
+  }
+  .adp-sites {
+    justify-content: flex-start;
+  }
+  .adp-controls > small {
+    grid-column: auto;
+  }
+}

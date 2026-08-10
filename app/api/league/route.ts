@@ -1,6 +1,20 @@
 type SourcePlayer = { player_id?: string; full_name?: string; first_name?: string; last_name?: string; position?: string; team?: string; injury_status?: string | null; search_rank?: number; age?: number; status?: string; depth_chart_order?: number | null; depth_chart_position?: string | null };
 type SourceProjection = { player_id?: string; stats?: Record<string, number> };
 type MatchupRow = { roster_id?: number; matchup_id?: number | null };
+type AdpRow = { player?: { name?: string }; avg?: number; src_79?: number; src_4350?: number; src_80?: number; src_439?: number; src_624?: number };
+
+const normalizePlayerName = (name: string) => name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "").replace(/(jr|sr|ii|iii|iv)$/, "");
+
+function parsePlatformAdp(html: string) {
+  const match = html.match(/window\.FP\.reportConfig = (\{[^\n]+\});/);
+  if (!match?.[1]) return new Map<string, Record<string, number | null>>();
+  try {
+    const report = JSON.parse(match[1]) as { table?: { rows?: AdpRow[] } };
+    return new Map((report.table?.rows ?? []).flatMap((row) => row.player?.name ? [[normalizePlayerName(row.player.name), { Consensus: row.avg ?? null, Sleeper: row.src_4350 ?? null, ESPN: row.src_79 ?? null, CBS: row.src_80 ?? null, RTSports: row.src_439 ?? null, Fantrax: row.src_624 ?? null }]] : []));
+  } catch {
+    return new Map<string, Record<string, number | null>>();
+  }
+}
 
 export async function GET(request: Request) {
   const id = new URL(request.url).searchParams.get("id")?.trim();
@@ -20,16 +34,23 @@ export async function GET(request: Request) {
     const sourcePlayers = await playersResponse.json() as Record<string, SourcePlayer>;
     const tradedPicks = tradedPicksResponse?.ok ? await tradedPicksResponse.json().catch(() => []) as { season?: string; round?: number; roster_id?: number; owner_id?: number; previous_owner_id?: number }[] : [];
     const projectionWeek = Math.min(18, Math.max(1, league.leg ?? 1));
-    const [projectionResponse, matchupResponse] = await Promise.all([
+    const scoring = league.scoring_settings ?? {};
+    const receptionValue = scoring.rec ?? 1;
+    const adpPath = receptionValue >= .75 ? "ppr-overall" : receptionValue >= .25 ? "half-point-ppr-overall" : "overall";
+    const isDynasty = league.settings?.type === 2;
+    const [projectionResponse, matchupResponse, adpResponse, sleeperAdpResponse] = await Promise.all([
       fetch(`https://api.sleeper.com/projections/nfl/${league.season ?? new Date().getUTCFullYear()}/${projectionWeek}?season_type=regular`, { next: { revalidate: 3600 } }).catch(() => null),
       fetch(`https://api.sleeper.app/v1/league/${id}/matchups/${projectionWeek}`, { next: { revalidate: 60 } }).catch(() => null),
+      isDynasty ? Promise.resolve(null) : fetch(`https://www.fantasypros.com/nfl/adp/${adpPath}.php`, { next: { revalidate: 21600 }, headers: { "User-Agent": "Fantasy Hub ADP comparison" } }).catch(() => null),
+      fetch(`https://api.sleeper.com/projections/nfl/${league.season ?? new Date().getUTCFullYear()}?season_type=regular&order_by=adp_ppr`, { next: { revalidate: 21600 } }).catch(() => null),
     ]);
     const projectionPayload: unknown = projectionResponse?.ok ? await projectionResponse.json().catch(() => []) : [];
     const sourceProjections = Array.isArray(projectionPayload) ? projectionPayload as SourceProjection[] : [];
+    const sleeperAdpPayload: unknown = sleeperAdpResponse?.ok ? await sleeperAdpResponse.json().catch(() => []) : [];
+    const sleeperAdpRows = Array.isArray(sleeperAdpPayload) ? sleeperAdpPayload as SourceProjection[] : [];
     const matchupRows = matchupResponse?.ok ? await matchupResponse.json().catch(() => []) as MatchupRow[] : [];
+    const platformAdp = adpResponse?.ok ? parsePlatformAdp(await adpResponse.text()) : new Map<string, Record<string, number | null>>();
     const matchupByRoster = new Map(matchupRows.flatMap((row) => row.roster_id ? [[row.roster_id, row.matchup_id ?? null]] : []));
-    const scoring = league.scoring_settings ?? {};
-    const receptionValue = scoring.rec ?? 1;
     const projectionKey = receptionValue >= .75 ? "pts_ppr" : receptionValue >= .25 ? "pts_half_ppr" : "pts_std";
     const scoreProjectedStats = (playerId: string, stats: Record<string, number>) => {
       const position = sourcePlayers[playerId]?.position ?? "";
@@ -49,6 +70,12 @@ export async function GET(request: Request) {
     const rosterSlots = league.roster_positions ?? [];
     const slotCounts = rosterSlots.reduce<Record<string, number>>((counts, slot) => ({ ...counts, [slot]: (counts[slot] ?? 0) + 1 }), {});
     const format = league.settings?.type === 2 ? "Dynasty" : league.settings?.type === 1 ? "Keeper" : "Redraft";
+    const superflex = ((slotCounts.SUPER_FLEX ?? 0) + (slotCounts.QB_FLEX ?? 0)) > 0;
+    const sleeperAdpKey = format === "Dynasty" ? (superflex ? "adp_dynasty_2qb" : receptionValue >= .75 ? "adp_dynasty_ppr" : receptionValue >= .25 ? "adp_dynasty_half_ppr" : "adp_dynasty_std") : (superflex ? "adp_2qb" : receptionValue >= .75 ? "adp_ppr" : receptionValue >= .25 ? "adp_half_ppr" : "adp_std");
+    const sleeperAdp = new Map(sleeperAdpRows.flatMap((entry) => {
+      const value = entry.stats?.[sleeperAdpKey];
+      return entry.player_id && typeof value === "number" && value > 0 && value < 999 ? [[entry.player_id, value]] : [];
+    }));
     const receptionLabel = (scoring.rec ?? 0) >= .75 ? "PPR" : (scoring.rec ?? 0) >= .25 ? "Half PPR" : "Standard";
     const tePremiumValue = (scoring.bonus_rec_te ?? 0) + (scoring.rec_te ?? 0);
     const bonusRuleCount = Object.entries(scoring).filter(([key, value]) => key.startsWith("bonus_") && value !== 0).length;
@@ -101,7 +128,12 @@ export async function GET(request: Request) {
       const opportunityAdjustment = projectedPoints < .5 ? -40 : projectedPoints < 2 ? -24 : projectedPoints < 5 ? -10 : 0;
       const value = projectedPoints * 2.35 + rankSignal + lineupAdjustment + ageAdjustment + availabilityAdjustment + opportunityAdjustment;
       const platformProjection = leagueProjections.get(playerId) ?? 0;
-      return [{ id: player.player_id ?? playerId, name: player.full_name ?? `${player.first_name ?? ""} ${player.last_name ?? ""}`.trim(), position, team: player.team, opponent: "Matchup pending", projection: platformProjection, leagueProjection: leagueProjections.get(playerId) ?? null, floor: Number((platformProjection * .68).toFixed(1)), ceiling: Number((platformProjection * 1.38).toFixed(1)), trend: 0, status: player.injury_status ?? "Healthy", role: "Player pool", age: player.age ?? null, rankingValue: Number(value.toFixed(2)), ageAdjustment: Number(ageAdjustment.toFixed(1)), lineupAdjustment: Number(lineupAdjustment.toFixed(1)) }];
+      const name = player.full_name ?? `${player.first_name ?? ""} ${player.last_name ?? ""}`.trim();
+      const marketAdp = platformAdp.get(normalizePlayerName(name)) ?? { Consensus: null, Sleeper: null, ESPN: null, CBS: null, RTSports: null, Fantrax: null };
+      const directSleeperAdp = sleeperAdp.get(playerId) ?? marketAdp.Sleeper ?? null;
+      const availableAdp = Object.values({ ...marketAdp, Sleeper: directSleeperAdp }).filter((item): item is number => typeof item === "number");
+      const adpBySite = { ...marketAdp, Sleeper: directSleeperAdp, Consensus: marketAdp.Consensus ?? (availableAdp.length ? Number((availableAdp.reduce((sum, item) => sum + item, 0) / availableAdp.length).toFixed(1)) : null) };
+      return [{ id: player.player_id ?? playerId, name, position, team: player.team, opponent: "Matchup pending", projection: platformProjection, leagueProjection: leagueProjections.get(playerId) ?? null, floor: Number((platformProjection * .68).toFixed(1)), ceiling: Number((platformProjection * 1.38).toFixed(1)), trend: 0, status: player.injury_status ?? "Healthy", role: "Player pool", age: player.age ?? null, rankingValue: Number(value.toFixed(2)), ageAdjustment: Number(ageAdjustment.toFixed(1)), lineupAdjustment: Number(lineupAdjustment.toFixed(1)), adpBySite }];
     }).sort((a, b) => b.rankingValue - a.rankingValue).slice(0, 600).map((player, index) => ({ ...player, overallRank: index + 1 }));
     const rosteredPlayerIds = new Set(rosters.flatMap((roster) => roster.players ?? []));
     const waiverPlayers = league.status === "pre_draft" ? [] : rankingPool.filter((player) => !rosteredPlayerIds.has(player.id)).slice(0, 75);

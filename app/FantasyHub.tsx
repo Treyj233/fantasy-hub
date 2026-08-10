@@ -38,6 +38,7 @@ type RankedPlayer = Player & {
   positionRank: number;
   tier: 1 | 2 | 3 | 4;
   outlook: string;
+  adpBySite?: Record<string, number | null>;
 };
 type PlayerWeek = {
   season: string;
@@ -106,6 +107,7 @@ type LeagueTeam = {
 type LeagueRanking = Player & {
   overallRank: number;
   rankingValue: number;
+  adpBySite?: Record<string, number | null>;
   age?: number | null;
   ageAdjustment: number;
   lineupAdjustment: number;
@@ -3906,6 +3908,8 @@ function PlayerRanks({
 }) {
   const [position, setPosition] = useState("ALL");
   const [query, setQuery] = useState("");
+  const [adpSite, setAdpSite] = useState("Consensus");
+  const [adpDirection, setAdpDirection] = useState<"asc" | "desc">("asc");
   const rosterNames = new Set(
     roster.map((player) => player.name.toLowerCase()),
   );
@@ -3940,11 +3944,29 @@ function PlayerRanks({
     };
   });
   const pool = personalizedPool.length ? personalizedPool : rankedPlayers;
-  const filtered = pool.filter(
-    (player) =>
-      (position === "ALL" || player.position === position) &&
-      player.name.toLowerCase().includes(query.trim().toLowerCase()),
-  );
+  const filtered = pool
+    .filter(
+      (player) =>
+        (position === "ALL" || player.position === position) &&
+        player.name.toLowerCase().includes(query.trim().toLowerCase()),
+    )
+    .sort((a, b) => {
+      const aAdp = a.adpBySite?.[adpSite];
+      const bAdp = b.adpBySite?.[adpSite];
+      if (typeof aAdp !== "number" && typeof bAdp !== "number")
+        return a.overallRank - b.overallRank;
+      if (typeof aAdp !== "number") return 1;
+      if (typeof bAdp !== "number") return -1;
+      return adpDirection === "asc" ? aAdp - bAdp : bAdp - aAdp;
+    });
+  const adpSites = [
+    "Consensus",
+    "Sleeper",
+    "ESPN",
+    "CBS",
+    "RTSports",
+    "Fantrax",
+  ];
   const tiers = [1, 2, 3, 4] as const;
   const tierLabels = {
     1: "Elite difference-makers",
@@ -4010,6 +4032,37 @@ function PlayerRanks({
         />
         <span>{filtered.length} players</span>
       </section>
+      <section className="adp-controls panel">
+        <div>
+          <span>ADP SOURCE</span>
+          <strong>Compare where each platform is drafting players</strong>
+        </div>
+        <div className="adp-sites" role="group" aria-label="Select ADP source">
+          {adpSites.map((site) => (
+            <button
+              key={site}
+              className={adpSite === site ? "active" : ""}
+              onClick={() => {
+                if (adpSite === site)
+                  setAdpDirection((current) =>
+                    current === "asc" ? "desc" : "asc",
+                  );
+                else {
+                  setAdpSite(site);
+                  setAdpDirection("asc");
+                }
+              }}
+            >
+              {site}
+              {adpSite === site ? (adpDirection === "asc" ? " ↑" : " ↓") : ""}
+            </button>
+          ))}
+        </div>
+        <small>
+          Lower ADP means the player is typically selected earlier. Select the
+          active source again to reverse sorting.
+        </small>
+      </section>
       <div className="tier-list">
         {tiers.map((tier) => {
           const tierPlayers = filtered.filter((player) => player.tier === tier);
@@ -4028,7 +4081,7 @@ function PlayerRanks({
                   <span>Rank</span>
                   <span>Player</span>
                   <span>Pos.</span>
-                  <span>Platform proj.</span>
+                  <span>{adpSite} ADP</span>
                   <span>Tier</span>
                   <span>Why here</span>
                 </div>
@@ -4056,9 +4109,9 @@ function PlayerRanks({
                           {player.positionRank}
                         </i>
                       </span>
-                      <strong className="rank-projection">
-                        {typeof player.leagueProjection === "number"
-                          ? player.leagueProjection.toFixed(1)
+                      <strong className="rank-adp">
+                        {typeof player.adpBySite?.[adpSite] === "number"
+                          ? player.adpBySite[adpSite]?.toFixed(1)
                           : "—"}
                       </strong>
                       <span className="rank-range">Tier {player.tier}</span>
