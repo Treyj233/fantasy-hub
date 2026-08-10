@@ -65,6 +65,7 @@ type MatchupStrengthData = {
 const PlayerOpenContext = createContext<(player: Player) => void>(() => undefined);
 const ProjectionPlatformContext = createContext("League platform");
 const PORTFOLIO_CACHE_TTL = 30 * 60 * 1000;
+const PORTFOLIO_CACHE_VERSION = 2;
 const weatherRequestCache = new Map<
   string,
   { expiresAt: number; request: Promise<WeatherData | null> }
@@ -1224,10 +1225,16 @@ export default function FantasyHub({
 
   useEffect(() => {
     if (!connection || !portfolioScans.length) return;
-    window.localStorage.setItem(
-      `fantasy-hub-portfolio-scans:${connection.sleeperUserId}`,
-      JSON.stringify({ savedAt: Date.now(), scans: portfolioScans }),
-    );
+    const cacheKey = `fantasy-hub-portfolio-scans:${connection.sleeperUserId}`;
+    if (portfolioScans.some((scan) => scan.status === "unavailable")) {
+      window.localStorage.removeItem(cacheKey);
+      return;
+    }
+    window.localStorage.setItem(cacheKey, JSON.stringify({
+      version: PORTFOLIO_CACHE_VERSION,
+      savedAt: Date.now(),
+      scans: portfolioScans,
+    }));
   }, [connection, portfolioScans]);
 
   const totals = useMemo(
@@ -1365,10 +1372,11 @@ export default function FantasyHub({
         window.localStorage.getItem(
           `fantasy-hub-portfolio-scans:${data.connection.sleeperUserId}`,
         ) ?? "null",
-      ) as { savedAt?: number; scans?: LeagueScan[] } | null;
+      ) as { version?: number; savedAt?: number; scans?: LeagueScan[] } | null;
       const leagueIds = new Set(orderedLeagues.map((league) => league.id));
       if (
-        cached?.savedAt &&
+        cached?.version === PORTFOLIO_CACHE_VERSION &&
+        cached.savedAt &&
         Date.now() - cached.savedAt <= PORTFOLIO_CACHE_TTL &&
         cached.scans?.length === orderedLeagues.length &&
         cached.scans.every((scan) => leagueIds.has(scan.league.id))
@@ -2619,11 +2627,23 @@ function AllLeagues({
     void Promise.all(
       leagues.map(async (league): Promise<LeagueScan> => {
         try {
-          const leagueResponse = await fetch(
-            `/api/league?id=${encodeURIComponent(league.id)}`,
-            { signal: controller.signal },
-          );
-          if (!leagueResponse.ok) throw new Error("League unavailable");
+          let leagueResponse: Response | null = null;
+          for (let attempt = 0; attempt < 3; attempt += 1) {
+            try {
+              leagueResponse = await fetch(
+                `/api/league?id=${encodeURIComponent(league.id)}`,
+                { signal: controller.signal },
+              );
+              if (leagueResponse.ok) break;
+            } catch (error) {
+              if (controller.signal.aborted) throw error;
+            }
+            if (attempt < 2)
+              await new Promise((resolve) =>
+                window.setTimeout(resolve, 400 * (attempt + 1)),
+              );
+          }
+          if (!leagueResponse?.ok) throw new Error("League unavailable");
           const payload = (await leagueResponse.json()) as {
             league: {
               currentWeek?: number;
@@ -2898,8 +2918,8 @@ function AllLeagues({
                 id: `${league.id}-unavailable`,
                 severity: "warning",
                 category: "Connection",
-                title: "League could not be scanned",
-                detail: "Open the league to refresh its roster and settings.",
+                title: "League data is still syncing",
+                detail: "Fantasy Hub retried the initial scan. Refresh all leagues once the platform finishes syncing this roster.",
               },
             ],
           };
@@ -3136,7 +3156,7 @@ function AllLeagues({
           </section>
         </>
       )}
-      {loading && !scans.length ? (
+      {(loading || (leagues.length > 0 && !scans.length)) ? (
         <section className="all-leagues-loading panel">
           Scanning league settings, starters, injuries, waivers, schedule, and
           weather…
