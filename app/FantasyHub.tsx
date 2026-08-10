@@ -5913,6 +5913,41 @@ function buildTradeSuggestions(
   context: RankingContext | null,
   style: TradeStyle,
 ): TradeSuggestion[] {
+  const policy = {
+    Aggressive: {
+      maxNeedRank: 3,
+      valueGapMultiplier: 1.45,
+      eliteMismatchMultiplier: 4.25,
+      yourDeltaFloor: -0.35,
+      partnerDeltaFloor: -0.2,
+      combinedDeltaFloor: 0.15,
+      offerRatioFloor: 0.86,
+      acceptanceFloor: 34,
+      requireConfidence: false,
+    },
+    Neutral: {
+      maxNeedRank: 2,
+      valueGapMultiplier: 1,
+      eliteMismatchMultiplier: 2.5,
+      yourDeltaFloor: -0.1,
+      partnerDeltaFloor: -0.1,
+      combinedDeltaFloor: 0.4,
+      offerRatioFloor: 0.92,
+      acceptanceFloor: 45,
+      requireConfidence: false,
+    },
+    Strict: {
+      maxNeedRank: 1,
+      valueGapMultiplier: 0.62,
+      eliteMismatchMultiplier: 1.8,
+      yourDeltaFloor: 0,
+      partnerDeltaFloor: 0.15,
+      combinedDeltaFloor: 0.7,
+      offerRatioFloor: 1.03,
+      acceptanceFloor: 60,
+      requireConfidence: true,
+    },
+  }[style];
   const rankingById = buildRankingLookup(rankings);
   const format = context?.format ?? "Redraft";
   const yourNeeds = teamNeeds(yourTeam, rankingById, context);
@@ -5950,8 +5985,17 @@ function buildTradeSuggestions(
       const partnerNeedRank = partnerNeedOrder.get(offer.position) ?? 9;
       const yourOfferNeedRank = yourNeedOrder.get(offer.position) ?? 9;
       const partnerTargetNeedRank = partnerNeedOrder.get(target.position) ?? 9;
-      if (yourNeedRank > 2 || partnerNeedRank > 2) return [];
+      if (
+        yourNeedRank > policy.maxNeedRank ||
+        partnerNeedRank > policy.maxNeedRank
+      )
+        return [];
       if (yourOfferNeedRank === 0 || partnerTargetNeedRank === 0) return [];
+      if (
+        policy.requireConfidence &&
+        (target.confidence === "Low" || offer.confidence === "Low")
+      )
+        return [];
       const targetRank = rankingForPlayer(
         partner.roster.find((player) => player.id === target.id)!,
         rankingById,
@@ -5965,10 +6009,14 @@ function buildTradeSuggestions(
       const leagueSize = context?.teams ?? 12;
       const eliteAsset = betterRank <= leagueSize;
       if (
-        (eliteAsset && worseRank > leagueSize * 3) ||
-        (betterRank <= leagueSize * 3 && worseRank > betterRank * 2.5)
+        (eliteAsset &&
+          worseRank > leagueSize * policy.eliteMismatchMultiplier) ||
+        (betterRank <= leagueSize * 3 &&
+          worseRank > betterRank * policy.eliteMismatchMultiplier)
       )
         return [];
+      const offerRatio = offer.value / Math.max(target.value, 1);
+      if (offerRatio < policy.offerRatioFloor) return [];
       const valueGap =
         Math.abs(offer.value - target.value * premium) /
         Math.max(1, target.value);
@@ -5977,7 +6025,7 @@ function buildTradeSuggestions(
         : betterRank <= leagueSize * 3
           ? 0.18
           : 0.25;
-      if (valueGap > maximumValueGap) return [];
+      if (valueGap > maximumValueGap * policy.valueGapMultiplier) return [];
       const targetPlayer = partner.roster.find(
         (player) => player.id === target.id,
       )!;
@@ -6005,9 +6053,9 @@ function buildTradeSuggestions(
       const yourDelta = yourAfter - yourBefore;
       const partnerDelta = partnerAfter - partnerBefore;
       if (
-        yourDelta < -0.1 ||
-        partnerDelta < -0.1 ||
-        yourDelta + partnerDelta < 0.4
+        yourDelta < policy.yourDeltaFloor ||
+        partnerDelta < policy.partnerDeltaFloor ||
+        yourDelta + partnerDelta < policy.combinedDeltaFloor
       )
         return [];
       const yourBenefit = Math.round(
@@ -6033,6 +6081,7 @@ function buildTradeSuggestions(
           ),
         ),
       );
+      if (acceptance < policy.acceptanceFloor) return [];
       const suggestion: TradeSuggestion = {
         id: `${partner.id}-${target.id}-${offer.id}`,
         title: `${target.position} help for ${offer.position} surplus`,
@@ -6062,10 +6111,19 @@ function buildTradeSuggestions(
         {
           suggestion,
           score:
-            Math.min(yourDelta, partnerDelta) * 20 +
-            yourDelta +
-            partnerDelta -
-            valueGap * 8,
+            style === "Aggressive"
+              ? (yourDelta + partnerDelta) * 12 +
+                target.value * 0.08 -
+                valueGap * 4
+              : style === "Strict"
+                ? partnerDelta * 22 +
+                  Math.min(yourDelta, partnerDelta) * 18 +
+                  acceptance * 0.08 -
+                  valueGap * 18
+                : Math.min(yourDelta, partnerDelta) * 20 +
+                  yourDelta +
+                  partnerDelta -
+                  valueGap * 8,
         },
       ];
     }),
@@ -6223,16 +6281,30 @@ function TradeLab({
   const calculatorMutual =
     calculatorYourAfter >= calculatorYourBefore &&
     calculatorPartnerAfter >= calculatorPartnerBefore;
+  const calculatorProfile =
+    partnerStyle === "Aggressive"
+      ? { strongGap: 0.25, workableGap: 0.4, partnerGain: -0.2, yourGain: -0.3, offerRatio: 0.86 }
+      : partnerStyle === "Strict"
+        ? { strongGap: 0.1, workableGap: 0.16, partnerGain: 0.15, yourGain: 0, offerRatio: 1.03 }
+        : { strongGap: 0.18, workableGap: 0.3, partnerGain: 0, yourGain: 0, offerRatio: 0.92 };
+  const calculatorOfferRatio =
+    calculatorSendAsset && calculatorReceiveAsset
+      ? calculatorSendAsset.value / Math.max(1, calculatorReceiveAsset.value)
+      : 0;
+  const calculatorProfileFit =
+    calculatorYourAfter - calculatorYourBefore >= calculatorProfile.yourGain &&
+    calculatorPartnerAfter - calculatorPartnerBefore >= calculatorProfile.partnerGain &&
+    calculatorOfferRatio >= calculatorProfile.offerRatio;
   const calculatorViability =
     !calculatorSend || !calculatorReceive
       ? "Select players"
       : calculatorSend.position === "TE" && calculatorReceive.position === "TE"
         ? "Poor roster fit"
-        : calculatorMutual && calculatorGap <= 0.18
+        : calculatorProfileFit && calculatorGap <= calculatorProfile.strongGap
           ? "Strong framework"
-          : calculatorMutual && calculatorGap <= 0.3
+          : calculatorProfileFit && calculatorGap <= calculatorProfile.workableGap
             ? "Negotiable"
-            : calculatorGap <= 0.22
+            : calculatorMutual && calculatorGap <= calculatorProfile.workableGap
               ? "Fair value, weak fit"
               : "Low viability";
   return (
@@ -6280,10 +6352,10 @@ function TradeLab({
         <p>
           <strong>{partnerStyle}</strong>
           {partnerStyle === "Aggressive"
-            ? "More willing to consolidate value and accept higher-variance packages."
+            ? "Expands eligible needs and value ranges, prioritizing higher-impact, higher-variance deals."
             : partnerStyle === "Strict"
-              ? "Requires a visible value cushion and a direct roster-need solution."
-              : "Prefers balanced value with a clear benefit for both starting lineups."}
+              ? "Only recommends high-confidence packages with an overpay, a top need, and a clear roster gain."
+              : "Uses balanced value ranges and requires a practical improvement for both starting lineups."}
         </p>
       </section>
       <section className="trade-calculator panel">
@@ -6439,9 +6511,9 @@ function TradeLab({
             <strong>Actual rosters, modeled acceptance</strong>
             <p>
               Player ownership and team needs are live for this league.
-              Aggressive, Neutral, and Strict alter estimated acceptance, but
-              acceptance remains an estimate—not a claim about another manager’s
-              decision.
+              Negotiation profiles alter package eligibility, value tolerance,
+              need requirements, recommendation order, and estimated acceptance.
+              Acceptance remains an estimate—not a claim about another manager’s decision.
             </p>
           </section>
         </>
