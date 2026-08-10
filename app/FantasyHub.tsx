@@ -2232,9 +2232,10 @@ function ManageLeagues({
   );
 }
 
-function leagueIssueIcon(category: string) {
+function leagueIssueIcon(category: string, title = "") {
+  if (/\bis IR\b/i.test(title)) return "🛏️";
   const icons: Record<string, string> = {
-    Availability: "✚",
+    Availability: "🩹",
     Injury: "🩹",
     Lineup: "↕",
     Role: "📉",
@@ -2719,7 +2720,7 @@ function AllLeagues({
               {inbox.slice(0, 8).map(({ scan, issue }) => (
                 <article className={issue.severity} key={`inbox-${issue.id}`}>
                   <i title={issue.category} aria-hidden="true">
-                    {leagueIssueIcon(issue.category)}
+                    {leagueIssueIcon(issue.category, issue.title)}
                   </i>
                   <p><span>{scan.league.name} · {issue.category}</span><strong>{issue.title}</strong><small>{issue.detail}</small></p>
                   <div className="portfolio-action-buttons">
@@ -2806,7 +2807,7 @@ function AllLeagues({
                   scan.issues.map((issue) => (
                     <div className={issue.severity} key={issue.id}>
                       <i title={issue.category} aria-hidden="true">
-                        {leagueIssueIcon(issue.category)}
+                        {leagueIssueIcon(issue.category, issue.title)}
                       </i>
                       <p>
                         <span>{issue.category}</span>
@@ -7513,14 +7514,18 @@ function SectionIntro({
   );
 }
 function Status({ value }: { value: string }) {
-  const isQuestionable = value.toLowerCase() === "questionable";
+  const normalized = value.toLowerCase();
+  const isLongTermIr = normalized === "ir" || normalized.includes("injured reserve");
+  const isInjured = ["questionable", "doubtful", "out"].includes(normalized);
+  const showInjuryIcon = isLongTermIr || isInjured;
+  const statusClass = normalized === "healthy" ? "healthy" : isLongTermIr ? "ir" : "questionable";
   return (
     <span
-      className={`status ${value === "Healthy" ? "healthy" : "questionable"}`}
-      aria-label={isQuestionable ? "Questionable" : undefined}
-      title={isQuestionable ? "Questionable" : undefined}
+      className={`status ${statusClass}`}
+      aria-label={showInjuryIcon ? value : undefined}
+      title={showInjuryIcon ? value : undefined}
     >
-      {isQuestionable ? "?" : value}
+      {isLongTermIr ? "🛏️" : isInjured ? "🩹" : value}
     </span>
   );
 }
