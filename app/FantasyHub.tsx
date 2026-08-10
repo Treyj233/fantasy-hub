@@ -44,6 +44,59 @@ type Player = {
   teamPointsPerGame2025?: number | null;
 };
 const PlayerOpenContext = createContext<(player: Player) => void>(() => undefined);
+const nflLogoCode = (team: string) =>
+  ({ JAX: "jax", WAS: "wsh", LAR: "lar", LAC: "lac" })[team] ??
+  team.toLowerCase();
+const nflTeamLogoUrl = (team: string) =>
+  `https://a.espncdn.com/i/teamlogos/nfl/500/${nflLogoCode(team)}.png`;
+const nflPlayerHeadshotUrl = (playerId: string) =>
+  `https://sleepercdn.com/content/nfl/players/${encodeURIComponent(playerId)}.jpg`;
+
+function NflTeamLogo({ team }: { team: string }) {
+  return (
+    <span className="nfl-team-logo" aria-hidden="true">
+      <span>{team}</span>
+      {/* External league assets use their native CDN URL and a local fallback. */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={nflTeamLogoUrl(team)}
+        alt=""
+        loading="lazy"
+        decoding="async"
+        onError={(event) => {
+          event.currentTarget.style.display = "none";
+        }}
+      />
+    </span>
+  );
+}
+
+function PlayerHeadshot({
+  id,
+  position,
+  large = false,
+}: {
+  id: string;
+  position: string;
+  large?: boolean;
+}) {
+  return (
+    <span className={`player-headshot ${large ? "large" : ""}`} aria-hidden="true">
+      <span>{position}</span>
+      {/* External league assets use their native CDN URL and a local fallback. */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={nflPlayerHeadshotUrl(id)}
+        alt=""
+        loading="lazy"
+        decoding="async"
+        onError={(event) => {
+          event.currentTarget.style.display = "none";
+        }}
+      />
+    </span>
+  );
+}
 const playerShell = (
   player: { id: string; name: string; position: string; team?: string; nflTeam?: string },
 ): Player => ({
@@ -3001,11 +3054,7 @@ function Scoreboard({
                       .slice(0, 3)
                       .map((player) => (
                       <div key={player.id}>
-                        <span
-                          className={`pos pos-${player.position.toLowerCase()}`}
-                        >
-                          {player.position}
-                        </span>
+                        <PlayerHeadshot id={player.id} position={player.position} />
                         <p>
                           <button className="inline-player-link" onClick={() => openPlayer(playerShell(player))}>{player.name}</button>
                           <small>
@@ -3354,7 +3403,7 @@ function NflGames({
               {game.teams.map((team) => (
                 <div key={team.abbreviation}>
                   <span style={{ backgroundColor: `#${team.color}` }}>
-                    {team.abbreviation}
+                    <NflTeamLogo team={team.abbreviation} />
                   </span>
                   <p style={{ backgroundColor: `#${team.color}` }}>
                     <strong>{team.displayName}</strong>
@@ -3395,11 +3444,7 @@ function NflGames({
                         }
                         key={`${player.side}-${player.id}`}
                       >
-                        <span
-                          className={`pos pos-${player.position.toLowerCase()}`}
-                        >
-                          {player.position}
-                        </span>
+                        <PlayerHeadshot id={player.id} position={player.position} />
                         <p>
                           <button className="inline-player-link" onClick={() => openPlayer(playerShell(player))}>{player.name}</button>
                           <small>
@@ -6394,9 +6439,7 @@ function HeadToHeadMatchup({
     const renderPlayers = (players: ScoreboardPlayer[]) =>
       players.map((player) => (
         <article className="head-to-head-player" key={player.id}>
-          <span className={`pos pos-${player.position.toLowerCase()}`}>
-            {player.position}
-          </span>
+          <PlayerHeadshot id={player.id} position={player.position} />
           <p>
             <button
               className="inline-player-link"
@@ -7155,7 +7198,9 @@ function PlayerPanel({
     >
       <aside className="player-panel player-dossier">
         <header>
-          <div>
+          <div className="dossier-player-identity">
+            <PlayerHeadshot id={player.id} position={player.position} large />
+            <div>
             <span className={`pos pos-${player.position.toLowerCase()}`}>
               {player.position}
             </span>
@@ -7164,6 +7209,7 @@ function PlayerPanel({
             </small>
             <h2>{player.name}</h2>
             <Status value={player.status} />
+            </div>
           </div>
           <button className="close" onClick={close}>
             ×
