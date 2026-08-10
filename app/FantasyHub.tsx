@@ -4184,12 +4184,18 @@ function NflGames({
 
   const toggleGamePlayers = (gameId: string) => {
     setExpandedGames((current) => {
-      const next = new Set(current);
-      if (next.has(gameId)) next.delete(gameId);
-      else next.add(gameId);
-      return next;
+      return current.has(gameId) ? new Set() : new Set([gameId]);
     });
   };
+
+  useEffect(() => {
+    if (!expandedGames.size) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setExpandedGames(new Set());
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [expandedGames]);
 
   useEffect(() => {
     if (!leagueId) return;
@@ -4491,7 +4497,7 @@ function NflGames({
                   onClick={() => toggleGamePlayers(game.id)}
                 >
                   <span>
-                    <strong>{isExpanded ? "Hide matchup players" : "Show matchup players"}</strong>
+                    <strong>{isExpanded ? "Matchup details open" : "Open matchup details"}</strong>
                     <small>
                       <b>{yourPlayerCount}</b> your team ·{" "}
                       <b>{opponentPlayerCount}</b> opponent · {game.impactPlayers.length} total
@@ -4500,7 +4506,8 @@ function NflGames({
                   <i aria-hidden="true">⌄</i>
                 </button>
                 {isExpanded && (
-                  <div className="impact-roster-expanded" id={playerPanelId}>
+                  <div className="impact-roster-expanded game-impact-popout" id={playerPanelId} role="dialog" aria-modal="true" aria-label={`${game.name} fantasy matchup impact`}>
+                    <header className="game-popout-header"><div><span>FANTASY MATCHUP IMPACT</span><strong>{game.name}</strong><small>{yourPlayerCount} your players · {opponentPlayerCount} opponent players</small></div><button type="button" aria-label="Close matchup details" onClick={() => toggleGamePlayers(game.id)}>×</button></header>
                     <section className="why-game-matters"><span>WHY THIS GAME MATTERS</span><strong>{consequentialPlayers[0]?.player.name} is the most consequential player in this game.</strong><small>{yourPlayerCount} player{yourPlayerCount === 1 ? "" : "s"} help you · {opponentPlayerCount} hurt you · {Math.abs(matchupMargin).toFixed(1)}-point current fantasy margin. {game.venue ? `${game.venue} · ` : ""}{game.broadcast || "Kickoff status shown above"}.</small></section>
                   <div className="impact-roster-players">
                     {(["You", "Opponent"] as const).map((side) => {

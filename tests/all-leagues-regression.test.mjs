@@ -36,12 +36,15 @@ test("portfolio Scoreboard keeps matchup status in scope", async () => {
   assert.match(component, /These are not live events/);
 });
 
-test("expanded NFL games separate readable player groups", async () => {
+test("NFL game impact details open in an accessible popout", async () => {
   const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
   assert.match(source, /isExpanded \? "is-expanded"/);
   assert.match(source, /YOUR TEAM/);
   assert.match(source, /OPPONENT/);
   assert.match(source, /sidePlayers\.map/);
-  assert.match(source, /isExpanded \? "Hide matchup players" : "Show matchup players"/);
+  assert.match(source, /"Open matchup details"/);
   assert.match(source, /impact-roster-expanded/);
+  assert.match(source, /game-impact-popout/);
+  assert.match(source, /role="dialog"/);
+  assert.match(source, /aria-modal="true"/);
 });
