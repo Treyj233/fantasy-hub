@@ -1421,8 +1421,8 @@ export default function FantasyHub({
               setTheme((current) => (current === "light" ? "dark" : "light"))
             }
           >
-            <span aria-hidden="true">{theme === "dark" ? "☀" : "☾"}</span>
-            <b>{theme === "dark" ? "Light mode" : "Dark mode"}</b>
+            <span aria-hidden="true">{theme === "dark" ? "☾" : "☀"}</span>
+            <b>{theme === "dark" ? "Dark mode" : "Light mode"}</b>
             <i aria-hidden="true">
               <em />
             </i>
