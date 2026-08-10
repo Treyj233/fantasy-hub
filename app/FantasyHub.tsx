@@ -3604,6 +3604,7 @@ function AllLeagueScoreboard({
   const [loading, setLoading] = useState(false);
   const [updatedAt, setUpdatedAt] = useState("");
   const [viewMode, setViewMode] = useState<"all" | "drama">("drama");
+  const [expandedNeeds, setExpandedNeeds] = useState<Set<string>>(new Set());
   const [swingFeed, setSwingFeed] = useState<{ id: string; league: string; text: string; previous: number; current: number; at: string }[]>([]);
   const previousOdds = useRef<Record<string, number>>({});
   useEffect(() => {
@@ -3735,6 +3736,17 @@ function AllLeagueScoreboard({
     return (item.status === "live" ? 100 : item.status === "pre" ? 20 : -40) + Math.max(0, 40 - projectedMargin) + probabilityDrama;
   };
   const featured = [...gameDay.matchups].sort((a, b) => dramaScore(b) - dramaScore(a))[0];
+  const leagueWinPaths = gameDay.matchups.flatMap((item) => {
+    if (item.status === "final") return [];
+    const need = whatDoINeed({ yourPoints: item.mine.points, opponentPoints: item.opponent.points, opponentRemaining: item.opponentRemaining, players: item.mineStarters, scoring: item.data.league.scoring ?? {} });
+    const activeTarget = need.targets.find((target) => target.points > 0 && target.projection != null && target.projection > target.points);
+    const target = activeTarget ?? need.targets[0];
+    if (!target) return [];
+    const importance = (item.status === "live" ? 35 : 10) + (100 - Math.abs((item.winProbability ?? 50) - 50)) + Math.min(35, target.pointsNeeded * 1.5);
+    return [{ league: item.league, target, need, winProbability: item.winProbability, status: item.status, importance }];
+  }).sort((a, b) => b.importance - a.importance);
+  const mostImportantPath = leagueWinPaths[0];
+  const mostImportantLeagues = mostImportantPath ? leagueWinPaths.filter((item) => item.target.id === mostImportantPath.target.id) : [];
   const matchupByLeague = new Map(gameDay.matchups.map((item) => [item.league.id, item]));
   const orderedLeagues = viewMode === "drama"
     ? [...leagues].sort((a, b) => dramaScore(matchupByLeague.get(b.id)) - dramaScore(matchupByLeague.get(a.id)))
@@ -3776,7 +3788,7 @@ function AllLeagueScoreboard({
         </div>
         <label>
           Week
-          <select value={week} onChange={(event) => setWeek(Number(event.target.value))}>
+          <select value={week} onChange={(event) => { setExpandedNeeds(new Set()); setWeek(Number(event.target.value)); }}>
             {Array.from({ length: 18 }, (_, index) => index + 1).map((value) => <option key={value} value={value}>Week {value}</option>)}
           </select>
         </label>
@@ -3804,6 +3816,10 @@ function AllLeagueScoreboard({
         <div className="spotlight-story"><strong>{Math.abs((featured.winProbability ?? 50) - 50) <= 10 ? "One play can swing this matchup." : (featured.winProbability ?? 0) >= 50 ? "Protect the lead as the late window develops." : "Your comeback path is still alive."}</strong><small>{featured.mineRemaining.toFixed(1)} of your projected points and {featured.opponentRemaining.toFixed(1)} opponent points remain.</small></div>
         <button type="button" onClick={() => void onOpenLeague(featured.league)}>Watch matchup →</button>
       </section>}
+      <section className="portfolio-win-path panel">
+        <header><div><span>WHAT DO I NEED?</span><h3>Your most important live win paths</h3><small>One consequential remaining starter per league, prioritized by matchup leverage.</small></div><b>{leagueWinPaths.length} ACTIVE PATH{leagueWinPaths.length === 1 ? "" : "S"}</b></header>
+        {mostImportantPath ? <><div className="primary-win-path"><div className="win-path-player"><PlayerHeadshot id={mostImportantPath.target.id} position={mostImportantPath.target.position} /><i>★</i></div><p><span>MOST IMPORTANT RIGHT NOW</span><button className="inline-player-link" onClick={() => openPlayer(playerShell(mostImportantPath.target))}>{mostImportantPath.target.name}</button><small>{mostImportantPath.need.message} {mostImportantPath.target.name} carries the largest current share of the path.</small><span className="win-path-leagues">{mostImportantLeagues.map((item) => <b key={`${item.league.id}-${item.target.id}`}>{item.league.name} · {item.target.pointsNeeded.toFixed(1)} needed</b>)}</span></p><div><strong>{mostImportantPath.target.pointsNeeded.toFixed(1)}</strong><small>MORE PTS</small><span><i style={{ width: `${mostImportantPath.target.progress}%` }} /></span><em>{mostImportantPath.target.statLine}</em></div></div><div className="league-win-paths">{leagueWinPaths.slice(0, 6).map((item) => <article key={item.league.id}><span className={item.status === "live" ? "live" : "upcoming"}>{item.status === "live" ? "● LIVE" : "UP NEXT"}</span><PlayerHeadshot id={item.target.id} position={item.target.position} /><p><strong>{item.league.name}</strong><button className="inline-player-link" onClick={() => openPlayer(playerShell(item.target))}>{item.target.name}</button><small>{item.target.pointsNeeded.toFixed(1)} more points · {item.winProbability ?? "—"}% win chance</small></p><b>{item.target.progress}%</b></article>)}</div></> : <p className="game-day-empty">A portfolio-wide win path will appear when connected matchups have remaining projected starters.</p>}
+      </section>
       <section className="on-fire-board panel">
         <header><div><span>🔥 ON FIRE</span><h3>Week {week}&apos;s hottest performers</h3><small>Top production currently affecting your matchups across every connected league.</small></div><b>{gameDay.onFire.length ? "LIVE LEADERS" : "WAITING FOR KICKOFF"}</b></header>
         {gameDay.onFire.length ? <div className="on-fire-grid">{gameDay.onFire.map((item, index) => {
@@ -3857,10 +3873,10 @@ function AllLeagueScoreboard({
                 <div className="probability-orbit" style={{ background: `conic-gradient(var(--probability-color) ${winProbability ?? 0}%, color-mix(in srgb,var(--ink) 10%,transparent) 0)` }}><div><b>{winProbability == null ? "—" : `${winProbability}%`}</b><small>TO WIN</small></div></div>
                 <em>{winOutlook}</em>
               </div>}
-              {consequence?.status !== "final" && need && <section className="what-needed">
-                <header><span><i /> LIVE WIN PATH</span><strong>{need.teamNeed ? `${need.teamNeed.toFixed(1)} PTS NEEDED` : "PROJECTED LEAD"}</strong></header>
-                <p>{need.message}</p>
-                {need.targets.slice(0, 4).map((target) => <article key={target.id}><PlayerHeadshot id={target.id} position={target.position} /><div><div className="need-player-row"><button className="inline-player-link" onClick={() => openPlayer(playerShell(target))}>{target.name}</button><b>{target.progress}%</b></div><small>Needs about <b>{target.pointsNeeded.toFixed(1)} more points</b> · {target.statLine}</small><span className="need-progress"><i style={{ width: `${target.progress}%` }} /></span><em>{target.points.toFixed(1)} scored toward a {target.targetTotal.toFixed(1)} point target</em></div></article>)}
+              {consequence?.status !== "final" && need && <section className={`what-needed ${expandedNeeds.has(league.id) ? "expanded" : "collapsed"}`}>
+                <button className="need-collapse-toggle" type="button" aria-expanded={expandedNeeds.has(league.id)} onClick={() => setExpandedNeeds((current) => { const next = new Set(current); if (next.has(league.id)) next.delete(league.id); else next.add(league.id); return next; })}><span><i /> LIVE WIN PATH</span><strong>{need.teamNeed ? `${need.teamNeed.toFixed(1)} PTS NEEDED` : "PROJECTED LEAD"}</strong><em aria-hidden="true">⌄</em></button>
+                {expandedNeeds.has(league.id) && <div className="need-expanded-content"><p>{need.message}</p>
+                {need.targets.slice(0, 4).map((target) => <article key={target.id}><PlayerHeadshot id={target.id} position={target.position} /><div><div className="need-player-row"><button className="inline-player-link" onClick={() => openPlayer(playerShell(target))}>{target.name}</button><b>{target.progress}%</b></div><small>Needs about <b>{target.pointsNeeded.toFixed(1)} more points</b> · {target.statLine}</small><span className="need-progress"><i style={{ width: `${target.progress}%` }} /></span><em>{target.points.toFixed(1)} scored toward a {target.targetTotal.toFixed(1)} point target</em></div></article>)}</div>}
               </section>}
               {consequence?.status === "final" && <div className="postgame-review"><b>{consequence.mine.points > consequence.opponent.points ? "WIN" : consequence.mine.points < consequence.opponent.points ? "LOSS" : "TIE"}</b><p><strong>Postgame review</strong><small>{Math.abs(consequence.mine.points - consequence.opponent.points) <= 5 ? "A close final margin decided this matchup." : "The final scoring margin was decisive."} Results describe what happened, not whether the original lineup decision was sound.</small></p></div>}
               <footer className="score-game-actions">
