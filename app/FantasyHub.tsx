@@ -515,21 +515,22 @@ type LeagueScan = {
   }[];
 };
 
-const nav: { label: View; displayLabel?: string; mark: string; tone: string; group: "Portfolio" | "League" | "Live" }[] = [
+type NavGroup = "Portfolio" | "Live" | "Team Management" | "League Insights";
+const nav: { label: View; displayLabel?: string; mark: string; tone: string; group: NavGroup }[] = [
   { label: "All Leagues", mark: "◆", tone: "violet", group: "Portfolio" },
   { label: "Manage Leagues", mark: "⚙", tone: "slate", group: "Portfolio" },
-  { label: "Command Center", mark: "★", tone: "amber", group: "League" },
-  { label: "League Stories", mark: "✎", tone: "violet", group: "League" },
-  { label: "Manager Report", mark: "✓", tone: "teal", group: "League" },
-  { label: "My Team", mark: "♟", tone: "blue", group: "League" },
-  { label: "Dynasty Analytics", mark: "◈", tone: "purple", group: "League" },
-  { label: "Team Rankings", mark: "↥", tone: "teal", group: "League" },
-  { label: "Player Rankings", mark: "♛", tone: "gold", group: "League" },
-  { label: "ADP", mark: "⌁", tone: "cyan", group: "League" },
-  { label: "Start / Sit", mark: "⚡", tone: "orange", group: "League" },
-  { label: "Waiver Wire", mark: "+", tone: "emerald", group: "League" },
-  { label: "Trade Lab", mark: "↔", tone: "pink", group: "League" },
-  { label: "Simulator", mark: "✦", tone: "indigo", group: "League" },
+  { label: "Command Center", mark: "★", tone: "amber", group: "Team Management" },
+  { label: "My Team", mark: "♟", tone: "blue", group: "Team Management" },
+  { label: "Start / Sit", mark: "⚡", tone: "orange", group: "Team Management" },
+  { label: "Waiver Wire", mark: "+", tone: "emerald", group: "Team Management" },
+  { label: "Trade Lab", mark: "↔", tone: "pink", group: "Team Management" },
+  { label: "Simulator", mark: "✦", tone: "indigo", group: "Team Management" },
+  { label: "League Stories", mark: "✎", tone: "violet", group: "League Insights" },
+  { label: "Manager Report", mark: "✓", tone: "teal", group: "League Insights" },
+  { label: "Dynasty Analytics", mark: "◈", tone: "purple", group: "League Insights" },
+  { label: "Team Rankings", mark: "↥", tone: "teal", group: "League Insights" },
+  { label: "Player Rankings", mark: "♛", tone: "gold", group: "League Insights" },
+  { label: "ADP", mark: "⌁", tone: "cyan", group: "League Insights" },
   { label: "Scoreboard", displayLabel: "Fantasy Scoreboard", mark: "▣", tone: "red", group: "Live" },
   { label: "NFL Games", mark: "●", tone: "football", group: "Live" },
   { label: "Matchups", displayLabel: "Fantasy Matchups", mark: "◎", tone: "sky", group: "Live" },
@@ -1671,7 +1672,7 @@ export default function FantasyHub({
           </small>
         </div>
         <nav aria-label="Fantasy Hub sections">
-          {(["Portfolio", "Live", "League"] as const).map((group) => (
+          {(["Portfolio", "Live", "Team Management", "League Insights"] as NavGroup[]).map((group) => (
             <div className="nav-group" key={group}>
               <span>{group}</span>
               {visibleNav.filter((item) => item.group === group).map((item) => (
