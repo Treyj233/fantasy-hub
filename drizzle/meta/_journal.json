@@ -22,6 +22,13 @@
       "when": 1786344244001,
       "tag": "0002_living_whistler",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1786344511808,
+      "tag": "0003_fancy_roughhouse",
+      "breakpoints": true
     }
   ]
 }

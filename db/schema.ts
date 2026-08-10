@@ -39,3 +39,22 @@ export const seasonNarrativeSnapshots = sqliteTable("season_narrative_snapshots"
 }, (table) => [
   uniqueIndex("season_narrative_user_league_season_week").on(table.userId, table.leagueId, table.season, table.week),
 ]);
+
+export const decisionMemory = sqliteTable("decision_memory", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  leagueId: text("league_id").notNull(),
+  week: integer("week").notNull(),
+  category: text("category").notNull(),
+  recommendation: text("recommendation").notNull(),
+  alternativesJson: text("alternatives_json").notNull().default("[]"),
+  informationJson: text("information_json").notNull().default("{}"),
+  confidence: real("confidence").notNull(),
+  userSelection: text("user_selection"),
+  resultJson: text("result_json"),
+  processGrade: text("process_grade"),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [
+  uniqueIndex("decision_memory_user_league_id").on(table.userId, table.leagueId, table.id),
+]);
