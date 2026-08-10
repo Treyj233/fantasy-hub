@@ -9,7 +9,6 @@ type PlayerWeek = { season: string; week: number; points: number; totalYards: nu
 type PlayerHistory = { sourceStatus: "available" | "unavailable"; player: { id: string; age?: number; yearsExp?: number; college?: string; height?: string; weight?: string }; seasons: { season: string; games: number; points: number; pointsPerGame: number; positionRank: number | null; yards: number; touchdowns: number; receptions: number }[]; recentWeeks: { week: number; points: number; yards: number; touchdowns: number; targets: number }[]; weeks: PlayerWeek[] };
 type TradeStyle = "Aggressive" | "Neutral" | "Strict";
 type Theme = "light" | "dark";
-type LeagueManager = { id: string; name: string; teamName: string; style: TradeStyle };
 type DraftPick = { season: number; round: number; originalRosterId: number; ownerRosterId: number; value: number };
 type LeagueTeam = { id: string; ownerId?: string; managerName: string; teamName: string; roster: Player[]; draftCapital?: { score: number; picks: DraftPick[] } };
 type LeagueRanking = Player & { overallRank: number; rankingValue: number; age?: number | null; ageAdjustment: number; lineupAdjustment: number };
@@ -23,7 +22,8 @@ type ScoreboardTeam = { rosterId: string; managerName: string; teamName: string;
 type ScoreboardData = { league: { name: string; season: string; currentWeek: number }; week: number; updatedAt: string; matchups: { matchupId: number; status: string; teams: ScoreboardTeam[] }[] };
 type NflImpactPlayer = { id: string; name: string; position: string; nflTeam: string; side: "You" | "Opponent"; starter: boolean; fantasyPoints: number };
 type NflGameData = { league: { name: string; season: string }; week: number; updatedAt: string; fantasyMatchup: { yourPoints: number; opponentPoints: number; opponentName: string; playerCount: number }; games: { id: string; date: string; name: string; status: string; state: string; clock: string; venue: string; broadcast: string; teams: { abbreviation: string; name: string; displayName: string; homeAway: string; score: number; winner: boolean; color: string; logo: string | null; record: string }[]; impactPlayers: NflImpactPlayer[] }[] };
-type TradeSuggestion = { id: string; title: string; receive: { name: string; meta: string; value: number }[]; send: { name: string; meta: string; value: number }[]; yourBenefit: number; partnerBenefit: number; acceptance: number; confidence: number; whyYou: string; whyThem: string };
+type TradeAssetValue = { id: string; name: string; position: string; meta: string; value: number };
+type TradeSuggestion = { id: string; title: string; receive: TradeAssetValue[]; send: TradeAssetValue[]; yourBenefit: number; partnerBenefit: number; acceptance: number; confidence: number; whyYou: string; whyThem: string };
 
 const nav: { label: View; mark: string }[] = [
   { label: "Command Center", mark: "★" }, { label: "Scoreboard", mark: "▣" }, { label: "NFL Games", mark: "🏈" }, { label: "My Team", mark: "●" },
@@ -52,28 +52,6 @@ const rankedPlayers: RankedPlayer[] = [
   { id:"rank-16",name:"Malik Nabers",position:"WR",team:"NYG",opponent:"@ DAL",projection:18.2,floor:10.7,ceiling:29.7,trend:1.6,status:"Healthy",role:"WR1",overallRank:16,positionRank:6,tier:3,outlook:"Target dominance supports WR1 outcomes despite team volatility." },
 ];
 
-const demoManagers: LeagueManager[] = [
-  { id: "north-shore", name: "Alex R.", teamName: "North Shore Blitz", style: "Aggressive" },
-  { id: "fourth-down", name: "Morgan K.", teamName: "Fourth Down Theory", style: "Neutral" },
-  { id: "red-zone", name: "Sam T.", teamName: "Red Zone Republic", style: "Strict" },
-  { id: "waiver-wire", name: "Chris M.", teamName: "Waiver Wire Wolves", style: "Neutral" },
-];
-
-const tradeSuggestions: Record<TradeStyle, TradeSuggestion[]> = {
-  Aggressive: [
-    { id: "star-consolidation", title: "Consolidate for an elite weekly anchor", receive: [{ name: "Amon-Ra St. Brown", meta: "WR · DET", value: 94 }], send: [{ name: "Rome Odunze", meta: "WR · CHI", value: 82 }, { name: "RJ Harvey", meta: "RB · DEN", value: 76 }], yourBenefit: 91, partnerBenefit: 84, acceptance: 78, confidence: 82, whyYou: "Adds elite target volume without opening a starting-lineup hole.", whyThem: "Turns one premium asset into two young weekly starters and needed RB depth." },
-    { id: "ceiling-swap", title: "Exchange depth for playoff ceiling", receive: [{ name: "Drake London", meta: "WR · ATL", value: 90 }], send: [{ name: "Emeka Egbuka", meta: "WR · TB", value: 78 }, { name: "Tyler Warren", meta: "TE · IND", value: 74 }], yourBenefit: 87, partnerBenefit: 81, acceptance: 72, confidence: 77, whyYou: "Raises FLEX ceiling and concentrates points in the starting lineup.", whyThem: "Adds two ascending assets while filling a thin tight-end spot." },
-  ],
-  Neutral: [
-    { id: "balanced-upgrade", title: "Solve both teams’ weakest starter", receive: [{ name: "Garrett Wilson", meta: "WR · NYJ", value: 88 }], send: [{ name: "Rome Odunze", meta: "WR · CHI", value: 82 }, { name: "Tyler Warren", meta: "TE · IND", value: 74 }], yourBenefit: 85, partnerBenefit: 83, acceptance: 66, confidence: 85, whyYou: "Upgrades weekly WR output while preserving running-back depth.", whyThem: "Receives a starting receiver plus a scarce young tight end." },
-    { id: "rb-balance", title: "Trade surplus receiver depth for RB stability", receive: [{ name: "Kenneth Walker III", meta: "RB · SEA", value: 84 }], send: [{ name: "Emeka Egbuka", meta: "WR · TB", value: 78 }], yourBenefit: 82, partnerBenefit: 80, acceptance: 62, confidence: 81, whyYou: "Improves RB2 floor with only a bench receiver leaving.", whyThem: "Moves surplus RB value into a higher-upside receiver need." },
-  ],
-  Strict: [
-    { id: "strict-premium", title: "Pay a measured premium for certainty", receive: [{ name: "Tee Higgins", meta: "WR · CIN", value: 86 }], send: [{ name: "Rome Odunze", meta: "WR · CHI", value: 82 }, { name: "Tyler Warren", meta: "TE · IND", value: 74 }], yourBenefit: 81, partnerBenefit: 88, acceptance: 54, confidence: 79, whyYou: "Adds proven weekly volume without sacrificing an active starter at another position.", whyThem: "Receives the value cushion a strict manager typically requires plus TE upside." },
-    { id: "strict-need", title: "Target a clear roster surplus", receive: [{ name: "James Cook", meta: "RB · BUF", value: 86 }], send: [{ name: "Emeka Egbuka", meta: "WR · TB", value: 78 }, { name: "RJ Harvey", meta: "RB · DEN", value: 76 }], yourBenefit: 80, partnerBenefit: 86, acceptance: 49, confidence: 75, whyYou: "Creates a dependable RB2 while retaining the roster’s elite core.", whyThem: "Replaces one back with two young assets and addresses receiver depth." },
-  ],
-};
-
 export default function FantasyHub({ accountUser }: { accountUser: AccountUser | null }) {
   const [view, setView] = useState<View>("Command Center");
   const [players, setPlayers] = useState<Player[]>([]);
@@ -84,7 +62,6 @@ export default function FantasyHub({ accountUser }: { accountUser: AccountUser |
   const [simulations, setSimulations] = useState(10000);
   const [simShift, setSimShift] = useState(0);
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
-  const [managers, setManagers] = useState<LeagueManager[]>(demoManagers);
   const [leagueTeams, setLeagueTeams] = useState<LeagueTeam[]>([]);
   const [selectedTeamId, setSelectedTeamId] = useState("");
   const [leagueRankings, setLeagueRankings] = useState<LeagueRanking[]>([]);
@@ -147,12 +124,11 @@ export default function FantasyHub({ accountUser }: { accountUser: AccountUser |
     setRankingContext(null);
     setWaiverPlayers([]);
     setLeagueStatus("unknown");
-    setManagers([]);
     setSelectedPlayer(null);
     try {
       const response = await fetch(`/api/league?id=${encodeURIComponent(requestedLeagueId)}`);
       if (!response.ok) throw new Error("League not found");
-      const data = await response.json() as { league: { name: string; status?: string }; teams?: LeagueTeam[]; managers?: LeagueManager[]; rankings?: LeagueRanking[]; waiverPlayers?: WaiverPlayer[]; rankingContext?: RankingContext };
+      const data = await response.json() as { league: { name: string; status?: string }; teams?: LeagueTeam[]; rankings?: LeagueRanking[]; waiverPlayers?: WaiverPlayer[]; rankingContext?: RankingContext };
       if (requestNumber !== importRequest.current) return;
       setLeagueName(data.league.name);
       const importedTeams = data.teams ?? [];
@@ -165,7 +141,6 @@ export default function FantasyHub({ accountUser }: { accountUser: AccountUser |
       } else {
         setSelectedTeamId("");
       }
-      setManagers(data.managers ?? []);
       setLeagueRankings(data.rankings ?? []);
       setWaiverPlayers(data.waiverPlayers ?? []);
       setLeagueStatus(data.league.status ?? "unknown");
@@ -256,12 +231,12 @@ export default function FantasyHub({ accountUser }: { accountUser: AccountUser |
         {view === "Player Ranks" && <PlayerRanks roster={players} leagueRankings={leagueRankings} context={rankingContext} setSelectedPlayer={setSelectedPlayer} />}
         {view === "Start / Sit" && (rosterReady ? <StartSit players={players} choice={starterChoice} setChoice={setStarterChoice} teamProjection={totals.projection} context={rankingContext} /> : rosterEmptyState)}
         {view === "Waiver Wire" && <WaiverWire key={leagueId || "no-league"} players={waiverPlayers} leagueSelected={Boolean(leagueId)} leagueStatus={leagueStatus} context={rankingContext} setSelectedPlayer={setSelectedPlayer} />}
-        {view === "Trade Lab" && <TradeLab managers={managers} />}
+        {view === "Trade Lab" && <TradeLab key={`${leagueId}-${selectedTeamId}`} teams={leagueTeams} selectedTeamId={selectedTeamId} rankings={leagueRankings} context={rankingContext} />}
         {view === "Matchups" && (rosterReady ? <Matchups players={players} /> : rosterEmptyState)}
         {view === "Simulator" && (rosterReady ? <Simulator simulations={simulations} setSimulations={setSimulations} shift={simShift} run={runSimulation} /> : rosterEmptyState)}
 
         <section className="connect-strip">
-          <div><span>CONNECT YOUR LEAGUE</span><strong>Replace demo data with your actual roster</strong><small>Enter a public league ID to import settings, managers, rosters, and scoring.</small></div>
+          <div><span>CONNECT YOUR LEAGUE</span><strong>Load your actual roster and league market</strong><small>Enter a public league ID to import settings, managers, rosters, and scoring.</small></div>
           <div className="connect-form"><input value={leagueId} onChange={(e) => setLeagueId(e.target.value)} placeholder="League ID" aria-label="League ID" /><button onClick={() => importLeague()} disabled={importState === "loading"}>{importState === "loading" ? "Connecting…" : "Import league"}</button></div>
           {importState === "error" && <p className="form-error">We couldn’t find that league. Confirm the ID and try again.</p>}
           {importState === "success" && <p className="form-success">{leagueTeams.length > 1 && !selectedTeamId ? "League connected. Choose your team above to finish setup." : "League connected. Your roster is ready."}</p>}
@@ -541,23 +516,83 @@ function WaiverWire({ players, leagueSelected, leagueStatus, context, setSelecte
   return <div className="page-content"><SectionIntro kicker="LIVE LEAGUE AVAILABILITY" title="Turn available players into weekly leverage" text="Every player shown is currently unrostered across this league. Rankings adjust for league scoring, format, lineup demand, positional scarcity, projection, age, and availability." /><section className="waiver-controls panel"><div className="position-filters" role="group" aria-label="Filter waiver wire by position">{["ALL","QB","RB","WR","TE","K","DEF"].map((value) => <button key={value} className={position === value ? "active" : ""} onClick={() => setPosition(value)}>{value}</button>)}</div><span>{filtered.length} available recommendations</span></section><div className="waiver-grid">{filtered.map((player, index) => { const fit = Math.max(55, Math.min(98, Math.round(96 - index * 1.7 + Math.max(-3, player.lineupAdjustment)))); return <article className="waiver-card" key={player.id}><button className="waiver-player-open" onClick={() => setSelectedPlayer(player)} aria-label={`Open ${player.name}`}><div><b>{String(index + 1).padStart(2, "0")}</b><span className="score">{fit} FIT</span></div><span className={`pos pos-${player.position.toLowerCase()}`}>{player.position}</span><h3>{player.name}</h3><small>{player.team} · Available in this league · Overall #{player.overallRank}</small><p>{waiverReason(player, context)}</p></button><dl><div><dt>Recommended bid</dt><dd>{waiverBid(player, index)}</dd></div><div><dt>Priority</dt><dd>{index < 3 ? "Aggressive" : index < 9 ? "Measured" : "Watchlist"}</dd></div></dl><button onClick={() => setPlanned((current) => current.includes(player.id) ? current.filter((id) => id !== player.id) : [...current, player.id])}>{planned.includes(player.id) ? "Added to plan" : "Add to waiver plan"}</button></article>; })}</div>{!filtered.length && <section className="panel scoreboard-empty">No unrostered {position === "ALL" ? "players" : position} options were returned for this league.</section>}</div>;
 }
 
-function TradeLab({ managers }: { managers: LeagueManager[] }) {
-  const [selectedId, setSelectedId] = useState(managers[0]?.id ?? "");
-  const [styles, setStyles] = useState<Record<string, TradeStyle>>(() => Object.fromEntries(managers.map((manager) => [manager.id, manager.style])));
+function tradeAsset(player: Player, rankingById: Map<string, LeagueRanking>): TradeAssetValue {
+  const ranking = rankingById.get(player.id);
+  const value = ranking ? Math.max(40, Math.min(99, Math.round(104 - ranking.overallRank * .32))) : Math.max(35, Math.min(85, Math.round(player.projection * 3.4)));
+  return { id: player.id, name: player.name, position: player.position, meta: `${player.position} · ${player.team}`, value };
+}
+
+function teamNeeds(team: LeagueTeam, rankingById: Map<string, LeagueRanking>, context: RankingContext | null) {
+  return ["QB", "RB", "WR", "TE"].map((position) => {
+    const room = team.roster.filter((player) => player.position === position);
+    const desired = Math.max(1, Math.ceil(context?.positionDemand[position] ?? 1));
+    const bestRank = Math.min(...room.map((player) => rankingById.get(player.id)?.overallRank ?? 500), 500);
+    return { position, score: Math.max(0, desired - room.length) * 80 + bestRank / Math.max(1, room.length) };
+  }).sort((a, b) => b.score - a.score);
+}
+
+function buildTradeSuggestions(yourTeam: LeagueTeam, partner: LeagueTeam, rankings: LeagueRanking[], context: RankingContext | null, style: TradeStyle): TradeSuggestion[] {
+  const rankingById = new Map(rankings.map((player) => [player.id, player]));
+  const yourNeeds = teamNeeds(yourTeam, rankingById, context);
+  const partnerNeeds = teamNeeds(partner, rankingById, context);
+  const yourNeedOrder = new Map(yourNeeds.map((need, index) => [need.position, index]));
+  const partnerNeedOrder = new Map(partnerNeeds.map((need, index) => [need.position, index]));
+  const eligible = (player: Player) => !["K", "DEF"].includes(player.position) && rankingById.has(player.id);
+  const partnerAssets = partner.roster.filter(eligible).map((player) => tradeAsset(player, rankingById)).sort((a, b) => (yourNeedOrder.get(a.position) ?? 9) - (yourNeedOrder.get(b.position) ?? 9) || b.value - a.value);
+  const yourAssets = yourTeam.roster.filter(eligible).map((player) => tradeAsset(player, rankingById));
+  const premium = style === "Strict" ? 1.08 : style === "Aggressive" ? .92 : 1;
+  const suggestions: TradeSuggestion[] = [];
+  const usedTargets = new Set<string>();
+  for (const target of partnerAssets) {
+    if (usedTargets.has(target.id)) continue;
+    const sendPool = [...yourAssets].sort((a, b) => {
+      const aNeed = partnerNeedOrder.get(a.position) ?? 9;
+      const bNeed = partnerNeedOrder.get(b.position) ?? 9;
+      return aNeed - bNeed || Math.abs(a.value - target.value * premium) - Math.abs(b.value - target.value * premium);
+    });
+    let send = [sendPool[0]].filter(Boolean);
+    let sendValue = send.reduce((sum, asset) => sum + asset.value, 0);
+    if (sendValue < target.value * premium && sendPool[1]) {
+      const second = sendPool.slice(1).sort((a, b) => Math.abs((sendValue + a.value * .72) - target.value * premium) - Math.abs((sendValue + b.value * .72) - target.value * premium))[0];
+      if (second) { send = [...send, second]; sendValue += second.value * .72; }
+    }
+    if (!send.length) continue;
+    const valueGap = Math.abs(sendValue - target.value) / Math.max(target.value, 1);
+    const yourNeed = yourNeedOrder.get(target.position) ?? 3;
+    const partnerNeed = Math.min(...send.map((asset) => partnerNeedOrder.get(asset.position) ?? 3));
+    const yourBenefit = Math.round(Math.max(55, Math.min(96, 91 - yourNeed * 7 - valueGap * 18)));
+    const partnerBenefit = Math.round(Math.max(55, Math.min(96, 89 - partnerNeed * 7 + (sendValue / target.value - 1) * 18)));
+    const styleBase = style === "Aggressive" ? 73 : style === "Strict" ? 52 : 64;
+    const acceptance = Math.round(Math.max(35, Math.min(88, styleBase + (partnerBenefit - 70) * .55 - valueGap * 16)));
+    const sendPositions = [...new Set(send.map((asset) => asset.position))].join("/");
+    suggestions.push({ id: `${partner.id}-${target.id}-${send.map((asset) => asset.id).join("-")}`, title: `Address ${yourTeam.teamName}’s ${target.position} need`, receive: [target], send, yourBenefit, partnerBenefit, acceptance, confidence: Math.round(Math.max(58, Math.min(91, 88 - valueGap * 28))), whyYou: `${target.name} improves a priority ${target.position} room using this league’s scoring and lineup value.`, whyThem: `${send.map((asset) => asset.name).join(" and ")} ${send.length > 1 ? "add" : "adds"} ${sendPositions} value where ${partner.teamName} grades as comparatively thin.` });
+    usedTargets.add(target.id);
+    if (suggestions.length === 3) break;
+  }
+  return suggestions;
+}
+
+function TradeLab({ teams, selectedTeamId, rankings, context }: { teams: LeagueTeam[]; selectedTeamId: string; rankings: LeagueRanking[]; context: RankingContext | null }) {
+  const yourTeam = teams.find((team) => team.id === selectedTeamId);
+  const opponents = teams.filter((team) => team.id !== selectedTeamId && team.roster.length);
+  const [selectedId, setSelectedId] = useState(opponents[0]?.id ?? "");
+  const [styles, setStyles] = useState<Record<string, TradeStyle>>({});
   const [activeSuggestion, setActiveSuggestion] = useState(0);
-  const partner = managers.find((manager) => manager.id === selectedId) ?? managers[0];
-  const partnerStyle = partner ? (styles[partner.id] ?? partner.style) : "Neutral";
-  const suggestions = tradeSuggestions[partnerStyle];
-  const suggestion = suggestions[activeSuggestion % suggestions.length];
+  const partner = opponents.find((team) => team.id === selectedId) ?? opponents[0];
+  const partnerStyle = partner ? (styles[partner.id] ?? "Neutral") : "Neutral";
+  const suggestions = yourTeam && partner ? buildTradeSuggestions(yourTeam, partner, rankings, context, partnerStyle) : [];
+  const suggestion = suggestions.length ? suggestions[activeSuggestion % suggestions.length] : null;
   function selectPartner(id: string) { setSelectedId(id); setActiveSuggestion(0); }
   function updateStyle(style: TradeStyle) { if (!partner) return; setStyles((current) => ({ ...current, [partner.id]: style })); setActiveSuggestion(0); }
+  if (!yourTeam) return <div className="page-content"><SectionIntro kicker="TRADE INTELLIGENCE" title="Choose your team to build real trade ideas" text="Fantasy Hub needs your active roster before it can compare needs with league opponents." /><section className="panel scoreboard-empty">No fantasy team selected.</section></div>;
+  if (!partner || !suggestion) return <div className="page-content"><SectionIntro kicker="TRADE INTELLIGENCE" title="No roster-based trade frameworks are available yet" text="Suggestions appear after at least two teams have drafted eligible players with league-adjusted values." /><section className="panel scoreboard-empty">Not enough roster data to construct a two-sided proposal.</section></div>;
   return <div className="page-content">
-    <SectionIntro kicker="TRADE INTELLIGENCE" title="Find trades both managers have a reason to accept" text="GM Hub’s value-exchange framework is adapted for fantasy: lineup impact, positional scarcity, roster needs, manager behavior, mutual benefit, and acceptance likelihood all shape each suggestion." />
-    <section className="trade-controls panel"><div><label htmlFor="trade-partner">Trade partner</label><select id="trade-partner" value={partner?.id ?? ""} onChange={(event) => selectPartner(event.target.value)}>{managers.map((manager) => <option key={manager.id} value={manager.id}>{manager.teamName} · {manager.name}</option>)}</select></div><div><span>Negotiation profile</span><div className="style-toggle" role="group" aria-label="Trade partner negotiation profile">{(["Aggressive", "Neutral", "Strict"] as TradeStyle[]).map((style) => <button key={style} className={partnerStyle === style ? "active" : ""} onClick={() => updateStyle(style)}>{style}</button>)}</div></div><p><strong>{partnerStyle}</strong>{partnerStyle === "Aggressive" ? "More willing to consolidate value and accept higher-variance packages." : partnerStyle === "Strict" ? "Requires a visible value cushion and a direct roster-need solution." : "Prefers balanced value with a clear benefit for both starting lineups."}</p></section>
+    <SectionIntro kicker="LIVE LEAGUE TRADE INTELLIGENCE" title="Find trades both actual rosters have a reason to accept" text="Every package uses players currently owned by the two selected teams. League-adjusted value, lineup demand, positional weakness, package balance, and manager behavior shape each suggestion." />
+    <section className="trade-controls panel"><div><label htmlFor="trade-partner">Trade partner</label><select id="trade-partner" value={partner.id} onChange={(event) => selectPartner(event.target.value)}>{opponents.map((team) => <option key={team.id} value={team.id}>{team.teamName} · {team.managerName}</option>)}</select></div><div><span>Negotiation profile</span><div className="style-toggle" role="group" aria-label="Trade partner negotiation profile">{(["Aggressive", "Neutral", "Strict"] as TradeStyle[]).map((style) => <button key={style} className={partnerStyle === style ? "active" : ""} onClick={() => updateStyle(style)}>{style}</button>)}</div></div><p><strong>{partnerStyle}</strong>{partnerStyle === "Aggressive" ? "More willing to consolidate value and accept higher-variance packages." : partnerStyle === "Strict" ? "Requires a visible value cushion and a direct roster-need solution." : "Prefers balanced value with a clear benefit for both starting lineups."}</p></section>
     <div className="suggestion-tabs" role="tablist" aria-label="Recommended trade frameworks">{suggestions.map((item, index) => <button key={item.id} role="tab" aria-selected={index === activeSuggestion} className={index === activeSuggestion ? "active" : ""} onClick={() => setActiveSuggestion(index)}><span>OPTION {index + 1}</span><strong>{item.title}</strong><small>{item.acceptance}% estimated acceptance</small></button>)}</div>
-    <div className="trade-board"><section><span>YOU RECEIVE</span>{suggestion.receive.map((asset) => <TradeAsset key={asset.name} name={asset.name} meta={asset.meta} value={String(asset.value)} />)}</section><div className="trade-balance"><strong>{Math.min(suggestion.yourBenefit, suggestion.partnerBenefit)}</strong><span>Mutual benefit</span><i>↔</i><b>{suggestion.acceptance}% likely</b></div><section><span>{partner?.teamName.toUpperCase() ?? "PARTNER"} RECEIVES</span>{suggestion.send.map((asset) => <TradeAsset key={asset.name} name={asset.name} meta={asset.meta} value={String(asset.value)} />)}</section></div>
+    <div className="trade-board"><section><span>YOU RECEIVE</span>{suggestion.receive.map((asset) => <TradeAsset key={asset.id} asset={asset} />)}</section><div className="trade-balance"><strong>{Math.min(suggestion.yourBenefit, suggestion.partnerBenefit)}</strong><span>Mutual benefit</span><i>↔</i><b>{suggestion.acceptance}% likely</b></div><section><span>{partner.teamName.toUpperCase()} RECEIVES</span>{suggestion.send.map((asset) => <TradeAsset key={asset.id} asset={asset} />)}</section></div>
     <div className="mutual-grid"><article><span>YOUR TEAM</span><strong>{suggestion.yourBenefit}</strong><h3>Why this helps you</h3><p>{suggestion.whyYou}</p></article><article><span>{partner?.teamName ?? "Trade partner"}</span><strong>{suggestion.partnerBenefit}</strong><h3>Why they may accept</h3><p>{suggestion.whyThem}</p></article><article><span>DEAL CONFIDENCE</span><strong>{suggestion.confidence}%</strong><h3>Framework quality</h3><p>Confidence reflects role certainty, valuation range, roster-need evidence, and the selected manager profile.</p></article></div>
-    <section className="trade-note"><strong>Behavior setting, not a guarantee</strong><p>Aggressive, Neutral, and Strict change the acceptance threshold and package construction. They do not override player value or force every suggestion to look equal.</p></section>
+    <section className="trade-note"><strong>Actual rosters, modeled acceptance</strong><p>Player ownership and team needs are live for this league. Aggressive, Neutral, and Strict alter package thresholds, but acceptance remains an estimate—not a claim about another manager’s decision.</p></section>
   </div>;
 }
 
@@ -587,5 +622,5 @@ function Header({ eyebrow, title, action, onClick }: { eyebrow: string; title: s
 function SectionIntro({ kicker, title, text }: { kicker: string; title: string; text: string }) { return <header className="section-intro"><span>{kicker}</span><h2>{title}</h2><p>{text}</p></header>; }
 function Status({ value }: { value: string }) { return <span className={`status ${value === "Healthy" ? "healthy" : "questionable"}`}>{value}</span>; }
 function PlayerChoice({ player, active, onClick }: { player: Player; active: boolean; onClick: () => void }) { return <button className={`player-choice ${active ? "chosen" : ""}`} onClick={onClick}><span className={`pos pos-${player.position.toLowerCase()}`}>{player.position}</span><small>{player.team} · {player.opponent}</small><strong>{player.name}</strong><div><b>{player.projection}</b><span>PROJECTED</span></div></button>; }
-function TradeAsset({ name, meta, value }: { name: string; meta: string; value: string }) { return <article className="trade-asset"><span className="pos pos-wr">WR</span><p><strong>{name}</strong><small>{meta}</small></p><b>{value}</b></article>; }
+function TradeAsset({ asset }: { asset: TradeAssetValue }) { return <article className="trade-asset"><span className={`pos pos-${asset.position.toLowerCase()}`}>{asset.position}</span><p><strong>{asset.name}</strong><small>{asset.meta}</small></p><b>{asset.value}</b></article>; }
 function Scenario({ title, record, odds, text }: { title: string; record: string; odds: string; text: string }) { return <article><span>{title}</span><h3>{record}</h3><strong>{odds}</strong><p>{text}</p></article>; }
