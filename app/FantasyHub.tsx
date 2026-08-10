@@ -474,6 +474,7 @@ const normalizeNflTeam = (team: string) =>
   (({ JAC: "JAX", WSH: "WAS" }) as Record<string, string>)[team] ?? team;
 const isStartingPlayer = (player: Player) =>
   !["Bench", "IR", "TAXI"].includes(player.role);
+const formatRosterSlot = (slot: string) => slot.replace(/_/g, " ");
 const nflThemes = [
   {
     id: "ARI",
@@ -2590,7 +2591,7 @@ function AllLeagues({
               "critical",
               "Availability",
               `${player.name} is ${player.status}`,
-              `${player.role} is occupied by an unavailable player. Replace before lineups lock.`,
+              `${formatRosterSlot(player.role)} is occupied by an unavailable player. Replace before lineups lock.`,
             ),
           );
           starters
@@ -2602,7 +2603,7 @@ function AllLeagues({
                 player.status === "Doubtful" ? "critical" : "warning",
                 "Injury",
                 `${player.name} is ${player.status}`,
-                `Monitor the ${player.role} starter and identify a contingency from your bench or waivers.`,
+                `Monitor the ${formatRosterSlot(player.role)} starter and identify a contingency from your bench or waivers.`,
               ),
             );
           if (starters.length < league.starterCount)
@@ -2623,7 +2624,7 @@ function AllLeagues({
                 "critical",
                 "Role",
                 `${player.name} projects near zero`,
-                `${player.name} is in ${player.role} but is not expected to have a meaningful role this week.`,
+                `${player.name} is in ${formatRosterSlot(player.role)} but is not expected to have a meaningful role this week.`,
               ),
             );
           const canFill = (benchPlayer: Player, starter: Player) =>
@@ -2652,7 +2653,7 @@ function AllLeagues({
               edge >= 4 ? "critical" : "warning",
               "Lineup",
               `Start ${benchPlayer.name} over ${starter.name}`,
-              `Fantasy Hub projects a ${edge.toFixed(1)}-point improvement in ${starter.role}.`,
+              `Fantasy Hub projects a ${edge.toFixed(1)}-point improvement in ${formatRosterSlot(starter.role)}.`,
             ),
           );
           const playingTeams = new Set(
@@ -2670,7 +2671,7 @@ function AllLeagues({
                   "critical",
                   "Bye week",
                   `${player.name} appears to be on bye`,
-                  `${player.name} is currently in ${player.role}, but ${player.team} is not on the Week ${week} NFL slate.`,
+                  `${player.name} is currently in ${formatRosterSlot(player.role)}, but ${player.team} is not on the Week ${week} NFL slate.`,
                 ),
               );
           starters.forEach((player) => {
@@ -2688,7 +2689,7 @@ function AllLeagues({
                 "warning",
                 "Weather",
                 `${player.name} has weather risk`,
-                `${game.summary} Review floor and ceiling before locking ${player.role}.`,
+                `${game.summary} Review floor and ceiling before locking ${formatRosterSlot(player.role)}.`,
               );
           });
           const teamClusters = starters.reduce<Record<string, Player[]>>(
@@ -4255,7 +4256,7 @@ function CommandCenter({
             eyebrow="TOP DECISION"
             title={
               decision
-                ? `Review your ${primaryDecision!.role} slot`
+                ? `Review your ${formatRosterSlot(primaryDecision!.role)} slot`
                 : "Your current starters are clear"
             }
             action="Open Start / Sit"
@@ -4485,7 +4486,7 @@ function RosterSection({
                         : "roster-slot bench"
                     }
                   >
-                    {player.role}
+                    {formatRosterSlot(player.role)}
                   </span>
                 </td>
                 <td>
@@ -4513,7 +4514,7 @@ function RosterSection({
                   <strong>Empty starter slot</strong>
                   <small>Set your lineup before lock</small>
                 </td>
-                <td><span className="roster-slot empty">{slot}</span></td>
+                <td><span className="roster-slot empty">{formatRosterSlot(slot)}</span></td>
                 <td>—</td>
                 <td><b className="league-projection">—</b></td>
                 <td><span className="empty-slot-status">NEEDS PLAYER</span></td>
@@ -5489,7 +5490,7 @@ function StartSit({
               : recommendedPlayer.name;
           return <section className="start-sit-option" key={decision.starter.id}>
             <header>
-              <div><span>LINEUP DECISION {decisionIndex + 1}</span><h3>{decision.starter.role} close call</h3></div>
+              <div><span>LINEUP DECISION {decisionIndex + 1}</span><h3>{formatRosterSlot(decision.starter.role)} close call</h3></div>
               <small>{decision.candidates.length} eligible bench alternative{decision.candidates.length === 1 ? "" : "s"}</small>
             </header>
             <div className="compare-grid">
@@ -5547,14 +5548,14 @@ function StartSit({
               </p>
               <strong className="select-label">
                 {currentlyStarting
-                  ? `CURRENT ${player.role}`
-                  : `BENCH ALTERNATIVE · ELIGIBLE FOR ${decision.starter.role}`}
+                  ? `CURRENT ${formatRosterSlot(player.role)}`
+                  : `BENCH ALTERNATIVE · ELIGIBLE FOR ${formatRosterSlot(decision.starter.role)}`}
               </strong>
             </button>;
               })}
             </div>
             <section className="insight-box">
-              <span>FANTASY HUB VERDICT · {decision.starter.role}</span>
+              <span>FANTASY HUB VERDICT · {formatRosterSlot(decision.starter.role)}</span>
               <h3>Start {recommendedPlayer.name}</h3>
               <p>
                 At {aggressiveness}% aggressiveness, this recommendation weighs {aggressiveness > 65 ? "ceiling and game-breaking outcomes" : aggressiveness < 35 ? "floor, role certainty, and downside protection" : "floor, median, and ceiling more evenly"}. Every alternative shown is eligible for this lineup slot.
@@ -6758,7 +6759,7 @@ function HeadToHeadMatchup({
               {player.name}
             </button>
             <small>
-              {player.lineupSlot} · {player.nflTeam} · {player.yards} YDS
+              {formatRosterSlot(player.lineupSlot)} · {player.nflTeam} · {player.yards} YDS
               {player.touchdowns ? ` · ${player.touchdowns} TD` : ""}
               {player.targets
                 ? ` · ${player.receptions}/${player.targets} REC`
@@ -7546,7 +7547,7 @@ function PlayerPanel({
               Status <b>{player.status}</b>
             </span>
             <span>
-              Slot <b>{player.role}</b>
+              Slot <b>{formatRosterSlot(player.role)}</b>
             </span>
             <span>
               Team <b>{player.team}</b>
@@ -7556,7 +7557,7 @@ function PlayerPanel({
         <section className="dossier-facts">
           <div>
             <span>Role</span>
-            <strong>{player.role}</strong>
+            <strong>{formatRosterSlot(player.role)}</strong>
           </div>
           <div>
             <span>Trend</span>
