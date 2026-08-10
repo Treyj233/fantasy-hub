@@ -4478,8 +4478,8 @@ function NflGames({
                   <p style={{ backgroundColor: `#${team.color}` }}>
                     <strong>{team.displayName}</strong>
                     <small>
-                      {team.record}
-                      {team.homeAway === "home" ? " · HOME" : ""}
+                      {team.record ? `${team.record} · ` : ""}
+                      {team.homeAway === "home" ? "HOME" : "AWAY"}
                     </small>
                   </p>
                   <b>{data.scoresAvailable === false ? "—" : team.score}</b>
