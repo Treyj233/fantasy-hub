@@ -782,12 +782,12 @@ function MatchupBadge({ player }: { player: Pick<Player, "position" | "opponent"
   const hue = Math.round((strength.score / 100) * 120);
   return (
     <span
-      className="matchup-team"
+      className={`matchup-team matchup-${strength.label.toLowerCase()}`}
       style={{ "--matchup-hue": hue, "--matchup-position": `${strength.score}%` } as CSSProperties}
       title={`${player.matchupSourceSeason ?? 2025} ${matchupPosition(player.position)} matchup: ${strength.label}, ${strength.rank}${strength.rank === 1 ? "st" : strength.rank === 2 ? "nd" : strength.rank === 3 ? "rd" : "th"} most PPR fantasy points allowed (${strength.pointsAllowed.toFixed(1)} per game)`}
     >
       <b>{player.opponent}</b>
-      <span><i />{strength.label} · #{strength.rank}</span>
+      <span><i /><b>{strength.label}</b> · #{strength.rank} vs {matchupPosition(player.position)}</span>
     </span>
   );
 }
