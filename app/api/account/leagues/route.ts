@@ -3,7 +3,7 @@ import { getDb } from "../../../../db";
 import { sleeperConnections } from "../../../../db/schema";
 import { getChatGPTUser } from "../../../chatgpt-auth";
 
-type SleeperLeague = { league_id?: string; name?: string; season?: string; total_rosters?: number; avatar?: string | null; settings?: { type?: number }; scoring_settings?: { rec?: number }; roster_positions?: string[] };
+type SleeperLeague = { league_id?: string; previous_league_id?: string | null; name?: string; season?: string; total_rosters?: number; avatar?: string | null; settings?: { type?: number }; scoring_settings?: { rec?: number }; roster_positions?: string[] };
 
 export async function GET() {
   const user = await getChatGPTUser();
@@ -17,7 +17,16 @@ export async function GET() {
     const response = await fetch(`https://api.sleeper.app/v1/user/${connection.sleeperUserId}/leagues/nfl/${season}`, { next: { revalidate: 300 } });
     return response.ok ? await response.json() as SleeperLeague[] : [];
   }));
-  const leagues = (await Promise.all(leagueGroups.flat().map(async (league) => {
+  const uniqueLeagueRecords = Array.from(new Map(leagueGroups.flat().filter((league) => league.league_id).map((league) => [league.league_id!, league])).values());
+  const previousLeagueIds = new Set(uniqueLeagueRecords.map((league) => league.previous_league_id).filter((id): id is string => Boolean(id)));
+  const currentLeagueRecords = uniqueLeagueRecords
+    .filter((league) => !league.league_id || !previousLeagueIds.has(league.league_id))
+    .sort((a, b) => Number(b.season ?? 0) - Number(a.season ?? 0));
+  const latestNamedLeagueRecords = currentLeagueRecords.filter((league, index, records) => {
+    const identity = `${league.name?.trim().toLowerCase() ?? ""}|${league.settings?.type ?? 0}|${league.total_rosters ?? 0}`;
+    return records.findIndex((candidate) => `${candidate.name?.trim().toLowerCase() ?? ""}|${candidate.settings?.type ?? 0}|${candidate.total_rosters ?? 0}` === identity) === index;
+  });
+  const leagues = (await Promise.all(latestNamedLeagueRecords.map(async (league) => {
     if (!league.league_id) return null;
     const rosterResponse = await fetch(`https://api.sleeper.app/v1/league/${league.league_id}/rosters`, { next: { revalidate: 300 } });
     const rosters = rosterResponse.ok ? await rosterResponse.json() as { roster_id?: number; owner_id?: string }[] : [];

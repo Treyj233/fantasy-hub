@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 type View = "Command Center" | "Scoreboard" | "NFL Games" | "Dynasty Analytics" | "My Team" | "Team Rankings" | "Player Ranks" | "Start / Sit" | "Waiver Wire" | "Trade Lab" | "Matchups" | "Simulator";
 type Player = { id: string; name: string; position: string; team: string; opponent: string; projection: number; leagueProjection?: number | null; floor: number; ceiling: number; trend: number; status: string; role: string };
@@ -29,17 +29,6 @@ const nav: { label: View; mark: string }[] = [
   { label: "Team Rankings", mark: "↥" }, { label: "Player Ranks", mark: "♛" }, { label: "Start / Sit", mark: "⚡" }, { label: "Waiver Wire", mark: "+" },
   { label: "Trade Lab", mark: "↔" }, { label: "Matchups", mark: "◎" },
   { label: "Simulator", mark: "✦" },
-];
-
-const demoPlayers: Player[] = [
-  { id: "1", name: "Jahmyr Gibbs", position: "RB", team: "DET", opponent: "@ GB", projection: 20.8, floor: 13.2, ceiling: 31.4, trend: 2.1, status: "Healthy", role: "RB1" },
-  { id: "2", name: "CeeDee Lamb", position: "WR", team: "DAL", opponent: "vs NYG", projection: 19.4, floor: 11.8, ceiling: 30.2, trend: 1.4, status: "Healthy", role: "WR1" },
-  { id: "3", name: "Trey McBride", position: "TE", team: "ARI", opponent: "@ LAR", projection: 15.7, floor: 9.6, ceiling: 24.8, trend: 1.8, status: "Healthy", role: "TE1" },
-  { id: "4", name: "Jayden Daniels", position: "QB", team: "WAS", opponent: "vs PHI", projection: 22.1, floor: 15.1, ceiling: 30.7, trend: -0.4, status: "Questionable", role: "QB1" },
-  { id: "5", name: "Rome Odunze", position: "WR", team: "CHI", opponent: "@ MIN", projection: 13.6, floor: 7.1, ceiling: 23.9, trend: 2.8, status: "Healthy", role: "FLEX" },
-  { id: "6", name: "RJ Harvey", position: "RB", team: "DEN", opponent: "vs LV", projection: 11.8, floor: 6.4, ceiling: 20.1, trend: 1.2, status: "Healthy", role: "RB2" },
-  { id: "7", name: "Emeka Egbuka", position: "WR", team: "TB", opponent: "@ CAR", projection: 10.9, floor: 5.3, ceiling: 27.8, trend: 1.9, status: "Healthy", role: "Bench" },
-  { id: "8", name: "Tyler Warren", position: "TE", team: "IND", opponent: "vs TEN", projection: 9.8, floor: 4.9, ceiling: 17.7, trend: 0.8, status: "Healthy", role: "Bench" },
 ];
 
 const rankedPlayers: RankedPlayer[] = [
@@ -91,7 +80,7 @@ const tradeSuggestions: Record<TradeStyle, TradeSuggestion[]> = {
 
 export default function FantasyHub({ accountUser }: { accountUser: AccountUser | null }) {
   const [view, setView] = useState<View>("Command Center");
-  const [players, setPlayers] = useState(demoPlayers);
+  const [players, setPlayers] = useState<Player[]>([]);
   const [leagueId, setLeagueId] = useState("");
   const [leagueName, setLeagueName] = useState("Sunday Night Strategists");
   const [importState, setImportState] = useState<"idle" | "loading" | "success" | "error">("idle");
@@ -110,6 +99,7 @@ export default function FantasyHub({ accountUser }: { accountUser: AccountUser |
   const [accountError, setAccountError] = useState("");
   const [sleeperUsername, setSleeperUsername] = useState("");
   const [connectingAccount, setConnectingAccount] = useState(false);
+  const importRequest = useRef(0);
 
   useEffect(() => {
     if (!accountUser) return;
@@ -136,11 +126,20 @@ export default function FantasyHub({ accountUser }: { accountUser: AccountUser |
   async function importLeague(idOverride?: string, ownerIdOverride?: string) {
     const requestedLeagueId = idOverride?.trim() || leagueId.trim();
     if (!requestedLeagueId) return;
+    const requestNumber = ++importRequest.current;
     setImportState("loading");
+    setPlayers([]);
+    setLeagueTeams([]);
+    setSelectedTeamId("");
+    setLeagueRankings([]);
+    setRankingContext(null);
+    setManagers([]);
+    setSelectedPlayer(null);
     try {
       const response = await fetch(`/api/league?id=${encodeURIComponent(requestedLeagueId)}`);
       if (!response.ok) throw new Error("League not found");
       const data = await response.json() as { league: { name: string }; teams?: LeagueTeam[]; managers?: LeagueManager[]; rankings?: LeagueRanking[]; rankingContext?: RankingContext };
+      if (requestNumber !== importRequest.current) return;
       setLeagueName(data.league.name);
       const importedTeams = data.teams ?? [];
       setLeagueTeams(importedTeams);
@@ -148,15 +147,16 @@ export default function FantasyHub({ accountUser }: { accountUser: AccountUser |
       if (ownedTeam || importedTeams.length === 1) {
         const activeTeam = ownedTeam ?? importedTeams[0];
         setSelectedTeamId(activeTeam.id);
-        if (activeTeam.roster.length) setPlayers(activeTeam.roster);
+        setPlayers(activeTeam.roster);
       } else {
         setSelectedTeamId("");
       }
-      if (data.managers?.length) setManagers(data.managers);
+      setManagers(data.managers ?? []);
       setLeagueRankings(data.rankings ?? []);
       setRankingContext(data.rankingContext ?? null);
       setImportState("success");
     } catch {
+      if (requestNumber !== importRequest.current) return;
       setImportState("error");
     }
   }
@@ -188,6 +188,7 @@ export default function FantasyHub({ accountUser }: { accountUser: AccountUser |
 
   async function openConnectedLeague(league: ConnectedLeague) {
     setLeagueId(league.id);
+    setLeagueName(league.name);
     if (league.format !== "Dynasty" && view === "Dynasty Analytics") setView("Command Center");
     await importLeague(league.id, connection?.sleeperUserId);
   }
@@ -199,13 +200,16 @@ export default function FantasyHub({ accountUser }: { accountUser: AccountUser |
   function selectLeagueTeam(teamId: string) {
     setSelectedTeamId(teamId);
     const team = leagueTeams.find((candidate) => candidate.id === teamId);
-    if (team?.roster.length) setPlayers(team.roster);
+    setPlayers(team?.roster ?? []);
+    setSelectedPlayer(null);
   }
 
   const selectedLeagueTeam = leagueTeams.find((team) => team.id === selectedTeamId);
   const selectedConnectedLeague = availableLeagues.find((league) => league.id === leagueId);
   const isDynastyLeague = selectedConnectedLeague?.format === "Dynasty" || rankingContext?.format === "Dynasty";
   const visibleNav = nav.filter((item) => item.label !== "Dynasty Analytics" || isDynastyLeague);
+  const rosterReady = players.length > 0;
+  const rosterEmptyState = <EmptyRoster leagueSelected={Boolean(leagueId)} loading={importState === "loading"} leagueName={leagueName} />;
 
   if (!accountUser) return <SignInScreen />;
   if (accountLoading) return <AccountLoading />;
@@ -227,18 +231,18 @@ export default function FantasyHub({ accountUser }: { accountUser: AccountUser |
 
         {leagueTeams.length > 1 && <section className={`team-picker-strip ${selectedTeamId ? "selected" : ""}`}><div><span>{selectedTeamId ? "YOUR TEAM IS ACTIVE" : "ONE MORE STEP"}</span><strong>{selectedLeagueTeam ? selectedLeagueTeam.teamName : "Which team is yours?"}</strong><small>{selectedLeagueTeam ? `Managed by ${selectedLeagueTeam.managerName}. Your roster now powers every dashboard view.` : "Choose your fantasy team so another manager’s roster never replaces yours."}</small></div><label>Fantasy team<select value={selectedTeamId} onChange={(event) => selectLeagueTeam(event.target.value)}><option value="">Choose your team</option>{leagueTeams.map((team) => <option key={team.id} value={team.id}>{team.teamName} · {team.managerName}</option>)}</select></label></section>}
 
-        {view === "Command Center" && <CommandCenter players={players} totals={totals} setView={setView} setSelectedPlayer={setSelectedPlayer} starterChoice={starterChoice} setStarterChoice={setStarterChoice} />}
+        {view === "Command Center" && (rosterReady ? <CommandCenter players={players} totals={totals} setView={setView} setSelectedPlayer={setSelectedPlayer} starterChoice={starterChoice} setStarterChoice={setStarterChoice} /> : rosterEmptyState)}
         {view === "Scoreboard" && <Scoreboard leagueId={leagueId} />}
         {view === "NFL Games" && <NflGames leagueId={leagueId} />}
-        {view === "Dynasty Analytics" && isDynastyLeague && <DynastyAnalytics players={players} rankings={leagueRankings} context={rankingContext} setSelectedPlayer={setSelectedPlayer} />}
-        {view === "My Team" && <MyTeam players={players} setSelectedPlayer={setSelectedPlayer} />}
+        {view === "Dynasty Analytics" && isDynastyLeague && (rosterReady ? <DynastyAnalytics players={players} rankings={leagueRankings} context={rankingContext} setSelectedPlayer={setSelectedPlayer} /> : rosterEmptyState)}
+        {view === "My Team" && (rosterReady ? <MyTeam players={players} setSelectedPlayer={setSelectedPlayer} /> : rosterEmptyState)}
         {view === "Team Rankings" && <TeamRankings teams={leagueTeams} selectedTeamId={selectedTeamId} rankings={leagueRankings} context={rankingContext} setSelectedPlayer={setSelectedPlayer} />}
         {view === "Player Ranks" && <PlayerRanks roster={players} leagueRankings={leagueRankings} context={rankingContext} setSelectedPlayer={setSelectedPlayer} />}
-        {view === "Start / Sit" && <StartSit players={players} choice={starterChoice} setChoice={setStarterChoice} teamProjection={totals.projection} context={rankingContext} />}
+        {view === "Start / Sit" && (rosterReady ? <StartSit players={players} choice={starterChoice} setChoice={setStarterChoice} teamProjection={totals.projection} context={rankingContext} /> : rosterEmptyState)}
         {view === "Waiver Wire" && <WaiverWire />}
         {view === "Trade Lab" && <TradeLab managers={managers} />}
-        {view === "Matchups" && <Matchups players={players} />}
-        {view === "Simulator" && <Simulator simulations={simulations} setSimulations={setSimulations} shift={simShift} run={runSimulation} />}
+        {view === "Matchups" && (rosterReady ? <Matchups players={players} /> : rosterEmptyState)}
+        {view === "Simulator" && (rosterReady ? <Simulator simulations={simulations} setSimulations={setSimulations} shift={simShift} run={runSimulation} /> : rosterEmptyState)}
 
         <section className="connect-strip">
           <div><span>CONNECT YOUR LEAGUE</span><strong>Replace demo data with your actual roster</strong><small>Enter a public league ID to import settings, managers, rosters, and scoring.</small></div>
@@ -259,6 +263,12 @@ function SignInScreen() {
 
 function AccountLoading() {
   return <main className="auth-shell"><section className="auth-card auth-loading"><span>FANTASY HUB</span><h1>Loading your leagues…</h1><p>Pulling together your saved account and league workspace.</p><i /><i /><i /></section></main>;
+}
+
+function EmptyRoster({ leagueSelected, loading, leagueName }: { leagueSelected: boolean; loading: boolean; leagueName: string }) {
+  const title = loading ? `Opening ${leagueName}` : leagueSelected ? `${leagueName} has not drafted yet` : "Choose a league to begin";
+  const text = loading ? "Fantasy Hub is loading this league’s settings and roster." : leagueSelected ? "This league is connected, but your roster is currently empty. Fantasy Hub will populate these tools after the draft appears in the league data." : "Select one of your leagues above to load its roster, scoring, and lineup settings.";
+  return <div className="page-content"><SectionIntro kicker={loading ? "LOADING LEAGUE" : "ROSTER NOT AVAILABLE"} title={title} text={text} /><section className="panel scoreboard-empty">{loading ? "Loading league data…" : leagueSelected ? "No players have been assigned to your roster." : "No league selected."}</section></div>;
 }
 
 function ConnectSleeper({ user, username, setUsername, connect, loading, error }: { user: AccountUser; username: string; setUsername: (value: string) => void; connect: () => void; loading: boolean; error: string }) {
