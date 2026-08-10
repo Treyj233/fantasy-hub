@@ -965,6 +965,7 @@ export default function FantasyHub({
   const [accountError, setAccountError] = useState("");
   const [theme, setTheme] = useState<Theme>("light");
   const [teamTheme, setTeamTheme] = useState("GB");
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [draggedLeagueId, setDraggedLeagueId] = useState("");
   const importRequest = useRef(0);
   const leagueDragOccurred = useRef(false);
@@ -974,6 +975,9 @@ export default function FantasyHub({
     const savedTeamTheme = window.localStorage.getItem(
       "fantasy-hub-team-theme",
     );
+    const savedSidebarState = window.localStorage.getItem(
+      "fantasy-hub-sidebar-collapsed",
+    );
     const initialTheme: Theme =
       savedTheme === "light" || savedTheme === "dark"
         ? savedTheme
@@ -982,6 +986,7 @@ export default function FantasyHub({
           : "light";
     const timer = window.setTimeout(() => {
       setTheme(initialTheme);
+      setSidebarCollapsed(savedSidebarState === "true");
       if (
         savedTeamTheme &&
         nflThemes.some((team) => team.id === savedTeamTheme)
@@ -1347,8 +1352,26 @@ export default function FantasyHub({
   if (accountLoading) return <AccountLoading />;
   return (
     <PlayerOpenContext.Provider value={setSelectedPlayer}>
-    <main className="app-shell">
+    <main className={`app-shell ${sidebarCollapsed ? "sidebar-collapsed" : ""}`}>
       <aside className="sidebar">
+        <button
+          className="sidebar-collapse"
+          type="button"
+          aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          aria-expanded={!sidebarCollapsed}
+          title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          onClick={() => {
+            setSidebarCollapsed((current) => {
+              window.localStorage.setItem(
+                "fantasy-hub-sidebar-collapsed",
+                String(!current),
+              );
+              return !current;
+            });
+          }}
+        >
+          <span aria-hidden="true">{sidebarCollapsed ? "›" : "‹"}</span>
+        </button>
         <div className="brand">
           <span className="brand-mark">FH</span>
           <div>
@@ -1365,7 +1388,7 @@ export default function FantasyHub({
           </small>
         </div>
         <nav aria-label="Fantasy Hub sections">
-          {(["Portfolio", "League", "Live"] as const).map((group) => (
+          {(["Portfolio", "Live", "League"] as const).map((group) => (
             <div className="nav-group" key={group}>
               <span>{group}</span>
               {visibleNav.filter((item) => item.group === group).map((item) => (
@@ -1376,6 +1399,7 @@ export default function FantasyHub({
                     if (item.label === "Matchups") setSelectedMatchupId(null);
                     setView(item.label);
                   }}
+                  title={sidebarCollapsed ? item.label : undefined}
                 >
                   <i className={`nav-badge ${item.tone}`} aria-hidden="true">
                     {item.mark}
