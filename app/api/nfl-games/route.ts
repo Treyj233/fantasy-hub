@@ -26,9 +26,8 @@ export async function GET(request: Request) {
   const week = Number.isInteger(requestedWeek) && requestedWeek >= 1 && requestedWeek <= 18 ? requestedWeek : Math.max(1, league.leg ?? 1);
   const season = league.season ?? String(new Date().getUTCFullYear());
   const seasonNumber = Number(season);
-  const dateRange = `${season}0901-${seasonNumber + 1}0115`;
   const [gamesResponse, matchupsResponse, rostersResponse, usersResponse, playersResponse] = await Promise.all([
-    fetch(`https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates=${dateRange}&limit=1000`, { next: { revalidate: 20 } }),
+    fetch(`https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates=${season}&seasontype=2&week=${week}`, { next: { revalidate: 20 } }),
     fetch(`https://api.sleeper.app/v1/league/${leagueId}/matchups/${week}`, { next: { revalidate: 15 } }),
     fetch(`https://api.sleeper.app/v1/league/${leagueId}/rosters`, { next: { revalidate: 300 } }),
     fetch(`https://api.sleeper.app/v1/league/${leagueId}/users`, { next: { revalidate: 300 } }),
