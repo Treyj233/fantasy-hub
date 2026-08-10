@@ -8,6 +8,7 @@ type RankedPlayer = Player & { overallRank: number; positionRank: number; tier: 
 type PlayerWeek = { season: string; week: number; points: number; totalYards: number; touchdowns: number; passYards: number; passTouchdowns: number; interceptions: number; rushAttempts: number; rushYards: number; rushTouchdowns: number; targets: number; receptions: number; receivingYards: number; receivingTouchdowns: number };
 type PlayerHistory = { sourceStatus: "available" | "unavailable"; player: { id: string; age?: number; yearsExp?: number; college?: string; height?: string; weight?: string }; seasons: { season: string; games: number; points: number; pointsPerGame: number; positionRank: number | null; yards: number; touchdowns: number; receptions: number }[]; recentWeeks: { week: number; points: number; yards: number; touchdowns: number; targets: number }[]; weeks: PlayerWeek[] };
 type TradeStyle = "Aggressive" | "Neutral" | "Strict";
+type Theme = "light" | "dark";
 type LeagueManager = { id: string; name: string; teamName: string; style: TradeStyle };
 type DraftPick = { season: number; round: number; originalRosterId: number; ownerRosterId: number; value: number };
 type LeagueTeam = { id: string; ownerId?: string; managerName: string; teamName: string; roster: Player[]; draftCapital?: { score: number; picks: DraftPick[] } };
@@ -99,7 +100,21 @@ export default function FantasyHub({ accountUser }: { accountUser: AccountUser |
   const [accountError, setAccountError] = useState("");
   const [sleeperUsername, setSleeperUsername] = useState("");
   const [connectingAccount, setConnectingAccount] = useState(false);
+  const [theme, setTheme] = useState<Theme>("light");
   const importRequest = useRef(0);
+
+  useEffect(() => {
+    const savedTheme = window.localStorage.getItem("fantasy-hub-theme");
+    const initialTheme: Theme = savedTheme === "light" || savedTheme === "dark" ? savedTheme : window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    const timer = window.setTimeout(() => setTheme(initialTheme), 0);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    document.documentElement.style.colorScheme = theme;
+    window.localStorage.setItem("fantasy-hub-theme", theme);
+  }, [theme]);
 
   useEffect(() => {
     if (!accountUser) return;
@@ -221,7 +236,7 @@ export default function FantasyHub({ accountUser }: { accountUser: AccountUser |
         <div className="brand"><span className="brand-mark">FH</span><div><strong>Fantasy Hub</strong><small>Make every week count.</small></div></div>
         <div className="league-card"><span>ACTIVE LEAGUE</span><strong>{leagueName}</strong><small>{selectedLeagueTeam ? `${selectedLeagueTeam.teamName} · ` : ""}PPR · Week 8</small></div>
         <nav aria-label="Fantasy Hub sections">{visibleNav.map((item) => <button key={item.label} className={view === item.label ? "active" : ""} onClick={() => setView(item.label)}><i>{item.mark}</i>{item.label}</button>)}</nav>
-        <div className="sidebar-bottom"><div><span className="live-dot" /> DATA CURRENT</div><small>Lineups lock Sunday · 12:00 PM</small></div>
+        <div className="sidebar-bottom"><button className="theme-toggle" type="button" role="switch" aria-checked={theme === "dark"} aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`} onClick={() => setTheme((current) => current === "light" ? "dark" : "light")}><span aria-hidden="true">{theme === "dark" ? "☀" : "☾"}</span><b>{theme === "dark" ? "Light mode" : "Dark mode"}</b><i aria-hidden="true"><em /></i></button><div><span className="live-dot" /> DATA CURRENT</div><small>Lineups lock Sunday · 12:00 PM</small></div>
       </aside>
 
       <section className="workspace">
