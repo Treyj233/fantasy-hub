@@ -951,6 +951,9 @@ export default function FantasyHub({
   );
   const [managedLeagues, setManagedLeagues] = useState<ManagedLeague[]>([]);
   const [portfolioScans, setPortfolioScans] = useState<LeagueScan[]>([]);
+  const [selectedMatchupId, setSelectedMatchupId] = useState<number | null>(
+    null,
+  );
   const [accountLoading, setAccountLoading] = useState(Boolean(accountUser));
   const [accountError, setAccountError] = useState("");
   const [theme, setTheme] = useState<Theme>("light");
@@ -1339,7 +1342,10 @@ export default function FantasyHub({
                 <button
                   key={item.label}
                   className={view === item.label ? "active" : ""}
-                  onClick={() => setView(item.label)}
+                  onClick={() => {
+                    if (item.label === "Matchups") setSelectedMatchupId(null);
+                    setView(item.label);
+                  }}
                 >
                   <i className={`nav-badge ${item.tone}`} aria-hidden="true">
                     {item.mark}
@@ -1508,6 +1514,10 @@ export default function FantasyHub({
             key={`${leagueId}-${defaultGameWeek}`}
             leagueId={leagueId}
             defaultWeek={defaultGameWeek}
+            onOpenMatchup={(matchupId) => {
+              setSelectedMatchupId(matchupId);
+              setView("Matchups");
+            }}
           />
         )}
         {view === "NFL Games" && (
@@ -1599,11 +1609,11 @@ export default function FantasyHub({
         )}
         {view === "Matchups" &&
           (rosterReady ? (
-            <Matchups
+            <HeadToHeadMatchup
               key={`${leagueId}-${defaultGameWeek}`}
-              players={players}
-              season={selectedConnectedLeague?.season ?? "2026"}
+              leagueId={leagueId}
               defaultWeek={defaultGameWeek}
+              initialMatchupId={selectedMatchupId}
             />
           ) : (
             rosterEmptyState
@@ -2732,9 +2742,11 @@ function AllLeagues({
 function Scoreboard({
   leagueId,
   defaultWeek,
+  onOpenMatchup,
 }: {
   leagueId: string;
   defaultWeek: number;
+  onOpenMatchup: (matchupId: number) => void;
 }) {
   const openPlayer = useContext(PlayerOpenContext);
   const [week, setWeek] = useState(
@@ -2908,6 +2920,11 @@ function Scoreboard({
                   </section>
                 ))}
               </div>
+              <footer className="score-game-actions">
+                <button onClick={() => onOpenMatchup(matchup.matchupId)}>
+                  Open matchup details →
+                </button>
+              </footer>
             </article>
           );
         })}
@@ -6060,6 +6077,190 @@ function TradeLab({
   );
 }
 
+function HeadToHeadMatchup({
+  leagueId,
+  defaultWeek,
+  initialMatchupId,
+}: {
+  leagueId: string;
+  defaultWeek: number;
+  initialMatchupId: number | null;
+}) {
+  const openPlayer = useContext(PlayerOpenContext);
+  const [week, setWeek] = useState(defaultWeek);
+  const [data, setData] = useState<ScoreboardData | null>(null);
+  const [matchupId, setMatchupId] = useState<number | null>(initialMatchupId);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    const refresh = async () => {
+      setLoading(true);
+      try {
+        const response = await fetch(
+          `/api/scoreboard?leagueId=${encodeURIComponent(leagueId)}&week=${week}`,
+        );
+        const payload = (await response.json()) as ScoreboardData & {
+          error?: string;
+        };
+        if (!response.ok)
+          throw new Error(payload.error ?? "Matchup unavailable");
+        if (!active) return;
+        setData(payload);
+        setMatchupId((current) => {
+          if (payload.matchups.some((matchup) => matchup.matchupId === current))
+            return current;
+          return (
+            payload.matchups.find((matchup) =>
+              matchup.teams.some((team) => team.isMine),
+            )?.matchupId ??
+            payload.matchups[0]?.matchupId ??
+            null
+          );
+        });
+        setError("");
+      } catch (requestError) {
+        if (active)
+          setError(
+            requestError instanceof Error
+              ? requestError.message
+              : "Matchup unavailable",
+          );
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+    void refresh();
+    const timer = window.setInterval(refresh, 30000);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, [leagueId, week]);
+
+  const matchup =
+    data?.matchups.find((item) => item.matchupId === matchupId) ?? null;
+  const orderedTeams = matchup
+    ? [...matchup.teams].sort((a, b) => Number(b.isMine) - Number(a.isMine))
+    : [];
+  const firstTeam = orderedTeams[0];
+  const secondTeam = orderedTeams[1];
+  const leaderId =
+    firstTeam && secondTeam
+      ? firstTeam.points >= secondTeam.points
+        ? firstTeam.rosterId
+        : secondTeam.rosterId
+      : "";
+
+  const teamColumn = (team: ScoreboardTeam | undefined, side: string) => {
+    if (!team) return <section className="head-to-head-team empty">Team pending</section>;
+    const starters = team.topPlayers.filter((player) => player.isStarter);
+    const bench = team.topPlayers.filter((player) => !player.isStarter);
+    const renderPlayers = (players: ScoreboardPlayer[]) =>
+      players.map((player) => (
+        <article className="head-to-head-player" key={player.id}>
+          <span className={`pos pos-${player.position.toLowerCase()}`}>
+            {player.position}
+          </span>
+          <p>
+            <button
+              className="inline-player-link"
+              onClick={() => openPlayer(playerShell(player))}
+            >
+              {player.name}
+            </button>
+            <small>
+              {player.nflTeam} · {player.yards} YDS
+              {player.touchdowns ? ` · ${player.touchdowns} TD` : ""}
+              {player.targets
+                ? ` · ${player.receptions}/${player.targets} REC`
+                : ""}
+            </small>
+          </p>
+          <b>{player.points.toFixed(2)}</b>
+        </article>
+      ));
+    return (
+      <section className={`head-to-head-team ${team.isMine ? "mine" : ""}`}>
+        <header>
+          <span>{team.isMine ? "YOUR TEAM" : side}</span>
+          <h3>{team.teamName}</h3>
+          <small>{team.managerName}</small>
+          <strong>{team.points.toFixed(2)}</strong>
+          {leaderId === team.rosterId && <i>LEADING</i>}
+        </header>
+        <div className="head-to-head-group">
+          <h4>STARTERS · {starters.length}</h4>
+          {renderPlayers(starters)}
+          {!starters.length && <p className="matchup-roster-empty">No starters posted.</p>}
+        </div>
+        {bench.length > 0 && (
+          <details className="head-to-head-bench">
+            <summary>Bench · {bench.length} players</summary>
+            {renderPlayers(bench)}
+          </details>
+        )}
+      </section>
+    );
+  };
+
+  return (
+    <div className="page-content head-to-head-page">
+      <section className="head-to-head-hero">
+        <div>
+          <span>LIVE MATCHUP CENTER</span>
+          <h2>{data?.league.name ?? "Loading matchup…"}</h2>
+          <p>Fantasy scoring and player stat lines refresh every 30 seconds.</p>
+        </div>
+        <label>
+          Week
+          <select value={week} onChange={(event) => setWeek(Number(event.target.value))}>
+            {Array.from({ length: 18 }, (_, index) => index + 1).map((value) => (
+              <option key={value} value={value}>Week {value}</option>
+            ))}
+          </select>
+        </label>
+        {data && data.matchups.length > 1 && (
+          <label>
+            Matchup
+            <select
+              value={matchupId ?? ""}
+              onChange={(event) => setMatchupId(Number(event.target.value))}
+            >
+              {data.matchups.map((item) => (
+                <option key={item.matchupId} value={item.matchupId}>
+                  {item.teams.map((team) => team.teamName).join(" vs ")}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        <div className="live-refresh"><i />{loading ? "Refreshing" : `Updated ${data ? new Date(data.updatedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "—"}`}</div>
+      </section>
+      {error && <section className="scoreboard-error">{error}</section>}
+      {matchup && firstTeam && secondTeam ? (
+        <>
+          <section className="head-to-head-score panel">
+            <div><small>{firstTeam.isMine ? "YOU" : firstTeam.teamName}</small><strong>{firstTeam.points.toFixed(2)}</strong></div>
+            <span><b>{matchup.status === "Live" ? "● LIVE" : matchup.status}</b><i>VS</i><small>Week {data?.week}</small></span>
+            <div><small>{secondTeam.isMine ? "YOU" : secondTeam.teamName}</small><strong>{secondTeam.points.toFixed(2)}</strong></div>
+          </section>
+          <div className="head-to-head-grid">
+            {teamColumn(firstTeam, "TEAM 1")}
+            {teamColumn(secondTeam, "OPPONENT")}
+          </div>
+        </>
+      ) : (
+        !error && <section className="panel scoreboard-empty">{loading ? "Loading live matchup…" : "No matchup has been posted for this week."}</section>
+      )}
+    </div>
+  );
+}
+
+// Retained as the season-schedule renderer while the Matchups navigation uses
+// the live head-to-head game center above.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function Matchups({
   players,
   season,

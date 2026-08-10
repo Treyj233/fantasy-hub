@@ -48,8 +48,8 @@ export async function GET(request: Request) {
       const player = players[playerId];
       const stats = statsByPlayer.get(playerId) ?? {};
       return { id: playerId, name: (player?.full_name ?? `${player?.first_name ?? ""} ${player?.last_name ?? ""}`.trim()) || "Unknown player", position: player?.position ?? "FLEX", nflTeam: player?.team ?? "FA", points: Number((scoring[playerId] ?? 0).toFixed(2)), isStarter: (row.starters ?? []).includes(playerId), yards: Math.round((stats.pass_yd ?? 0) + (stats.rush_yd ?? 0) + (stats.rec_yd ?? 0)), touchdowns: (stats.pass_td ?? 0) + (stats.rush_td ?? 0) + (stats.rec_td ?? 0), receptions: stats.rec ?? 0, targets: stats.rec_tgt ?? 0 };
-    }).sort((a, b) => b.points - a.points);
-    return { rosterId: String(row.roster_id ?? ""), ownerId: roster?.owner_id ?? null, managerName: manager?.display_name ?? `Roster ${row.roster_id ?? ""}`, teamName: manager?.metadata?.team_name ?? `${manager?.display_name ?? `Roster ${row.roster_id ?? ""}`}'s Team`, points: Number((row.custom_points ?? row.points ?? 0).toFixed(2)), isMine: roster?.owner_id === connection.sleeperUserId, topPlayers: topPlayers.slice(0, 6) };
+    }).sort((a, b) => Number(b.isStarter) - Number(a.isStarter) || b.points - a.points);
+    return { rosterId: String(row.roster_id ?? ""), ownerId: roster?.owner_id ?? null, managerName: manager?.display_name ?? `Roster ${row.roster_id ?? ""}`, teamName: manager?.metadata?.team_name ?? `${manager?.display_name ?? `Roster ${row.roster_id ?? ""}`}'s Team`, points: Number((row.custom_points ?? row.points ?? 0).toFixed(2)), isMine: roster?.owner_id === connection.sleeperUserId, topPlayers };
   };
   const grouped = new Map<number, MatchupRow[]>();
   matchupRows.forEach((row, index) => { const key = row.matchup_id ?? 1000 + index; grouped.set(key, [...(grouped.get(key) ?? []), row]); });
