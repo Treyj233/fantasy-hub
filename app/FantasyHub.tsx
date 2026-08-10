@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 type View = "Command Center" | "Scoreboard" | "NFL Games" | "Dynasty Analytics" | "My Team" | "Team Rankings" | "Player Ranks" | "Start / Sit" | "Waiver Wire" | "Trade Lab" | "Matchups" | "Simulator" | "Manage Leagues";
-type Player = { id: string; name: string; position: string; team: string; opponent: string; projection: number; leagueProjection?: number | null; floor: number; ceiling: number; trend: number; status: string; role: string };
+type Player = { id: string; name: string; position: string; team: string; opponent: string; projection: number; leagueProjection?: number | null; floor: number; ceiling: number; trend: number; status: string; role: string; weatherAdjustment?: number; weatherSummary?: string };
 type RankedPlayer = Player & { overallRank: number; positionRank: number; tier: 1 | 2 | 3 | 4; outlook: string };
 type PlayerWeek = { season: string; week: number; points: number; totalYards: number; touchdowns: number; passYards: number; passTouchdowns: number; interceptions: number; rushAttempts: number; rushYards: number; rushTouchdowns: number; targets: number; receptions: number; receivingYards: number; receivingTouchdowns: number };
 type PlayerHistory = { sourceStatus: "available" | "unavailable"; player: { id: string; age?: number; yearsExp?: number; college?: string; height?: string; weight?: string }; seasons: { season: string; games: number; points: number; pointsPerGame: number; positionRank: number | null; yards: number; touchdowns: number; receptions: number }[]; recentWeeks: { week: number; points: number; yards: number; touchdowns: number; targets: number }[]; weeks: PlayerWeek[] };
@@ -26,6 +26,8 @@ type NflImpactPlayer = { id: string; name: string; position: string; nflTeam: st
 type NflGameData = { league: { name: string; season: string }; week: number; updatedAt: string; fantasyMatchup: { available: boolean; yourPoints: number; opponentPoints: number; opponentName: string; playerCount: number }; games: { id: string; date: string; name: string; status: string; state: string; clock: string; venue: string; broadcast: string; teams: { abbreviation: string; name: string; displayName: string; homeAway: string; score: number; winner: boolean; color: string; logo: string | null; record: string }[]; impactPlayers: NflImpactPlayer[] }[] };
 type ScheduleGame = { id: string; week: number; date: string; status: string; broadcast: string; away: { abbreviation: string; name: string }; home: { abbreviation: string; name: string } };
 type NflScheduleData = { season: number; currentWeek: number; updatedAt: string; weeks: { week: number; games: ScheduleGame[] }[] };
+type WeatherGame = { gameId: string; date: string; venue: string; indoor: boolean; forecastAvailable: boolean; summary: string; teams: string[]; temperatureF?: number | null; precipitationProbability?: number | null; precipitationInches?: number | null; windMph?: number | null; windGustMph?: number | null };
+type WeatherData = { season: number; week: number; updatedAt: string; games: WeatherGame[] };
 type SimulationContext = { league: { name: string; season: string; currentWeek: number; totalTeams: number; playoffTeams: number; playoffWeekStart: number; regularSeasonWeeks: number; format: string; starterSlots: string[]; scoringRuleCount: number }; weeks: { week: number; matchups: { teams: string[]; points: number[] }[] }[] };
 type SimulationResult = { playoffOdds: number; byeOdds: number; titleOdds: number; medianWins: number; winPercentiles: { label: string; value: number }[]; seed: number; topDrivers: string[]; riskDrivers: string[] };
 type TradeAssetValue = { id: string; name: string; position: string; meta: string; value: number };
@@ -39,6 +41,29 @@ const nav: { label: View; mark: string }[] = [
   { label: "Simulator", mark: "✦" },
   { label: "Manage Leagues", mark: "⚙" },
 ];
+
+const normalizeNflTeam = (team: string) => ({ JAC: "JAX", WSH: "WAS" } as Record<string, string>)[team] ?? team;
+
+function applyWeather(player: Player, weather: WeatherData | null) {
+  const game = weather?.games.find((item) => item.teams.includes(normalizeNflTeam(player.team)));
+  if (!game) return player;
+  if (game.indoor || !game.forecastAvailable) return { ...player, weatherAdjustment: 0, weatherSummary: game.summary };
+  const position = player.position.toUpperCase();
+  const wind = game.windMph ?? 0;
+  const rainChance = game.precipitationProbability ?? 0;
+  const precipitation = game.precipitationInches ?? 0;
+  const temperature = game.temperatureF ?? 60;
+  let multiplier = 1;
+  if (wind >= 25) multiplier *= ({ QB: .86, WR: .88, TE: .91, K: .78, RB: .97, DST: 1.04 } as Record<string, number>)[position] ?? .94;
+  else if (wind >= 20) multiplier *= ({ QB: .90, WR: .91, TE: .94, K: .84, RB: .98, DST: 1.03 } as Record<string, number>)[position] ?? .96;
+  else if (wind >= 15) multiplier *= ({ QB: .95, WR: .95, TE: .97, K: .91, RB: .99, DST: 1.02 } as Record<string, number>)[position] ?? .98;
+  if (rainChance >= 70 || precipitation >= .15) multiplier *= ({ QB: .96, WR: .96, TE: .97, K: .94, RB: 1.01, DST: 1.02 } as Record<string, number>)[position] ?? .98;
+  if (temperature <= 20) multiplier *= ({ QB: .97, WR: .97, TE: .98, K: .94, RB: .99, DST: 1.01 } as Record<string, number>)[position] ?? .98;
+  else if (temperature >= 95) multiplier *= .98;
+  multiplier = Math.min(1.05, Math.max(.75, multiplier));
+  const projection = Number((player.projection * multiplier).toFixed(1));
+  return { ...player, projection, floor: Number((player.floor * multiplier).toFixed(1)), ceiling: Number((player.ceiling * multiplier).toFixed(1)), weatherAdjustment: Number((projection - player.projection).toFixed(1)), weatherSummary: game.summary };
+}
 
 const rankedPlayers: RankedPlayer[] = [
   { id:"rank-1",name:"Ja'Marr Chase",position:"WR",team:"CIN",opponent:"vs PIT",projection:22.8,floor:14.1,ceiling:35.4,trend:1.8,status:"Healthy",role:"WR1",overallRank:1,positionRank:1,tier:1,outlook:"League-winning target volume and touchdown ceiling." },
@@ -140,8 +165,16 @@ export default function FantasyHub({ accountUser }: { accountUser: AccountUser |
       if (!response.ok) throw new Error("League not found");
       const data = await response.json() as { league: { name: string; status?: string; season?: string; currentWeek?: number }; teams?: LeagueTeam[]; rankings?: LeagueRanking[]; waiverPlayers?: WaiverPlayer[]; rankingContext?: RankingContext };
       if (requestNumber !== importRequest.current) return;
+      const season = data.league.season ?? String(new Date().getFullYear());
+      const currentWeek = Math.max(1, data.league.currentWeek ?? 1);
+      let weather: WeatherData | null = null;
+      try {
+        const weatherResponse = await fetch(`/api/weather?season=${encodeURIComponent(season)}&week=${currentWeek}`);
+        if (weatherResponse.ok) weather = await weatherResponse.json() as WeatherData;
+      } catch { /* Weather is an optional model input; a failed forecast remains neutral. */ }
+      if (requestNumber !== importRequest.current) return;
       setLeagueName(data.league.name);
-      const importedTeams = data.teams ?? [];
+      const importedTeams = (data.teams ?? []).map((team) => ({ ...team, roster: team.roster.map((player) => applyWeather(player, weather)) }));
       setLeagueTeams(importedTeams);
       const ownedTeam = ownerIdOverride ? importedTeams.find((team) => team.ownerId === ownerIdOverride) : undefined;
       if (ownedTeam || importedTeams.length === 1) {
@@ -151,11 +184,11 @@ export default function FantasyHub({ accountUser }: { accountUser: AccountUser |
       } else {
         setSelectedTeamId("");
       }
-      setLeagueRankings(data.rankings ?? []);
-      setWaiverPlayers(data.waiverPlayers ?? []);
+      setLeagueRankings((data.rankings ?? []).map((player) => applyWeather(player, weather)));
+      setWaiverPlayers((data.waiverPlayers ?? []).map((player) => applyWeather(player, weather)));
       setLeagueStatus(data.league.status ?? "unknown");
       setLeagueWeek(data.league.currentWeek ?? 0);
-      setLeagueSeason(data.league.season ?? String(new Date().getFullYear()));
+      setLeagueSeason(season);
       setRankingContext(data.rankingContext ?? null);
       setImportState("success");
     } catch {
@@ -677,6 +710,7 @@ function TradeLab({ teams, selectedTeamId, rankings, context }: { teams: LeagueT
 
 function Matchups({ players, season }: { players: Player[]; season: string }) {
   const [schedule, setSchedule] = useState<NflScheduleData | null>(null);
+  const [weather, setWeather] = useState<WeatherData | null>(null);
   const [week, setWeek] = useState<number | null>(null);
   const [error, setError] = useState("");
   useEffect(() => {
@@ -691,15 +725,20 @@ function Matchups({ players, season }: { players: Player[]; season: string }) {
   const loading = !schedule || String(schedule.season) !== season;
   const activeWeek = week ?? schedule?.currentWeek ?? 1;
   const games = schedule?.weeks.find((item) => item.week === activeWeek)?.games ?? [];
-  const normalizeTeam = (team: string) => ({ JAC: "JAX", WSH: "WAS" } as Record<string, string>)[team] ?? team;
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch(`/api/weather?season=${encodeURIComponent(season)}&week=${activeWeek}`, { signal: controller.signal }).then(async (response) => response.ok ? await response.json() as WeatherData : null).then(setWeather).catch((requestError) => { if (requestError?.name !== "AbortError") setWeather(null); });
+    return () => controller.abort();
+  }, [season, activeWeek]);
+  const weatherByGame = new Map((weather?.week === activeWeek ? weather.games : []).map((item) => [item.gameId, item]));
   const playerMatchup = (team: string) => {
-    const code = normalizeTeam(team);
+    const code = normalizeNflTeam(team);
     const game = games.find((item) => item.away.abbreviation === code || item.home.abbreviation === code);
     if (!game) return null;
     const away = game.away.abbreviation === code;
-    return { game, label: `${away ? "@" : "vs"} ${away ? game.home.abbreviation : game.away.abbreviation}`, venue: away ? "Road" : "Home" };
+    return { game, weather: weatherByGame.get(game.id), label: `${away ? "@" : "vs"} ${away ? game.home.abbreviation : game.away.abbreviation}`, venue: away ? "Road" : "Home" };
   };
-  return <div className="page-content matchup-season-page"><section className="matchup-season-head"><div><span>FULL {season} NFL SEASON</span><h2>Every weekly matchup, mapped to your roster.</h2><p>Move through Weeks 1–18 to see each player’s opponent, location, kickoff, and bye week.</p></div><label>Schedule week<select value={activeWeek} onChange={(event) => setWeek(Number(event.target.value))}>{Array.from({ length: 18 }, (_, index) => index + 1).map((value) => <option key={value} value={value}>Week {value}</option>)}</select></label></section>{error && <section className="scoreboard-error">{error}</section>}{loading && <section className="panel scoreboard-empty">Loading the {season} NFL schedule…</section>}{!loading && !error && <><div className="matchup-grid roster-matchups">{players.map((player) => { const matchup = playerMatchup(player.team); return <article className={!matchup ? "bye-week" : ""} key={player.id}><div><span className={`pos pos-${player.position.toLowerCase()}`}>{player.position}</span><b className={matchup ? "edge-neutral" : "bye-label"}>{matchup?.venue.toUpperCase() ?? "BYE"}</b></div><h3>{player.name}</h3><small>{player.team} · {matchup?.label ?? `Bye Week ${activeWeek}`}</small><p>{matchup ? `${matchup.game.away.name} at ${matchup.game.home.name} · ${new Date(matchup.game.date).toLocaleString([], { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}${matchup.game.broadcast ? ` · ${matchup.game.broadcast}` : ""}` : `${player.team} is not scheduled to play in Week ${activeWeek}. Plan a replacement before lineups lock.`}</p><div className="match-meter"><i style={{ width: matchup ? "72%" : "12%" }} /></div><span>{matchup ? "Scheduled matchup" : "Bye week"}</span></article>; })}</div><section className="week-slate panel"><div className="panel-header"><div><span>NFL WEEK {activeWeek}</span><h3>Complete game slate</h3></div><b>{games.length} games</b></div><div>{games.map((game) => <article key={game.id}><time>{new Date(game.date).toLocaleString([], { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</time><p><span>{game.away.abbreviation}</span><strong>{game.away.name}</strong><i>at</i><span>{game.home.abbreviation}</span><strong>{game.home.name}</strong></p><small>{game.broadcast || game.status}</small></article>)}</div>{!games.length && <p className="schedule-empty">No regular-season games were returned for Week {activeWeek}.</p>}</section></>}</div>;
+  return <div className="page-content matchup-season-page"><section className="matchup-season-head"><div><span>FULL {season} NFL SEASON</span><h2>Every weekly matchup, mapped to your roster.</h2><p>Move through Weeks 1–18 to see each player’s opponent, stadium weather, kickoff, and bye week.</p></div><label>Schedule week<select value={activeWeek} onChange={(event) => setWeek(Number(event.target.value))}>{Array.from({ length: 18 }, (_, index) => index + 1).map((value) => <option key={value} value={value}>Week {value}</option>)}</select></label></section>{error && <section className="scoreboard-error">{error}</section>}{loading && <section className="panel scoreboard-empty">Loading the {season} NFL schedule…</section>}{!loading && !error && <><div className="matchup-grid roster-matchups">{players.map((player) => { const matchup = playerMatchup(player.team); return <article className={!matchup ? "bye-week" : ""} key={player.id}><div><span className={`pos pos-${player.position.toLowerCase()}`}>{player.position}</span><b className={matchup ? "edge-neutral" : "bye-label"}>{matchup?.venue.toUpperCase() ?? "BYE"}</b></div><h3>{player.name}</h3><small>{player.team} · {matchup?.label ?? `Bye Week ${activeWeek}`}</small><p>{matchup ? `${matchup.game.away.name} at ${matchup.game.home.name} · ${new Date(matchup.game.date).toLocaleString([], { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}${matchup.game.broadcast ? ` · ${matchup.game.broadcast}` : ""}` : `${player.team} is not scheduled to play in Week ${activeWeek}. Plan a replacement before lineups lock.`}</p>{matchup?.weather && <small>{matchup.weather.venue} · {matchup.weather.summary}</small>}<div className="match-meter"><i style={{ width: matchup ? "72%" : "12%" }} /></div><span>{matchup ? "Scheduled matchup" : "Bye week"}</span></article>; })}</div><section className="week-slate panel"><div className="panel-header"><div><span>NFL WEEK {activeWeek}</span><h3>Complete game slate</h3></div><b>{games.length} games</b></div><div>{games.map((game) => { const gameWeather = weatherByGame.get(game.id); return <article key={game.id}><time>{new Date(game.date).toLocaleString([], { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</time><p><span>{game.away.abbreviation}</span><strong>{game.away.name}</strong><i>at</i><span>{game.home.abbreviation}</span><strong>{game.home.name}</strong></p><small>{gameWeather ? `${gameWeather.venue} · ${gameWeather.summary}` : game.broadcast || game.status}</small></article>; })}</div>{!games.length && <p className="schedule-empty">No regular-season games were returned for Week {activeWeek}.</p>}</section></>}</div>;
 }
 
 function seededRandom(seed: number) {
