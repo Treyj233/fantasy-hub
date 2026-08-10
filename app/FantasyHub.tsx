@@ -1076,6 +1076,7 @@ export default function FantasyHub({
   const [selectedMatchupId, setSelectedMatchupId] = useState<number | null>(
     null,
   );
+  const [scoreboardScope, setScoreboardScope] = useState<"all" | "league">("all");
   const [accountLoading, setAccountLoading] = useState(Boolean(accountUser));
   const [accountError, setAccountError] = useState("");
   const [theme, setTheme] = useState<Theme>("light");
@@ -1544,6 +1545,7 @@ export default function FantasyHub({
                   className={view === item.label ? "active" : ""}
                   onClick={() => {
                     if (item.label === "Matchups") setSelectedMatchupId(null);
+                    if (item.label === "Scoreboard") setScoreboardScope("all");
                     setView(item.label);
                   }}
                   title={sidebarCollapsed ? item.label : undefined}
@@ -1770,20 +1772,33 @@ export default function FantasyHub({
             onManage={() => setView("Manage Leagues")}
             onOpen={async (league, destination = "Command Center") => {
               await openConnectedLeague(league);
+              if (destination === "Scoreboard") setScoreboardScope("league");
               setView(destination);
             }}
           />
         )}
         {view === "Scoreboard" && (
-          <Scoreboard
-            key={`${leagueId}-${defaultGameWeek}`}
-            leagueId={leagueId}
-            defaultWeek={defaultGameWeek}
-            onOpenMatchup={(matchupId) => {
-              setSelectedMatchupId(matchupId);
-              setView("Matchups");
-            }}
-          />
+          scoreboardScope === "all" ? (
+            <AllLeagueScoreboard
+              leagues={availableLeagues}
+              defaultWeek={defaultGameWeek}
+              onOpenLeague={async (league) => {
+                await openConnectedLeague(league);
+                setScoreboardScope("league");
+              }}
+            />
+          ) : (
+            <Scoreboard
+              key={`${leagueId}-${defaultGameWeek}`}
+              leagueId={leagueId}
+              defaultWeek={defaultGameWeek}
+              onBackAll={() => setScoreboardScope("all")}
+              onOpenMatchup={(matchupId) => {
+                setSelectedMatchupId(matchupId);
+                setView("Matchups");
+              }}
+            />
+          )
         )}
         {view === "NFL Games" && (
           <NflGames
@@ -3083,13 +3098,116 @@ function AllLeagues({
   );
 }
 
+function AllLeagueScoreboard({
+  leagues,
+  defaultWeek,
+  onOpenLeague,
+}: {
+  leagues: ConnectedLeague[];
+  defaultWeek: number;
+  onOpenLeague: (league: ConnectedLeague) => Promise<void>;
+}) {
+  const [week, setWeek] = useState(defaultWeek >= 1 && defaultWeek <= 18 ? defaultWeek : 1);
+  const [scores, setScores] = useState<Record<string, ScoreboardData | null>>({});
+  const [loading, setLoading] = useState(false);
+  const [updatedAt, setUpdatedAt] = useState("");
+  useEffect(() => {
+    if (!leagues.length) return;
+    let active = true;
+    const refresh = async () => {
+      setLoading(true);
+      const results = await Promise.all(
+        leagues.map(async (league) => {
+          try {
+            const response = await fetch(`/api/scoreboard?leagueId=${encodeURIComponent(league.id)}&week=${week}`);
+            if (!response.ok) return [league.id, null] as const;
+            return [league.id, await response.json() as ScoreboardData] as const;
+          } catch {
+            return [league.id, null] as const;
+          }
+        }),
+      );
+      if (!active) return;
+      setScores(Object.fromEntries(results));
+      setUpdatedAt(new Date().toISOString());
+      setLoading(false);
+    };
+    void refresh();
+    const timer = window.setInterval(refresh, 30000);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, [leagues, week]);
+  if (!leagues.length)
+    return (
+      <div className="page-content">
+        <SectionIntro kicker="ALL LEAGUES SCOREBOARD" title="Connect a league to track your matchups" text="Your matchup from every connected league will appear together here." />
+      </div>
+    );
+  return (
+    <div className="page-content portfolio-scoreboard-page">
+      <section className="scoreboard-head portfolio-scoreboard-head">
+        <div>
+          <span>ALL LEAGUES SCOREBOARD</span>
+          <h2>Your matchups, one live view.</h2>
+          <p>Only your matchup from each connected league is shown. Scores refresh every 30 seconds.</p>
+        </div>
+        <label>
+          Week
+          <select value={week} onChange={(event) => setWeek(Number(event.target.value))}>
+            {Array.from({ length: 18 }, (_, index) => index + 1).map((value) => <option key={value} value={value}>Week {value}</option>)}
+          </select>
+        </label>
+        <div className="live-refresh"><i />{loading ? "Refreshing" : `Updated ${updatedAt ? new Date(updatedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "—"}`}</div>
+      </section>
+      <div className="portfolio-scoreboard-grid">
+        {leagues.map((league) => {
+          const data = scores[league.id];
+          const matchup = data?.matchups.find((item) => item.teams.some((team) => team.isMine));
+          const mine = matchup?.teams.find((team) => team.isMine);
+          const opponent = matchup?.teams.find((team) => !team.isMine);
+          const leader = mine && opponent ? (mine.points >= opponent.points ? mine.rosterId : opponent.rosterId) : "";
+          return (
+            <article className={`score-game portfolio-score-game ${matchup ? "my-game" : ""}`} key={league.id}>
+              <header>
+                <span className={matchup?.status === "Live" ? "game-live" : ""}>{matchup?.status === "Live" ? "● LIVE" : matchup?.status ?? `WEEK ${week}`}</span>
+                <b>{league.name}</b>
+              </header>
+              {mine && opponent ? (
+                <div className="score-bug">
+                  {[mine, opponent].map((team) => (
+                    <div className={team.isMine ? "mine" : ""} key={team.rosterId}>
+                      <span>{team.teamName.slice(0, 3).toUpperCase()}</span>
+                      <p><strong>{team.teamName}</strong><small>{team.managerName}{team.isMine ? " · YOU" : ""}</small></p>
+                      <b>{team.points.toFixed(2)}</b>
+                      {leader === team.rosterId && <i>▲</i>}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="portfolio-score-pending">{data ? `Your Week ${week} matchup has not been posted.` : loading ? "Loading your matchup…" : "This league’s scoreboard is unavailable."}</p>
+              )}
+              <footer className="score-game-actions">
+                <button onClick={() => void onOpenLeague(league)}>Open league scoreboard →</button>
+              </footer>
+            </article>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function Scoreboard({
   leagueId,
   defaultWeek,
+  onBackAll,
   onOpenMatchup,
 }: {
   leagueId: string;
   defaultWeek: number;
+  onBackAll: () => void;
   onOpenMatchup: (matchupId: number) => void;
 }) {
   const openPlayer = useContext(PlayerOpenContext);
@@ -3160,6 +3278,7 @@ function Scoreboard({
           <p>
             Scores and player stat lines refresh automatically every 30 seconds.
           </p>
+          <button className="scoreboard-back" type="button" onClick={onBackAll}>← All leagues scoreboard</button>
         </div>
         <label>
           Week
