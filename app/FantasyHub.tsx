@@ -3316,7 +3316,16 @@ function AllLeagueScoreboard({
     exposures.forEach((item) => playerGroups.set(item.playerId, [...(playerGroups.get(item.playerId) ?? []), item]));
     const leveragePlayers = [...playerGroups.entries()].map(([id, items]) => ({ id, name: items[0].playerName, ...playerLeverage(items), exposures: items })).sort((a, b) => b.score - a.score);
     const activePlayers = matchups.flatMap((item) => [...item.mineStarters, ...item.opponentStarters]).filter((player) => player.points > 0 && (player.projection == null || player.points < player.projection)).length;
-    const completedPlayers = matchups.flatMap((item) => [...item.mineStarters, ...item.opponentStarters]).filter((player) => item.status === "final" || (player.projection != null && player.points >= player.projection)).length;
+    const completedPlayers = matchups.reduce(
+      (count, matchup) =>
+        count +
+        [...matchup.mineStarters, ...matchup.opponentStarters].filter(
+          (player) =>
+            matchup.status === "final" ||
+            (player.projection != null && player.points >= player.projection),
+        ).length,
+      0,
+    );
     const totalStarters = matchups.reduce((sum, item) => sum + item.mineStarters.length + item.opponentStarters.length, 0);
     return { matchups, interests, leveragePlayers, activePlayers, completedPlayers, remainingPlayers: Math.max(0, totalStarters - activePlayers - completedPlayers) };
   }, [leagues, scores]);
