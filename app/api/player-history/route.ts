@@ -1,3 +1,5 @@
+import { loadSnapProfiles, snapProfileFor } from "../../snap-data";
+
 type PlayerDirectoryEntry = { player_id?: string; full_name?: string; age?: number; years_exp?: number; college?: string; height?: string; weight?: string };
 type StatLine = { stats?: Record<string, number | undefined> };
 
@@ -21,10 +23,12 @@ export async function GET(request: Request) {
     if (!playerId) return Response.json({ sourceStatus: "unavailable", player: { id: requestedId ?? "" }, seasons: [], recentWeeks: [], weeks: [] });
     const latestSeason = Number(state.previous_season ?? state.season ?? new Date().getUTCFullYear() - 1);
     const seasons = [latestSeason, latestSeason - 1, latestSeason - 2];
-    const [seasonResponses, weeklyResponses] = await Promise.all([
+    const [seasonResponses, weeklyResponses, snapProfiles] = await Promise.all([
       Promise.all(seasons.map((season) => fetch(`https://api.sleeper.com/stats/nfl/player/${playerId}?season_type=regular&season=${season}&grouping=season`, { next: { revalidate: 86400 } }).then((response) => response.ok ? response.json() as Promise<StatLine> : null).catch(() => null))),
       Promise.all(seasons.map((season) => fetch(`https://api.sleeper.com/stats/nfl/player/${playerId}?season_type=regular&season=${season}&grouping=week`, { next: { revalidate: 3600 } }).then((response) => response.ok ? response.json() as Promise<Record<string, StatLine>> : {}).catch(() => ({})))),
+      loadSnapProfiles(latestSeason),
     ]);
+    const snapProfile = snapProfileFor(snapProfiles, resolved.full_name ?? "");
     const seasonHistory = seasonResponses.flatMap((line, index) => {
       const stats = line?.stats;
       if (!stats || !Object.keys(stats).length) return [];
@@ -44,7 +48,7 @@ export async function GET(request: Request) {
       return [{ season: String(seasons[seasonIndex]), week: Number(week), points: number(stats, "pts_ppr"), totalYards: passYards + rushYards + receivingYards, touchdowns: passTouchdowns + rushTouchdowns + receivingTouchdowns, passYards, passTouchdowns, interceptions: number(stats, "pass_int"), rushAttempts: number(stats, "rush_att"), rushYards, rushTouchdowns, targets: number(stats, "rec_tgt"), receptions: number(stats, "rec"), receivingYards, receivingTouchdowns }];
     }));
     const recentWeeks = weeks.filter((week) => week.season === String(latestSeason)).sort((a, b) => b.week - a.week).slice(0, 6).reverse().map((week) => ({ week: week.week, points: week.points, yards: week.totalYards, touchdowns: week.touchdowns, targets: week.targets }));
-    return Response.json({ sourceStatus: seasonHistory.length ? "available" : "unavailable", player: { id: playerId, age: resolved.age, yearsExp: resolved.years_exp, college: resolved.college, height: resolved.height, weight: resolved.weight }, seasons: seasonHistory, recentWeeks, weeks });
+    return Response.json({ sourceStatus: seasonHistory.length ? "available" : "unavailable", player: { id: playerId, age: resolved.age, yearsExp: resolved.years_exp, college: resolved.college, height: resolved.height, weight: resolved.weight }, snapProfile, seasons: seasonHistory, recentWeeks, weeks });
   } catch {
     return Response.json({ sourceStatus: "unavailable", player: { id: requestedId ?? "" }, seasons: [], recentWeeks: [], weeks: [] });
   }

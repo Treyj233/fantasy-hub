@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 
 type View =
   | "Command Center"
@@ -33,7 +33,28 @@ type Player = {
   role: string;
   weatherAdjustment?: number;
   weatherSummary?: string;
+  snapPct?: number | null;
+  snapAverage?: number | null;
+  snapWeek?: number | null;
+  snapSeason?: number | null;
 };
+const PlayerOpenContext = createContext<(player: Player) => void>(() => undefined);
+const playerShell = (
+  player: { id: string; name: string; position: string; team?: string; nflTeam?: string },
+): Player => ({
+  id: player.id,
+  name: player.name,
+  position: player.position,
+  team: player.team ?? player.nflTeam ?? "FA",
+  opponent: "Matchup details in league view",
+  projection: 0,
+  leagueProjection: null,
+  floor: 0,
+  ceiling: 0,
+  trend: 0,
+  status: "Healthy",
+  role: "Player",
+});
 type RankedPlayer = Player & {
   overallRank: number;
   positionRank: number;
@@ -68,6 +89,16 @@ type PlayerHistory = {
     height?: string;
     weight?: string;
   };
+  snapProfile?: {
+    season: number;
+    games: number;
+    latestWeek: number;
+    latestPct: number | null;
+    averagePct: number | null;
+    offensePct: number | null;
+    defensePct: number | null;
+    specialTeamsPct: number | null;
+  } | null;
   seasons: {
     season: string;
     games: number;
@@ -327,22 +358,22 @@ type LeagueScan = {
   }[];
 };
 
-const nav: { label: View; mark: string; group: "Portfolio" | "League" | "Live" }[] = [
-  { label: "All Leagues", mark: "◆", group: "Portfolio" },
-  { label: "Manage Leagues", mark: "⚙", group: "Portfolio" },
-  { label: "Command Center", mark: "★", group: "League" },
-  { label: "My Team", mark: "●", group: "League" },
-  { label: "Dynasty Analytics", mark: "◈", group: "League" },
-  { label: "Team Rankings", mark: "↥", group: "League" },
-  { label: "Player Rankings", mark: "♛", group: "League" },
-  { label: "ADP", mark: "⌁", group: "League" },
-  { label: "Start / Sit", mark: "⚡", group: "League" },
-  { label: "Waiver Wire", mark: "+", group: "League" },
-  { label: "Trade Lab", mark: "↔", group: "League" },
-  { label: "Simulator", mark: "✦", group: "League" },
-  { label: "Scoreboard", mark: "▣", group: "Live" },
-  { label: "NFL Games", mark: "🏈", group: "Live" },
-  { label: "Matchups", mark: "◎", group: "Live" },
+const nav: { label: View; mark: string; tone: string; group: "Portfolio" | "League" | "Live" }[] = [
+  { label: "All Leagues", mark: "◆", tone: "violet", group: "Portfolio" },
+  { label: "Manage Leagues", mark: "⚙", tone: "slate", group: "Portfolio" },
+  { label: "Command Center", mark: "★", tone: "amber", group: "League" },
+  { label: "My Team", mark: "♟", tone: "blue", group: "League" },
+  { label: "Dynasty Analytics", mark: "◈", tone: "purple", group: "League" },
+  { label: "Team Rankings", mark: "↥", tone: "teal", group: "League" },
+  { label: "Player Rankings", mark: "♛", tone: "gold", group: "League" },
+  { label: "ADP", mark: "⌁", tone: "cyan", group: "League" },
+  { label: "Start / Sit", mark: "⚡", tone: "orange", group: "League" },
+  { label: "Waiver Wire", mark: "+", tone: "emerald", group: "League" },
+  { label: "Trade Lab", mark: "↔", tone: "pink", group: "League" },
+  { label: "Simulator", mark: "✦", tone: "indigo", group: "League" },
+  { label: "Scoreboard", mark: "▣", tone: "red", group: "Live" },
+  { label: "NFL Games", mark: "●", tone: "football", group: "Live" },
+  { label: "Matchups", mark: "◎", tone: "sky", group: "Live" },
 ];
 
 const normalizeNflTeam = (team: string) =>
@@ -1226,6 +1257,7 @@ export default function FantasyHub({
   if (!accountUser) return <SignInScreen />;
   if (accountLoading) return <AccountLoading />;
   return (
+    <PlayerOpenContext.Provider value={setSelectedPlayer}>
     <main className="app-shell">
       <aside className="sidebar">
         <div className="brand">
@@ -1253,7 +1285,9 @@ export default function FantasyHub({
                   className={view === item.label ? "active" : ""}
                   onClick={() => setView(item.label)}
                 >
-                  <i>{item.mark}</i>
+                  <i className={`nav-badge ${item.tone}`} aria-hidden="true">
+                    {item.mark}
+                  </i>
                   {item.label}
                 </button>
               ))}
@@ -1293,7 +1327,7 @@ export default function FantasyHub({
             <h1>{view}</h1>
           </div>
           <div className="top-actions">
-            <button className="ghost" onClick={() => setView("Simulator")}>
+            <button className="ghost season-roll" onClick={() => setView("Simulator")}>
               Roll the season 🎲
             </button>
             <a
@@ -1429,7 +1463,11 @@ export default function FantasyHub({
           ))}
         {view === "My Team" &&
           (rosterReady ? (
-            <MyTeam players={players} setSelectedPlayer={setSelectedPlayer} />
+            <MyTeam
+              players={players}
+              context={rankingContext}
+              setSelectedPlayer={setSelectedPlayer}
+            />
           ) : (
             rosterEmptyState
           ))}
@@ -1541,6 +1579,7 @@ export default function FantasyHub({
         />
       )}
     </main>
+    </PlayerOpenContext.Provider>
   );
 }
 
@@ -2015,6 +2054,7 @@ function AllLeagues({
   onManage: () => void;
   onScansChange: (scans: LeagueScan[]) => void;
 }) {
+  const openPlayer = useContext(PlayerOpenContext);
   const [scans, setScans] = useState<LeagueScan[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -2456,7 +2496,7 @@ function AllLeagues({
           </section>
           <section className="portfolio-grid">
             <article className="portfolio-section panel">
-              <div className="portfolio-heading"><div><span>LEAGUE HEALTH</span><h3>Readiness across your portfolio</h3></div></div>
+              <div className="portfolio-heading"><div><span>WEEKLY READINESS</span><h3>Lineup preparation across your portfolio</h3></div></div>
               <div className="health-list">
                 {scans.map((scan) => <button key={`health-${scan.league.id}`} onClick={() => void onOpen(scan.league)}><span><strong>{scan.league.name}</strong><small>{scan.teamName}</small></span><i><em style={{ width: `${scan.health}%` }} /></i><b>{scan.health}</b></button>)}
               </div>
@@ -2472,20 +2512,20 @@ function AllLeagues({
             <article className="portfolio-section panel">
               <div className="portfolio-heading"><div><span>PORTFOLIO EXPOSURE</span><h3>Concentration and correlated risk</h3></div><b>{playerExposure.length} repeated</b></div>
               <div className="exposure-list">
-                {playerExposure.slice(0, 6).map(({ player, leagues: playerLeagues }) => <div key={`exposure-${player.id}-${player.name}`}><i>{player.position}</i><p><strong>{player.name}</strong><small>{player.team} · {player.status} · {playerLeagues.map((scan) => scan.league.name).join(", ")}</small></p><b>{playerLeagues.length}/{scans.length}</b></div>)}
+                {playerExposure.slice(0, 6).map(({ player, leagues: playerLeagues }) => <div key={`exposure-${player.id}-${player.name}`}><i>{player.position}</i><p><button className="inline-player-link" onClick={() => openPlayer(player)}>{player.name}</button><small>{player.team} · {player.status} · {playerLeagues.map((scan) => scan.league.name).join(", ")}</small></p><b>{playerLeagues.length}/{scans.length}</b></div>)}
                 {!playerExposure.length && <p className="portfolio-note">No player appears on more than one connected roster.</p>}
               </div>
             </article>
             <article className="portfolio-section panel">
               <div className="portfolio-heading"><div><span>CROSS-LEAGUE WAIVERS</span><h3>Players available around your portfolio</h3></div></div>
               <div className="waiver-opportunity-list">
-                {waiverOpportunities.map(({ player, scans: available }) => <button key={`portfolio-waiver-${player.id}-${player.name}`} onClick={() => void onOpen(available[0].league, "Waiver Wire")}><i>{player.position}</i><p><strong>{player.name}</strong><small>Available in {available.map((scan) => scan.league.name).join(", ")}</small></p><b>{player.projection.toFixed(1)}</b></button>)}
+                {waiverOpportunities.map(({ player, scans: available }) => <button key={`portfolio-waiver-${player.id}-${player.name}`} onClick={() => openPlayer(player)}><i>{player.position}</i><p><strong>{player.name}</strong><small>Available in {available.map((scan) => scan.league.name).join(", ")}</small></p><b>{player.projection.toFixed(1)}</b></button>)}
               </div>
             </article>
           </section>
           <section className="portfolio-recap panel">
             <div className="portfolio-heading"><div><span>WEEKLY CLUBHOUSE</span><h3>Your portfolio superlatives</h3></div></div>
-            <div><article><i>🏆</i><span><small>BEST PREPARED</small><strong>{healthiest?.league.name}</strong><em>{healthiest?.health}/100 league health</em></span></article><article><i>🚀</i><span><small>BIGGEST LINEUP</small><strong>{biggestProjection?.teamName}</strong><em>{biggestProjection?.projection.toFixed(1)} projected points</em></span></article><article><i>🎯</i><span><small>PORTFOLIO ANCHOR</small><strong>{playerExposure[0]?.player.name ?? "No repeat player"}</strong><em>{playerExposure[0] ? `Rostered in ${playerExposure[0].leagues.length} leagues` : "Diversified rosters"}</em></span></article></div>
+            <div><article><i>🏆</i><span><small>BEST PREPARED</small><strong>{healthiest?.league.name}</strong><em>{healthiest?.health}/100 weekly readiness</em></span></article><article><i>🚀</i><span><small>BIGGEST LINEUP</small><strong>{biggestProjection?.teamName}</strong><em>{biggestProjection?.projection.toFixed(1)} projected points</em></span></article><article><i>🎯</i><span><small>PORTFOLIO ANCHOR</small><strong>{playerExposure[0]?.player.name ?? "No repeat player"}</strong><em>{playerExposure[0] ? `Rostered in ${playerExposure[0].leagues.length} leagues` : "Diversified rosters"}</em></span></article></div>
           </section>
         </>
       )}
@@ -2577,6 +2617,7 @@ function Scoreboard({
   leagueId: string;
   defaultWeek: number;
 }) {
+  const openPlayer = useContext(PlayerOpenContext);
   const [week, setWeek] = useState(defaultWeek);
   const [data, setData] = useState<ScoreboardData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -2722,7 +2763,7 @@ function Scoreboard({
                           {player.position}
                         </span>
                         <p>
-                          <strong>{player.name}</strong>
+                          <button className="inline-player-link" onClick={() => openPlayer(playerShell(player))}>{player.name}</button>
                           <small>
                             {player.nflTeam} ·{" "}
                             {player.isStarter ? "Starter" : "Bench"}
@@ -2768,6 +2809,7 @@ function NflGames({
   season: string;
   defaultWeek: number;
 }) {
+  const openPlayer = useContext(PlayerOpenContext);
   const [week, setWeek] = useState(defaultWeek);
   const [data, setData] = useState<NflGameData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -3012,7 +3054,7 @@ function NflGames({
                       {player.position}
                     </span>
                     <p>
-                      <strong>{player.name}</strong>
+                      <button className="inline-player-link" onClick={() => openPlayer(playerShell(player))}>{player.name}</button>
                       <small>
                         {player.nflTeam} ·{" "}
                         {player.starter ? "Starter" : "Bench"}
@@ -3734,13 +3776,30 @@ function CommandCenter({
 
 function MyTeam({
   players,
+  context,
   setSelectedPlayer,
 }: {
   players: Player[];
+  context: RankingContext | null;
   setSelectedPlayer: (p: Player) => void;
 }) {
   const starters = players.filter(isStartingPlayer);
   const reserves = players.filter((player) => !isStartingPlayer(player));
+  const requiredSlots = (context?.rosterSlots ?? [])
+    .filter((slot) => slot !== "BN");
+  const assignedSlotCounts = starters.reduce<Record<string, number>>(
+    (counts, player) => ({
+      ...counts,
+      [player.role]: (counts[player.role] ?? 0) + 1,
+    }),
+    {},
+  );
+  const requiredSeen: Record<string, number> = {};
+  const unfilledSlots = requiredSlots.reduce<string[]>((empty, slot) => {
+    requiredSeen[slot] = (requiredSeen[slot] ?? 0) + 1;
+    if ((assignedSlotCounts[slot] ?? 0) < requiredSeen[slot]) empty.push(slot);
+    return empty;
+  }, []);
   return (
     <div className="page-content">
       <SectionIntro
@@ -3750,8 +3809,13 @@ function MyTeam({
       />
       <RosterSection
         title="Starters"
-        detail={`${starters.length} active lineup slots`}
+        detail={
+          requiredSlots.length
+            ? `${starters.length}/${requiredSlots.length} lineup slots filled${unfilledSlots.length ? ` · ${unfilledSlots.length} empty` : ""}`
+            : `${starters.length} active lineup slots`
+        }
         players={starters}
+        emptySlots={unfilledSlots}
         setSelectedPlayer={setSelectedPlayer}
       />
       <RosterSection
@@ -3768,11 +3832,13 @@ function RosterSection({
   title,
   detail,
   players,
+  emptySlots = [],
   setSelectedPlayer,
 }: {
   title: string;
   detail: string;
   players: Player[];
+  emptySlots?: string[];
   setSelectedPlayer: (player: Player) => void;
 }) {
   return (
@@ -3827,6 +3893,19 @@ function RosterSection({
                 <td>
                   <Status value={player.status} />
                 </td>
+              </tr>
+            ))}
+            {emptySlots.map((slot, index) => (
+              <tr className="empty-starter-row" key={`empty-${slot}-${index}`}>
+                <td>
+                  <span className="empty-player-mark">+</span>
+                  <strong>Empty starter slot</strong>
+                  <small>Set your lineup before lock</small>
+                </td>
+                <td><span className="roster-slot empty">{slot}</span></td>
+                <td>—</td>
+                <td><b className="league-projection">—</b></td>
+                <td><span className="empty-slot-status">NEEDS PLAYER</span></td>
               </tr>
             ))}
           </tbody>
@@ -4303,6 +4382,7 @@ function PlayerRanks({
                   <span>Pos.</span>
                   <span>Hub score</span>
                   <span>Age</span>
+                  <span>Snap %</span>
                   <span>League fit</span>
                   <span>Hub vs ADP</span>
                   <span>Why here</span>
@@ -4343,6 +4423,12 @@ function PlayerRanks({
                           : "—"}
                       </strong>
                       <span className="rank-age">{player.age ?? "—"}</span>
+                      <span className="rank-snap">
+                        {typeof player.snapPct === "number"
+                          ? `${player.snapPct.toFixed(0)}%`
+                          : "—"}
+                        {player.snapWeek ? <small>W{player.snapWeek}</small> : null}
+                      </span>
                       <span
                         className={`fit-adjustment ${(player.lineupAdjustment ?? 0) >= 0 ? "positive" : "negative"}`}
                       >
@@ -4917,9 +5003,20 @@ function WaiverWire({
 }) {
   const [planned, setPlanned] = useState<string[]>([]);
   const [position, setPosition] = useState("ALL");
+  const availableRankById = new Map(
+    players.map((player, index) => [player.id, index + 1]),
+  );
+  const positionCounts: Record<string, number> = {};
+  const positionRankById = new Map<string, number>();
+  players.forEach((player) => {
+    positionCounts[player.position] = (positionCounts[player.position] ?? 0) + 1;
+    positionRankById.set(player.id, positionCounts[player.position]);
+  });
+  const positionFilters = ["QB", "RB", "WR", "TE", "K", "DEF"].filter(
+    (value) => players.some((player) => player.position === value),
+  );
   const filtered = players
-    .filter((player) => position === "ALL" || player.position === position)
-    .slice(0, 18);
+    .filter((player) => position === "ALL" || player.position === position);
   if (!leagueSelected)
     return (
       <div className="page-content">
@@ -4959,7 +5056,7 @@ function WaiverWire({
           role="group"
           aria-label="Filter waiver wire by position"
         >
-          {["ALL", "QB", "RB", "WR", "TE", "K", "DEF"].map((value) => (
+          {["ALL", ...positionFilters].map((value) => (
             <button
               key={value}
               className={position === value ? "active" : ""}
@@ -4969,73 +5066,66 @@ function WaiverWire({
             </button>
           ))}
         </div>
-        <span>{filtered.length} available recommendations</span>
+        <span>{filtered.length} of {players.length} available players</span>
       </section>
-      <div className="waiver-grid">
-        {filtered.map((player, index) => {
-          const fit = Math.max(
-            55,
-            Math.min(
-              98,
-              Math.round(
-                96 - index * 1.7 + Math.max(-3, player.lineupAdjustment),
-              ),
-            ),
-          );
-          return (
-            <article className="waiver-card" key={player.id}>
-              <button
-                className="waiver-player-open"
-                onClick={() => setSelectedPlayer(player)}
-                aria-label={`Open ${player.name}`}
-              >
-                <div>
-                  <b>{String(index + 1).padStart(2, "0")}</b>
-                  <span className="score">{fit} FIT</span>
-                </div>
-                <span className={`pos pos-${player.position.toLowerCase()}`}>
-                  {player.position}
+      <section className="waiver-list panel">
+        <header>
+          <span>AVAILABLE RANK</span>
+          <span>PLAYER</span>
+          <span>WEEKLY PROJ.</span>
+          <span>STATUS</span>
+          <span>CLAIM LEVEL</span>
+          <span>ACTION</span>
+        </header>
+        <div>
+          {filtered.map((player) => {
+            const availableRank = availableRankById.get(player.id) ?? 0;
+            const positionRank = positionRankById.get(player.id) ?? 0;
+            return (
+              <article key={player.id}>
+                <b className="waiver-rank">#{availableRank}</b>
+                <button
+                  className="waiver-list-player"
+                  onClick={() => setSelectedPlayer(player)}
+                  aria-label={`Open ${player.name}`}
+                >
+                  <span className={`pos pos-${player.position.toLowerCase()}`}>
+                    {player.position}
+                  </span>
+                  <p>
+                    <strong>{player.name}</strong>
+                    <small>
+                      {player.team} · {player.position} #{positionRank} available · {waiverReason(player, context)}
+                    </small>
+                  </p>
+                </button>
+                <b className="waiver-projection">
+                  {typeof player.leagueProjection === "number"
+                    ? player.leagueProjection.toFixed(1)
+                    : "—"}
+                </b>
+                <Status value={player.status} />
+                <span className={`claim-level ${availableRank <= 3 ? "aggressive" : availableRank <= 12 ? "measured" : "watch"}`}>
+                  <b>{availableRank <= 3 ? "Aggressive" : availableRank <= 12 ? "Measured" : "Watch"}</b>
+                  <small>{waiverBid(player, availableRank - 1)} FAAB</small>
                 </span>
-                <h3>{player.name}</h3>
-                <small>
-                  {player.team} · Available in this league · Overall #
-                  {player.overallRank}
-                </small>
-                <p>{waiverReason(player, context)}</p>
-              </button>
-              <dl>
-                <div>
-                  <dt>Recommended bid</dt>
-                  <dd>{waiverBid(player, index)}</dd>
-                </div>
-                <div>
-                  <dt>Priority</dt>
-                  <dd>
-                    {index < 3
-                      ? "Aggressive"
-                      : index < 9
-                        ? "Measured"
-                        : "Watchlist"}
-                  </dd>
-                </div>
-              </dl>
-              <button
-                onClick={() =>
-                  setPlanned((current) =>
-                    current.includes(player.id)
-                      ? current.filter((id) => id !== player.id)
-                      : [...current, player.id],
-                  )
-                }
-              >
-                {planned.includes(player.id)
-                  ? "Added to plan"
-                  : "Add to waiver plan"}
-              </button>
-            </article>
-          );
-        })}
-      </div>
+                <button
+                  className={planned.includes(player.id) ? "waiver-plan added" : "waiver-plan"}
+                  onClick={() =>
+                    setPlanned((current) =>
+                      current.includes(player.id)
+                        ? current.filter((id) => id !== player.id)
+                        : [...current, player.id],
+                    )
+                  }
+                >
+                  {planned.includes(player.id) ? "✓ Planned" : "+ Plan claim"}
+                </button>
+              </article>
+            );
+          })}
+        </div>
+      </section>
       {!filtered.length && (
         <section className="panel scoreboard-empty">
           No unrostered {position === "ALL" ? "players" : position} options were
@@ -5713,6 +5803,7 @@ function Matchups({
   season: string;
   defaultWeek: number;
 }) {
+  const openPlayer = useContext(PlayerOpenContext);
   const [schedule, setSchedule] = useState<NflScheduleData | null>(null);
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [week, setWeek] = useState(defaultWeek);
@@ -5835,7 +5926,7 @@ function Matchups({
                       {matchup?.venue.toUpperCase() ?? "BYE"}
                     </b>
                   </div>
-                  <h3>{player.name}</h3>
+                  <h3><button className="inline-player-link" onClick={() => openPlayer(player)}>{player.name}</button></h3>
                   <small>
                     {player.team} · {matchup?.label ?? `Bye Week ${activeWeek}`}
                   </small>
@@ -6424,6 +6515,23 @@ function PlayerPanel({
             <strong>{history?.player.age ?? "—"}</strong>
           </div>
         </section>
+        <section className="snap-usage-card">
+          <header>
+            <div><span>SNAP PARTICIPATION</span><h3>How often the player is on the field</h3></div>
+            <b>{history?.snapProfile?.season ?? player.snapSeason ?? "—"}</b>
+          </header>
+          {history?.snapProfile || typeof player.snapPct === "number" ? (
+            <div>
+              <article><span>LATEST WEEK</span><strong>{(history?.snapProfile?.latestPct ?? player.snapPct)?.toFixed(0)}%</strong><small>Week {history?.snapProfile?.latestWeek ?? player.snapWeek ?? "—"}</small></article>
+              <article><span>SEASON AVG.</span><strong>{typeof (history?.snapProfile?.averagePct ?? player.snapAverage) === "number" ? `${(history?.snapProfile?.averagePct ?? player.snapAverage)!.toFixed(1)}%` : "—"}</strong><small>{history?.snapProfile?.games ?? "—"} games</small></article>
+              <article><span>OFFENSE</span><strong>{typeof history?.snapProfile?.offensePct === "number" ? `${history.snapProfile.offensePct.toFixed(1)}%` : "—"}</strong><small>Average share</small></article>
+              <article><span>DEFENSE / ST</span><strong>{typeof (history?.snapProfile?.defensePct ?? history?.snapProfile?.specialTeamsPct) === "number" ? `${(history?.snapProfile?.defensePct ?? history?.snapProfile?.specialTeamsPct)!.toFixed(1)}%` : "—"}</strong><small>Average share</small></article>
+            </div>
+          ) : (
+            <p>Snap participation is not available for this player or season.</p>
+          )}
+          <footer>Game-level snap counts · refreshed from the current published season file</footer>
+        </section>
         {portfolioScans.length > 0 && (
           <section className="portfolio-player-footprint">
             <header><div><span>PORTFOLIO FOOTPRINT</span><h3>Across all connected leagues</h3></div><b>{rosteredIn.length}/{portfolioScans.length} rostered</b></header>
@@ -6742,13 +6850,14 @@ function PlayerChoice({
   );
 }
 function TradeAsset({ asset }: { asset: TradeAssetValue }) {
+  const openPlayer = useContext(PlayerOpenContext);
   return (
     <article className="trade-asset">
       <span className={`pos pos-${asset.position.toLowerCase()}`}>
         {asset.position}
       </span>
       <p>
-        <strong>{asset.name}</strong>
+        <button className="inline-player-link" onClick={() => openPlayer(playerShell({ ...asset, team: asset.meta.split(" · ")[0] }))}>{asset.name}</button>
         <small>{asset.meta}</small>
       </p>
       <b>{asset.value}</b>

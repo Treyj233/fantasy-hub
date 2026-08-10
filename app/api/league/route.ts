@@ -1,3 +1,5 @@
+import { loadSnapProfiles, snapProfileFor } from "../../snap-data";
+
 type SourcePlayer = { player_id?: string; full_name?: string; first_name?: string; last_name?: string; position?: string; team?: string; injury_status?: string | null; search_rank?: number; age?: number; status?: string; depth_chart_order?: number | null; depth_chart_position?: string | null };
 type SourceProjection = { player_id?: string; stats?: Record<string, number> };
 type MatchupRow = { roster_id?: number; matchup_id?: number | null };
@@ -77,6 +79,11 @@ export async function GET(request: Request) {
       return entry.player_id && typeof value === "number" && value > 0 && value < 999 ? [[entry.player_id, value]] : [];
     }));
     const receptionLabel = (scoring.rec ?? 0) >= .75 ? "PPR" : (scoring.rec ?? 0) >= .25 ? "Half PPR" : "Standard";
+    const leagueSeason = Number(league.season ?? new Date().getUTCFullYear());
+    const snapSeason = league.status === "in_season" && (league.leg ?? 0) > 0
+      ? leagueSeason
+      : leagueSeason - 1;
+    const snapProfiles = await loadSnapProfiles(snapSeason);
     const tePremiumValue = (scoring.bonus_rec_te ?? 0) + (scoring.rec_te ?? 0);
     const bonusRuleCount = Object.entries(scoring).filter(([key, value]) => key.startsWith("bonus_") && value !== 0).length;
     const flexDemand = (slotCounts.FLEX ?? 0) + (slotCounts.WR_RB_FLEX ?? 0) + (slotCounts.REC_FLEX ?? 0);
@@ -116,9 +123,13 @@ export async function GET(request: Request) {
       const distance = player.age - peakAge;
       return distance <= 0 ? Math.max(-2, distance * .35) : -Math.pow(distance, 1.18) * (player.position === "RB" ? 1.55 : player.position === "WR" ? 1.05 : player.position === "TE" ? .85 : .55);
     };
+    const supportedPlayerPositions = new Set(["QB", "RB", "WR", "TE"]);
+    if ((slotCounts.K ?? 0) > 0) supportedPlayerPositions.add("K");
+    if ((slotCounts.DEF ?? 0) + (slotCounts.DST ?? 0) > 0)
+      supportedPlayerPositions.add("DEF");
     const rankingPool = Object.entries(sourcePlayers).flatMap(([playerId, player]) => {
       const position = player.position ?? "";
-      if (!['QB', 'RB', 'WR', 'TE', 'K', 'DEF'].includes(position) || !player.team) return [];
+      if (!supportedPlayerPositions.has(position) || !player.team) return [];
       const sourceRank = player.search_rank && player.search_rank > 0 ? player.search_rank : 9999;
       const projectedPoints = internalProjection(playerId, player);
       const lineupAdjustment = Math.min(11, Math.max(-4, ((positionDemand[position] ?? 0) - 1) * (position === "QB" ? 6.5 : 3.2)));
@@ -129,14 +140,17 @@ export async function GET(request: Request) {
       const value = projectedPoints * 2.35 + rankSignal + lineupAdjustment + ageAdjustment + availabilityAdjustment + opportunityAdjustment;
       const platformProjection = leagueProjections.get(playerId) ?? 0;
       const name = player.full_name ?? `${player.first_name ?? ""} ${player.last_name ?? ""}`.trim();
+      const snapProfile = snapProfileFor(snapProfiles, name);
       const marketAdp = platformAdp.get(normalizePlayerName(name)) ?? { Consensus: null, Sleeper: null, ESPN: null, CBS: null, RTSports: null, Fantrax: null };
       const directSleeperAdp = sleeperAdp.get(playerId) ?? marketAdp.Sleeper ?? null;
       const availableAdp = Object.values({ ...marketAdp, Sleeper: directSleeperAdp }).filter((item): item is number => typeof item === "number");
       const adpBySite = { ...marketAdp, Sleeper: directSleeperAdp, Consensus: marketAdp.Consensus ?? (availableAdp.length ? Number((availableAdp.reduce((sum, item) => sum + item, 0) / availableAdp.length).toFixed(1)) : null) };
-      return [{ id: player.player_id ?? playerId, name, position, team: player.team, opponent: "Matchup pending", projection: platformProjection, leagueProjection: leagueProjections.get(playerId) ?? null, floor: Number((platformProjection * .68).toFixed(1)), ceiling: Number((platformProjection * 1.38).toFixed(1)), trend: 0, status: player.injury_status ?? "Healthy", role: "Player pool", age: player.age ?? null, rankingValue: Number(value.toFixed(2)), ageAdjustment: Number(ageAdjustment.toFixed(1)), lineupAdjustment: Number(lineupAdjustment.toFixed(1)), adpBySite }];
+      return [{ id: player.player_id ?? playerId, name, position, team: player.team, opponent: "Matchup pending", projection: platformProjection, leagueProjection: leagueProjections.get(playerId) ?? null, floor: Number((platformProjection * .68).toFixed(1)), ceiling: Number((platformProjection * 1.38).toFixed(1)), trend: 0, status: player.injury_status ?? "Healthy", role: "Player pool", age: player.age ?? null, rankingValue: Number(value.toFixed(2)), ageAdjustment: Number(ageAdjustment.toFixed(1)), lineupAdjustment: Number(lineupAdjustment.toFixed(1)), snapPct: snapProfile?.latestPct ?? null, snapAverage: snapProfile?.averagePct ?? null, snapWeek: snapProfile?.latestWeek ?? null, snapSeason: snapProfile?.season ?? null, adpBySite }];
     }).sort((a, b) => b.rankingValue - a.rankingValue).slice(0, 600).map((player, index) => ({ ...player, overallRank: index + 1 }));
     const rosteredPlayerIds = new Set(rosters.flatMap((roster) => roster.players ?? []));
-    const waiverPlayers = league.status === "pre_draft" ? [] : rankingPool.filter((player) => !rosteredPlayerIds.has(player.id)).slice(0, 75);
+    const waiverPlayers = league.status === "pre_draft"
+      ? []
+      : rankingPool.filter((player) => !rosteredPlayerIds.has(player.id));
     const draftRounds = Math.max(1, Math.min(8, league.settings?.draft_rounds ?? 5));
     const firstFutureSeason = Number(league.season ?? new Date().getUTCFullYear()) + 1;
     const draftSeasons = [firstFutureSeason, firstFutureSeason + 1, firstFutureSeason + 2];
@@ -165,7 +179,9 @@ export async function GET(request: Request) {
         const player = sourcePlayers[playerId];
         if (!player) return [];
         const platformProjection = leagueProjections.get(playerId) ?? 0;
-        return [{ id: player.player_id ?? playerId, name: player.full_name ?? `${player.first_name ?? ""} ${player.last_name ?? ""}`.trim(), position: player.position ?? "FLEX", team: player.team ?? "FA", opponent: "Matchup pending", projection: platformProjection, leagueProjection: leagueProjections.get(playerId) ?? null, floor: Number((platformProjection * .68).toFixed(1)), ceiling: Number((platformProjection * 1.38).toFixed(1)), trend: 0, status: player.injury_status ?? "Healthy", role }];
+        const name = player.full_name ?? `${player.first_name ?? ""} ${player.last_name ?? ""}`.trim();
+        const snapProfile = snapProfileFor(snapProfiles, name);
+        return [{ id: player.player_id ?? playerId, name, position: player.position ?? "FLEX", team: player.team ?? "FA", opponent: "Matchup pending", projection: platformProjection, leagueProjection: leagueProjections.get(playerId) ?? null, floor: Number((platformProjection * .68).toFixed(1)), ceiling: Number((platformProjection * 1.38).toFixed(1)), trend: 0, status: player.injury_status ?? "Healthy", role, snapPct: snapProfile?.latestPct ?? null, snapAverage: snapProfile?.averagePct ?? null, snapWeek: snapProfile?.latestWeek ?? null, snapSeason: snapProfile?.season ?? null }];
       });
       const rosterId = roster.roster_id ?? rosterIndex + 1;
       const ownedPicks = draftPicks.filter((pick) => pick.ownerRosterId === rosterId).sort((a, b) => a.season - b.season || a.round - b.round);
