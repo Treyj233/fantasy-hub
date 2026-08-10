@@ -1,5 +1,6 @@
 type SourcePlayer = { player_id?: string; full_name?: string; first_name?: string; last_name?: string; position?: string; team?: string; injury_status?: string | null; search_rank?: number; age?: number; status?: string; depth_chart_order?: number | null; depth_chart_position?: string | null };
 type SourceProjection = { player_id?: string; stats?: Record<string, number> };
+type MatchupRow = { roster_id?: number; matchup_id?: number | null };
 
 export async function GET(request: Request) {
   const id = new URL(request.url).searchParams.get("id")?.trim();
@@ -19,9 +20,14 @@ export async function GET(request: Request) {
     const sourcePlayers = await playersResponse.json() as Record<string, SourcePlayer>;
     const tradedPicks = tradedPicksResponse?.ok ? await tradedPicksResponse.json().catch(() => []) as { season?: string; round?: number; roster_id?: number; owner_id?: number; previous_owner_id?: number }[] : [];
     const projectionWeek = Math.min(18, Math.max(1, league.leg ?? 1));
-    const projectionResponse = await fetch(`https://api.sleeper.com/projections/nfl/${league.season ?? new Date().getUTCFullYear()}/${projectionWeek}?season_type=regular`, { next: { revalidate: 3600 } }).catch(() => null);
+    const [projectionResponse, matchupResponse] = await Promise.all([
+      fetch(`https://api.sleeper.com/projections/nfl/${league.season ?? new Date().getUTCFullYear()}/${projectionWeek}?season_type=regular`, { next: { revalidate: 3600 } }).catch(() => null),
+      fetch(`https://api.sleeper.app/v1/league/${id}/matchups/${projectionWeek}`, { next: { revalidate: 60 } }).catch(() => null),
+    ]);
     const projectionPayload: unknown = projectionResponse?.ok ? await projectionResponse.json().catch(() => []) : [];
     const sourceProjections = Array.isArray(projectionPayload) ? projectionPayload as SourceProjection[] : [];
+    const matchupRows = matchupResponse?.ok ? await matchupResponse.json().catch(() => []) as MatchupRow[] : [];
+    const matchupByRoster = new Map(matchupRows.flatMap((row) => row.roster_id ? [[row.roster_id, row.matchup_id ?? null]] : []));
     const scoring = league.scoring_settings ?? {};
     const receptionValue = scoring.rec ?? 1;
     const projectionKey = receptionValue >= .75 ? "pts_ppr" : receptionValue >= .25 ? "pts_half_ppr" : "pts_std";
@@ -130,7 +136,7 @@ export async function GET(request: Request) {
       });
       const rosterId = roster.roster_id ?? rosterIndex + 1;
       const ownedPicks = draftPicks.filter((pick) => pick.ownerRosterId === rosterId).sort((a, b) => a.season - b.season || a.round - b.round);
-      return { id: String(rosterId), ownerId: roster.owner_id, managerName, teamName: owner?.metadata?.team_name ?? `${managerName}'s Team`, roster: normalized, draftCapital: { score: Number(ownedPicks.reduce((sum, pick) => sum + pick.value, 0).toFixed(1)), picks: ownedPicks } };
+      return { id: String(rosterId), ownerId: roster.owner_id, managerName, teamName: owner?.metadata?.team_name ?? `${managerName}'s Team`, matchupId: matchupByRoster.get(rosterId) ?? null, roster: normalized, draftCapital: { score: Number(ownedPicks.reduce((sum, pick) => sum + pick.value, 0).toFixed(1)), picks: ownedPicks } };
     });
     const managers = users.flatMap((user, index) => user.user_id ? [{ id: user.user_id, name: user.display_name ?? `Manager ${index + 1}`, teamName: user.metadata?.team_name ?? `${user.display_name ?? `Manager ${index + 1}`}'s Team`, style: "Neutral" as const }] : []);
     return Response.json({ league: { name: league.name ?? "Imported League", status: league.status ?? "unknown", teams: league.total_rosters, season: league.season, currentWeek: Math.max(0, league.leg ?? 0), projectionWeek, managers: users.length }, teams, managers, rankingContext: { format, scoring: receptionLabel, teams: league.total_rosters ?? rosters.length, rosterSlots, positionDemand, tePremium: tePremiumValue, passTouchdown: scoring.pass_td ?? 4, interception: scoring.pass_int ?? -2, bonusRuleCount, scoringRuleCount: Object.values(scoring).filter((value) => value !== 0).length }, rankings: rankingPool, waiverPlayers });
