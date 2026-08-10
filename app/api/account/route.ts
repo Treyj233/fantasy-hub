@@ -1,14 +1,17 @@
 import { eq } from "drizzle-orm";
 import { getDb } from "../../../db";
-import { sleeperConnections } from "../../../db/schema";
+import { sleeperConnections, userPreferences } from "../../../db/schema";
 import { getChatGPTUser } from "../../chatgpt-auth";
 
 export async function GET() {
   const user = await getChatGPTUser();
   if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
   const db = await getDb();
-  const [connection] = await db.select().from(sleeperConnections).where(eq(sleeperConnections.userId, user.userId)).limit(1);
-  return Response.json({ user: { displayName: user.displayName, email: user.email }, connection: connection ?? null });
+  const [[connection], [preferences]] = await Promise.all([
+    db.select().from(sleeperConnections).where(eq(sleeperConnections.userId, user.userId)).limit(1),
+    db.select().from(userPreferences).where(eq(userPreferences.userId, user.userId)).limit(1),
+  ]);
+  return Response.json({ user: { displayName: user.displayName, email: user.email }, connection: connection ?? null, preferences: preferences ?? null });
 }
 
 export async function POST(request: Request) {

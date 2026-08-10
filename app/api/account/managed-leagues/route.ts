@@ -1,6 +1,6 @@
 import { and, desc, eq } from "drizzle-orm";
 import { getDb } from "../../../../db";
-import { espnLeagueSnapshots, managedLeagues } from "../../../../db/schema";
+import { espnLeagueSnapshots, leagueDataSnapshots, managedLeagues } from "../../../../db/schema";
 import { getChatGPTUser } from "../../../chatgpt-auth";
 import { espnLeagueSummary, fetchEspnLeague } from "../../espn";
 
@@ -77,6 +77,8 @@ export async function DELETE(request: Request) {
   const [league] = await db.select().from(managedLeagues).where(and(eq(managedLeagues.id, id), eq(managedLeagues.userId, user.userId))).limit(1);
   if (league?.provider === "espn")
     await db.delete(espnLeagueSnapshots).where(and(eq(espnLeagueSnapshots.userId, user.userId), eq(espnLeagueSnapshots.leagueId, league.identifier)));
+  if (league)
+    await db.delete(leagueDataSnapshots).where(and(eq(leagueDataSnapshots.userId, user.userId), eq(leagueDataSnapshots.leagueKey, league.provider === "espn" ? `espn:${league.season}:${league.identifier}` : league.identifier)));
   await db.delete(managedLeagues).where(and(eq(managedLeagues.id, id), eq(managedLeagues.userId, user.userId)));
   return Response.json({ removed: true });
 }

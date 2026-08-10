@@ -262,6 +262,13 @@ type RankingContext = {
   scoringRuleCount: number;
 };
 type AccountUser = { displayName: string; email: string };
+type AccountPreferences = {
+  colorMode: Theme;
+  teamTheme: string;
+  badgeTheme: BadgeTheme;
+  leagueOrderJson: string;
+  onboardingCompletedAt: string | null;
+};
 type SleeperConnection = {
   sleeperUserId: string;
   sleeperUsername: string;
@@ -1166,6 +1173,7 @@ export default function FantasyHub({
   const [scoreboardScope, setScoreboardScope] = useState<"all" | "league">("all");
   const [accountLoading, setAccountLoading] = useState(Boolean(accountUser));
   const [accountError, setAccountError] = useState("");
+  const [needsOnboarding, setNeedsOnboarding] = useState(false);
   const [theme, setTheme] = useState<Theme>("light");
   const [teamTheme, setTeamTheme] = useState("GB");
   const [badgeTheme, setBadgeTheme] = useState<BadgeTheme>("arcade");
@@ -1256,8 +1264,21 @@ export default function FantasyHub({
         if (!response.ok) throw new Error("Account unavailable");
         const data = (await response.json()) as {
           connection?: SleeperConnection | null;
+          preferences?: AccountPreferences | null;
         };
         setConnection(data.connection ?? null);
+        if (data.preferences) {
+          setTheme(data.preferences.colorMode);
+          setTeamTheme(data.preferences.teamTheme);
+          setBadgeTheme(data.preferences.badgeTheme);
+          window.localStorage.setItem("fantasy-hub-theme", data.preferences.colorMode);
+          window.localStorage.setItem("fantasy-hub-team-theme", data.preferences.teamTheme);
+          window.localStorage.setItem("fantasy-hub-badge-theme", data.preferences.badgeTheme);
+          window.localStorage.setItem("fantasy-hub-league-order", data.preferences.leagueOrderJson);
+          setNeedsOnboarding(!data.preferences.onboardingCompletedAt);
+        } else {
+          setNeedsOnboarding(true);
+        }
         setAccountLoading(false);
         const results = await Promise.allSettled([
           loadManagedLeagues(),
@@ -1278,6 +1299,19 @@ export default function FantasyHub({
     // Account bootstrap intentionally runs only when the authenticated user changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accountUser]);
+
+  async function saveAccountPreferences(overrides: Partial<{ colorMode: Theme; teamTheme: string; badgeTheme: BadgeTheme; leagueOrder: string[] }>, completeOnboarding = false) {
+    try {
+      await fetch("/api/account/preferences", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ colorMode: theme, teamTheme, badgeTheme, ...overrides, completeOnboarding }),
+      });
+      if (completeOnboarding) setNeedsOnboarding(false);
+    } catch {
+      setAccountError("Your appearance is applied on this device, but account sync will retry later.");
+    }
+  }
 
   useEffect(() => {
     if (!accountUser || !portfolioScans.length) return;
@@ -1400,8 +1434,8 @@ export default function FantasyHub({
     }
   }
 
-  async function loadLeagues(activateFirst = false) {
-    const response = await fetch("/api/account/leagues");
+  async function loadLeagues(activateFirst = false, forceRefresh = false) {
+    const response = await fetch(`/api/account/leagues${forceRefresh ? "?refresh=1" : ""}`);
     if (!response.ok) throw new Error("Leagues unavailable");
     const data = (await response.json()) as {
       connection: SleeperConnection | null;
@@ -1473,6 +1507,7 @@ export default function FantasyHub({
         "fantasy-hub-league-order",
         JSON.stringify(ordered.map((league) => league.id)),
       );
+      void saveAccountPreferences({ leagueOrder: ordered.map((league) => league.id) });
       return ordered;
     });
   }
@@ -1507,6 +1542,7 @@ export default function FantasyHub({
         "fantasy-hub-league-order",
         JSON.stringify(ordered.map((league) => league.id)),
       );
+      void saveAccountPreferences({ leagueOrder: ordered.map((league) => league.id) });
       return ordered;
     });
   }
@@ -1632,6 +1668,8 @@ export default function FantasyHub({
 
   if (!accountUser) return <SignInScreen />;
   if (accountLoading) return <AccountLoading />;
+  if (needsOnboarding)
+    return <AccountOnboarding displayName={accountUser.displayName} colorMode={theme} teamTheme={teamTheme} badgeTheme={badgeTheme} onColorMode={setTheme} onTeamTheme={setTeamTheme} onBadgeTheme={setBadgeTheme} onComplete={() => void saveAccountPreferences({}, true)} />;
   return (
     <ProjectionPlatformContext.Provider value={leaguePlatform}>
     <PlayerOpenContext.Provider value={setSelectedPlayer}>
@@ -1705,7 +1743,11 @@ export default function FantasyHub({
             aria-checked={theme === "dark"}
             aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
             onClick={() =>
-              setTheme((current) => (current === "light" ? "dark" : "light"))
+              setTheme((current) => {
+                const next = current === "light" ? "dark" : "light";
+                void saveAccountPreferences({ colorMode: next });
+                return next;
+              })
             }
           >
             <span aria-hidden="true">{theme === "dark" ? "☾" : "☀"}</span>
@@ -2071,9 +2113,9 @@ export default function FantasyHub({
             managedLeagues={managedLeagues}
             accountError={accountError}
             teamTheme={teamTheme}
-            onTeamThemeChange={setTeamTheme}
+            onTeamThemeChange={(value) => { setTeamTheme(value); void saveAccountPreferences({ teamTheme: value }); }}
             badgeTheme={badgeTheme}
-            onBadgeThemeChange={setBadgeTheme}
+            onBadgeThemeChange={(value) => { setBadgeTheme(value); void saveAccountPreferences({ badgeTheme: value }); }}
             onOpen={async (league) => {
               setView("Command Center");
               await openConnectedLeague(league);
@@ -2081,7 +2123,7 @@ export default function FantasyHub({
             onAdd={addManagedLeague}
             onRemove={removeManagedLeague}
             onRefresh={async () => {
-              await Promise.all([loadManagedLeagues(), loadLeagues()]);
+              await Promise.all([loadManagedLeagues(), loadLeagues(false, true)]);
             }}
             onMove={moveConnectedLeague}
             onReorder={reorderConnectedLeague}
@@ -2101,6 +2143,18 @@ export default function FantasyHub({
     </PlayerOpenContext.Provider>
     </ProjectionPlatformContext.Provider>
   );
+}
+
+function AccountOnboarding({ displayName, colorMode, teamTheme, badgeTheme, onColorMode, onTeamTheme, onBadgeTheme, onComplete }: { displayName: string; colorMode: Theme; teamTheme: string; badgeTheme: BadgeTheme; onColorMode: (value: Theme) => void; onTeamTheme: (value: string) => void; onBadgeTheme: (value: BadgeTheme) => void; onComplete: () => void }) {
+  return <main className="onboarding-shell">
+    <section className="onboarding-card">
+      <header><span>WELCOME TO FANTASY HUB</span><h1>Make it yours, {displayName.split(" ")[0]}.</h1><p>Your leagues and preferences will follow your account across devices. Choose a starting look—you can change it anytime.</p></header>
+      <div className="onboarding-modes"><button className={colorMode === "light" ? "active" : ""} onClick={() => onColorMode("light")}><b>☀</b><span>Light mode</span></button><button className={colorMode === "dark" ? "active" : ""} onClick={() => onColorMode("dark")}><b>☾</b><span>Dark mode</span></button></div>
+      <div className="onboarding-section"><div><span>TEAM THEME</span><strong>Choose your colors</strong></div><div className="onboarding-team-grid">{nflThemes.map((team) => <button key={team.id} className={teamTheme === team.id ? "active" : ""} title={team.name} aria-label={team.name} aria-pressed={teamTheme === team.id} onClick={() => onTeamTheme(team.id)}><i style={{ background: `linear-gradient(135deg,${team.primary} 0 50%,${team.secondary} 50%)` }} /><b>{team.id}</b></button>)}</div></div>
+      <div className="onboarding-section"><div><span>SIDEBAR STYLE</span><strong>Pick a badge pack</strong></div><div className="onboarding-badges">{([['arcade','Arcade','★ ⚡ ↔'],['team','Team Colors','♟ + ◈'],['neon','Neon Night','◆ 🏈 ♛'],['minimal','Minimal','✓ ◎ ⌁']] as [BadgeTheme,string,string][]).map(([id,name,icons]) => <button key={id} className={badgeTheme === id ? "active" : ""} onClick={() => onBadgeTheme(id)}><b>{icons}</b><span>{name}</span></button>)}</div></div>
+      <footer><small>You’ll connect Sleeper or ESPN after setup. The first successful sync is saved to this account.</small><button onClick={onComplete}>Enter Fantasy Hub →</button></footer>
+    </section>
+  </main>;
 }
 
 function SignInScreen() {

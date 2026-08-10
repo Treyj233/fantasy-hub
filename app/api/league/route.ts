@@ -2,6 +2,9 @@ import { loadSnapProfiles, snapProfileFor } from "../../snap-data";
 import { loadPlayerSeasonProfiles, loadTeamOffenseProfiles, playerSeasonProfileFor } from "../../season-history";
 import { fetchEspnLeagueForUser, normalizeEspnLeague } from "../espn";
 import { getChatGPTUser } from "../../chatgpt-auth";
+import { and, eq } from "drizzle-orm";
+import { getDb } from "../../../db";
+import { leagueDataSnapshots } from "../../../db/schema";
 
 type SourcePlayer = { player_id?: string; full_name?: string; first_name?: string; last_name?: string; position?: string; team?: string; injury_status?: string | null; search_rank?: number; age?: number; status?: string; depth_chart_order?: number | null; depth_chart_position?: string | null };
 type SourceProjection = { player_id?: string; stats?: Record<string, number> };
@@ -22,15 +25,29 @@ function parsePlatformAdp(html: string) {
 }
 
 export async function GET(request: Request) {
-  const id = new URL(request.url).searchParams.get("id")?.trim();
+  const user = await getChatGPTUser();
+  if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
+  const url = new URL(request.url);
+  const id = url.searchParams.get("id")?.trim();
+  const forceRefresh = url.searchParams.get("refresh") === "1";
+  if (!id) return Response.json({ error: "Invalid league ID" }, { status: 400 });
+  const db = await getDb();
+  if (!forceRefresh) {
+    const [snapshot] = await db.select().from(leagueDataSnapshots).where(and(eq(leagueDataSnapshots.userId, user.userId), eq(leagueDataSnapshots.leagueKey, id))).limit(1);
+    if (snapshot && Date.now() - new Date(snapshot.refreshedAt).getTime() < 5 * 60 * 1000) {
+      try { return Response.json({ ...JSON.parse(snapshot.payloadJson), cache: { status: "fresh", refreshedAt: snapshot.refreshedAt } }); } catch { /* Refresh malformed snapshots. */ }
+    }
+  }
   if (id?.startsWith("espn:")) {
-    const user = await getChatGPTUser();
-    if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
     const [, season, leagueId] = id.split(":");
     if (!leagueId || !/^\d{4,24}$/.test(leagueId))
       return Response.json({ error: "Invalid ESPN league ID" }, { status: 400 });
     try {
-      return Response.json(await normalizeEspnLeague(await fetchEspnLeagueForUser(user.userId, leagueId, Number(season))));
+      const result = await normalizeEspnLeague(await fetchEspnLeagueForUser(user.userId, leagueId, Number(season)));
+      const refreshedAt = new Date().toISOString();
+      const snapshot = { id: crypto.randomUUID(), userId: user.userId, leagueKey: id, payloadJson: JSON.stringify(result), refreshedAt };
+      await db.insert(leagueDataSnapshots).values(snapshot).onConflictDoUpdate({ target: [leagueDataSnapshots.userId, leagueDataSnapshots.leagueKey], set: { payloadJson: snapshot.payloadJson, refreshedAt } });
+      return Response.json({ ...result, cache: { status: "refreshed", refreshedAt } });
     } catch (error) {
       return Response.json({ error: error instanceof Error ? error.message : "ESPN league unavailable" }, { status: 502 });
     }
@@ -214,7 +231,11 @@ export async function GET(request: Request) {
       return { id: String(rosterId), ownerId: roster.owner_id, managerName, teamName: owner?.metadata?.team_name ?? `${managerName}'s Team`, matchupId: matchupByRoster.get(rosterId) ?? null, roster: normalized, draftCapital: { score: Number(ownedPicks.reduce((sum, pick) => sum + pick.value, 0).toFixed(1)), picks: ownedPicks } };
     });
     const managers = users.flatMap((user, index) => user.user_id ? [{ id: user.user_id, name: user.display_name ?? `Manager ${index + 1}`, teamName: user.metadata?.team_name ?? `${user.display_name ?? `Manager ${index + 1}`}'s Team`, style: "Neutral" as const }] : []);
-    return Response.json({ league: { name: league.name ?? "Imported League", platform: "Sleeper", status: league.status ?? "unknown", teams: league.total_rosters, season: league.season, currentWeek: Math.max(0, league.leg ?? 0), projectionWeek, managers: users.length }, teams, managers, rankingContext: { format, scoring: receptionLabel, teams: league.total_rosters ?? rosters.length, rosterSlots, positionDemand, tePremium: tePremiumValue, passTouchdown: scoring.pass_td ?? 4, interception: scoring.pass_int ?? -2, bonusRuleCount, scoringRuleCount: Object.values(scoring).filter((value) => value !== 0).length }, rankings: rankingPool, waiverPlayers });
+    const result = { league: { name: league.name ?? "Imported League", platform: "Sleeper", status: league.status ?? "unknown", teams: league.total_rosters, season: league.season, currentWeek: Math.max(0, league.leg ?? 0), projectionWeek, managers: users.length }, teams, managers, rankingContext: { format, scoring: receptionLabel, teams: league.total_rosters ?? rosters.length, rosterSlots, positionDemand, tePremium: tePremiumValue, passTouchdown: scoring.pass_td ?? 4, interception: scoring.pass_int ?? -2, bonusRuleCount, scoringRuleCount: Object.values(scoring).filter((value) => value !== 0).length }, rankings: rankingPool, waiverPlayers };
+    const refreshedAt = new Date().toISOString();
+    const snapshot = { id: crypto.randomUUID(), userId: user.userId, leagueKey: id, payloadJson: JSON.stringify(result), refreshedAt };
+    await db.insert(leagueDataSnapshots).values(snapshot).onConflictDoUpdate({ target: [leagueDataSnapshots.userId, leagueDataSnapshots.leagueKey], set: { payloadJson: snapshot.payloadJson, refreshedAt } });
+    return Response.json({ ...result, cache: { status: "refreshed", refreshedAt } });
   } catch {
     return Response.json({ error: "League unavailable" }, { status: 502 });
   }

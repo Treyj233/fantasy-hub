@@ -11,6 +11,17 @@ export const sleeperConnections = sqliteTable("sleeper_connections", {
   updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });
 
+export const userPreferences = sqliteTable("user_preferences", {
+  userId: text("user_id").primaryKey(),
+  email: text("email").notNull(),
+  colorMode: text("color_mode").notNull().default("light"),
+  teamTheme: text("team_theme").notNull().default("GB"),
+  badgeTheme: text("badge_theme").notNull().default("arcade"),
+  leagueOrderJson: text("league_order_json").notNull().default("[]"),
+  onboardingCompletedAt: text("onboarding_completed_at"),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
 export const managedLeagues = sqliteTable("managed_leagues", {
   id: text("id").primaryKey(),
   userId: text("user_id").notNull(),
@@ -20,6 +31,7 @@ export const managedLeagues = sqliteTable("managed_leagues", {
   rosterId: text("roster_id"),
   leagueName: text("league_name"),
   season: text("season"),
+  leagueMetaJson: text("league_meta_json").notNull().default("{}"),
   status: text("status").notNull(),
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
@@ -47,6 +59,16 @@ export const espnLeagueSnapshots = sqliteTable("espn_league_snapshots", {
   syncedAt: text("synced_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 }, (table) => [
   uniqueIndex("espn_league_snapshots_user_league_season").on(table.userId, table.leagueId, table.season),
+]);
+
+export const leagueDataSnapshots = sqliteTable("league_data_snapshots", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  leagueKey: text("league_key").notNull(),
+  payloadJson: text("payload_json").notNull(),
+  refreshedAt: text("refreshed_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [
+  uniqueIndex("league_data_snapshots_user_league").on(table.userId, table.leagueKey),
 ]);
 
 export const seasonNarrativeSnapshots = sqliteTable("season_narrative_snapshots", {
