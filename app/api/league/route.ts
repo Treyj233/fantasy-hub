@@ -100,7 +100,8 @@ export async function GET(request: Request) {
       const rankSignal = Math.max(0, 28 - Math.log10(Math.max(1, sourceRank)) * 10.5);
       const opportunityAdjustment = projectedPoints < .5 ? -40 : projectedPoints < 2 ? -24 : projectedPoints < 5 ? -10 : 0;
       const value = projectedPoints * 2.35 + rankSignal + lineupAdjustment + ageAdjustment + availabilityAdjustment + opportunityAdjustment;
-      return [{ id: player.player_id ?? playerId, name: player.full_name ?? `${player.first_name ?? ""} ${player.last_name ?? ""}`.trim(), position, team: player.team, opponent: "Matchup pending", projection: Number(projectedPoints.toFixed(1)), leagueProjection: leagueProjections.get(playerId) ?? null, floor: Number((projectedPoints * .6).toFixed(1)), ceiling: Number((projectedPoints * 1.5).toFixed(1)), trend: 0, status: player.injury_status ?? "Healthy", role: "Player pool", age: player.age ?? null, rankingValue: Number(value.toFixed(2)), ageAdjustment: Number(ageAdjustment.toFixed(1)), lineupAdjustment: Number(lineupAdjustment.toFixed(1)) }];
+      const platformProjection = leagueProjections.get(playerId) ?? 0;
+      return [{ id: player.player_id ?? playerId, name: player.full_name ?? `${player.first_name ?? ""} ${player.last_name ?? ""}`.trim(), position, team: player.team, opponent: "Matchup pending", projection: platformProjection, leagueProjection: leagueProjections.get(playerId) ?? null, floor: Number((platformProjection * .68).toFixed(1)), ceiling: Number((platformProjection * 1.38).toFixed(1)), trend: 0, status: player.injury_status ?? "Healthy", role: "Player pool", age: player.age ?? null, rankingValue: Number(value.toFixed(2)), ageAdjustment: Number(ageAdjustment.toFixed(1)), lineupAdjustment: Number(lineupAdjustment.toFixed(1)) }];
     }).sort((a, b) => b.rankingValue - a.rankingValue).slice(0, 600).map((player, index) => ({ ...player, overallRank: index + 1 }));
     const rosteredPlayerIds = new Set(rosters.flatMap((roster) => roster.players ?? []));
     const waiverPlayers = league.status === "pre_draft" ? [] : rankingPool.filter((player) => !rosteredPlayerIds.has(player.id)).slice(0, 75);
@@ -131,8 +132,8 @@ export async function GET(request: Request) {
       const normalized = orderedRoster.flatMap(({ playerId, role }) => {
         const player = sourcePlayers[playerId];
         if (!player) return [];
-        const projection = internalProjection(playerId, player);
-        return [{ id: player.player_id ?? playerId, name: player.full_name ?? `${player.first_name ?? ""} ${player.last_name ?? ""}`.trim(), position: player.position ?? "FLEX", team: player.team ?? "FA", opponent: "Matchup pending", projection: Number(projection.toFixed(1)), leagueProjection: leagueProjections.get(playerId) ?? null, floor: Number((projection * .58).toFixed(1)), ceiling: Number((projection * 1.52).toFixed(1)), trend: 0, status: player.injury_status ?? "Healthy", role }];
+        const platformProjection = leagueProjections.get(playerId) ?? 0;
+        return [{ id: player.player_id ?? playerId, name: player.full_name ?? `${player.first_name ?? ""} ${player.last_name ?? ""}`.trim(), position: player.position ?? "FLEX", team: player.team ?? "FA", opponent: "Matchup pending", projection: platformProjection, leagueProjection: leagueProjections.get(playerId) ?? null, floor: Number((platformProjection * .68).toFixed(1)), ceiling: Number((platformProjection * 1.38).toFixed(1)), trend: 0, status: player.injury_status ?? "Healthy", role }];
       });
       const rosterId = roster.roster_id ?? rosterIndex + 1;
       const ownedPicks = draftPicks.filter((pick) => pick.ownerRosterId === rosterId).sort((a, b) => a.season - b.season || a.round - b.round);
