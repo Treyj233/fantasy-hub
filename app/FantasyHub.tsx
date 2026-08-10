@@ -1439,8 +1439,9 @@ export default function FantasyHub({
     }
     if (data.connection) setConnection(data.connection);
     setAvailableLeagues(orderedLeagues);
-    if (activateFirst && orderedLeagues.length) {
-      const defaultLeague = orderedLeagues[0];
+    const activeLeague = orderedLeagues.find((league) => league.id === leagueId);
+    if ((activateFirst || !activeLeague) && orderedLeagues.length) {
+      const defaultLeague = activeLeague ?? orderedLeagues[0];
       setLeagueId(defaultLeague.id);
       setLeagueName(defaultLeague.name);
       await importLeague(defaultLeague.id, data.connection?.sleeperUserId, defaultLeague.rosterId);
