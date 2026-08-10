@@ -29,15 +29,17 @@ export async function GET(request: Request) {
   const rows = await db.select().from(decisionMemory).where(and(eq(decisionMemory.userId, user.userId), eq(decisionMemory.leagueId, leagueId))).orderBy(desc(decisionMemory.createdAt));
   if (!connection) return Response.json({ decisions: [], summary: null });
   const unresolvedStartSit = rows.filter((row) => row.category === "start_sit" && row.userSelection && !row.resultJson);
-  if (unresolvedStartSit.length) {
+  const unresolvedWinPaths = rows.filter((row) => row.category === "win_path" && !row.resultJson);
+  if (unresolvedStartSit.length || unresolvedWinPaths.length) {
     const leagueResponse = await fetch(`https://api.sleeper.app/v1/league/${leagueId}`, { next: { revalidate: 60 } }).catch(() => null);
     const rostersResponse = await fetch(`https://api.sleeper.app/v1/league/${leagueId}/rosters`, { next: { revalidate: 300 } }).catch(() => null);
     const league = leagueResponse?.ok ? await leagueResponse.json().catch(() => ({})) as { leg?: number } : {};
     const rosters = rostersResponse?.ok ? await rostersResponse.json().catch(() => []) as { roster_id?: number; owner_id?: string }[] : [];
     const myRosterId = rosters.find((roster) => roster.owner_id === connection.sleeperUserId)?.roster_id;
     const completed = unresolvedStartSit.filter((row) => row.week < (league.leg ?? row.week));
+    const completedWinPaths = unresolvedWinPaths.filter((row) => row.week < (league.leg ?? row.week));
     const matchupByWeek = new Map<number, { roster_id?: number; players_points?: Record<string, number> }[]>();
-    await Promise.all([...new Set(completed.map((row) => row.week))].map(async (week) => { const response = await fetch(`https://api.sleeper.app/v1/league/${leagueId}/matchups/${week}`, { next: { revalidate: 3600 } }).catch(() => null); matchupByWeek.set(week, response?.ok ? await response.json().catch(() => []) : []); }));
+    await Promise.all([...new Set([...completed, ...completedWinPaths].map((row) => row.week))].map(async (week) => { const response = await fetch(`https://api.sleeper.app/v1/league/${leagueId}/matchups/${week}`, { next: { revalidate: 3600 } }).catch(() => null); matchupByWeek.set(week, response?.ok ? await response.json().catch(() => []) : []); }));
     for (const row of completed) {
       const alternatives = JSON.parse(row.alternativesJson) as { id?: string; name?: string; projection?: number }[];
       const selected = alternatives.find((item) => item.name === row.userSelection);
@@ -49,12 +51,25 @@ export async function GET(request: Request) {
       const processGrade = row.userSelection === row.recommendation || (selected.projection ?? 0) >= (recommended.projection ?? 0) * .9 ? "Reasonable" : "Questionable with available evidence";
       await db.update(decisionMemory).set({ resultJson: JSON.stringify({ selectedPoints, recommendedPoints, pointsLeft: Math.max(0, Number((recommendedPoints - selectedPoints).toFixed(2))), outcome: selectedPoints > recommendedPoints ? "User selection outscored the model pick" : selectedPoints < recommendedPoints ? "Model pick outscored the user selection" : "Selections tied" }), processGrade, updatedAt: new Date().toISOString() }).where(and(eq(decisionMemory.id, row.id), eq(decisionMemory.userId, user.userId)));
     }
+    for (const row of completedWinPaths) {
+      const targets = JSON.parse(row.alternativesJson) as { id?: string; name?: string; targetTotal?: number }[];
+      const points = matchupByWeek.get(row.week)?.find((item) => item.roster_id === myRosterId)?.players_points ?? {};
+      const players = targets.flatMap((target) => {
+        if (!target.id || !target.name || typeof target.targetTotal !== "number") return [];
+        const actualPoints = Number((points[target.id] ?? 0).toFixed(2));
+        const difference = Number((actualPoints - target.targetTotal).toFixed(2));
+        return [{ id: target.id, name: target.name, actualPoints, targetTotal: target.targetTotal, difference, outcome: difference > .05 ? "over" : difference < -.05 ? "short" : "met" }];
+      });
+      await db.update(decisionMemory).set({ resultJson: JSON.stringify({ players }), processGrade: "Outcome recorded", updatedAt: new Date().toISOString() }).where(and(eq(decisionMemory.id, row.id), eq(decisionMemory.userId, user.userId)));
+    }
   }
-  const refreshedRows = unresolvedStartSit.length ? await db.select().from(decisionMemory).where(and(eq(decisionMemory.userId, user.userId), eq(decisionMemory.leagueId, leagueId))).orderBy(desc(decisionMemory.createdAt)) : rows;
+  const refreshedRows = unresolvedStartSit.length || unresolvedWinPaths.length ? await db.select().from(decisionMemory).where(and(eq(decisionMemory.userId, user.userId), eq(decisionMemory.leagueId, leagueId))).orderBy(desc(decisionMemory.createdAt)) : rows;
   const parsed = refreshedRows.map((row) => ({ ...row, alternatives: JSON.parse(row.alternativesJson), information: JSON.parse(row.informationJson), result: row.resultJson ? JSON.parse(row.resultJson) : null }));
-  const selected = parsed.filter((row) => row.userSelection);
-  const resolved = parsed.filter((row) => row.result);
-  const byCategory = ["start_sit", "waiver", "trade"].map((category) => { const items = parsed.filter((row) => row.category === category); return { category, total: items.length, selected: items.filter((row) => row.userSelection).length, resolved: items.filter((row) => row.result).length, averageConfidence: items.length ? Math.round(items.reduce((sum, row) => sum + row.confidence, 0) / items.length) : null }; });
-  const startSitResults = parsed.filter((row) => row.category === "start_sit" && row.result) as (typeof parsed[number] & { result: { pointsLeft?: number; recommendedPoints?: number } })[];
-  return Response.json({ decisions: parsed, summary: { total: parsed.length, selected: selected.length, resolved: resolved.length, processReasonable: parsed.filter((row) => row.processGrade === "Reasonable").length, pointsLeftOnBench: Number(startSitResults.reduce((sum, row) => sum + (row.result.pointsLeft ?? 0), 0).toFixed(1)), byCategory, projectionAccuracy: null, strongestPosition: null, weakestPosition: null, note: "Outcome grades appear only after Fantasy Hub observes a final result. Process quality is evaluated from the saved information available at decision time." } });
+  const decisions = parsed.filter((row) => row.category !== "win_path");
+  const winPathReports = parsed.filter((row) => row.category === "win_path");
+  const selected = decisions.filter((row) => row.userSelection);
+  const resolved = decisions.filter((row) => row.result);
+  const byCategory = ["start_sit", "waiver", "trade"].map((category) => { const items = decisions.filter((row) => row.category === category); return { category, total: items.length, selected: items.filter((row) => row.userSelection).length, resolved: items.filter((row) => row.result).length, averageConfidence: items.length ? Math.round(items.reduce((sum, row) => sum + row.confidence, 0) / items.length) : null }; });
+  const startSitResults = decisions.filter((row) => row.category === "start_sit" && row.result) as (typeof decisions[number] & { result: { pointsLeft?: number; recommendedPoints?: number } })[];
+  return Response.json({ decisions, winPathReports, summary: { total: decisions.length, selected: selected.length, resolved: resolved.length, processReasonable: decisions.filter((row) => row.processGrade === "Reasonable").length, pointsLeftOnBench: Number(startSitResults.reduce((sum, row) => sum + (row.result.pointsLeft ?? 0), 0).toFixed(1)), byCategory, projectionAccuracy: null, strongestPosition: null, weakestPosition: null, note: "Outcome grades appear only after Fantasy Hub observes a final result. Process quality is evaluated from the saved information available at decision time." } });
 }
