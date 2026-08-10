@@ -3641,6 +3641,9 @@ function AllLeagueScoreboard({
           const leader = mine && opponent ? (mine.points >= opponent.points ? mine.rosterId : opponent.rosterId) : "";
           const consequence = gameDay.matchups.find((item) => item.league.id === league.id);
           const need = consequence ? whatDoINeed({ yourPoints: consequence.mine.points, opponentPoints: consequence.opponent.points, opponentRemaining: consequence.opponentRemaining, players: consequence.mineStarters, scoring: consequence.data.league.scoring ?? {} }) : null;
+          const winProbability = consequence?.winProbability ?? null;
+          const winOutlook = winProbability == null ? "Waiting for projections" : winProbability >= 65 ? "You’re favored" : winProbability >= 45 ? "Too close to call" : "Upset mode";
+          const winTone = winProbability == null ? "unavailable" : winProbability >= 65 ? "favored" : winProbability >= 45 ? "toss-up" : "underdog";
           return (
             <article className={`score-game portfolio-score-game ${matchup ? "my-game" : ""}`} key={league.id}>
               <header>
@@ -3661,8 +3664,16 @@ function AllLeagueScoreboard({
               ) : (
                 <p className="portfolio-score-pending">{data ? `Your Week ${week} matchup has not been posted.` : loading ? "Loading your matchup…" : "This league’s scoreboard is unavailable."}</p>
               )}
-              {consequence && <div className="matchup-consequence"><span>Estimated win probability</span><strong>{consequence.winProbability == null ? "Unavailable" : `${consequence.winProbability}%`}</strong><small>{consequence.winProbability == null ? "Sleeper projections are unavailable for this matchup." : `${consequence.mineRemaining.toFixed(1)} projected points remaining for you · refreshed ${updatedAt ? new Date(updatedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "now"}`}</small></div>}
-              {consequence?.status !== "final" && need && <section className="what-needed"><header><span>WHAT DO I NEED?</span><strong>{need.teamNeed ? `${need.teamNeed.toFixed(1)} PTS` : "PROJECTED LEAD"}</strong></header><p>{need.message}</p>{need.targets.slice(0, 4).map((target) => <article key={target.id}><PlayerHeadshot id={target.id} position={target.position} /><div><button className="inline-player-link" onClick={() => openPlayer(playerShell(target))}>{target.name}</button><small>{target.name} needs about <b>{target.pointsNeeded.toFixed(1)} more points</b> — {target.statLine}.</small><span><i style={{ width: `${target.progress}%` }} /></span><em>{target.points.toFixed(1)} scored · {target.progress}% of {target.targetTotal.toFixed(1)} target</em></div></article>)}</section>}
+              {consequence && <div className={`matchup-consequence ${winTone}`}>
+                <div className="probability-copy"><span><i /> LIVE OUTLOOK</span><strong>Estimated win probability</strong><small>{winProbability == null ? "League projections are unavailable for this matchup." : `${consequence.mineRemaining.toFixed(1)} projected points remaining · refreshed ${updatedAt ? new Date(updatedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "now"}`}</small></div>
+                <div className="probability-orbit" style={{ background: `conic-gradient(var(--probability-color) ${winProbability ?? 0}%, color-mix(in srgb,var(--ink) 10%,transparent) 0)` }}><div><b>{winProbability == null ? "—" : `${winProbability}%`}</b><small>TO WIN</small></div></div>
+                <em>{winOutlook}</em>
+              </div>}
+              {consequence?.status !== "final" && need && <section className="what-needed">
+                <header><span><i /> LIVE WIN PATH</span><strong>{need.teamNeed ? `${need.teamNeed.toFixed(1)} PTS NEEDED` : "PROJECTED LEAD"}</strong></header>
+                <p>{need.message}</p>
+                {need.targets.slice(0, 4).map((target) => <article key={target.id}><PlayerHeadshot id={target.id} position={target.position} /><div><div className="need-player-row"><button className="inline-player-link" onClick={() => openPlayer(playerShell(target))}>{target.name}</button><b>{target.progress}%</b></div><small>Needs about <b>{target.pointsNeeded.toFixed(1)} more points</b> · {target.statLine}</small><span className="need-progress"><i style={{ width: `${target.progress}%` }} /></span><em>{target.points.toFixed(1)} scored toward a {target.targetTotal.toFixed(1)} point target</em></div></article>)}
+              </section>}
               {consequence?.status === "final" && <div className="postgame-review"><b>{consequence.mine.points > consequence.opponent.points ? "WIN" : consequence.mine.points < consequence.opponent.points ? "LOSS" : "TIE"}</b><p><strong>Postgame review</strong><small>{Math.abs(consequence.mine.points - consequence.opponent.points) <= 5 ? "A close final margin decided this matchup." : "The final scoring margin was decisive."} Results describe what happened, not whether the original lineup decision was sound.</small></p></div>}
               <footer className="score-game-actions">
                 <button onClick={() => void onOpenLeague(league)}>Open league scoreboard →</button>
