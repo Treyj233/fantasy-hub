@@ -6223,9 +6223,6 @@ function StartSit({
                 </span>
                 {modelChoice && <b>MODEL PICK</b>}
               </div>
-              <small>
-                {player.team} · {player.opponent}
-              </small>
               <MatchupBadge player={player} />
               <h3>{player.name}</h3>
               <div className="range-bar">
