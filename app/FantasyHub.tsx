@@ -4503,7 +4503,6 @@ function NflGames({
                       <b>{opponentPlayerCount}</b> opponent · {game.impactPlayers.length} total
                     </small>
                   </span>
-                  <i aria-hidden="true">⌄</i>
                 </button>
                 {isExpanded && (
                   <div className="impact-roster-expanded game-impact-popout" id={playerPanelId} role="dialog" aria-modal="true" aria-label={`${game.name} fantasy matchup impact`}>
