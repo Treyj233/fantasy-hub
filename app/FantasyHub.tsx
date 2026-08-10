@@ -3357,6 +3357,22 @@ function AllLeagueScoreboard({
     });
     if (changes.length) setSwingFeed((current) => [...changes, ...current].slice(0, 12));
   }, [gameDay.matchups, updatedAt]);
+  const sundaySwingPreview = gameDay.matchups.slice(0, 3).map((item, index) => {
+    const baseline = item.winProbability ?? 50;
+    const movement = index === 1 ? -10 : index === 2 ? 5 : 15;
+    const previous = Math.max(5, Math.min(95, baseline - movement));
+    const current = Math.max(5, Math.min(95, baseline));
+    return {
+      id: `preview-${item.league.id}`,
+      league: item.league.name,
+      previous,
+      current,
+      text:
+        movement > 0
+          ? `${item.mineStarters[0]?.name ?? "Your starter"} made a high-impact play, improving your projected outcome.`
+          : `${item.opponentStarters[0]?.name ?? "An opposing starter"} scored, tightening this matchup.`,
+    };
+  });
   if (!leagues.length)
     return (
       <div className="page-content">
@@ -3390,7 +3406,7 @@ function AllLeagueScoreboard({
       </section>
       <div className="game-day-insights">
         <section className="panel rooting-interests"><header><div><span>ROOTING INTERESTS</span><h3>Who to cheer—and who to stop</h3></div><b>📣 GAME-DAY PULSE</b></header>{gameDay.interests.length ? gameDay.interests.map((interest) => <article className={`rooting-${interest.sentiment}`} key={interest.playerId}><div className="rooting-visual"><NflTeamLogo team={interest.nflTeam} /><PlayerHeadshot id={interest.playerId} position={interest.position} /><i aria-hidden="true">{interest.sentiment === "cheer" ? "📣" : interest.sentiment === "fade" ? "🛑" : "⚖️"}</i></div><p><span>{interest.sentiment === "cheer" ? "ROOT FOR" : interest.sentiment === "fade" ? "ROOT AGAINST" : "MIXED ROOTING INTEREST"}</span><strong>{interest.playerName}</strong><small>{interest.text}</small><span className="rooting-leagues">{interest.affectedLeagues.map((league) => <b className={league.impact} key={`${interest.playerId}-${league.id}`}>{league.impact === "helps" ? "↑" : "↓"} {league.name}</b>)}</span></p><em><small>{interest.level}</small>{interest.score}</em></article>) : <p className="game-day-empty">Rooting interests appear when weekly lineups and projections are available.</p>}</section>
-        <section className="panel sunday-swing"><header><span>SUNDAY SWING</span><h3>Observed this session</h3></header>{swingFeed.length ? swingFeed.map((item) => <article key={item.id}><b className={item.current >= item.previous ? "positive" : "negative"}>{item.current >= item.previous ? "↑" : "↓"} {Math.abs(item.current - item.previous)} pts</b><p><strong>{item.league}</strong><small>{item.text}</small></p><time>{item.at ? new Date(item.at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "Now"}</time></article>) : <p className="game-day-empty">Changes will appear after Fantasy Hub observes a scoring refresh. No event history is fabricated.</p>}</section>
+        <section className={`panel sunday-swing ${!swingFeed.length && sundaySwingPreview.length ? "preview" : ""}`}><header><div><span>SUNDAY SWING</span><h3>{swingFeed.length ? "Observed this session" : "Live scoring preview"}</h3></div>{!swingFeed.length && sundaySwingPreview.length && <b>TEST MODE</b>}</header>{swingFeed.length ? swingFeed.map((item) => <article key={item.id}><b className={item.current >= item.previous ? "positive" : "negative"}>{item.current >= item.previous ? "↑" : "↓"} {Math.abs(item.current - item.previous)} pts</b><p><strong>{item.league}</strong><small>{item.text}</small></p><time>{item.at ? new Date(item.at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "Now"}</time></article>) : sundaySwingPreview.length ? <><p className="swing-preview-note">Illustrative preview using your connected matchups. These are not live events and will disappear when real scoring swings are observed.</p>{sundaySwingPreview.map((item, index) => <article className="swing-preview-card" key={item.id}><b className={item.current >= item.previous ? "positive" : "negative"}>{item.current >= item.previous ? "↑" : "↓"} {Math.abs(item.current - item.previous)} pts</b><p><strong>{item.league}</strong><small>{item.text}</small><span><i style={{ width: `${item.current}%` }} /></span></p><time>Q{Math.min(4, index + 1)} · DEMO</time></article>)}</> : <p className="game-day-empty">Changes will appear after Fantasy Hub observes a scoring refresh. No event history is fabricated.</p>}</section>
       </div>
       <div className="portfolio-scoreboard-grid">
         {leagues.map((league) => {

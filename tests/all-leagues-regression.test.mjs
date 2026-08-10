@@ -32,4 +32,6 @@ test("portfolio Scoreboard keeps matchup status in scope", async () => {
   assert.match(component, /leagueName: item\.league\.name/);
   assert.match(component, /ROOT FOR/);
   assert.match(component, /ROOT AGAINST/);
+  assert.match(component, /Live scoring preview/);
+  assert.match(component, /These are not live events/);
 });
