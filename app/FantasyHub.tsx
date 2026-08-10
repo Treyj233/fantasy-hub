@@ -319,6 +319,7 @@ type ScoreboardPlayer = {
   position: string;
   nflTeam: string;
   points: number;
+  projection: number | null;
   isStarter: boolean;
   lineupSlot: string;
   lineupOrder: number;
@@ -327,6 +328,20 @@ type ScoreboardPlayer = {
   receptions: number;
   targets: number;
 };
+
+function playerTemperature(player: ScoreboardPlayer, matchupStatus: string) {
+  const isLive = matchupStatus.toLowerCase() === "live";
+  const projection = player.projection ?? 0;
+  if (!isLive || projection <= 0) return { value: 50, label: isLive ? "No projection" : "Waiting for kickoff", state: "steady" };
+  const ratio = player.points / projection;
+  const productionBoost = Math.min(12, player.touchdowns * 5 + Math.floor(player.receptions / 4) * 2);
+  const value = Math.round(Math.max(3, Math.min(97, 18 + ratio * 62 + productionBoost)));
+  if (value >= 88) return { value, label: "On fire", state: "fire" };
+  if (value >= 68) return { value, label: "Heating up", state: "hot" };
+  if (value <= 22) return { value, label: "Freezing cold", state: "ice" };
+  if (value <= 38) return { value, label: "Cooling off", state: "cold" };
+  return { value, label: "Steady", state: "steady" };
+}
 type ScoreboardTeam = {
   rosterId: string;
   managerName: string;
@@ -7469,6 +7484,7 @@ function HeadToHeadMatchup({
     const renderPlayers = (players: ScoreboardPlayer[]) =>
       players.map((player) => {
         const enriched = matchupPlayer(player);
+        const temperature = playerTemperature(player, matchup?.status ?? "");
         return (
         <article className="head-to-head-player" key={player.id}>
           <PlayerHeadshot id={player.id} position={player.position} />
@@ -7489,6 +7505,10 @@ function HeadToHeadMatchup({
             <span className="head-to-head-matchup">
               <MatchupBadge player={enriched} />
               {enriched.weatherSummary && <small>☁ {enriched.weatherSummary}</small>}
+            </span>
+            <span className={`player-temperature ${temperature.state}`} title={`${player.name}: ${temperature.label} based on live fantasy points versus projection`}>
+              <span className="temperature-label"><b>❄ ICE</b><strong>{temperature.label}</strong><b>FIRE 🔥</b></span>
+              <span className="temperature-track"><i style={{ left: `${temperature.value}%` }} /></span>
             </span>
           </p>
           <b>{player.points.toFixed(2)}</b>
