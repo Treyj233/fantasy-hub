@@ -206,6 +206,8 @@ type ScoreboardPlayer = {
   nflTeam: string;
   points: number;
   isStarter: boolean;
+  lineupSlot: string;
+  lineupOrder: number;
   yards: number;
   touchdowns: number;
   receptions: number;
@@ -2907,7 +2909,10 @@ function Scoreboard({
                 {[away, home].filter(Boolean).map((team) => (
                   <section key={team.rosterId}>
                     <h4>{team.teamName} leaders</h4>
-                    {team.topPlayers.slice(0, 3).map((player) => (
+                    {[...team.topPlayers]
+                      .sort((a, b) => b.points - a.points)
+                      .slice(0, 3)
+                      .map((player) => (
                       <div key={player.id}>
                         <span
                           className={`pos pos-${player.position.toLowerCase()}`}
@@ -6313,7 +6318,7 @@ function HeadToHeadMatchup({
               {player.name}
             </button>
             <small>
-              {player.nflTeam} · {player.yards} YDS
+              {player.lineupSlot} · {player.nflTeam} · {player.yards} YDS
               {player.touchdowns ? ` · ${player.touchdowns} TD` : ""}
               {player.targets
                 ? ` · ${player.receptions}/${player.targets} REC`

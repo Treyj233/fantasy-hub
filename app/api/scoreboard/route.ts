@@ -20,7 +20,7 @@ export async function GET(request: Request) {
 
   const leagueResponse = await fetch(`https://api.sleeper.app/v1/league/${leagueId}`, { next: { revalidate: 30 } });
   if (!leagueResponse.ok) return Response.json({ error: "League unavailable" }, { status: 404 });
-  const league = await leagueResponse.json() as { name?: string; season?: string; leg?: number; total_rosters?: number };
+  const league = await leagueResponse.json() as { name?: string; season?: string; leg?: number; total_rosters?: number; roster_positions?: string[] };
   const week = Number.isInteger(requestedWeek) && requestedWeek >= 1 && requestedWeek <= 18 ? requestedWeek : Math.max(1, league.leg ?? 1);
   const season = league.season ?? String(new Date().getUTCFullYear());
   const [matchupsResponse, rostersResponse, usersResponse, playersResponse, statsResponse] = await Promise.all([
@@ -40,15 +40,26 @@ export async function GET(request: Request) {
   const statsByPlayer = new Map(statsRows.flatMap((row) => row.player_id ? [[row.player_id, row.stats ?? {}]] : []));
   const rosterById = new Map(rosters.flatMap((roster) => roster.roster_id ? [[roster.roster_id, roster]] : []));
   const userById = new Map(users.flatMap((manager) => manager.user_id ? [[manager.user_id, manager]] : []));
+  const starterSlots = (league.roster_positions ?? []).filter(
+    (slot) => !["BN", "IR", "TAXI"].includes(slot),
+  );
   const teamFromRow = (row: MatchupRow) => {
     const roster = row.roster_id ? rosterById.get(row.roster_id) : undefined;
     const manager = roster?.owner_id ? userById.get(roster.owner_id) : undefined;
     const scoring = row.players_points ?? {};
+    const starterOrder = new Map(
+      (row.starters ?? []).map((playerId, index) => [playerId, index]),
+    );
+    const rosterOrder = new Map(
+      (row.players ?? []).map((playerId, index) => [playerId, index]),
+    );
     const topPlayers = (row.players ?? []).map((playerId) => {
       const player = players[playerId];
       const stats = statsByPlayer.get(playerId) ?? {};
-      return { id: playerId, name: (player?.full_name ?? `${player?.first_name ?? ""} ${player?.last_name ?? ""}`.trim()) || "Unknown player", position: player?.position ?? "FLEX", nflTeam: player?.team ?? "FA", points: Number((scoring[playerId] ?? 0).toFixed(2)), isStarter: (row.starters ?? []).includes(playerId), yards: Math.round((stats.pass_yd ?? 0) + (stats.rush_yd ?? 0) + (stats.rec_yd ?? 0)), touchdowns: (stats.pass_td ?? 0) + (stats.rush_td ?? 0) + (stats.rec_td ?? 0), receptions: stats.rec ?? 0, targets: stats.rec_tgt ?? 0 };
-    }).sort((a, b) => Number(b.isStarter) - Number(a.isStarter) || b.points - a.points);
+      const starterIndex = starterOrder.get(playerId);
+      const isStarter = starterIndex !== undefined;
+      return { id: playerId, name: (player?.full_name ?? `${player?.first_name ?? ""} ${player?.last_name ?? ""}`.trim()) || "Unknown player", position: player?.position ?? "FLEX", lineupSlot: isStarter ? (starterSlots[starterIndex] ?? player?.position ?? "FLEX") : "BN", lineupOrder: isStarter ? starterIndex : starterSlots.length + (rosterOrder.get(playerId) ?? 999), nflTeam: player?.team ?? "FA", points: Number((scoring[playerId] ?? 0).toFixed(2)), isStarter, yards: Math.round((stats.pass_yd ?? 0) + (stats.rush_yd ?? 0) + (stats.rec_yd ?? 0)), touchdowns: (stats.pass_td ?? 0) + (stats.rush_td ?? 0) + (stats.rec_td ?? 0), receptions: stats.rec ?? 0, targets: stats.rec_tgt ?? 0 };
+    }).sort((a, b) => a.lineupOrder - b.lineupOrder);
     return { rosterId: String(row.roster_id ?? ""), ownerId: roster?.owner_id ?? null, managerName: manager?.display_name ?? `Roster ${row.roster_id ?? ""}`, teamName: manager?.metadata?.team_name ?? `${manager?.display_name ?? `Roster ${row.roster_id ?? ""}`}'s Team`, points: Number((row.custom_points ?? row.points ?? 0).toFixed(2)), isMine: roster?.owner_id === connection.sleeperUserId, topPlayers };
   };
   const grouped = new Map<number, MatchupRow[]>();
