@@ -53,7 +53,21 @@ export async function GET(request: Request) {
   const season = Number.isInteger(requestedSeason) && requestedSeason >= 2020 && requestedSeason <= 2035 ? requestedSeason : new Date().getUTCFullYear();
   const week = Number.isInteger(requestedWeek) && requestedWeek >= 1 && requestedWeek <= 18 ? requestedWeek : 1;
   const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates=${season}&seasontype=2&week=${week}`, { next: { revalidate: 21600 } });
-  if (!response.ok) return Response.json({ error: "NFL schedule unavailable" }, { status: 502 });
+  if (!response.ok)
+    return Response.json(
+      {
+        season,
+        week,
+        updatedAt: new Date().toISOString(),
+        games: [],
+        sourceStatus: "forecast_unavailable",
+      },
+      {
+        headers: {
+          "Cache-Control": "public, s-maxage=300, stale-while-revalidate=1800",
+        },
+      },
+    );
   const payload = await response.json() as { events?: EspnEvent[] };
   const events = (payload.events ?? []).filter((event) => event.season?.year === season && event.season?.type === 2 && event.week?.number === week);
   const games = await Promise.all(events.map(async (event) => {
@@ -64,5 +78,12 @@ export async function GET(request: Request) {
     const summary = indoor ? "Indoor stadium · weather neutral" : forecast ? `${Math.round(forecast.temperatureF ?? 0)}°F · ${Math.round(forecast.windMph ?? 0)} mph wind · ${Math.round(forecast.precipitationProbability ?? 0)}% precip.` : "Forecast available closer to kickoff";
     return { gameId: event.id ?? "", date: event.date ?? "", venue: venue.fullName ?? "Venue TBD", indoor, forecastAvailable: Boolean(forecast), summary, teams: (competition?.competitors ?? []).map((item) => normalizeTeam(item.team?.abbreviation)).filter(Boolean), ...forecast };
   }));
-  return Response.json({ season, week, updatedAt: new Date().toISOString(), games });
+  return Response.json(
+    { season, week, updatedAt: new Date().toISOString(), games },
+    {
+      headers: {
+        "Cache-Control": "public, s-maxage=900, stale-while-revalidate=3600",
+      },
+    },
+  );
 }

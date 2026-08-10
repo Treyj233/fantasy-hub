@@ -8,14 +8,14 @@ async function render() {
   return worker.fetch(new Request("http://localhost/", { headers: { accept: "text/html" } }), { ASSETS: { fetch: async () => new Response("Not found", { status: 404 }) } }, { waitUntil() {}, passThroughOnException() {} });
 }
 
-test("server-renders Fantasy Hub", async () => {
+test("server-renders the lightweight Fantasy Hub shell", async () => {
   const response = await render();
   assert.equal(response.status, 200);
   const html = await response.text();
   assert.match(html, /Fantasy Hub/);
   assert.match(html, /Make every week count/i);
   assert.match(html, /Command Center/);
-  assert.match(html, /League Stories/);
-  assert.match(html, /Waiver Wire/);
+  assert.match(html, /league tools load on demand/i);
+  assert.match(html, /FantasyHubLoader-/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/);
 });

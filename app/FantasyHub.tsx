@@ -64,6 +64,29 @@ type MatchupStrengthData = {
 };
 const PlayerOpenContext = createContext<(player: Player) => void>(() => undefined);
 const ProjectionPlatformContext = createContext("League platform");
+const PORTFOLIO_CACHE_TTL = 30 * 60 * 1000;
+const weatherRequestCache = new Map<
+  string,
+  { expiresAt: number; request: Promise<WeatherData | null> }
+>();
+
+function loadWeatherData(season: string | number, week: number) {
+  const key = `${season}-${week}`;
+  const cached = weatherRequestCache.get(key);
+  if (cached && cached.expiresAt > Date.now()) return cached.request;
+  const request = fetch(
+    `/api/weather?season=${encodeURIComponent(String(season))}&week=${week}`,
+  )
+    .then(async (response) =>
+      response.ok ? ((await response.json()) as WeatherData) : null,
+    )
+    .catch(() => null);
+  weatherRequestCache.set(key, {
+    expiresAt: Date.now() + 5 * 60 * 1000,
+    request,
+  });
+  return request;
+}
 const nflLogoCode = (team: string) =>
   ({ JAX: "jax", WAS: "wsh", LAR: "lar", LAC: "lac" })[team] ??
   team.toLowerCase();
@@ -1178,8 +1201,15 @@ export default function FantasyHub({
           connection?: SleeperConnection | null;
         };
         setConnection(data.connection ?? null);
-        await loadManagedLeagues();
-        if (data.connection) await loadLeagues(true);
+        setAccountLoading(false);
+        const results = await Promise.allSettled([
+          loadManagedLeagues(),
+          data.connection ? loadLeagues(true) : Promise.resolve(),
+        ]);
+        if (results.some((result) => result.status === "rejected"))
+          setAccountError(
+            "Some league data is still loading. Fantasy Hub will keep retrying as you navigate.",
+          );
       } catch {
         setAccountError(
           "We couldn’t load your Fantasy Hub account. Refresh and try again.",
@@ -1191,6 +1221,14 @@ export default function FantasyHub({
     // Account bootstrap intentionally runs only when the authenticated user changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accountUser]);
+
+  useEffect(() => {
+    if (!connection || !portfolioScans.length) return;
+    window.localStorage.setItem(
+      `fantasy-hub-portfolio-scans:${connection.sleeperUserId}`,
+      JSON.stringify({ savedAt: Date.now(), scans: portfolioScans }),
+    );
+  }, [connection, portfolioScans]);
 
   const totals = useMemo(
     () => ({
@@ -1243,15 +1281,12 @@ export default function FantasyHub({
       let schedule: NflScheduleData | null = null;
       let matchupStrengths: MatchupStrengthData | null = null;
       try {
-        const [weatherResponse, scheduleResponse, matchupResponse] = await Promise.all([
-          fetch(
-            `/api/weather?season=${encodeURIComponent(season)}&week=${currentWeek}`,
-          ),
+        const [weatherPayload, scheduleResponse, matchupResponse] = await Promise.all([
+          loadWeatherData(season, currentWeek),
           fetch(`/api/nfl-schedule?season=${encodeURIComponent(season)}`),
           fetch(`/api/matchup-strength?season=${encodeURIComponent(season)}`),
         ]);
-        if (weatherResponse.ok)
-          weather = (await weatherResponse.json()) as WeatherData;
+        weather = weatherPayload;
         if (scheduleResponse.ok)
           schedule = (await scheduleResponse.json()) as NflScheduleData;
         if (matchupResponse.ok)
@@ -1325,6 +1360,25 @@ export default function FantasyHub({
       if (bIndex == null) return -1;
       return aIndex - bIndex;
     });
+    try {
+      const cached = JSON.parse(
+        window.localStorage.getItem(
+          `fantasy-hub-portfolio-scans:${data.connection.sleeperUserId}`,
+        ) ?? "null",
+      ) as { savedAt?: number; scans?: LeagueScan[] } | null;
+      const leagueIds = new Set(orderedLeagues.map((league) => league.id));
+      if (
+        cached?.savedAt &&
+        Date.now() - cached.savedAt <= PORTFOLIO_CACHE_TTL &&
+        cached.scans?.length === orderedLeagues.length &&
+        cached.scans.every((scan) => leagueIds.has(scan.league.id))
+      )
+        setPortfolioScans(cached.scans);
+    } catch {
+      window.localStorage.removeItem(
+        `fantasy-hub-portfolio-scans:${data.connection.sleeperUserId}`,
+      );
+    }
     setConnection(data.connection);
     setAvailableLeagues(orderedLeagues);
     if (activateFirst && orderedLeagues.length) {
@@ -2547,16 +2601,21 @@ function AllLeagues({
     leagues.length > 0 && cachedScans.length === 0,
   );
   const [refreshKey, setRefreshKey] = useState(0);
+  const lastAutomaticScan = useRef("");
 
   useEffect(() => {
     if (!leagues.length) return;
+    const scanSignature = leagues.map((league) => league.id).sort().join(":");
+    if (refreshKey === 0 && lastAutomaticScan.current === scanSignature) return;
+    lastAutomaticScan.current = scanSignature;
     const leagueIds = new Set(leagues.map((league) => league.id));
     const cacheMatches =
       cachedScans.length === leagues.length &&
       cachedScans.every((scan) => leagueIds.has(scan.league.id));
-    if (refreshKey === 0 && cacheMatches) return;
     const controller = new AbortController();
-    const loadingTimer = window.setTimeout(() => setLoading(true), 0);
+    const loadingTimer = cacheMatches
+      ? undefined
+      : window.setTimeout(() => setLoading(true), 0);
     void Promise.all(
       leagues.map(async (league): Promise<LeagueScan> => {
         try {
@@ -2582,13 +2641,10 @@ function AllLeagues({
               payload.league.projectionWeek ?? payload.league.currentWeek ?? 1,
             ),
           );
-          const weatherResponse = await fetch(
-            `/api/weather?season=${encodeURIComponent(league.season ?? String(new Date().getUTCFullYear()))}&week=${week}`,
-            { signal: controller.signal },
+          const weather = await loadWeatherData(
+            league.season ?? String(new Date().getUTCFullYear()),
+            week,
           );
-          const weather = weatherResponse.ok
-            ? ((await weatherResponse.json()) as WeatherData)
-            : null;
           const team = payload.teams.find(
             (item) => item.id === league.rosterId,
           );
@@ -2871,7 +2927,7 @@ function AllLeagues({
       });
     return () => {
       controller.abort();
-      window.clearTimeout(loadingTimer);
+      if (loadingTimer != null) window.clearTimeout(loadingTimer);
     };
   }, [leagues, cachedScans, refreshKey, onScansChange]);
 
@@ -3798,17 +3854,13 @@ function NflGames({
 
   useEffect(() => {
     if (!leagueId) return;
-    const controller = new AbortController();
-    void fetch(
-      `/api/weather?season=${encodeURIComponent(season)}&week=${week}`,
-      { signal: controller.signal },
-    )
-      .then(async (response) =>
-        response.ok ? ((await response.json()) as WeatherData) : null,
-      )
-      .then((payload) => setWeather(payload))
-      .catch(() => undefined);
-    return () => controller.abort();
+    let active = true;
+    void loadWeatherData(season, week).then((payload) => {
+      if (active) setWeather(payload);
+    });
+    return () => {
+      active = false;
+    };
   }, [leagueId, season, week]);
 
   return (
@@ -7192,12 +7244,12 @@ function HeadToHeadMatchup({
     const controller = new AbortController();
     Promise.all([
       fetch(`/api/nfl-schedule?season=${encodeURIComponent(season)}`, { signal: controller.signal }),
-      fetch(`/api/weather?season=${encodeURIComponent(season)}&week=${week}`, { signal: controller.signal }),
+      loadWeatherData(season, week),
       fetch(`/api/matchup-strength?season=${encodeURIComponent(season)}`, { signal: controller.signal }),
     ])
-      .then(async ([scheduleResponse, weatherResponse, strengthResponse]) => {
+      .then(async ([scheduleResponse, weatherPayload, strengthResponse]) => {
         if (scheduleResponse.ok) setNflSchedule(await scheduleResponse.json() as NflScheduleData);
-        if (weatherResponse.ok) setMatchupWeather(await weatherResponse.json() as WeatherData);
+        setMatchupWeather(weatherPayload);
         if (strengthResponse.ok) setMatchupStrengths(await strengthResponse.json() as MatchupStrengthData);
       })
       .catch((requestError) => {
@@ -7391,19 +7443,13 @@ function Matchups({
   const games =
     schedule?.weeks.find((item) => item.week === activeWeek)?.games ?? [];
   useEffect(() => {
-    const controller = new AbortController();
-    fetch(
-      `/api/weather?season=${encodeURIComponent(season)}&week=${activeWeek}`,
-      { signal: controller.signal },
-    )
-      .then(async (response) =>
-        response.ok ? ((await response.json()) as WeatherData) : null,
-      )
-      .then(setWeather)
-      .catch((requestError) => {
-        if (requestError?.name !== "AbortError") setWeather(null);
-      });
-    return () => controller.abort();
+    let active = true;
+    void loadWeatherData(season, activeWeek).then((payload) => {
+      if (active) setWeather(payload);
+    });
+    return () => {
+      active = false;
+    };
   }, [season, activeWeek]);
   const weatherByGame = new Map(
     (weather?.week === activeWeek ? weather.games : []).map((item) => [
