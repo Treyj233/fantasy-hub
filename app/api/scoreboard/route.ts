@@ -75,5 +75,5 @@ export async function GET(request: Request) {
   const grouped = new Map<number, MatchupRow[]>();
   matchupRows.forEach((row, index) => { const key = row.matchup_id ?? 1000 + index; grouped.set(key, [...(grouped.get(key) ?? []), row]); });
   const matchups = [...grouped.entries()].map(([matchupId, rows]) => ({ matchupId, teams: rows.map(teamFromRow).sort((a, b) => Number(b.isMine) - Number(a.isMine)), status: week < (league.leg ?? week) ? "Final" : week === (league.leg ?? week) ? "Live" : "Scheduled" })).sort((a, b) => Number(b.teams.some((team) => team.isMine)) - Number(a.teams.some((team) => team.isMine)));
-  return Response.json({ league: { id: leagueId, name: league.name ?? "League", season, currentWeek: league.leg ?? week, provider: "Sleeper", projectionSource: "Sleeper Projections" }, week, updatedAt: new Date().toISOString(), matchups });
+  return Response.json({ league: { id: leagueId, name: league.name ?? "League", season, currentWeek: league.leg ?? week, provider: "Sleeper", projectionSource: "Sleeper Projections", scoring: league.scoring_settings ?? {} }, week, updatedAt: new Date().toISOString(), matchups });
 }

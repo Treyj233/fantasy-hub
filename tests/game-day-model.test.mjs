@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { estimatedWinProbability, gameLeverage, playerLeverage, rootingInterests } from "../app/game-day-model.mjs";
+import { estimatedWinProbability, gameLeverage, playerLeverage, rootingInterests, whatDoINeed } from "../app/game-day-model.mjs";
 
 test("player and game leverage rise with close multi-league exposure", () => {
   const exposures = [{ side: "you", margin: 2, remainingProjection: 18, state: "live" }, { side: "you", margin: -7, remainingProjection: 18, state: "pre" }];
@@ -31,4 +31,19 @@ test("provider projection labels retain the supplied source", () => {
   const providerLabel = (provider) => provider ? `${provider[0].toUpperCase()}${provider.slice(1)} Projections` : "League Projections";
   assert.equal(providerLabel("sleeper"), "Sleeper Projections");
   assert.equal(providerLabel(""), "League Projections");
+});
+
+test("what-do-I-need allocates a live target and explains a PPR receiver stat line", () => {
+  const result = whatDoINeed({ yourPoints: 80, opponentPoints: 100, opponentRemaining: 0, players: [{ id: "88", name: "CeeDee Lamb", position: "WR", points: 0, projection: 20 }], scoring: { rec: 1, rec_yd: 0.1 } });
+  assert.equal(result.teamNeed, 20);
+  assert.equal(result.targets[0].pointsNeeded, 20);
+  assert.match(result.targets[0].statLine, /10 catches for 100 yards/);
+  assert.equal(result.targets[0].progress, 0);
+});
+
+test("what-do-I-need splits the target by remaining projection and handles a projected lead", () => {
+  const result = whatDoINeed({ yourPoints: 90, opponentPoints: 100, opponentRemaining: 10, players: [{ id: "1", name: "A", position: "RB", points: 5, projection: 20 }, { id: "2", name: "B", position: "WR", points: 10, projection: 20 }] });
+  assert.equal(result.targets.length, 2);
+  assert.ok(result.targets[0].pointsNeeded > result.targets[1].pointsNeeded);
+  assert.equal(whatDoINeed({ yourPoints: 120, opponentPoints: 100, players: [{ id: "1", points: 0, projection: 10 }] }).targets.length, 0);
 });

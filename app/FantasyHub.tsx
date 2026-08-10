@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import { estimatedWinProbability, playerLeverage, rootingInterests } from "./game-day-model.mjs";
+import { estimatedWinProbability, playerLeverage, rootingInterests, whatDoINeed } from "./game-day-model.mjs";
 
 type View =
   | "Command Center"
@@ -294,7 +294,7 @@ type ScoreboardTeam = {
   topPlayers: ScoreboardPlayer[];
 };
 type ScoreboardData = {
-  league: { name: string; season: string; currentWeek: number; provider?: string; projectionSource?: string };
+  league: { name: string; season: string; currentWeek: number; provider?: string; projectionSource?: string; scoring?: Record<string, number> };
   week: number;
   updatedAt: string;
   matchups: { matchupId: number; status: string; teams: ScoreboardTeam[] }[];
@@ -3110,6 +3110,7 @@ function AllLeagueScoreboard({
   defaultWeek: number;
   onOpenLeague: (league: ConnectedLeague) => Promise<void>;
 }) {
+  const openPlayer = useContext(PlayerOpenContext);
   const [week, setWeek] = useState(defaultWeek >= 1 && defaultWeek <= 18 ? defaultWeek : 1);
   const [scores, setScores] = useState<Record<string, ScoreboardData | null>>({});
   const [loading, setLoading] = useState(false);
@@ -3223,6 +3224,7 @@ function AllLeagueScoreboard({
           const opponent = matchup?.teams.find((team) => !team.isMine);
           const leader = mine && opponent ? (mine.points >= opponent.points ? mine.rosterId : opponent.rosterId) : "";
           const consequence = gameDay.matchups.find((item) => item.league.id === league.id);
+          const need = consequence ? whatDoINeed({ yourPoints: consequence.mine.points, opponentPoints: consequence.opponent.points, opponentRemaining: consequence.opponentRemaining, players: consequence.mineStarters, scoring: consequence.data.league.scoring ?? {} }) : null;
           return (
             <article className={`score-game portfolio-score-game ${matchup ? "my-game" : ""}`} key={league.id}>
               <header>
@@ -3244,6 +3246,7 @@ function AllLeagueScoreboard({
                 <p className="portfolio-score-pending">{data ? `Your Week ${week} matchup has not been posted.` : loading ? "Loading your matchup…" : "This league’s scoreboard is unavailable."}</p>
               )}
               {consequence && <div className="matchup-consequence"><span>Estimated win probability</span><strong>{consequence.winProbability == null ? "Unavailable" : `${consequence.winProbability}%`}</strong><small>{consequence.winProbability == null ? "Sleeper projections are unavailable for this matchup." : `${consequence.mineRemaining.toFixed(1)} projected points remaining for you · refreshed ${updatedAt ? new Date(updatedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "now"}`}</small></div>}
+              {consequence?.status !== "final" && need && <section className="what-needed"><header><span>WHAT DO I NEED?</span><strong>{need.teamNeed ? `${need.teamNeed.toFixed(1)} PTS` : "PROJECTED LEAD"}</strong></header><p>{need.message}</p>{need.targets.slice(0, 4).map((target) => <article key={target.id}><PlayerHeadshot id={target.id} position={target.position} /><div><button className="inline-player-link" onClick={() => openPlayer(playerShell(target))}>{target.name}</button><small>{target.name} needs about <b>{target.pointsNeeded.toFixed(1)} more points</b> — {target.statLine}.</small><span><i style={{ width: `${target.progress}%` }} /></span><em>{target.points.toFixed(1)} scored · {target.progress}% of {target.targetTotal.toFixed(1)} target</em></div></article>)}</section>}
               {consequence?.status === "final" && <div className="postgame-review"><b>{consequence.mine.points > consequence.opponent.points ? "WIN" : consequence.mine.points < consequence.opponent.points ? "LOSS" : "TIE"}</b><p><strong>Postgame review</strong><small>{Math.abs(consequence.mine.points - consequence.opponent.points) <= 5 ? "A close final margin decided this matchup." : "The final scoring margin was decisive."} Results describe what happened, not whether the original lineup decision was sound.</small></p></div>}
               <footer className="score-game-actions">
                 <button onClick={() => void onOpenLeague(league)}>Open league scoreboard →</button>

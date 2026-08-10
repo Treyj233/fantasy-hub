@@ -55,3 +55,49 @@ export function rootingInterests(exposures) {
     return { playerId: first.playerId, playerName: first.playerName, text, ...leverage };
   }).sort((a, b) => b.score - a.score);
 }
+
+/**
+ * Allocates the projected points still needed to the user's remaining starters.
+ * Targets are proportional to each player's remaining projection so the output
+ * stays attainable-looking without pretending to predict a specific stat line.
+ */
+export function whatDoINeed({ yourPoints, opponentPoints, opponentRemaining = 0, players = [], scoring = {} }) {
+  const eligible = players.filter((player) => player.projection != null && player.projection > player.points);
+  const teamNeed = Math.max(0, opponentPoints + opponentRemaining + 0.01 - yourPoints);
+  const remainingWeight = eligible.reduce((sum, player) => sum + Math.max(1, player.projection - player.points), 0);
+  if (!eligible.length) return { teamNeed: Number(teamNeed.toFixed(1)), targets: [], message: teamNeed > 0 ? "No remaining projected starters are available to build a target." : "Your current score is above the opponent’s projected finish." };
+  if (teamNeed <= 0.05) return { teamNeed: 0, targets: [], message: "Your current score is already above the opponent’s projected finish." };
+  const targets = eligible.map((player) => {
+    const share = Math.max(1, player.projection - player.points) / remainingWeight;
+    const pointsNeeded = Number((teamNeed * share).toFixed(1));
+    const targetTotal = player.points + pointsNeeded;
+    return { ...player, pointsNeeded, targetTotal: Number(targetTotal.toFixed(1)), progress: Math.min(100, Math.round(player.points / Math.max(0.1, targetTotal) * 100)), statLine: statLineEquivalent(player.position, pointsNeeded, scoring) };
+  }).sort((a, b) => b.pointsNeeded - a.pointsNeeded);
+  return { teamNeed: Number(teamNeed.toFixed(1)), targets, message: `You need about ${teamNeed.toFixed(1)} more points to finish above your opponent’s projected score.` };
+}
+
+export function statLineEquivalent(position, points, scoring = {}) {
+  const rounded = Math.max(1, Math.ceil(points));
+  if (position === "QB") {
+    const passTd = scoring.pass_td ?? 4;
+    const passYd = scoring.pass_yd ?? 0.04;
+    const touchdowns = rounded >= 12 ? Math.max(1, Math.floor(rounded / 8)) : 1;
+    const yards = Math.max(0, Math.round((points - touchdowns * passTd) / Math.max(0.01, passYd) / 25) * 25);
+    return `about ${yards} passing yards and ${touchdowns} passing TD${touchdowns === 1 ? "" : "s"}`;
+  }
+  if (["WR", "TE"].includes(position)) {
+    const reception = scoring.rec ?? 1;
+    const yardPoint = scoring.rec_yd ?? 0.1;
+    const catches = reception > 0 ? Math.min(12, Math.max(1, Math.ceil(points / (reception + 10 * yardPoint)))) : 0;
+    const yards = Math.max(0, Math.round((points - catches * reception) / Math.max(0.01, yardPoint) / 5) * 5);
+    return `about ${catches} catch${catches === 1 ? "" : "es"} for ${yards} yards`;
+  }
+  if (position === "RB") {
+    const reception = scoring.rec ?? 1;
+    const yardPoint = Math.max(scoring.rush_yd ?? 0.1, scoring.rec_yd ?? 0.1);
+    const catches = reception > 0 ? Math.min(6, Math.max(0, Math.floor(points / 5))) : 0;
+    const yards = Math.max(0, Math.round((points - catches * reception) / yardPoint / 5) * 5);
+    return catches ? `about ${yards} scrimmage yards and ${catches} catches` : `about ${yards} scrimmage yards`;
+  }
+  return `about ${rounded} fantasy points in this league’s scoring`;
+}
