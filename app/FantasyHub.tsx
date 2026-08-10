@@ -1749,6 +1749,7 @@ export default function FantasyHub({
         {view === "All Leagues" && (
           <AllLeagues
             leagues={availableLeagues}
+            cachedScans={portfolioScans}
             onScansChange={setPortfolioScans}
             onManage={() => setView("Manage Leagues")}
             onOpen={async (league, destination = "Command Center") => {
@@ -2462,22 +2463,29 @@ function leagueIssueIcon(category: string, title = "") {
 
 function AllLeagues({
   leagues,
+  cachedScans,
   onOpen,
   onManage,
   onScansChange,
 }: {
   leagues: ConnectedLeague[];
+  cachedScans: LeagueScan[];
   onOpen: (league: ConnectedLeague, destination?: View) => Promise<void>;
   onManage: () => void;
   onScansChange: (scans: LeagueScan[]) => void;
 }) {
   const openPlayer = useContext(PlayerOpenContext);
-  const [scans, setScans] = useState<LeagueScan[]>([]);
+  const [scans, setScans] = useState<LeagueScan[]>(cachedScans);
   const [loading, setLoading] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     if (!leagues.length) return;
+    const leagueIds = new Set(leagues.map((league) => league.id));
+    const cacheMatches =
+      cachedScans.length === leagues.length &&
+      cachedScans.every((scan) => leagueIds.has(scan.league.id));
+    if (refreshKey === 0 && cacheMatches) return;
     const controller = new AbortController();
     const loadingTimer = window.setTimeout(() => setLoading(true), 0);
     void Promise.all(
@@ -2789,6 +2797,7 @@ function AllLeagues({
           );
           setScans(orderedResults);
           onScansChange(orderedResults);
+          setRefreshKey(0);
         }
       })
       .finally(() => {
@@ -2798,7 +2807,7 @@ function AllLeagues({
       controller.abort();
       window.clearTimeout(loadingTimer);
     };
-  }, [leagues, refreshKey, onScansChange]);
+  }, [leagues, cachedScans, refreshKey, onScansChange]);
 
   const issueCount = scans.reduce((sum, scan) => sum + scan.issues.length, 0);
   const urgentCount = scans.reduce(
