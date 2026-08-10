@@ -1,4 +1,5 @@
 const hubOrigin = "https://fantasy-hub.treyj233.chatgpt.site";
+const extensionApi = globalThis.browser ?? globalThis.chrome;
 const codeInput = document.querySelector("#pairing-code");
 const leagueInput = document.querySelector("#league-id");
 const seasonInput = document.querySelector("#season");
@@ -19,13 +20,15 @@ function teamName(team) {
 }
 
 async function activeEspnTab() {
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!extensionApi?.tabs?.query) throw new Error("The extension cannot access this browser tab. Reinstall the latest extension and approve tab access.");
+  const [tab] = await extensionApi.tabs.query({ active: true, currentWindow: true });
   if (!tab?.id || !/^https:\/\/[^/]*espn\.com\//.test(tab.url || "")) throw new Error("Open your ESPN league in this tab first.");
   return tab;
 }
 
 async function readLeagueFromEspn(tabId, leagueId, season) {
-  const [{ result }] = await chrome.scripting.executeScript({
+  if (!extensionApi?.scripting?.executeScript) throw new Error("This browser does not support the required extension scripting permission.");
+  const [{ result }] = await extensionApi.scripting.executeScript({
     target: { tabId },
     world: "MAIN",
     args: [leagueId, season],
@@ -43,7 +46,7 @@ async function readLeagueFromEspn(tabId, leagueId, season) {
 
 async function initialize() {
   seasonInput.value = String(new Date().getFullYear());
-  const saved = await chrome.storage.local.get(["pairingCode"]);
+  const saved = await extensionApi.storage.local.get(["pairingCode"]);
   if (saved.pairingCode) codeInput.value = saved.pairingCode;
   try {
     const tab = await activeEspnTab();
@@ -92,7 +95,7 @@ syncButton.addEventListener("click", async () => {
   syncButton.disabled = true;
   setStatus("Securely sending league data to Fantasy Hub…");
   try {
-    await chrome.storage.local.set({ pairingCode });
+    await extensionApi.storage.local.set({ pairingCode });
     const response = await fetch(`${hubOrigin}/api/espn-extension/sync`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -100,7 +103,7 @@ syncButton.addEventListener("click", async () => {
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || "Fantasy Hub rejected the sync.");
-    await chrome.storage.local.remove("pairingCode");
+    await extensionApi.storage.local.remove("pairingCode");
     setStatus(`${data.league.name} is synced. Return to Fantasy Hub and refresh leagues.`, "success");
   } catch (error) {
     setStatus(error instanceof Error ? error.message : "Unable to sync league.", "error");
