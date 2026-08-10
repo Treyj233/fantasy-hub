@@ -24,6 +24,8 @@ type ScoreboardTeam = { rosterId: string; managerName: string; teamName: string;
 type ScoreboardData = { league: { name: string; season: string; currentWeek: number }; week: number; updatedAt: string; matchups: { matchupId: number; status: string; teams: ScoreboardTeam[] }[] };
 type NflImpactPlayer = { id: string; name: string; position: string; nflTeam: string; side: "You" | "Opponent"; starter: boolean; fantasyPoints: number };
 type NflGameData = { league: { name: string; season: string }; week: number; updatedAt: string; fantasyMatchup: { yourPoints: number; opponentPoints: number; opponentName: string; playerCount: number }; games: { id: string; date: string; name: string; status: string; state: string; clock: string; venue: string; broadcast: string; teams: { abbreviation: string; name: string; displayName: string; homeAway: string; score: number; winner: boolean; color: string; logo: string | null; record: string }[]; impactPlayers: NflImpactPlayer[] }[] };
+type ScheduleGame = { id: string; week: number; date: string; status: string; broadcast: string; away: { abbreviation: string; name: string }; home: { abbreviation: string; name: string } };
+type NflScheduleData = { season: number; currentWeek: number; updatedAt: string; weeks: { week: number; games: ScheduleGame[] }[] };
 type TradeAssetValue = { id: string; name: string; position: string; meta: string; value: number };
 type TradeSuggestion = { id: string; title: string; receive: TradeAssetValue[]; send: TradeAssetValue[]; yourBenefit: number; partnerBenefit: number; acceptance: number; confidence: number; whyYou: string; whyThem: string };
 
@@ -263,7 +265,7 @@ export default function FantasyHub({ accountUser }: { accountUser: AccountUser |
         {view === "Start / Sit" && (rosterReady ? <StartSit players={players} choice={starterChoice} setChoice={setStarterChoice} teamProjection={totals.projection} context={rankingContext} /> : rosterEmptyState)}
         {view === "Waiver Wire" && <WaiverWire key={leagueId || "no-league"} players={waiverPlayers} leagueSelected={Boolean(leagueId)} leagueStatus={leagueStatus} context={rankingContext} setSelectedPlayer={setSelectedPlayer} />}
         {view === "Trade Lab" && <TradeLab key={`${leagueId}-${selectedTeamId}`} teams={leagueTeams} selectedTeamId={selectedTeamId} rankings={leagueRankings} context={rankingContext} />}
-        {view === "Matchups" && (rosterReady ? <Matchups players={players} /> : rosterEmptyState)}
+        {view === "Matchups" && (rosterReady ? <Matchups players={players} season={selectedConnectedLeague?.season ?? "2026"} /> : rosterEmptyState)}
         {view === "Simulator" && (rosterReady ? <Simulator simulations={simulations} setSimulations={setSimulations} shift={simShift} run={runSimulation} /> : rosterEmptyState)}
         {view === "Manage Leagues" && <ManageLeagues connectedLeagues={availableLeagues} managedLeagues={managedLeagues} accountError={accountError} onOpen={async (league) => { setView("Command Center"); await openConnectedLeague(league); }} onAdd={addManagedLeague} onRemove={removeManagedLeague} />}
       </section>
@@ -655,7 +657,32 @@ function TradeLab({ teams, selectedTeamId, rankings, context }: { teams: LeagueT
   </div>;
 }
 
-function Matchups({ players }: { players: Player[] }) { return <div className="page-content"><SectionIntro kicker="MATCHUP INTELLIGENCE" title="Find where role and opponent tendency intersect" text="Coverage, pressure, pace, and game environment refine—not replace—player talent and opportunity." /><div className="matchup-grid">{players.slice(0, 6).map((p, i) => <article key={p.id}><div><span className={`pos pos-${p.position.toLowerCase()}`}>{p.position}</span><b className={i < 3 ? "edge-positive" : "edge-neutral"}>{i < 3 ? `+${(8.4 - i * 1.7).toFixed(1)}` : "+1.2"}</b></div><h3>{p.name}</h3><small>{p.team} · {p.opponent}</small><p>{i % 2 ? "Opponent pressure profile increases quick-game volume and scramble opportunity." : "Coverage tendency aligns with the player’s strongest route and usage profile."}</p><div className="match-meter"><i style={{ width: `${78 - i * 5}%` }} /></div><span>{i < 2 ? "Strong advantage" : "Playable matchup"}</span></article>)}</div></div>; }
+function Matchups({ players, season }: { players: Player[]; season: string }) {
+  const [schedule, setSchedule] = useState<NflScheduleData | null>(null);
+  const [week, setWeek] = useState<number | null>(null);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch(`/api/nfl-schedule?season=${encodeURIComponent(season)}`, { signal: controller.signal }).then(async (response) => {
+      const data = await response.json() as NflScheduleData & { error?: string };
+      if (!response.ok) throw new Error(data.error ?? "NFL schedule unavailable");
+      return data;
+    }).then((data) => { setSchedule(data); setWeek((current) => current ?? data.currentWeek); setError(""); }).catch((requestError) => { if (requestError?.name !== "AbortError") setError(requestError instanceof Error ? requestError.message : "NFL schedule unavailable"); });
+    return () => controller.abort();
+  }, [season]);
+  const loading = !schedule || String(schedule.season) !== season;
+  const activeWeek = week ?? schedule?.currentWeek ?? 1;
+  const games = schedule?.weeks.find((item) => item.week === activeWeek)?.games ?? [];
+  const normalizeTeam = (team: string) => ({ JAC: "JAX", WSH: "WAS" } as Record<string, string>)[team] ?? team;
+  const playerMatchup = (team: string) => {
+    const code = normalizeTeam(team);
+    const game = games.find((item) => item.away.abbreviation === code || item.home.abbreviation === code);
+    if (!game) return null;
+    const away = game.away.abbreviation === code;
+    return { game, label: `${away ? "@" : "vs"} ${away ? game.home.abbreviation : game.away.abbreviation}`, venue: away ? "Road" : "Home" };
+  };
+  return <div className="page-content matchup-season-page"><section className="matchup-season-head"><div><span>FULL {season} NFL SEASON</span><h2>Every weekly matchup, mapped to your roster.</h2><p>Move through Weeks 1–18 to see each player’s opponent, location, kickoff, and bye week.</p></div><label>Schedule week<select value={activeWeek} onChange={(event) => setWeek(Number(event.target.value))}>{Array.from({ length: 18 }, (_, index) => index + 1).map((value) => <option key={value} value={value}>Week {value}</option>)}</select></label></section>{error && <section className="scoreboard-error">{error}</section>}{loading && <section className="panel scoreboard-empty">Loading the {season} NFL schedule…</section>}{!loading && !error && <><div className="matchup-grid roster-matchups">{players.map((player) => { const matchup = playerMatchup(player.team); return <article className={!matchup ? "bye-week" : ""} key={player.id}><div><span className={`pos pos-${player.position.toLowerCase()}`}>{player.position}</span><b className={matchup ? "edge-neutral" : "bye-label"}>{matchup?.venue.toUpperCase() ?? "BYE"}</b></div><h3>{player.name}</h3><small>{player.team} · {matchup?.label ?? `Bye Week ${activeWeek}`}</small><p>{matchup ? `${matchup.game.away.name} at ${matchup.game.home.name} · ${new Date(matchup.game.date).toLocaleString([], { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}${matchup.game.broadcast ? ` · ${matchup.game.broadcast}` : ""}` : `${player.team} is not scheduled to play in Week ${activeWeek}. Plan a replacement before lineups lock.`}</p><div className="match-meter"><i style={{ width: matchup ? "72%" : "12%" }} /></div><span>{matchup ? "Scheduled matchup" : "Bye week"}</span></article>; })}</div><section className="week-slate panel"><div className="panel-header"><div><span>NFL WEEK {activeWeek}</span><h3>Complete game slate</h3></div><b>{games.length} games</b></div><div>{games.map((game) => <article key={game.id}><time>{new Date(game.date).toLocaleString([], { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</time><p><span>{game.away.abbreviation}</span><strong>{game.away.name}</strong><i>at</i><span>{game.home.abbreviation}</span><strong>{game.home.name}</strong></p><small>{game.broadcast || game.status}</small></article>)}</div>{!games.length && <p className="schedule-empty">No regular-season games were returned for Week {activeWeek}.</p>}</section></>}</div>;
+}
 
 function Simulator({ simulations, setSimulations, shift, run }: { simulations: number; setSimulations: (n: number) => void; shift: number; run: () => void }) { const playoff = 72 + shift; const title = 14.8 + shift * .7; return <div className="page-content"><SectionIntro kicker="MONTE CARLO LAB" title="See the range—not just one projection" text="Simulate injuries, weekly variance, roster moves, playoff paths, and opponent strength across the rest of the season." /><section className="sim-hero"><div><label>Simulation volume<select value={simulations} onChange={(e) => setSimulations(Number(e.target.value))}><option value="5000">5,000 seasons</option><option value="10000">10,000 seasons</option><option value="25000">25,000 seasons</option></select></label><button onClick={run}>Run simulation</button></div><div className="sim-results"><Metric label="Playoff odds" value={`${playoff.toFixed(1)}%`} detail="Median finish: 3rd" tone="good" /><Metric label="First-round bye" value={`${(21.4 + shift * .4).toFixed(1)}%`} detail="Top-two finish" /><Metric label="Title odds" value={`${title.toFixed(1)}%`} detail="League baseline: 8.3%" tone="good" /></div></section><div className="scenario-grid"><Scenario title="Floor outcome · 10th percentile" record="6–8" odds="8% playoffs" text="A starter injury and declining FLEX efficiency leave the roster dependent on waiver replacement production." /><Scenario title="Median outcome · 50th percentile" record="9–5" odds="72% playoffs" text="Core players retain volume while one waiver addition stabilizes the second running-back spot." /><Scenario title="Ceiling outcome · 90th percentile" record="11–3" odds="24% title" text="Elite players remain healthy and the roster converts its matchup advantages during the fantasy playoffs." /></div></div>; }
 
