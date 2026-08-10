@@ -2,14 +2,15 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-type View = "Command Center" | "Scoreboard" | "NFL Games" | "Dynasty Analytics" | "My Team" | "Player Ranks" | "Start / Sit" | "Waiver Wire" | "Trade Lab" | "Matchups" | "Simulator";
+type View = "Command Center" | "Scoreboard" | "NFL Games" | "Dynasty Analytics" | "My Team" | "Team Rankings" | "Player Ranks" | "Start / Sit" | "Waiver Wire" | "Trade Lab" | "Matchups" | "Simulator";
 type Player = { id: string; name: string; position: string; team: string; opponent: string; projection: number; leagueProjection?: number | null; floor: number; ceiling: number; trend: number; status: string; role: string };
 type RankedPlayer = Player & { overallRank: number; positionRank: number; tier: 1 | 2 | 3 | 4; outlook: string };
 type PlayerWeek = { season: string; week: number; points: number; totalYards: number; touchdowns: number; passYards: number; passTouchdowns: number; interceptions: number; rushAttempts: number; rushYards: number; rushTouchdowns: number; targets: number; receptions: number; receivingYards: number; receivingTouchdowns: number };
 type PlayerHistory = { sourceStatus: "available" | "unavailable"; player: { id: string; age?: number; yearsExp?: number; college?: string; height?: string; weight?: string }; seasons: { season: string; games: number; points: number; pointsPerGame: number; positionRank: number | null; yards: number; touchdowns: number; receptions: number }[]; recentWeeks: { week: number; points: number; yards: number; touchdowns: number; targets: number }[]; weeks: PlayerWeek[] };
 type TradeStyle = "Aggressive" | "Neutral" | "Strict";
 type LeagueManager = { id: string; name: string; teamName: string; style: TradeStyle };
-type LeagueTeam = { id: string; ownerId?: string; managerName: string; teamName: string; roster: Player[] };
+type DraftPick = { season: number; round: number; originalRosterId: number; ownerRosterId: number; value: number };
+type LeagueTeam = { id: string; ownerId?: string; managerName: string; teamName: string; roster: Player[]; draftCapital?: { score: number; picks: DraftPick[] } };
 type LeagueRanking = Player & { overallRank: number; rankingValue: number; age?: number | null; ageAdjustment: number; lineupAdjustment: number };
 type RankingContext = { format: "Dynasty" | "Keeper" | "Redraft"; scoring: string; teams: number; rosterSlots: string[]; positionDemand: Record<string, number>; tePremium: number; passTouchdown: number; interception: number; bonusRuleCount: number; scoringRuleCount: number };
 type AccountUser = { displayName: string; email: string };
@@ -25,7 +26,7 @@ type TradeSuggestion = { id: string; title: string; receive: { name: string; met
 const nav: { label: View; mark: string }[] = [
   { label: "Command Center", mark: "★" }, { label: "Scoreboard", mark: "▣" }, { label: "NFL Games", mark: "🏈" }, { label: "My Team", mark: "●" },
   { label: "Dynasty Analytics", mark: "◈" },
-  { label: "Player Ranks", mark: "♛" }, { label: "Start / Sit", mark: "⚡" }, { label: "Waiver Wire", mark: "+" },
+  { label: "Team Rankings", mark: "↥" }, { label: "Player Ranks", mark: "♛" }, { label: "Start / Sit", mark: "⚡" }, { label: "Waiver Wire", mark: "+" },
   { label: "Trade Lab", mark: "↔" }, { label: "Matchups", mark: "◎" },
   { label: "Simulator", mark: "✦" },
 ];
@@ -231,6 +232,7 @@ export default function FantasyHub({ accountUser }: { accountUser: AccountUser |
         {view === "NFL Games" && <NflGames leagueId={leagueId} />}
         {view === "Dynasty Analytics" && isDynastyLeague && <DynastyAnalytics players={players} rankings={leagueRankings} context={rankingContext} setSelectedPlayer={setSelectedPlayer} />}
         {view === "My Team" && <MyTeam players={players} setSelectedPlayer={setSelectedPlayer} />}
+        {view === "Team Rankings" && <TeamRankings teams={leagueTeams} selectedTeamId={selectedTeamId} rankings={leagueRankings} context={rankingContext} setSelectedPlayer={setSelectedPlayer} />}
         {view === "Player Ranks" && <PlayerRanks roster={players} leagueRankings={leagueRankings} context={rankingContext} setSelectedPlayer={setSelectedPlayer} />}
         {view === "Start / Sit" && <StartSit players={players} choice={starterChoice} setChoice={setStarterChoice} teamProjection={totals.projection} context={rankingContext} />}
         {view === "Waiver Wire" && <WaiverWire />}
@@ -403,6 +405,43 @@ function MyTeam({ players, setSelectedPlayer }: { players: Player[]; setSelected
 
 function RosterSection({ title, detail, players, setSelectedPlayer }: { title: string; detail: string; players: Player[]; setSelectedPlayer: (player: Player) => void }) {
   return <section className="roster-section panel"><header><div><span>{title === "Starters" ? "ACTIVE LINEUP" : "RESERVES"}</span><h3>{title}</h3></div><small>{detail}</small></header><div className="table-panel"><table><thead><tr><th>Player</th><th>Slot</th><th>Matchup</th><th>League projection</th><th>Fantasy Hub</th><th>FH edge</th><th>Status</th></tr></thead><tbody>{players.map((player) => { const hasLeagueProjection = typeof player.leagueProjection === "number"; const edge = hasLeagueProjection ? player.projection - player.leagueProjection! : null; return <tr key={player.id} onClick={() => setSelectedPlayer(player)}><td><span className={`pos pos-${player.position.toLowerCase()}`}>{player.position}</span><strong>{player.name}</strong><small>{player.team}</small></td><td><span className={player.role === "Bench" ? "roster-slot bench" : "roster-slot"}>{player.role}</span></td><td>{player.opponent}</td><td><span className="league-projection">{hasLeagueProjection ? player.leagueProjection!.toFixed(1) : "—"}</span></td><td><b className="hub-projection">{player.projection.toFixed(1)}</b></td><td><span className={edge === null ? "projection-edge neutral" : edge >= 0 ? "projection-edge positive" : "projection-edge negative"}>{edge === null ? "N/A" : `${edge >= 0 ? "+" : ""}${edge.toFixed(1)}`}</span></td><td><Status value={player.status} /></td></tr>; })}</tbody></table>{!players.length && <p className="empty-roster">No players are assigned to this section.</p>}</div></section>;
+}
+
+function TeamRankings({ teams, selectedTeamId, rankings, context, setSelectedPlayer }: { teams: LeagueTeam[]; selectedTeamId: string; rankings: LeagueRanking[]; context: RankingContext | null; setSelectedPlayer: (player: Player) => void }) {
+  const rankingById = new Map(rankings.map((player) => [player.id, player]));
+  const isDynasty = context?.format === "Dynasty";
+  const positions = ["QB", "RB", "WR", "TE"];
+  const slotCounts = (context?.rosterSlots ?? []).reduce<Record<string, number>>((counts, slot) => ({ ...counts, [slot]: (counts[slot] ?? 0) + 1 }), {});
+  const playerValue = (player: Player) => {
+    const rank = rankingById.get(player.id)?.overallRank;
+    return rank ? Math.max(24, 106 - Math.log2(rank + 1) * 10.5) : Math.min(88, player.projection * 3.3);
+  };
+  const roomNeed = (position: string) => Math.max(1, slotCounts[position] ?? (position === "RB" || position === "WR" ? 2 : 1));
+  const rawTeams = teams.map((team) => {
+    const roomScores = Object.fromEntries(positions.map((position) => {
+      const values = team.roster.filter((player) => player.position === position).map(playerValue).sort((a, b) => b - a);
+      const count = roomNeed(position);
+      const core = values.slice(0, count).reduce((sum, value) => sum + value, 0) / count;
+      const depth = values.slice(count, count + 2).reduce((sum, value) => sum + value, 0) / Math.max(1, Math.min(2, values.length - count));
+      return [position, Number((core * .82 + depth * .18).toFixed(1))];
+    }));
+    const starterValues = team.roster.filter((player) => player.role !== "Bench").map(playerValue);
+    const starterScore = starterValues.reduce((sum, value) => sum + value, 0) / Math.max(1, starterValues.length);
+    const depthValues = team.roster.filter((player) => player.role === "Bench").map(playerValue).sort((a, b) => b - a).slice(0, 5);
+    const depthScore = depthValues.reduce((sum, value) => sum + value, 0) / Math.max(1, depthValues.length);
+    return { ...team, roomScores, starterScore, depthScore, draftScore: team.draftCapital?.score ?? 0 };
+  });
+  const maxDraftScore = Math.max(1, ...rawTeams.map((team) => team.draftScore));
+  const scoredTeams = rawTeams.map((team) => ({ ...team, overallScore: Number((team.starterScore * (isDynasty ? .62 : .76) + team.depthScore * (isDynasty ? .18 : .24) + (isDynasty ? team.draftScore / maxDraftScore * 100 * .2 : 0)).toFixed(1)) })).sort((a, b) => b.overallScore - a.overallScore);
+  const overallRanks = new Map(scoredTeams.map((team, index) => [team.id, index + 1]));
+  const roomRanks = Object.fromEntries(positions.map((position) => [position, new Map([...scoredTeams].sort((a, b) => b.roomScores[position] - a.roomScores[position]).map((team, index) => [team.id, index + 1]))])) as Record<string, Map<string, number>>;
+  const draftRanks = new Map([...scoredTeams].sort((a, b) => b.draftScore - a.draftScore).map((team, index) => [team.id, index + 1]));
+  const myTeam = scoredTeams.find((team) => team.id === selectedTeamId);
+  const strongestPosition = myTeam ? [...positions].sort((a, b) => (roomRanks[a].get(myTeam.id) ?? 99) - (roomRanks[b].get(myTeam.id) ?? 99))[0] : "—";
+  const weakestPosition = myTeam ? [...positions].sort((a, b) => (roomRanks[b].get(myTeam.id) ?? 0) - (roomRanks[a].get(myTeam.id) ?? 0))[0] : "—";
+
+  if (!teams.length) return <div className="page-content"><SectionIntro kicker="LEAGUE POWER RANKINGS" title="Choose a league to rank every roster" text="Team and position-room rankings appear after Fantasy Hub imports all league rosters." /><section className="panel scoreboard-empty">No league selected.</section></div>;
+  return <div className="page-content team-rankings-page"><SectionIntro kicker="LEAGUE POWER RANKINGS" title="See where every roster has an edge" text={`Overall rank blends league-adjusted starter value and depth${isDynasty ? ", with 20% allocated to discounted three-year rookie draft capital" : " using this league’s lineup and scoring settings"}. Position ranks compare the usable core and immediate depth in each room.`} /><div className="team-rank-summary"><Metric label="Your overall rank" value={`#${overallRanks.get(selectedTeamId) ?? "—"}`} detail={`of ${teams.length} league teams`} tone={(overallRanks.get(selectedTeamId) ?? 99) <= 3 ? "good" : "warn"} /><Metric label="Strongest room" value={strongestPosition} detail={myTeam ? `#${roomRanks[strongestPosition]?.get(myTeam.id) ?? "—"} in your league` : "Select your roster"} tone="good" /><Metric label="Weakest room" value={weakestPosition} detail={myTeam ? `#${roomRanks[weakestPosition]?.get(myTeam.id) ?? "—"} in your league` : "Select your roster"} tone="warn" />{isDynasty && <Metric label="Draft capital" value={`#${draftRanks.get(selectedTeamId) ?? "—"}`} detail={`${myTeam?.draftCapital?.picks.length ?? 0} picks across three classes`} />}</div><section className="panel team-rank-table"><div className={`team-rank-row team-rank-head ${isDynasty ? "dynasty" : ""}`}><span>Rank</span><span>Team</span><span>Overall</span>{positions.map((position) => <span key={position}>{position}</span>)}{isDynasty && <span>Draft capital</span>}<span>Core assets</span></div>{scoredTeams.map((team) => { const coreAssets = team.roster.map((player) => rankingById.get(player.id)).filter((player): player is LeagueRanking => Boolean(player)).sort((a, b) => a.overallRank - b.overallRank).slice(0, 3); const firstRounders = team.draftCapital?.picks.filter((pick) => pick.round === 1).length ?? 0; const secondRounders = team.draftCapital?.picks.filter((pick) => pick.round === 2).length ?? 0; return <article className={`team-rank-row ${isDynasty ? "dynasty" : ""} ${team.id === selectedTeamId ? "your-team" : ""}`} key={team.id}><b className="overall-place">#{overallRanks.get(team.id)}</b><div className="rank-team-name"><strong>{team.teamName}</strong><small>{team.managerName}{team.id === selectedTeamId ? " · YOUR TEAM" : ""}</small></div><strong className="team-score">{team.overallScore}</strong>{positions.map((position) => <div className="room-rank" key={position}><b>#{roomRanks[position].get(team.id)}</b><small>{team.roomScores[position].toFixed(0)}</small></div>)}{isDynasty && <div className="draft-rank"><b>#{draftRanks.get(team.id)}</b><small>{firstRounders} 1sts · {secondRounders} 2nds</small></div>}<div className="core-assets">{coreAssets.map((player) => <button key={player.id} onClick={() => setSelectedPlayer(player)}><span className={`pos pos-${player.position.toLowerCase()}`}>{player.position}</span>{player.name}</button>)}</div></article>; })}</section>{isDynasty && <section className="panel draft-capital-explainer"><div><span>DYNASTY DRAFT CAPITAL</span><h3>Future picks are valued by round and time</h3><p>Each roster begins with its original picks. Traded-pick ownership then moves those assets to the current owner. Earlier rounds carry more value, and picks farther into the future receive a modest discount.</p></div><div><b>1st</b><span>100</span><b>2nd</b><span>65</span><b>3rd</b><span>40</span><b>Future year</b><span>86% carry</span></div></section>}</div>;
 }
 
 function PlayerRanks({ roster, leagueRankings, context, setSelectedPlayer }: { roster: Player[]; leagueRankings: LeagueRanking[]; context: RankingContext | null; setSelectedPlayer: (player: Player) => void }) {
