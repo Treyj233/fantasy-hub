@@ -23,19 +23,23 @@ function teamName(team) {
   return String(team.name || `${team.location || ""} ${team.nickname || ""}`.trim() || team.abbrev || `Team ${team.id}`);
 }
 
-async function activeEspnTab() {
+async function queryTabs(queryInfo) {
   if (!extensionApi?.tabs?.query) throw new Error("Open Fantasy Hub ESPN Sync from Chrome’s Extensions toolbar—not by opening popup.html directly.");
-  const tabs = await new Promise((resolve, reject) => {
+  return new Promise((resolve, reject) => {
     if (extensionApi === globalThis.chrome) {
-      extensionApi.tabs.query({ active: true, currentWindow: true }, (result) => {
+      extensionApi.tabs.query(queryInfo, (result) => {
         const message = extensionApi.runtime.lastError?.message;
         if (message) reject(new Error(message));
         else resolve(result ?? []);
       });
       return;
     }
-    extensionApi.tabs.query({ active: true, currentWindow: true }).then(resolve, reject);
+    extensionApi.tabs.query(queryInfo).then(resolve, reject);
   });
+}
+
+async function activeEspnTab() {
+  const tabs = await queryTabs({ active: true, currentWindow: true });
   const [tab] = tabs;
   if (!tab?.id || !/^https:\/\/[^/]*espn\.com\//.test(tab.url || "")) throw new Error("Open your ESPN league in this tab first.");
   return tab;
@@ -57,6 +61,33 @@ async function readLeagueFromEspn(tabId, leagueId, season) {
   });
   if (!result?.ok) throw new Error(result?.status === 401 || result?.status === 403 ? "ESPN did not authorize this league. Confirm you are signed in." : "ESPN could not load this league.");
   return result.payload;
+}
+
+async function syncThroughFantasyHub(pairingCode, rosterId, payload) {
+  const [hubTab] = await queryTabs({ url: `${hubOrigin}/*` });
+  if (!hubTab?.id) {
+    await extensionApi.tabs.create({ url: hubOrigin });
+    throw new Error("Fantasy Hub was opened in a new tab. Sign in there, then return to ESPN and retry the sync.");
+  }
+  const [{ result }] = await extensionApi.scripting.executeScript({
+    target: { tabId: hubTab.id },
+    world: "MAIN",
+    args: [pairingCode, rosterId, payload],
+    func: async (code, selectedRosterId, league) => {
+      const response = await fetch("/api/espn-extension/sync", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pairingCode: code, rosterId: selectedRosterId, payload: league }),
+      });
+      const contentType = response.headers.get("content-type") || "";
+      if (!contentType.toLowerCase().includes("application/json")) return { ok: false, error: "Fantasy Hub needs you to sign in again before syncing." };
+      const data = await response.json();
+      return response.ok ? { ok: true, data } : { ok: false, error: data.error || "Fantasy Hub rejected the sync." };
+    },
+  });
+  if (!result?.ok) throw new Error(result?.error || "Fantasy Hub could not complete the sync.");
+  return result.data;
 }
 
 async function initialize() {
@@ -111,13 +142,7 @@ syncButton.addEventListener("click", async () => {
   setStatus("Securely sending league data to Fantasy Hub…");
   try {
     await extensionApi.storage.local.set({ pairingCode });
-    const response = await fetch(`${hubOrigin}/api/espn-extension/sync`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ pairingCode, rosterId: teamSelect.value, payload: leaguePayload }),
-    });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.error || "Fantasy Hub rejected the sync.");
+    const data = await syncThroughFantasyHub(pairingCode, teamSelect.value, leaguePayload);
     await extensionApi.storage.local.remove("pairingCode");
     setStatus(`${data.league.name} is synced. Return to Fantasy Hub and refresh leagues.`, "success");
   } catch (error) {

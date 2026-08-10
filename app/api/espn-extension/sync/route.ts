@@ -7,7 +7,7 @@ const maxPayloadBytes = 4_500_000;
 
 function corsHeaders(request: Request) {
   const origin = request.headers.get("origin") ?? "";
-  const allowedOrigin = /^chrome-extension:\/\/[a-p]{32}$/.test(origin) ? origin : "null";
+  const allowedOrigin = origin === new URL(request.url).origin || /^chrome-extension:\/\/[a-p]{32}$/.test(origin) ? origin : "null";
   return {
     "Access-Control-Allow-Origin": allowedOrigin,
     "Access-Control-Allow-Headers": "content-type",
