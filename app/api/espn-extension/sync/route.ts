@@ -3,7 +3,7 @@ import { getDb } from "../../../../db";
 import { espnLeagueSnapshots, espnSyncPairings, managedLeagues } from "../../../../db/schema";
 import { espnLeagueSummary, type EspnPayload } from "../../espn";
 
-const maxPayloadBytes = 4_500_000;
+const maxPayloadBytes = 1_500_000;
 
 function corsHeaders(request: Request) {
   const origin = request.headers.get("origin") ?? "";
@@ -59,25 +59,30 @@ export async function POST(request: Request) {
   if (!rosterId || !teams.some((team) => String(team.id ?? "") === rosterId))
     return Response.json({ error: "Select the ESPN team you manage" }, { status: 400, headers });
 
-  const db = await getDb();
-  const codeHash = await hashCode(compactCode);
-  const [pairing] = await db.select().from(espnSyncPairings).where(and(eq(espnSyncPairings.codeHash, codeHash), isNull(espnSyncPairings.usedAt))).limit(1);
-  if (!pairing || Date.parse(pairing.expiresAt) <= Date.now())
-    return Response.json({ error: "Pairing code expired. Generate a new code in Fantasy Hub." }, { status: 401, headers });
+  try {
+    const db = await getDb();
+    const codeHash = await hashCode(compactCode);
+    const [pairing] = await db.select().from(espnSyncPairings).where(and(eq(espnSyncPairings.codeHash, codeHash), isNull(espnSyncPairings.usedAt))).limit(1);
+    if (!pairing || Date.parse(pairing.expiresAt) <= Date.now())
+      return Response.json({ error: "Pairing code expired. Generate a new code in Fantasy Hub." }, { status: 401, headers });
 
-  const now = new Date().toISOString();
-  const summary = espnLeagueSummary(payload as EspnPayload);
-  await db.update(espnSyncPairings).set({ usedAt: now }).where(and(eq(espnSyncPairings.id, pairing.id), isNull(espnSyncPairings.usedAt)));
-  await db.insert(espnLeagueSnapshots).values({ id: crypto.randomUUID(), userId: pairing.userId, leagueId, season, payloadJson, syncedAt: now }).onConflictDoUpdate({
-    target: [espnLeagueSnapshots.userId, espnLeagueSnapshots.leagueId, espnLeagueSnapshots.season],
-    set: { payloadJson, syncedAt: now },
-  });
-  await db.insert(managedLeagues).values({
-    id: crypto.randomUUID(), userId: pairing.userId, provider: "espn", identifierType: "league_id", identifier: leagueId,
-    rosterId, leagueName: summary.name, season, status: "live", createdAt: now, updatedAt: now,
-  }).onConflictDoUpdate({
-    target: [managedLeagues.userId, managedLeagues.provider, managedLeagues.identifierType, managedLeagues.identifier],
-    set: { rosterId, leagueName: summary.name, season, status: "live", updatedAt: now },
-  });
-  return Response.json({ league: { id: leagueId, name: summary.name, season, rosterId }, syncedAt: now }, { headers });
+    const now = new Date().toISOString();
+    const summary = espnLeagueSummary(payload as EspnPayload);
+    await db.update(espnSyncPairings).set({ usedAt: now }).where(and(eq(espnSyncPairings.id, pairing.id), isNull(espnSyncPairings.usedAt)));
+    await db.insert(espnLeagueSnapshots).values({ id: crypto.randomUUID(), userId: pairing.userId, leagueId, season, payloadJson, syncedAt: now }).onConflictDoUpdate({
+      target: [espnLeagueSnapshots.userId, espnLeagueSnapshots.leagueId, espnLeagueSnapshots.season],
+      set: { payloadJson, syncedAt: now },
+    });
+    await db.insert(managedLeagues).values({
+      id: crypto.randomUUID(), userId: pairing.userId, provider: "espn", identifierType: "league_id", identifier: leagueId,
+      rosterId, leagueName: summary.name, season, status: "live", createdAt: now, updatedAt: now,
+    }).onConflictDoUpdate({
+      target: [managedLeagues.userId, managedLeagues.provider, managedLeagues.identifierType, managedLeagues.identifier],
+      set: { rosterId, leagueName: summary.name, season, status: "live", updatedAt: now },
+    });
+    return Response.json({ league: { id: leagueId, name: summary.name, season, rosterId }, syncedAt: now }, { headers });
+  } catch (error) {
+    console.error("[espn-extension/sync] failed", { error: error instanceof Error ? error.message : String(error), leagueId, season, payloadBytes: new TextEncoder().encode(payloadJson).byteLength });
+    return Response.json({ error: "Fantasy Hub could not save this ESPN league. Generate a new pairing code and retry." }, { status: 500, headers });
+  }
 }

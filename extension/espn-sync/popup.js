@@ -23,6 +23,48 @@ function teamName(team) {
   return String(team.name || `${team.location || ""} ${team.nickname || ""}`.trim() || team.abbrev || `Team ${team.id}`);
 }
 
+function compactPlayer(player) {
+  if (!player) return null;
+  return {
+    id: player.id,
+    fullName: player.fullName,
+    defaultPositionId: player.defaultPositionId,
+    proTeamId: player.proTeamId,
+    injured: player.injured,
+    injuryStatus: player.injuryStatus,
+    ownership: { percentOwned: player.ownership?.percentOwned },
+    stats: (player.stats || []).map((row) => ({ scoringPeriodId: row.scoringPeriodId, statSourceId: row.statSourceId, appliedTotal: row.appliedTotal })),
+  };
+}
+
+function compactLeaguePayload(payload) {
+  return {
+    id: payload.id,
+    seasonId: payload.seasonId,
+    scoringPeriodId: payload.scoringPeriodId,
+    status: payload.status,
+    settings: payload.settings,
+    members: (payload.members || []).map(({ id, displayName, firstName, lastName }) => ({ id, displayName, firstName, lastName })),
+    teams: (payload.teams || []).map((team) => ({
+      id: team.id,
+      abbrev: team.abbrev,
+      name: team.name,
+      location: team.location,
+      nickname: team.nickname,
+      primaryOwner: team.primaryOwner,
+      owners: team.owners,
+      record: team.record,
+      roster: { entries: (team.roster?.entries || []).map((entry) => ({ lineupSlotId: entry.lineupSlotId, playerPoolEntry: { player: compactPlayer(entry.playerPoolEntry?.player) } })) },
+    })),
+    players: (payload.players || []).slice(0, 600).map((entry) => ({ onTeamId: entry.onTeamId, player: compactPlayer(entry.player) })),
+    schedule: (payload.schedule || []).map((row) => ({
+      matchupPeriodId: row.matchupPeriodId,
+      home: row.home && { teamId: row.home.teamId, totalPoints: row.home.totalPoints },
+      away: row.away && { teamId: row.away.teamId, totalPoints: row.away.totalPoints },
+    })),
+  };
+}
+
 async function queryTabs(queryInfo) {
   if (!extensionApi?.tabs?.query) throw new Error("Open Fantasy Hub ESPN Sync from Chrome’s Extensions toolbar—not by opening popup.html directly.");
   return new Promise((resolve, reject) => {
@@ -116,7 +158,7 @@ loadButton.addEventListener("click", async () => {
   setStatus("Loading your private league from ESPN…");
   try {
     const tab = await activeEspnTab();
-    leaguePayload = await readLeagueFromEspn(tab.id, leagueId, season);
+    leaguePayload = compactLeaguePayload(await readLeagueFromEspn(tab.id, leagueId, season));
     const teams = Array.isArray(leaguePayload?.teams) ? leaguePayload.teams : [];
     if (!teams.length) throw new Error("No teams were returned for this league.");
     teamSelect.replaceChildren(...teams.map((team) => {
