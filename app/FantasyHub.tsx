@@ -563,6 +563,28 @@ function applyWeather(player: Player, weather: WeatherData | null) {
   return { ...player, weatherAdjustment: 0, weatherSummary: game.summary };
 }
 
+function applyOpponent(
+  player: Player,
+  schedule: NflScheduleData | null,
+  week: number,
+) {
+  if (!schedule) return player;
+  const team = normalizeNflTeam(player.team);
+  const game = schedule.weeks
+    .find((item) => item.week === week)
+    ?.games.find(
+      (item) =>
+        normalizeNflTeam(item.away.abbreviation) === team ||
+        normalizeNflTeam(item.home.abbreviation) === team,
+    );
+  if (!game) return { ...player, opponent: "BYE" };
+  const isAway = normalizeNflTeam(game.away.abbreviation) === team;
+  const opponent = isAway
+    ? normalizeNflTeam(game.home.abbreviation)
+    : normalizeNflTeam(game.away.abbreviation);
+  return { ...player, opponent: `${isAway ? "@" : "vs"} ${opponent}` };
+}
+
 const rankedPlayers: RankedPlayer[] = [
   {
     id: "rank-1",
@@ -1010,20 +1032,28 @@ export default function FantasyHub({
       const season = data.league.season ?? String(new Date().getFullYear());
       const currentWeek = Math.max(1, data.league.currentWeek ?? 1);
       let weather: WeatherData | null = null;
+      let schedule: NflScheduleData | null = null;
       try {
-        const weatherResponse = await fetch(
-          `/api/weather?season=${encodeURIComponent(season)}&week=${currentWeek}`,
-        );
+        const [weatherResponse, scheduleResponse] = await Promise.all([
+          fetch(
+            `/api/weather?season=${encodeURIComponent(season)}&week=${currentWeek}`,
+          ),
+          fetch(`/api/nfl-schedule?season=${encodeURIComponent(season)}`),
+        ]);
         if (weatherResponse.ok)
           weather = (await weatherResponse.json()) as WeatherData;
+        if (scheduleResponse.ok)
+          schedule = (await scheduleResponse.json()) as NflScheduleData;
       } catch {
-        /* Weather is an optional model input; a failed forecast remains neutral. */
+        /* Schedule and weather enrichment are optional; core roster loading continues. */
       }
       if (requestNumber !== importRequest.current) return;
       setLeagueName(data.league.name);
       const importedTeams = (data.teams ?? []).map((team) => ({
         ...team,
-        roster: team.roster.map((player) => applyWeather(player, weather)),
+        roster: team.roster.map((player) =>
+          applyWeather(applyOpponent(player, schedule, currentWeek), weather),
+        ),
       }));
       setLeagueTeams(importedTeams);
       const ownedTeam = ownerIdOverride
@@ -1037,11 +1067,13 @@ export default function FantasyHub({
         setSelectedTeamId("");
       }
       setLeagueRankings(
-        (data.rankings ?? []).map((player) => applyWeather(player, weather)),
+        (data.rankings ?? []).map((player) =>
+          applyWeather(applyOpponent(player, schedule, currentWeek), weather),
+        ),
       );
       setWaiverPlayers(
         (data.waiverPlayers ?? []).map((player) =>
-          applyWeather(player, weather),
+          applyWeather(applyOpponent(player, schedule, currentWeek), weather),
         ),
       );
       setLeagueStatus(data.league.status ?? "unknown");
@@ -2365,11 +2397,11 @@ function Scoreboard({
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (!leagueId) return;
     let active = true;
     const refresh = async () => {
       setLoading(true);
       try {
+        if (!leagueId) throw new Error("No league selected");
         const query = week ? `&week=${week}` : "";
         const response = await fetch(
           `/api/scoreboard?leagueId=${encodeURIComponent(leagueId)}${query}`,
@@ -2568,7 +2600,7 @@ function NflGames({
         const payload = (await response.json()) as NflGameData & {
           error?: string;
         };
-        if (!response.ok)
+        if (!response.ok || !payload.games?.length)
           throw new Error(payload.error ?? "NFL games unavailable");
         if (!active) return;
         setData(payload);
@@ -2587,6 +2619,7 @@ function NflGames({
             throw new Error(schedule.error ?? "Schedule unavailable");
           const selectedWeek =
             schedule.weeks.find((item) => item.week === week) ??
+            schedule.weeks.find((item) => item.games.length > 0) ??
             schedule.weeks[0];
           const games = (selectedWeek?.games ?? []).map((game) => ({
             id: game.id,
@@ -2670,19 +2703,6 @@ function NflGames({
     };
   }, [leagueId, season, week]);
 
-  if (!leagueId)
-    return (
-      <div className="page-content">
-        <SectionIntro
-          kicker="NFL GAME HUB"
-          title="Choose a league to connect Sunday to your matchup"
-          text="Select a league above and Fantasy Hub will highlight every NFL game containing one of your players or your opponent’s players."
-        />
-        <section className="panel scoreboard-empty">
-          No league selected.
-        </section>
-      </div>
-    );
   return (
     <div className="page-content nfl-games-page">
       <section className="nfl-games-head">
