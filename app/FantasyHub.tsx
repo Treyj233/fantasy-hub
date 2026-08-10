@@ -223,6 +223,7 @@ type PlayerHistory = {
 };
 type TradeStyle = "Aggressive" | "Neutral" | "Strict";
 type Theme = "light" | "dark";
+type BadgeTheme = "arcade" | "team" | "neon" | "minimal";
 type DraftPick = {
   season: number;
   round: number;
@@ -1168,6 +1169,7 @@ export default function FantasyHub({
   const [accountError, setAccountError] = useState("");
   const [theme, setTheme] = useState<Theme>("light");
   const [teamTheme, setTeamTheme] = useState("GB");
+  const [badgeTheme, setBadgeTheme] = useState<BadgeTheme>("arcade");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [draggedLeagueId, setDraggedLeagueId] = useState("");
   const [leagueDropTarget, setLeagueDropTarget] = useState<{
@@ -1185,6 +1187,7 @@ export default function FantasyHub({
     const savedSidebarState = window.localStorage.getItem(
       "fantasy-hub-sidebar-collapsed",
     );
+    const savedBadgeTheme = window.localStorage.getItem("fantasy-hub-badge-theme") as BadgeTheme | null;
     const initialTheme: Theme =
       savedTheme === "light" || savedTheme === "dark"
         ? savedTheme
@@ -1194,6 +1197,7 @@ export default function FantasyHub({
     const timer = window.setTimeout(() => {
       setTheme(initialTheme);
       setSidebarCollapsed(savedSidebarState === "true");
+      if (["arcade", "team", "neon", "minimal"].includes(savedBadgeTheme ?? "")) setBadgeTheme(savedBadgeTheme!);
       if (
         savedTeamTheme &&
         nflThemes.some((team) => team.id === savedTeamTheme)
@@ -1239,6 +1243,11 @@ export default function FantasyHub({
     window.localStorage.removeItem("fantasy-hub-primary");
     window.localStorage.removeItem("fantasy-hub-secondary");
   }, [teamTheme]);
+
+  useEffect(() => {
+    document.documentElement.dataset.badgeTheme = badgeTheme;
+    window.localStorage.setItem("fantasy-hub-badge-theme", badgeTheme);
+  }, [badgeTheme]);
 
   useEffect(() => {
     if (!accountUser) return;
@@ -2066,6 +2075,8 @@ export default function FantasyHub({
             accountError={accountError}
             teamTheme={teamTheme}
             onTeamThemeChange={setTeamTheme}
+            badgeTheme={badgeTheme}
+            onBadgeThemeChange={setBadgeTheme}
             onOpen={async (league) => {
               setView("Command Center");
               await openConnectedLeague(league);
@@ -2215,6 +2226,8 @@ function ManageLeagues({
   accountError,
   teamTheme,
   onTeamThemeChange,
+  badgeTheme,
+  onBadgeThemeChange,
   onOpen,
   onAdd,
   onRemove,
@@ -2227,6 +2240,8 @@ function ManageLeagues({
   accountError: string;
   teamTheme: string;
   onTeamThemeChange: (team: string) => void;
+  badgeTheme: BadgeTheme;
+  onBadgeThemeChange: (theme: BadgeTheme) => void;
   onOpen: (league: ConnectedLeague) => Promise<void>;
   onAdd: (
     provider: LeagueProvider,
@@ -2282,6 +2297,12 @@ function ManageLeagues({
   const selectedProvider = providers.find((item) => item.id === provider)!;
   const selectedNflTheme =
     nflThemes.find((team) => team.id === teamTheme) ?? nflThemes[0];
+  const badgeThemes: { id: BadgeTheme; name: string; detail: string; preview: string[] }[] = [
+    { id: "arcade", name: "Arcade", detail: "Colorful page-by-page gradients", preview: ["★", "⚡", "↔"] },
+    { id: "team", name: "Team Colors", detail: "Your NFL palette across every badge", preview: ["♟", "+", "◈"] },
+    { id: "neon", name: "Neon Night", detail: "Electric badges built for dark mode", preview: ["◆", "🏈", "♛"] },
+    { id: "minimal", name: "Minimal", detail: "Clean, quiet outlined page markers", preview: ["✓", "◎", "⌁"] },
+  ];
 
   async function addLeague() {
     if (!identifier.trim()) return;
@@ -2415,6 +2436,12 @@ function ManageLeagues({
               </small>
             </button>
           ))}
+        </div>
+        <div className="badge-theme-builder">
+          <header><div><span>SIDEBAR BADGE PACK</span><h4>Choose your navigation style</h4></div><small>Saved on this device</small></header>
+          <div className="badge-theme-grid" role="radiogroup" aria-label="Sidebar badge theme">
+            {badgeThemes.map((pack) => <button type="button" role="radio" aria-checked={badgeTheme === pack.id} className={`${pack.id} ${badgeTheme === pack.id ? "active" : ""}`} key={pack.id} onClick={() => onBadgeThemeChange(pack.id)}><span>{pack.preview.map((icon, index) => <i key={`${icon}-${index}`}>{icon}</i>)}</span><strong>{pack.name}</strong><small>{pack.detail}</small></button>)}
+          </div>
         </div>
       </section>
       <section className="provider-grid" aria-label="Fantasy providers">
