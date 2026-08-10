@@ -1760,6 +1760,7 @@ export default function FantasyHub({
               starterChoice={starterChoice}
               setStarterChoice={setStarterChoice}
               periodLabel={periodLabel}
+              context={rankingContext}
             />
           ) : (
             rosterEmptyState
@@ -1872,6 +1873,7 @@ export default function FantasyHub({
           <WaiverWire
             key={leagueId || "no-league"}
             players={waiverPlayers}
+            roster={players}
             leagueSelected={Boolean(leagueId)}
             leagueStatus={leagueStatus}
             context={rankingContext}
@@ -2535,6 +2537,7 @@ function AllLeagues({
             };
             teams: LeagueTeam[];
             waiverPlayers?: WaiverPlayer[];
+            rankingContext?: RankingContext;
           };
           const week = Math.min(
             18,
@@ -2724,20 +2727,16 @@ function AllLeagues({
                 `A single low-scoring NFL game could affect ${group.map((player) => player.name).join(", ")}.`,
               ),
             );
-          const weakestStarter = [...starters]
-            .filter((player) => ["RB", "WR", "TE"].includes(player.position))
-            .sort((a, b) => a.projection - b.projection)[0];
           const topWaiver = payload.waiverPlayers?.[0];
-          if (
-            weakestStarter &&
-            topWaiver &&
-            topWaiver.projection >= weakestStarter.projection + 3
-          )
+          const waiverPlan = topWaiver
+            ? waiverAddDropPlan(topWaiver, team.roster, payload.rankingContext ?? null)
+            : null;
+          if (topWaiver && waiverPlan?.worthIt && waiverPlan.drop)
             addIssue(
               "watch",
               "Waivers",
-              `${topWaiver.name} is available`,
-              `Top available player projects ${topWaiver.projection.toFixed(1)}, ${Number(topWaiver.projection - weakestStarter.projection).toFixed(1)} above ${weakestStarter.name}.`,
+              `Add ${topWaiver.name} · drop ${waiverPlan.drop.name}`,
+              `${topWaiver.name} improves modeled roster utility by ${waiverPlan.improvement.toFixed(1)} points after accounting for the value and positional scarcity of the drop.`,
             );
           const severityRank = { critical: 0, warning: 1, watch: 2 } as const;
           const ordered = issues.sort(
@@ -4288,6 +4287,7 @@ function CommandCenter({
   starterChoice,
   setStarterChoice,
   periodLabel,
+  context,
 }: {
   players: Player[];
   waiverPlayers: WaiverPlayer[];
@@ -4297,6 +4297,7 @@ function CommandCenter({
   starterChoice: string;
   setStarterChoice: (v: string) => void;
   periodLabel: string;
+  context: RankingContext | null;
 }) {
   const projectionPlatform = useContext(ProjectionPlatformContext);
   const concern = players.find((p) => p.status !== "Healthy");
@@ -4314,6 +4315,10 @@ function CommandCenter({
     .map((player) => ({ player, range: matchupAdjustedRange(player) }))
     .sort((a, b) => Math.abs(b.range.edge) - Math.abs(a.range.edge));
   const topMatchupEdge = matchupEdges[0];
+  const waiverPlans = waiverPlayers
+    .map((add) => ({ add, plan: waiverAddDropPlan(add, players, context) }))
+    .filter((item) => item.plan.worthIt && item.plan.drop)
+    .slice(0, 2);
   return (
     <div className="page-content">
       <section className="hero">
@@ -4452,7 +4457,7 @@ function CommandCenter({
             onClick={() => setView("Waiver Wire")}
           />
           <div className="waiver-preview">
-            {waiverPlayers.slice(0, 2).map((player, i) => (
+            {waiverPlans.map(({ add: player, plan }, i) => (
               <div key={player.id}>
                 <b>0{i + 1}</b>
                 <span className={`pos pos-${player.position.toLowerCase()}`}>
@@ -4460,14 +4465,14 @@ function CommandCenter({
                 </span>
                 <p>
                   <strong>{player.name}</strong>
-                  <small>{player.team} · Available in this league</small>
+                  <small>{player.team} · Add for {plan.drop!.name} · +{plan.improvement.toFixed(1)} roster value</small>
                 </p>
                 <em>{waiverBid(player, i)}</em>
               </div>
             ))}
-            {!waiverPlayers.length && (
+            {!waiverPlans.length && (
               <p className="waiver-empty">
-                No available-player recommendations yet.
+                No available player is currently worth the required roster drop.
               </p>
             )}
           </div>
@@ -5687,6 +5692,48 @@ function StartSit({
   );
 }
 
+type WaiverAddDropPlan = {
+  drop: Player | null;
+  improvement: number;
+  worthIt: boolean;
+};
+
+function waiverAddDropPlan(
+  add: WaiverPlayer,
+  roster: Player[],
+  context: RankingContext | null,
+): WaiverAddDropPlan {
+  const droppable = roster.filter(
+    (player) =>
+      player.role === "Bench" &&
+      player.id !== add.id &&
+      (!["K", "DEF"].includes(player.position) || player.position === add.position),
+  );
+  if (!droppable.length) return { drop: null, improvement: 0, worthIt: false };
+  const positionCounts = roster.reduce<Record<string, number>>(
+    (counts, player) => ({ ...counts, [player.position]: (counts[player.position] ?? 0) + 1 }),
+    {},
+  );
+  const desiredAt = (position: string) =>
+    Math.max(1, Math.ceil(context?.positionDemand[position] ?? (position === "RB" || position === "WR" ? 2 : 1)));
+  const dropUtility = (player: Player) => {
+    const projection = player.leagueProjection ?? player.projection;
+    const roleEvidence = (player.snapAverage ?? player.snapPct ?? 0) / 25;
+    const scarcityProtection = (positionCounts[player.position] ?? 0) <= desiredAt(player.position) + 1 ? 3 : 0;
+    const availabilityPenalty = ["Out", "IR", "Suspended"].includes(player.status) ? -2 : 0;
+    return projection + roleEvidence + scarcityProtection + availabilityPenalty;
+  };
+  const drop = [...droppable].sort((a, b) => dropUtility(a) - dropUtility(b))[0];
+  const addProjection = add.leagueProjection ?? add.projection;
+  const needBonus = (positionCounts[add.position] ?? 0) <= desiredAt(add.position) ? 2 : 0;
+  const marketBonus = Math.max(0, 3 - add.overallRank * 0.025);
+  const formatBonus = context?.format === "Dynasty" ? Math.max(0, add.ageAdjustment) * 0.18 : 0;
+  const injuryPenalty = ["Out", "IR", "Suspended"].includes(add.status) ? 4 : add.status === "Questionable" ? 1 : 0;
+  const addUtility = addProjection + add.lineupAdjustment * 0.35 + needBonus + marketBonus + formatBonus - injuryPenalty;
+  const improvement = Number((addUtility - dropUtility(drop)).toFixed(1));
+  return { drop, improvement, worthIt: improvement >= 1.5 };
+}
+
 function waiverBid(player: WaiverPlayer, index: number) {
   const positionPremium =
     player.position === "RB"
@@ -5725,12 +5772,14 @@ function waiverReason(player: WaiverPlayer, context: RankingContext | null) {
 
 function WaiverWire({
   players,
+  roster,
   leagueSelected,
   leagueStatus,
   context,
   setSelectedPlayer,
 }: {
   players: WaiverPlayer[];
+  roster: Player[];
   leagueSelected: boolean;
   leagueStatus: string;
   context: RankingContext | null;
@@ -5816,6 +5865,7 @@ function WaiverWire({
           {filtered.map((player) => {
             const availableRank = availableRankById.get(player.id) ?? 0;
             const positionRank = positionRankById.get(player.id) ?? 0;
+            const addDropPlan = waiverAddDropPlan(player, roster, context);
             return (
               <article key={player.id}>
                 <b className="waiver-rank">#{availableRank}</b>
@@ -5830,7 +5880,7 @@ function WaiverWire({
                   <p>
                     <strong>{player.name}</strong>
                     <small>
-                      {player.team} · {player.position} #{positionRank} available · {waiverReason(player, context)}
+                      {player.team} · {player.position} #{positionRank} available · {addDropPlan.worthIt && addDropPlan.drop ? `Drop ${addDropPlan.drop.name} · +${addDropPlan.improvement.toFixed(1)} modeled roster value. ` : "Hold current roster; the add does not justify a drop. "}{waiverReason(player, context)}
                     </small>
                   </p>
                 </button>
@@ -5846,6 +5896,7 @@ function WaiverWire({
                 </span>
                 <button
                   className={planned.includes(player.id) ? "waiver-plan added" : "waiver-plan"}
+                  disabled={!addDropPlan.worthIt || !addDropPlan.drop}
                   onClick={() =>
                     setPlanned((current) =>
                       current.includes(player.id)
@@ -5854,7 +5905,11 @@ function WaiverWire({
                     )
                   }
                 >
-                  {planned.includes(player.id) ? "✓ Planned" : "+ Plan claim"}
+                  {planned.includes(player.id)
+                    ? "✓ Planned"
+                    : addDropPlan.worthIt && addDropPlan.drop
+                      ? `Add · Drop ${addDropPlan.drop.name.split(" ").at(-1)}`
+                      : "Hold roster"}
                 </button>
               </article>
             );
