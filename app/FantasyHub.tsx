@@ -1140,7 +1140,6 @@ export default function FantasyHub({
     "idle" | "loading" | "success" | "error"
   >("idle");
   const [starterChoice, setStarterChoice] = useState("Rome Odunze");
-  const [simulations, setSimulations] = useState(10000);
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
   const [leagueTeams, setLeagueTeams] = useState<LeagueTeam[]>([]);
   const [selectedTeamId, setSelectedTeamId] = useState("");
@@ -2058,8 +2057,6 @@ export default function FantasyHub({
           (rosterReady ? (
             <Simulator
               key={`${leagueId}-${selectedTeamId}`}
-              simulations={simulations}
-              setSimulations={setSimulations}
               leagueId={leagueId}
               teams={leagueTeams}
               selectedTeamId={selectedTeamId}
@@ -8084,20 +8081,17 @@ function runLeagueSimulation(
 }
 
 function Simulator({
-  simulations,
-  setSimulations,
   leagueId,
   teams,
   selectedTeamId,
   context,
 }: {
-  simulations: number;
-  setSimulations: (n: number) => void;
   leagueId: string;
   teams: LeagueTeam[];
   selectedTeamId: string;
   context: RankingContext | null;
 }) {
+  const simulations = 10000;
   const [simulation, setSimulation] = useState<SimulationContext | null>(null);
   const [result, setResult] = useState<SimulationResult | null>(null);
   const [error, setError] = useState("");
@@ -8204,19 +8198,8 @@ function Simulator({
       </section>
       <section className="sim-hero">
         <div>
-          <label>
-            Simulation volume
-            <select
-              value={simulations}
-              onChange={(event) => setSimulations(Number(event.target.value))}
-            >
-              <option value="5000">5,000 seasons</option>
-              <option value="10000">10,000 seasons</option>
-              <option value="25000">25,000 seasons</option>
-            </select>
-          </label>
           <button onClick={run} disabled={running}>
-            {running ? "Running seasons…" : "Run simulation"}
+            {running ? "Simulating…" : "Sim season"}
           </button>
           {result && <small>Seed {result.seed.toLocaleString()}</small>}
         </div>
