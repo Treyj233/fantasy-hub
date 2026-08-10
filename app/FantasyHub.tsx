@@ -333,6 +333,8 @@ function playerTemperature(player: ScoreboardPlayer, matchupStatus: string) {
   const isLive = matchupStatus.toLowerCase() === "live";
   const projection = player.projection ?? 0;
   if (!isLive || projection <= 0) return { value: 50, label: isLive ? "No projection" : "Waiting for kickoff", state: "steady" };
+  const hasActivity = player.points > 0 || player.yards > 0 || player.touchdowns > 0 || player.receptions > 0 || player.targets > 0;
+  if (!hasActivity) return { value: 50, label: "Awaiting first play", state: "steady" };
   const ratio = player.points / projection;
   const productionBoost = Math.min(12, player.touchdowns * 5 + Math.floor(player.receptions / 4) * 2);
   const value = Math.round(Math.max(3, Math.min(97, 18 + ratio * 62 + productionBoost)));
@@ -1946,6 +1948,8 @@ export default function FantasyHub({
             <MyTeam
               players={players}
               context={rankingContext}
+              leagueId={leagueId}
+              week={defaultGameWeek}
               setSelectedPlayer={setSelectedPlayer}
             />
           ) : (
@@ -5022,12 +5026,33 @@ function CommandCenter({
 function MyTeam({
   players,
   context,
+  leagueId,
+  week,
   setSelectedPlayer,
 }: {
   players: Player[];
   context: RankingContext | null;
+  leagueId: string;
+  week: number;
   setSelectedPlayer: (p: Player) => void;
 }) {
+  const [livePlayers, setLivePlayers] = useState<Map<string, { player: ScoreboardPlayer; status: string }>>(new Map());
+  useEffect(() => {
+    let active = true;
+    const refresh = async () => {
+      if (!leagueId) return;
+      try {
+        const response = await fetch(`/api/scoreboard?leagueId=${encodeURIComponent(leagueId)}&week=${week}`);
+        if (!response.ok) return;
+        const payload = await response.json() as ScoreboardData;
+        const mine = payload.matchups.flatMap((matchup) => matchup.teams.filter((team) => team.isMine).map((team) => ({ matchup, team })))[0];
+        if (active && mine) setLivePlayers(new Map(mine.team.topPlayers.map((player) => [player.id, { player, status: mine.matchup.status }])));
+      } catch { /* Roster remains available when live scoring is unavailable. */ }
+    };
+    void refresh();
+    const timer = window.setInterval(refresh, 30000);
+    return () => { active = false; window.clearInterval(timer); };
+  }, [leagueId, week]);
   const starters = players.filter(isStartingPlayer);
   const reserves = players.filter((player) => !isStartingPlayer(player));
   const requiredSlots = (context?.rosterSlots ?? [])
@@ -5060,6 +5085,7 @@ function MyTeam({
             : `${starters.length} active lineup slots`
         }
         players={starters}
+        livePlayers={livePlayers}
         emptySlots={unfilledSlots}
         setSelectedPlayer={setSelectedPlayer}
       />
@@ -5067,6 +5093,7 @@ function MyTeam({
         title="Reserves"
         detail={`${reserves.length} bench, IR, and taxi players`}
         players={reserves}
+        livePlayers={livePlayers}
         setSelectedPlayer={setSelectedPlayer}
       />
     </div>
@@ -5077,12 +5104,14 @@ function RosterSection({
   title,
   detail,
   players,
+  livePlayers = new Map(),
   emptySlots = [],
   setSelectedPlayer,
 }: {
   title: string;
   detail: string;
   players: Player[];
+  livePlayers?: Map<string, { player: ScoreboardPlayer; status: string }>;
   emptySlots?: string[];
   setSelectedPlayer: (player: Player) => void;
 }) {
@@ -5108,7 +5137,10 @@ function RosterSection({
             </tr>
           </thead>
           <tbody>
-            {players.map((player) => (
+            {players.map((player) => {
+              const live = livePlayers.get(player.id);
+              const temperature = live ? playerTemperature(live.player, live.status) : { value: 50, label: "Waiting for kickoff", state: "steady" };
+              return (
               <tr key={player.id} onClick={() => setSelectedPlayer(player)}>
                 <td>
                   <span className={`pos pos-${player.position.toLowerCase()}`}>
@@ -5133,6 +5165,10 @@ function RosterSection({
                   {player.weatherSummary && (
                     <small className="roster-weather">☁ {player.weatherSummary}</small>
                   )}
+                  <span className={`player-temperature roster-temperature ${temperature.state}`}>
+                    <span className="temperature-label"><b>❄ ICE</b><strong>{temperature.label}</strong><b>FIRE 🔥</b></span>
+                    <span className="temperature-track"><i style={{ left: `${temperature.value}%` }} /></span>
+                  </span>
                 </td>
                 <td>
                   <b className="league-projection">
@@ -5145,7 +5181,8 @@ function RosterSection({
                   <Status value={player.status} />
                 </td>
               </tr>
-            ))}
+              );
+            })}
             {emptySlots.map((slot, index) => (
               <tr className="empty-starter-row" key={`empty-${slot}-${index}`}>
                 <td>
