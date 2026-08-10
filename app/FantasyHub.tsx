@@ -810,18 +810,39 @@ function MatchupBadge({ player }: { player: Pick<Player, "position" | "opponent"
 }
 
 function matchupAdjustedRange(player: Player) {
+  const projection = Math.max(0, player.projection);
+  const positionVolatility: Record<string, number> = { QB: .24, RB: .36, WR: .43, TE: .4, K: .48, DEF: .46 };
+  const baseVolatility = positionVolatility[matchupPosition(player.position)] ?? .38;
+  const benchVolatility = isStartingPlayer(player) ? 0 : .07;
+  const snapVolatility = typeof player.snapPct === "number" ? Math.max(-.07, Math.min(.1, (65 - player.snapPct) / 250)) : 0;
+  const injuryVolatility = /questionable|doubtful|out/i.test(player.status) ? .1 : 0;
+  const roleStability = projection >= 18 ? -.04 : projection <= 7 ? .06 : 0;
+  const volatility = Math.max(.18, Math.min(.62, baseVolatility + benchVolatility + snapVolatility + injuryVolatility + roleStability));
+  const trendTail = Math.max(-.08, Math.min(.08, player.trend / 100));
+  const offenseTail = player.teamOffenseRank2025 == null ? 0 : Math.max(-.05, Math.min(.05, (17 - player.teamOffenseRank2025) / 320));
+  const baseFloor = Number(Math.max(0, projection * (1 - volatility - Math.min(0, trendTail))).toFixed(1));
+  const baseCeiling = Number(Math.max(projection, projection * (1 + volatility + Math.max(0, trendTail) + offenseTail)).toFixed(1));
   const strength = player.matchupStrength;
-  if (!strength) return { floor: player.floor, ceiling: player.ceiling, edge: 0, confidence: 0 };
+  if (!strength) return { floor: baseFloor, ceiling: baseCeiling, edge: 0, confidence: 0 };
   const confidence = Math.min(1, strength.games / 8);
   const edge = ((strength.score - 50) / 50) * confidence;
   const floorFactor = 1 + edge * (edge >= 0 ? 0.04 : 0.12);
   const ceilingFactor = 1 + edge * (edge >= 0 ? 0.12 : 0.04);
   return {
-    floor: Number(Math.max(0, player.floor * floorFactor).toFixed(1)),
-    ceiling: Number(Math.max(player.projection, player.ceiling * ceilingFactor).toFixed(1)),
+    floor: Number(Math.max(0, baseFloor * floorFactor).toFixed(1)),
+    ceiling: Number(Math.max(player.projection, baseCeiling * ceilingFactor).toFixed(1)),
     edge,
     confidence,
   };
+}
+
+function aggressionScore(player: Player, aggressiveness: number) {
+  const range = matchupAdjustedRange(player);
+  const risk = aggressiveness / 100;
+  const floorWeight = Math.max(0, 1 - risk * 2);
+  const ceilingWeight = Math.max(0, risk * 2 - 1);
+  const medianWeight = 1 - floorWeight - ceilingWeight;
+  return range.floor * floorWeight + player.projection * medianWeight + range.ceiling * ceilingWeight;
 }
 
 const rankedPlayers: RankedPlayer[] = [
@@ -6025,21 +6046,17 @@ function StartSit({
         ? "Shoot for upside"
         : "Balanced";
   const scorePlayer = (player: Player) => {
-    const range = matchupAdjustedRange(player);
-    return player.projection * 0.5 +
-      range.floor * 0.5 * (1 - aggressiveness / 100) +
-      range.ceiling * 0.5 * (aggressiveness / 100);
+    return aggressionScore(player, aggressiveness);
   };
   const rememberedStartSit = useMemo(() => decisions.map((decision) => {
     const options = [decision.starter, ...decision.candidates];
     const recommended = [...options].sort((a, b) => {
-      const aRange = matchupAdjustedRange(a); const bRange = matchupAdjustedRange(b);
-      const aScore = a.projection * .5 + aRange.floor * .5 * (1 - aggressiveness / 100) + aRange.ceiling * .5 * (aggressiveness / 100);
-      const bScore = b.projection * .5 + bRange.floor * .5 * (1 - aggressiveness / 100) + bRange.ceiling * .5 * (aggressiveness / 100);
+      const aScore = aggressionScore(a, aggressiveness);
+      const bScore = aggressionScore(b, aggressiveness);
       return bScore - aScore;
     })[0];
     const confidence = Math.min(95, Math.max(50, Math.round(55 + Math.abs(recommended.projection - options.find((item) => item.id !== recommended.id)!.projection) * 4)));
-    return { id: `start-sit:${week}:${decision.starter.id}`, leagueId, week, category: "start_sit", recommendation: recommended.name, alternatives: options.map((player) => ({ id: player.id, name: player.name, position: player.position, projection: player.projection, floor: player.floor, ceiling: player.ceiling })), information: { aggressiveness, recommendedAggression, teamProjection, opponentProjection, projectionSource: projectionPlatform, scoring: context?.scoring ?? null }, confidence };
+    return { id: `start-sit:${week}:${decision.starter.id}`, leagueId, week, category: "start_sit", recommendation: recommended.name, alternatives: options.map((player) => { const range = matchupAdjustedRange(player); return { id: player.id, name: player.name, position: player.position, projection: player.projection, floor: range.floor, ceiling: range.ceiling }; }), information: { aggressiveness, recommendedAggression, teamProjection, opponentProjection, projectionSource: projectionPlatform, scoring: context?.scoring ?? null }, confidence };
   }), [aggressiveness, context?.scoring, decisions, leagueId, opponentProjection, projectionPlatform, recommendedAggression, teamProjection, week]);
   useEffect(() => { rememberedStartSit.forEach((decision) => rememberDecision(decision)); }, [rememberedStartSit]);
   if (!decisions.length)
