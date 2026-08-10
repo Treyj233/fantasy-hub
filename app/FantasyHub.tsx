@@ -1515,7 +1515,10 @@ export default function FantasyHub({
   return (
     <ProjectionPlatformContext.Provider value={leaguePlatform}>
     <PlayerOpenContext.Provider value={setSelectedPlayer}>
-    <main className={`app-shell ${sidebarCollapsed ? "sidebar-collapsed" : ""}`}>
+    <main
+      className={`app-shell ${sidebarCollapsed ? "sidebar-collapsed" : ""}`}
+      data-release="scoreboard-render-fix-2"
+    >
       <aside className="sidebar">
         <button
           className="sidebar-collapse"
