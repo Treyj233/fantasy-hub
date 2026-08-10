@@ -98,15 +98,30 @@ export function espnLeagueSummary(payload: EspnPayload) {
   };
 }
 
-export function normalizeEspnLeague(payload: EspnPayload) {
+export async function normalizeEspnLeague(payload: EspnPayload) {
   const week = Math.max(1, payload.scoringPeriodId ?? payload.status?.latestScoringPeriod ?? 1);
+  const leagueSeason = Number(payload.seasonId ?? new Date().getUTCFullYear());
+  const historySeason = leagueSeason > 2025 ? 2025 : leagueSeason;
+  const [snapProfiles, seasonProfiles, teamOffenseProfiles] = await Promise.all([
+    loadSnapProfiles(historySeason),
+    loadPlayerSeasonProfiles(historySeason),
+    loadTeamOffenseProfiles(historySeason),
+  ]);
   const members = new Map((payload.members ?? []).flatMap((member) => member.id ? [[member.id, member]] : []));
   const allPoolPlayers = (payload.players ?? []).flatMap((entry) => entry.player ? [{ ...entry.player, onTeamId: entry.onTeamId ?? 0 }] : []);
   const rosterPlayers = (payload.teams ?? []).flatMap((team) => (team.roster?.entries ?? []).flatMap((entry) => entry.playerPoolEntry?.player ? [{ ...entry.playerPoolEntry.player, onTeamId: team.id ?? 0 }] : []));
   const universe = Array.from(new Map([...allPoolPlayers, ...rosterPlayers].flatMap((player) => player.id ? [[player.id, player]] : [])).values());
+  const receptionPoints = payload.settings?.scoringSettings?.scoringItems?.find((item) => item.statId === 53)?.points ?? 0;
   const playerShape = (player: EspnPlayer, role = "Player pool") => {
     const points = projection(player, week);
-    return { id: `espn-player:${player.id ?? 0}`, name: player.fullName ?? `ESPN Player ${player.id ?? ""}`, position: positionById[player.defaultPositionId ?? 0] ?? "FLEX", team: nflTeamById[player.proTeamId ?? 0] ?? "FA", opponent: "Matchup pending", projection: points, leagueProjection: points, floor: Number((points * .68).toFixed(1)), ceiling: Number((points * 1.38).toFixed(1)), trend: 0, status: player.injuryStatus || (player.injured ? "Questionable" : "Healthy"), role, rankingValue: Number((points * 3 + (player.ownership?.percentOwned ?? 0) * .35).toFixed(2)) };
+    const name = player.fullName ?? `ESPN Player ${player.id ?? ""}`;
+    const snapProfile = snapProfileFor(snapProfiles, name);
+    const seasonProfile = playerSeasonProfileFor(seasonProfiles, name);
+    const teamOffense = seasonProfile?.team ? teamOffenseProfiles.get(seasonProfile.team) : null;
+    const historicalPoints = seasonProfile
+      ? seasonProfile.fantasyPoints + seasonProfile.receptions * receptionPoints
+      : null;
+    return { id: `espn-player:${player.id ?? 0}`, name, position: positionById[player.defaultPositionId ?? 0] ?? "FLEX", team: nflTeamById[player.proTeamId ?? 0] ?? "FA", opponent: "Matchup pending", projection: points, leagueProjection: points, floor: Number((points * .68).toFixed(1)), ceiling: Number((points * 1.38).toFixed(1)), trend: 0, status: player.injuryStatus || (player.injured ? "Questionable" : "Healthy"), role, rankingValue: Number((points * 3 + (player.ownership?.percentOwned ?? 0) * .35).toFixed(2)), ageAdjustment: 0, lineupAdjustment: 0, snapPct: snapProfile?.latestPct ?? null, snapAverage: snapProfile?.averagePct ?? null, snapWeek: snapProfile?.latestWeek ?? null, snapSeason: snapProfile?.season ?? null, fantasyPpg2025: seasonProfile?.games && historicalPoints != null ? Number((historicalPoints / seasonProfile.games).toFixed(1)) : null, gamesPlayed2025: seasonProfile?.games ?? null, team2025: seasonProfile?.team ?? null, teamOffenseRank2025: teamOffense?.rank ?? null, teamPointsPerGame2025: teamOffense?.pointsPerGame ?? null };
   };
   const rosteredIds = new Set(rosterPlayers.map((player) => player.id));
   const rankingPool = universe.map((player) => playerShape(player)).filter((player) => ["QB", "RB", "WR", "TE", "K", "DEF"].includes(player.position)).sort((a, b) => b.rankingValue - a.rankingValue).map((player, index) => ({ ...player, overallRank: index + 1 }));
@@ -121,7 +136,6 @@ export function normalizeEspnLeague(payload: EspnPayload) {
   });
   const lineupCounts = payload.settings?.rosterSettings?.lineupSlotCounts ?? {};
   const rosterSlots = Object.entries(lineupCounts).flatMap(([slot, count]) => Array.from({ length: count }, () => slotById[Number(slot)] ?? "Bench"));
-  const receptionPoints = payload.settings?.scoringSettings?.scoringItems?.find((item) => item.statId === 53)?.points ?? 0;
   const scoring = receptionPoints >= .75 ? "PPR" : receptionPoints >= .25 ? "Half PPR" : "Standard";
   const slotCounts = rosterSlots.reduce<Record<string, number>>((map, slot) => ({ ...map, [slot]: (map[slot] ?? 0) + 1 }), {});
   const hasRosteredPlayers = teams.some((team) => team.roster.length > 0);
@@ -179,3 +193,5 @@ export function normalizeEspnSimulation(payload: EspnPayload) {
 import { and, desc, eq } from "drizzle-orm";
 import { getDb } from "../../db";
 import { espnLeagueSnapshots } from "../../db/schema";
+import { loadSnapProfiles, snapProfileFor } from "../snap-data";
+import { loadPlayerSeasonProfiles, loadTeamOffenseProfiles, playerSeasonProfileFor } from "../season-history";

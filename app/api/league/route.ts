@@ -30,7 +30,7 @@ export async function GET(request: Request) {
     if (!leagueId || !/^\d{4,24}$/.test(leagueId))
       return Response.json({ error: "Invalid ESPN league ID" }, { status: 400 });
     try {
-      return Response.json(normalizeEspnLeague(await fetchEspnLeagueForUser(user.userId, leagueId, Number(season))));
+      return Response.json(await normalizeEspnLeague(await fetchEspnLeagueForUser(user.userId, leagueId, Number(season))));
     } catch (error) {
       return Response.json({ error: error instanceof Error ? error.message : "ESPN league unavailable" }, { status: 502 });
     }

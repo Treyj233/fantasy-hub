@@ -41,7 +41,7 @@ function csvRow(line: string) {
 async function fetchPlayerSeason(season: number) {
   try {
     const response = await fetch(
-      "https://github.com/nflverse/nflverse-data/releases/download/player_stats/player_stats.csv",
+      `https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_${season}.csv`,
       { next: { revalidate: 21600 } },
     );
     if (!response.ok) return new Map<string, PlayerSeasonProfile>();
@@ -72,7 +72,10 @@ async function fetchPlayerSeason(season: number) {
           (Number(cells[column("fantasy_points")]) || 0),
         receptions:
           existing.receptions + (Number(cells[column("receptions")]) || 0),
-        team: cells[column("recent_team")] || existing.team,
+        team:
+          cells[column("team")] ||
+          cells[column("recent_team")] ||
+          existing.team,
       });
     });
     return profiles;

@@ -39,7 +39,7 @@ export async function GET() {
   const espnLeagues = (await Promise.all(espnRecords.map(async (record) => {
     if (!record.rosterId) return null;
     try {
-      const normalized = normalizeEspnLeague(await fetchEspnLeagueForUser(user.userId, record.identifier, Number(record.season)));
+      const normalized = await normalizeEspnLeague(await fetchEspnLeagueForUser(user.userId, record.identifier, Number(record.season)));
       const rosterSlots = normalized.rankingContext.rosterSlots;
       return { id: `espn:${normalized.league.season}:${record.identifier}`, sourceId: record.identifier, provider: "espn", name: normalized.league.name, season: normalized.league.season, teams: normalized.league.teams, format: normalized.rankingContext.format, scoring: normalized.rankingContext.scoring, rosterId: record.rosterId, starterCount: rosterSlots.filter((slot) => !["Bench", "IR"].includes(slot)).length };
     } catch {
