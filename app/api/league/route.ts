@@ -1,4 +1,4 @@
-type SourcePlayer = { player_id?: string; full_name?: string; first_name?: string; last_name?: string; position?: string; team?: string; injury_status?: string | null; search_rank?: number; age?: number };
+type SourcePlayer = { player_id?: string; full_name?: string; first_name?: string; last_name?: string; position?: string; team?: string; injury_status?: string | null; search_rank?: number; age?: number; status?: string; depth_chart_order?: number | null; depth_chart_position?: string | null };
 type SourceProjection = { player_id?: string; stats?: Record<string, number> };
 
 export async function GET(request: Request) {
@@ -57,6 +57,32 @@ export async function GET(request: Request) {
       DEF: (slotCounts.DEF ?? 0) + (slotCounts.DST ?? 0),
     };
     const positionBaselines: Record<string, number> = { QB: 21, RB: 15, WR: 14, TE: 11, K: 8, DEF: 8 };
+    const opportunityProjection = (playerId: string, player: SourcePlayer) => {
+      const sourced = leagueProjections.get(playerId);
+      const position = player.position ?? "";
+      const depth = player.depth_chart_order ?? null;
+      const status = (player.status ?? "").toLowerCase();
+      const unavailable = player.injury_status === "Out" || player.injury_status === "IR" || status.includes("inactive") || status.includes("injured reserve") || status.includes("practice") || status.includes("suspend");
+      if (unavailable) return Math.min(sourced ?? .1, .2);
+      if (typeof sourced === "number") {
+        if (depth != null && depth >= 4) return Math.min(sourced, 1.2);
+        if (depth === 3) return Math.min(sourced, position === "RB" || position === "WR" ? 3.5 : 1.5);
+        if (depth != null && depth >= 2 && position === "QB") return Math.min(sourced, 1.2);
+        return sourced;
+      }
+      if (position === "DEF") return positionBaselines.DEF;
+      if (!player.team) return 0;
+      if (depth != null) {
+        if (depth >= 4) return .1;
+        if (depth === 3) return position === "RB" || position === "WR" ? .8 : .2;
+        if (depth === 2) return position === "QB" ? .3 : position === "TE" ? 2 : 3.5;
+      }
+      const sourceRank = player.search_rank && player.search_rank > 0 ? player.search_rank : 9999;
+      if (sourceRank <= 60) return positionBaselines[position] * .65;
+      if (sourceRank <= 150) return position === "QB" ? .5 : position === "TE" ? 1.8 : 2.5;
+      if (sourceRank <= 300) return .6;
+      return .1;
+    };
     const dynastyAgeAdjustment = (player: SourcePlayer) => {
       if (format === "Redraft" || !player.age) return 0;
       const peakAge = player.position === "RB" ? 24 : player.position === "WR" ? 26 : player.position === "TE" ? 27 : player.position === "QB" ? 29 : 27;
@@ -67,12 +93,13 @@ export async function GET(request: Request) {
       const position = player.position ?? "";
       if (!['QB', 'RB', 'WR', 'TE', 'K', 'DEF'].includes(position) || !player.team) return [];
       const sourceRank = player.search_rank && player.search_rank > 0 ? player.search_rank : 9999;
-      const projectedPoints = leagueProjections.get(playerId) ?? Math.max(2, (positionBaselines[position] ?? 8) - Math.log10(Math.max(2, sourceRank)) * 2.15);
+      const projectedPoints = opportunityProjection(playerId, player);
       const lineupAdjustment = Math.min(11, Math.max(-4, ((positionDemand[position] ?? 0) - 1) * (position === "QB" ? 6.5 : 3.2)));
       const ageAdjustment = dynastyAgeAdjustment(player);
       const availabilityAdjustment = player.injury_status === "Out" || player.injury_status === "IR" ? -5 : player.injury_status ? -1.5 : 0;
       const rankSignal = Math.max(0, 28 - Math.log10(Math.max(1, sourceRank)) * 10.5);
-      const value = projectedPoints * 2.35 + rankSignal + lineupAdjustment + ageAdjustment + availabilityAdjustment;
+      const opportunityAdjustment = projectedPoints < .5 ? -40 : projectedPoints < 2 ? -24 : projectedPoints < 5 ? -10 : 0;
+      const value = projectedPoints * 2.35 + rankSignal + lineupAdjustment + ageAdjustment + availabilityAdjustment + opportunityAdjustment;
       return [{ id: player.player_id ?? playerId, name: player.full_name ?? `${player.first_name ?? ""} ${player.last_name ?? ""}`.trim(), position, team: player.team, opponent: "Matchup pending", projection: Number(projectedPoints.toFixed(1)), leagueProjection: platformProjections.get(playerId) ?? null, floor: Number((projectedPoints * .6).toFixed(1)), ceiling: Number((projectedPoints * 1.5).toFixed(1)), trend: 0, status: player.injury_status ?? "Healthy", role: "Player pool", age: player.age ?? null, rankingValue: Number(value.toFixed(2)), ageAdjustment: Number(ageAdjustment.toFixed(1)), lineupAdjustment: Number(lineupAdjustment.toFixed(1)) }];
     }).sort((a, b) => b.rankingValue - a.rankingValue).slice(0, 600).map((player, index) => ({ ...player, overallRank: index + 1 }));
     const rosteredPlayerIds = new Set(rosters.flatMap((roster) => roster.players ?? []));
@@ -99,10 +126,10 @@ export async function GET(request: Request) {
         ...starterIds.map((playerId, index) => ({ playerId, role: league.roster_positions?.[index] ?? "Starter" })),
         ...benchIds.map((playerId) => ({ playerId, role: "Bench" })),
       ];
-      const normalized = orderedRoster.slice(0, 24).flatMap(({ playerId, role }, index) => {
+      const normalized = orderedRoster.slice(0, 24).flatMap(({ playerId, role }) => {
         const player = sourcePlayers[playerId];
         if (!player) return [];
-        const projection = leagueProjections.get(playerId) ?? Math.max(5, 21 - index * .72 - Math.max(0, (player.search_rank ?? 100) - 50) * .01);
+        const projection = opportunityProjection(playerId, player);
         return [{ id: player.player_id ?? playerId, name: player.full_name ?? `${player.first_name ?? ""} ${player.last_name ?? ""}`.trim(), position: player.position ?? "FLEX", team: player.team ?? "FA", opponent: "Matchup pending", projection: Number(projection.toFixed(1)), leagueProjection: platformProjections.get(playerId) ?? null, floor: Number((projection * .58).toFixed(1)), ceiling: Number((projection * 1.52).toFixed(1)), trend: 0, status: player.injury_status ?? "Healthy", role }];
       });
       const rosterId = roster.roster_id ?? rosterIndex + 1;

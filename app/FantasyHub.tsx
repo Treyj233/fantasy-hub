@@ -26,6 +26,8 @@ type NflImpactPlayer = { id: string; name: string; position: string; nflTeam: st
 type NflGameData = { league: { name: string; season: string }; week: number; updatedAt: string; fantasyMatchup: { yourPoints: number; opponentPoints: number; opponentName: string; playerCount: number }; games: { id: string; date: string; name: string; status: string; state: string; clock: string; venue: string; broadcast: string; teams: { abbreviation: string; name: string; displayName: string; homeAway: string; score: number; winner: boolean; color: string; logo: string | null; record: string }[]; impactPlayers: NflImpactPlayer[] }[] };
 type ScheduleGame = { id: string; week: number; date: string; status: string; broadcast: string; away: { abbreviation: string; name: string }; home: { abbreviation: string; name: string } };
 type NflScheduleData = { season: number; currentWeek: number; updatedAt: string; weeks: { week: number; games: ScheduleGame[] }[] };
+type SimulationContext = { league: { name: string; season: string; currentWeek: number; totalTeams: number; playoffTeams: number; playoffWeekStart: number; regularSeasonWeeks: number; format: string; starterSlots: string[]; scoringRuleCount: number }; weeks: { week: number; matchups: { teams: string[]; points: number[] }[] }[] };
+type SimulationResult = { playoffOdds: number; byeOdds: number; titleOdds: number; medianWins: number; winPercentiles: { label: string; value: number }[]; seed: number; topDrivers: string[]; riskDrivers: string[] };
 type TradeAssetValue = { id: string; name: string; position: string; meta: string; value: number };
 type TradeSuggestion = { id: string; title: string; receive: TradeAssetValue[]; send: TradeAssetValue[]; yourBenefit: number; partnerBenefit: number; acceptance: number; confidence: number; whyYou: string; whyThem: string };
 
@@ -65,7 +67,6 @@ export default function FantasyHub({ accountUser }: { accountUser: AccountUser |
   const [importState, setImportState] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [starterChoice, setStarterChoice] = useState("Rome Odunze");
   const [simulations, setSimulations] = useState(10000);
-  const [simShift, setSimShift] = useState(0);
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
   const [leagueTeams, setLeagueTeams] = useState<LeagueTeam[]>([]);
   const [selectedTeamId, setSelectedTeamId] = useState("");
@@ -114,8 +115,8 @@ export default function FantasyHub({ accountUser }: { accountUser: AccountUser |
   }, [accountUser]);
 
   const totals = useMemo(() => ({
-    projection: players.filter((p) => p.role !== "Bench").reduce((sum, p) => sum + p.projection, 0),
-    ceiling: players.filter((p) => p.role !== "Bench").reduce((sum, p) => sum + p.ceiling, 0),
+    projection: players.filter((p) => p.role !== "Bench" && p.role !== "IR" && p.role !== "TAXI").reduce((sum, p) => sum + p.projection, 0),
+    ceiling: players.filter((p) => p.role !== "Bench" && p.role !== "IR" && p.role !== "TAXI").reduce((sum, p) => sum + p.ceiling, 0),
   }), [players]);
 
   async function importLeague(idOverride?: string, ownerIdOverride?: string) {
@@ -219,10 +220,6 @@ export default function FantasyHub({ accountUser }: { accountUser: AccountUser |
     await importLeague(league.id, connection?.sleeperUserId);
   }
 
-  function runSimulation() {
-    setSimShift(Number((Math.random() * 4 - 1.5).toFixed(1)));
-  }
-
   function selectLeagueTeam(teamId: string) {
     setSelectedTeamId(teamId);
     const team = leagueTeams.find((candidate) => candidate.id === teamId);
@@ -266,7 +263,7 @@ export default function FantasyHub({ accountUser }: { accountUser: AccountUser |
         {view === "Waiver Wire" && <WaiverWire key={leagueId || "no-league"} players={waiverPlayers} leagueSelected={Boolean(leagueId)} leagueStatus={leagueStatus} context={rankingContext} setSelectedPlayer={setSelectedPlayer} />}
         {view === "Trade Lab" && <TradeLab key={`${leagueId}-${selectedTeamId}`} teams={leagueTeams} selectedTeamId={selectedTeamId} rankings={leagueRankings} context={rankingContext} />}
         {view === "Matchups" && (rosterReady ? <Matchups players={players} season={selectedConnectedLeague?.season ?? "2026"} /> : rosterEmptyState)}
-        {view === "Simulator" && (rosterReady ? <Simulator simulations={simulations} setSimulations={setSimulations} shift={simShift} run={runSimulation} /> : rosterEmptyState)}
+        {view === "Simulator" && (rosterReady ? <Simulator key={`${leagueId}-${selectedTeamId}`} simulations={simulations} setSimulations={setSimulations} leagueId={leagueId} teams={leagueTeams} selectedTeamId={selectedTeamId} context={rankingContext} /> : rosterEmptyState)}
         {view === "Manage Leagues" && <ManageLeagues connectedLeagues={availableLeagues} managedLeagues={managedLeagues} accountError={accountError} onOpen={async (league) => { setView("Command Center"); await openConnectedLeague(league); }} onAdd={addManagedLeague} onRemove={removeManagedLeague} />}
       </section>
 
@@ -684,7 +681,118 @@ function Matchups({ players, season }: { players: Player[]; season: string }) {
   return <div className="page-content matchup-season-page"><section className="matchup-season-head"><div><span>FULL {season} NFL SEASON</span><h2>Every weekly matchup, mapped to your roster.</h2><p>Move through Weeks 1–18 to see each player’s opponent, location, kickoff, and bye week.</p></div><label>Schedule week<select value={activeWeek} onChange={(event) => setWeek(Number(event.target.value))}>{Array.from({ length: 18 }, (_, index) => index + 1).map((value) => <option key={value} value={value}>Week {value}</option>)}</select></label></section>{error && <section className="scoreboard-error">{error}</section>}{loading && <section className="panel scoreboard-empty">Loading the {season} NFL schedule…</section>}{!loading && !error && <><div className="matchup-grid roster-matchups">{players.map((player) => { const matchup = playerMatchup(player.team); return <article className={!matchup ? "bye-week" : ""} key={player.id}><div><span className={`pos pos-${player.position.toLowerCase()}`}>{player.position}</span><b className={matchup ? "edge-neutral" : "bye-label"}>{matchup?.venue.toUpperCase() ?? "BYE"}</b></div><h3>{player.name}</h3><small>{player.team} · {matchup?.label ?? `Bye Week ${activeWeek}`}</small><p>{matchup ? `${matchup.game.away.name} at ${matchup.game.home.name} · ${new Date(matchup.game.date).toLocaleString([], { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}${matchup.game.broadcast ? ` · ${matchup.game.broadcast}` : ""}` : `${player.team} is not scheduled to play in Week ${activeWeek}. Plan a replacement before lineups lock.`}</p><div className="match-meter"><i style={{ width: matchup ? "72%" : "12%" }} /></div><span>{matchup ? "Scheduled matchup" : "Bye week"}</span></article>; })}</div><section className="week-slate panel"><div className="panel-header"><div><span>NFL WEEK {activeWeek}</span><h3>Complete game slate</h3></div><b>{games.length} games</b></div><div>{games.map((game) => <article key={game.id}><time>{new Date(game.date).toLocaleString([], { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</time><p><span>{game.away.abbreviation}</span><strong>{game.away.name}</strong><i>at</i><span>{game.home.abbreviation}</span><strong>{game.home.name}</strong></p><small>{game.broadcast || game.status}</small></article>)}</div>{!games.length && <p className="schedule-empty">No regular-season games were returned for Week {activeWeek}.</p>}</section></>}</div>;
 }
 
-function Simulator({ simulations, setSimulations, shift, run }: { simulations: number; setSimulations: (n: number) => void; shift: number; run: () => void }) { const playoff = 72 + shift; const title = 14.8 + shift * .7; return <div className="page-content"><SectionIntro kicker="MONTE CARLO LAB" title="See the range—not just one projection" text="Simulate injuries, weekly variance, roster moves, playoff paths, and opponent strength across the rest of the season." /><section className="sim-hero"><div><label>Simulation volume<select value={simulations} onChange={(e) => setSimulations(Number(e.target.value))}><option value="5000">5,000 seasons</option><option value="10000">10,000 seasons</option><option value="25000">25,000 seasons</option></select></label><button onClick={run}>Run simulation</button></div><div className="sim-results"><Metric label="Playoff odds" value={`${playoff.toFixed(1)}%`} detail="Median finish: 3rd" tone="good" /><Metric label="First-round bye" value={`${(21.4 + shift * .4).toFixed(1)}%`} detail="Top-two finish" /><Metric label="Title odds" value={`${title.toFixed(1)}%`} detail="League baseline: 8.3%" tone="good" /></div></section><div className="scenario-grid"><Scenario title="Floor outcome · 10th percentile" record="6–8" odds="8% playoffs" text="A starter injury and declining FLEX efficiency leave the roster dependent on waiver replacement production." /><Scenario title="Median outcome · 50th percentile" record="9–5" odds="72% playoffs" text="Core players retain volume while one waiver addition stabilizes the second running-back spot." /><Scenario title="Ceiling outcome · 90th percentile" record="11–3" odds="24% title" text="Elite players remain healthy and the roster converts its matchup advantages during the fantasy playoffs." /></div></div>; }
+function seededRandom(seed: number) {
+  let state = seed >>> 0;
+  return () => { state += 0x6D2B79F5; let value = state; value = Math.imul(value ^ value >>> 15, value | 1); value ^= value + Math.imul(value ^ value >>> 7, value | 61); return ((value ^ value >>> 14) >>> 0) / 4294967296; };
+}
+
+function runLeagueSimulation(volume: number, simulation: SimulationContext, teams: LeagueTeam[], selectedTeamId: string, seed: number): SimulationResult {
+  const random = seededRandom(seed);
+  const normal = () => Math.sqrt(-2 * Math.log(Math.max(.000001, random()))) * Math.cos(2 * Math.PI * random());
+  const teamById = new Map(teams.map((team) => [team.id, team]));
+  const strengths = new Map(teams.map((team) => {
+    const starters = team.roster.filter((player) => player.role !== "Bench" && player.role !== "IR" && player.role !== "TAXI");
+    return [team.id, Math.max(1, starters.reduce((sum, player) => sum + player.projection, 0))];
+  }));
+  const sampleScore = (teamId: string) => {
+    const base = strengths.get(teamId) ?? 1;
+    const weeklyVariance = Math.max(7, base * .17);
+    const injuryShock = random() < .035 ? base * (.08 + random() * .14) : 0;
+    return Math.max(0, base + normal() * weeklyVariance - injuryShock);
+  };
+  const simulateBracket = (seededTeams: string[]) => {
+    let field = [...seededTeams];
+    const bracketSize = 2 ** Math.ceil(Math.log2(Math.max(2, field.length)));
+    const byes = bracketSize - field.length;
+    if (byes > 0) {
+      const advancing = field.slice(0, byes);
+      const playing = field.slice(byes);
+      while (playing.length > 1) {
+        const high = playing.shift()!;
+        const low = playing.pop()!;
+        advancing.push(sampleScore(high) >= sampleScore(low) ? high : low);
+      }
+      if (playing.length) advancing.push(playing[0]);
+      field = advancing;
+    }
+    while (field.length > 1) {
+      const next: string[] = [];
+      while (field.length > 1) {
+        const first = field.shift()!;
+        const second = field.pop()!;
+        next.push(sampleScore(first) >= sampleScore(second) ? first : second);
+      }
+      if (field.length) next.push(field[0]);
+      field = next;
+    }
+    return field[0];
+  };
+  let playoffs = 0;
+  let byes = 0;
+  let titles = 0;
+  const userWins: number[] = [];
+  for (let trial = 0; trial < volume; trial += 1) {
+    const standings = new Map(teams.map((team) => [team.id, { wins: 0, points: 0 }]));
+    for (const week of simulation.weeks) {
+      for (const matchup of week.matchups) {
+        const [first, second] = matchup.teams;
+        if (!standings.has(first) || !standings.has(second)) continue;
+        const completed = week.week < simulation.league.currentWeek && matchup.points.some((points) => points > 0);
+        const firstScore = completed ? matchup.points[0] : sampleScore(first);
+        const secondScore = completed ? matchup.points[1] : sampleScore(second);
+        standings.get(first)!.points += firstScore;
+        standings.get(second)!.points += secondScore;
+        if (firstScore === secondScore) { standings.get(first)!.wins += .5; standings.get(second)!.wins += .5; }
+        else standings.get(firstScore > secondScore ? first : second)!.wins += 1;
+      }
+    }
+    const seeded = [...standings.entries()].sort((a, b) => b[1].wins - a[1].wins || b[1].points - a[1].points).map(([id]) => id);
+    const userSeed = seeded.indexOf(selectedTeamId);
+    userWins.push(standings.get(selectedTeamId)?.wins ?? 0);
+    if (userSeed >= 0 && userSeed < simulation.league.playoffTeams) playoffs += 1;
+    const byeCount = Math.max(0, 2 ** Math.ceil(Math.log2(simulation.league.playoffTeams)) - simulation.league.playoffTeams);
+    if (userSeed >= 0 && userSeed < byeCount) byes += 1;
+    const qualifiers = seeded.slice(0, simulation.league.playoffTeams);
+    if (simulateBracket(qualifiers) === selectedTeamId) titles += 1;
+  }
+  userWins.sort((a, b) => a - b);
+  const percentile = (fraction: number) => userWins[Math.min(userWins.length - 1, Math.floor((userWins.length - 1) * fraction))] ?? 0;
+  const yourTeam = teamById.get(selectedTeamId);
+  const starters = yourTeam?.roster.filter((player) => player.role !== "Bench" && player.role !== "IR" && player.role !== "TAXI").sort((a, b) => b.projection - a.projection) ?? [];
+  const strengthRank = [...strengths.entries()].sort((a, b) => b[1] - a[1]).findIndex(([id]) => id === selectedTeamId) + 1;
+  const lowOpportunity = starters.filter((player) => player.projection < 2);
+  return {
+    playoffOdds: playoffs / volume * 100,
+    byeOdds: byes / volume * 100,
+    titleOdds: titles / volume * 100,
+    medianWins: percentile(.5),
+    winPercentiles: [["10th", .1], ["25th", .25], ["50th", .5], ["75th", .75], ["90th", .9]].map(([label, value]) => ({ label: String(label), value: percentile(Number(value)) })),
+    seed,
+    topDrivers: starters.slice(0, 3).map((player) => `${player.name} anchors the lineup at ${player.projection.toFixed(1)} projected points.`),
+    riskDrivers: [`Projected starter strength ranks ${strengthRank}th of ${teams.length} teams.`, lowOpportunity.length ? `${lowOpportunity.length} starting slot${lowOpportunity.length === 1 ? " has" : "s have"} under 2.0 expected points.` : "No current starter is below the 2.0-point opportunity threshold.", "Weekly variance includes a player-availability shock in 3.5% of team-weeks."],
+  };
+}
+
+function Simulator({ simulations, setSimulations, leagueId, teams, selectedTeamId, context }: { simulations: number; setSimulations: (n: number) => void; leagueId: string; teams: LeagueTeam[]; selectedTeamId: string; context: RankingContext | null }) {
+  const [simulation, setSimulation] = useState<SimulationContext | null>(null);
+  const [result, setResult] = useState<SimulationResult | null>(null);
+  const [error, setError] = useState("");
+  const [running, setRunning] = useState(false);
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch(`/api/simulation-context?leagueId=${encodeURIComponent(leagueId)}`, { signal: controller.signal }).then(async (response) => { const data = await response.json() as SimulationContext & { error?: string }; if (!response.ok) throw new Error(data.error ?? "Simulation details unavailable"); return data; }).then((data) => { setSimulation(data); setError(""); }).catch((requestError) => { if (requestError?.name !== "AbortError") setError(requestError instanceof Error ? requestError.message : "Simulation details unavailable"); });
+    return () => controller.abort();
+  }, [leagueId]);
+  function run() {
+    if (!simulation || !selectedTeamId) return;
+    setRunning(true);
+    window.setTimeout(() => { const seed = Math.floor(Math.random() * 2_147_483_647); setResult(runLeagueSimulation(simulations, simulation, teams, selectedTeamId, seed)); setRunning(false); }, 20);
+  }
+  if (error) return <div className="page-content"><SectionIntro kicker="MONTE CARLO LAB" title="League simulation is unavailable" text={error} /></div>;
+  if (!simulation) return <div className="page-content"><SectionIntro kicker="MONTE CARLO LAB" title="Loading actual league details…" text="Pulling the fantasy schedule, playoff rules, rosters, lineup structure, and scoring configuration." /><section className="panel scoreboard-empty">Preparing league model…</section></div>;
+  const maxWins = Math.max(1, ...(result?.winPercentiles.map((item) => item.value) ?? [simulation.league.regularSeasonWeeks]));
+  return <div className="page-content simulator-live"><SectionIntro kicker="LEAGUE-SPECIFIC MONTE CARLO" title={`Simulate ${simulation.league.name}, not a generic league`} text="Each run uses actual rosters, corrected opportunity-aware projections, weekly fantasy matchups, completed results, lineup rules, scoring configuration, playoff field, and playoff timing." /><section className="simulation-context panel"><span><b>{simulation.league.totalTeams}</b> teams</span><span><b>{simulation.league.playoffTeams}</b> playoff spots</span><span><b>Week {simulation.league.playoffWeekStart}</b> playoffs begin</span><span><b>{simulation.league.starterSlots.length}</b> starter slots</span><span><b>{context?.scoring ?? "Custom"}</b> scoring</span><span><b>{simulation.league.scoringRuleCount}</b> scoring rules</span></section><section className="sim-hero"><div><label>Simulation volume<select value={simulations} onChange={(event) => setSimulations(Number(event.target.value))}><option value="5000">5,000 seasons</option><option value="10000">10,000 seasons</option><option value="25000">25,000 seasons</option></select></label><button onClick={run} disabled={running}>{running ? "Running seasons…" : "Run simulation"}</button>{result && <small>Seed {result.seed.toLocaleString()}</small>}</div>{result ? <div className="sim-results"><Metric label="Playoff odds" value={`${result.playoffOdds.toFixed(1)}%`} detail={`${result.medianWins} median wins`} tone="good" /><Metric label="First-round bye" value={`${result.byeOdds.toFixed(1)}%`} detail="Based on actual playoff field" /><Metric label="Title odds" value={`${result.titleOdds.toFixed(1)}%`} detail={`${simulations.toLocaleString()} modeled seasons`} tone="good" /></div> : <div className="simulation-ready"><strong>Ready to simulate</strong><p>Results remain hidden until you run the model.</p></div>}</section>{result && <><section className="win-distribution panel"><div className="panel-header"><div><span>REGULAR-SEASON OUTCOMES</span><h3>Win distribution</h3></div></div><div>{result.winPercentiles.map((item) => <article key={item.label}><strong>{item.value}</strong><i><em style={{ height: `${item.value / maxWins * 100}%` }} /></i><span>{item.label}</span></article>)}</div></section><div className="simulation-drivers"><section className="panel"><div className="panel-header"><div><span>UPSIDE DRIVERS</span><h3>What raises the ceiling</h3></div></div>{result.topDrivers.map((driver) => <p key={driver}>{driver}</p>)}</section><section className="panel"><div className="panel-header"><div><span>RISK DRIVERS</span><h3>What holds the team back</h3></div></div>{result.riskDrivers.map((driver) => <p key={driver}>{driver}</p>)}</section></div></>}</div>;
+}
 
 function PlayerPanel({ player, close }: { player: Player; close: () => void }) {
   const [history, setHistory] = useState<PlayerHistory | null>(null);
@@ -709,4 +817,3 @@ function SectionIntro({ kicker, title, text }: { kicker: string; title: string; 
 function Status({ value }: { value: string }) { return <span className={`status ${value === "Healthy" ? "healthy" : "questionable"}`}>{value}</span>; }
 function PlayerChoice({ player, active, onClick }: { player: Player; active: boolean; onClick: () => void }) { return <button className={`player-choice ${active ? "chosen" : ""}`} onClick={onClick}><span className={`pos pos-${player.position.toLowerCase()}`}>{player.position}</span><small>{player.team} · {player.opponent}</small><strong>{player.name}</strong><div><b>{player.projection}</b><span>PROJECTED</span></div></button>; }
 function TradeAsset({ asset }: { asset: TradeAssetValue }) { return <article className="trade-asset"><span className={`pos pos-${asset.position.toLowerCase()}`}>{asset.position}</span><p><strong>{asset.name}</strong><small>{asset.meta}</small></p><b>{asset.value}</b></article>; }
-function Scenario({ title, record, odds, text }: { title: string; record: string; odds: string; text: string }) { return <article><span>{title}</span><h3>{record}</h3><strong>{odds}</strong><p>{text}</p></article>; }
