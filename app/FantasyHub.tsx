@@ -1688,7 +1688,7 @@ export default function FantasyHub({
   if (!accountUser) return <SignInScreen />;
   if (accountLoading) return <AccountLoading />;
   if (needsOnboarding)
-    return <AccountOnboarding displayName={accountUser.displayName} colorMode={theme} teamTheme={teamTheme} badgeTheme={badgeTheme} onColorMode={setTheme} onTeamTheme={setTeamTheme} onBadgeTheme={setBadgeTheme} onComplete={() => void saveAccountPreferences({}, true)} />;
+    return <AccountOnboarding displayName={accountUser.displayName} colorMode={theme} teamTheme={teamTheme} badgeTheme={badgeTheme} isPro={entitlement.pro} onColorMode={setTheme} onTeamTheme={setTeamTheme} onBadgeTheme={setBadgeTheme} onComplete={() => void saveAccountPreferences({}, true)} />;
   return (
     <ProjectionPlatformContext.Provider value={leaguePlatform}>
     <PlayerOpenContext.Provider value={setSelectedPlayer}>
@@ -2082,6 +2082,8 @@ export default function FantasyHub({
               choice={starterChoice}
               setChoice={setStarterChoice}
               context={rankingContext}
+              isPro={entitlement.pro}
+              onUpgrade={() => setView("Fantasy Hub Pro")}
             />
           ) : (
             rosterEmptyState
@@ -2099,8 +2101,7 @@ export default function FantasyHub({
             setSelectedPlayer={setSelectedPlayer}
           />
         )}
-        {view === "Trade Lab" && !entitlement.pro && <ProGate feature="Trade Lab" onUpgrade={() => setView("Fantasy Hub Pro")} />}
-        {view === "Trade Lab" && entitlement.pro && (
+        {view === "Trade Lab" && (
           <TradeLab
             leagueId={leagueId}
             week={defaultGameWeek}
@@ -2109,6 +2110,8 @@ export default function FantasyHub({
             selectedTeamId={selectedTeamId}
             rankings={leagueRankings}
             context={rankingContext}
+            isPro={entitlement.pro}
+            onUpgrade={() => setView("Fantasy Hub Pro")}
           />
         )}
         {view === "Matchups" &&
@@ -2143,6 +2146,8 @@ export default function FantasyHub({
             teamTheme={teamTheme}
             onTeamThemeChange={(value) => { setTeamTheme(value); void saveAccountPreferences({ teamTheme: value }); }}
             badgeTheme={badgeTheme}
+            isPro={entitlement.pro}
+            onUpgrade={() => setView("Fantasy Hub Pro")}
             onBadgeThemeChange={(value) => { setBadgeTheme(value); void saveAccountPreferences({ badgeTheme: value }); }}
             onOpen={async (league) => {
               setView("Command Center");
@@ -2174,13 +2179,12 @@ export default function FantasyHub({
   );
 }
 
-function AccountOnboarding({ displayName, colorMode, teamTheme, badgeTheme, onColorMode, onTeamTheme, onBadgeTheme, onComplete }: { displayName: string; colorMode: Theme; teamTheme: string; badgeTheme: BadgeTheme; onColorMode: (value: Theme) => void; onTeamTheme: (value: string) => void; onBadgeTheme: (value: BadgeTheme) => void; onComplete: () => void }) {
+function AccountOnboarding({ displayName, colorMode, teamTheme, badgeTheme, isPro, onColorMode, onTeamTheme, onBadgeTheme, onComplete }: { displayName: string; colorMode: Theme; teamTheme: string; badgeTheme: BadgeTheme; isPro: boolean; onColorMode: (value: Theme) => void; onTeamTheme: (value: string) => void; onBadgeTheme: (value: BadgeTheme) => void; onComplete: () => void }) {
   return <main className="onboarding-shell">
     <section className="onboarding-card">
       <header><span>WELCOME TO FANTASY HUB</span><h1>Make it yours, {displayName.split(" ")[0]}.</h1><p>Your leagues and preferences will follow your account across devices. Choose a starting look—you can change it anytime.</p></header>
       <div className="onboarding-modes"><button className={colorMode === "light" ? "active" : ""} onClick={() => onColorMode("light")}><b>☀</b><span>Light mode</span></button><button className={colorMode === "dark" ? "active" : ""} onClick={() => onColorMode("dark")}><b>☾</b><span>Dark mode</span></button></div>
-      <div className="onboarding-section"><div><span>TEAM THEME</span><strong>Choose your colors</strong></div><div className="onboarding-team-grid">{nflThemes.map((team) => <button key={team.id} className={teamTheme === team.id ? "active" : ""} title={team.name} aria-label={team.name} aria-pressed={teamTheme === team.id} onClick={() => onTeamTheme(team.id)}><i style={{ background: `linear-gradient(135deg,${team.primary} 0 50%,${team.secondary} 50%)` }} /><b>{team.id}</b></button>)}</div></div>
-      <div className="onboarding-section"><div><span>SIDEBAR STYLE</span><strong>Pick a badge pack</strong></div><div className="onboarding-badges">{([['arcade','Arcade','★ ⚡ ↔'],['team','Team Colors','♟ + ◈'],['neon','Neon Night','◆ 🏈 ♛'],['minimal','Minimal','✓ ◎ ⌁']] as [BadgeTheme,string,string][]).map(([id,name,icons]) => <button key={id} className={badgeTheme === id ? "active" : ""} onClick={() => onBadgeTheme(id)}><b>{icons}</b><span>{name}</span></button>)}</div></div>
+      {isPro ? <><div className="onboarding-section"><div><span>TEAM THEME</span><strong>Choose your colors</strong></div><div className="onboarding-team-grid">{nflThemes.map((team) => <button key={team.id} className={teamTheme === team.id ? "active" : ""} title={team.name} aria-label={team.name} aria-pressed={teamTheme === team.id} onClick={() => onTeamTheme(team.id)}><i style={{ background: `linear-gradient(135deg,${team.primary} 0 50%,${team.secondary} 50%)` }} /><b>{team.id}</b></button>)}</div></div><div className="onboarding-section"><div><span>SIDEBAR STYLE</span><strong>Pick a badge pack</strong></div><div className="onboarding-badges">{([['arcade','Arcade','★ ⚡ ↔'],['team','Team Colors','♟ + ◈'],['neon','Neon Night','◆ 🏈 ♛'],['minimal','Minimal','✓ ◎ ⌁']] as [BadgeTheme,string,string][]).map(([id,name,icons]) => <button key={id} className={badgeTheme === id ? "active" : ""} onClick={() => onBadgeTheme(id)}><b>{icons}</b><span>{name}</span></button>)}</div></div></> : <div className="onboarding-pro-note"><span>FANTASY HUB PRO</span><strong>NFL themes and badge packs unlock with Pro.</strong><p>Light and dark mode remain available to everyone. You can preview every Pro look after entering the Hub.</p></div>}
       <footer><small>You’ll connect Sleeper or ESPN after setup. The first successful sync is saved to this account.</small><button onClick={onComplete}>Enter Fantasy Hub →</button></footer>
     </section>
   </main>;
@@ -2306,7 +2310,23 @@ function ProGate({ feature, onUpgrade }: { feature: string; onUpgrade: () => voi
 
 function ProPlans({ entitlement }: { entitlement: AccountEntitlement }) {
   const proFeatures = ["Season Simulator and scenario drivers", "Advanced Trade Lab and roster-impact modeling", "League Analytics and dynasty-window intelligence", "Manager Report Card and decision memory", "Automated league stories and season narrative", "Portfolio Command Center prioritization"];
-  return <div className="page-content pro-plans-page"><section className="pro-plans-hero"><span>FANTASY HUB PRO</span><h2>Pay for the edge.<br/><em>Keep fantasy management free.</em></h2><p>Core league connection and game-day management stay available to every manager. Pro packages Fantasy Hub’s original models, simulations, storytelling, and accountability tools.</p><b>{entitlement.pro ? "PRO ACTIVE" : "FOUNDING ACCESS SOON"}</b></section><section className="plan-grid"><article className="panel"><span>FREE</span><h3>$0</h3><p>Connect and manage your fantasy world.</p><ul><li>Unlimited Sleeper and ESPN league connections</li><li>All Leagues portfolio view</li><li>My Team, live scores, and matchups</li><li>Player rankings and ADP</li><li>Start/Sit and waiver-wire access</li><li>NFL games and weather context</li></ul><strong>CURRENT PLAN</strong></article><article className="panel featured"><span>FANTASY HUB PRO</span><h3>Pricing coming soon</h3><p>Proprietary intelligence built by Fantasy Hub.</p><ul>{proFeatures.map((feature) => <li key={feature}>{feature}</li>)}</ul>{entitlement.pro ? <strong>PRO IS ACTIVE</strong> : <a href="mailto:support@treyj233.chatgpt.site?subject=Fantasy%20Hub%20Pro%20Founding%20Access">Join the founding-access list →</a>}</article></section><section className="pro-principle panel"><b>OUR FREEMIUM PROMISE</b><p>Fantasy Hub will not charge merely to display a connected league. Paid access is reserved for original Fantasy Hub analysis and experiences. Billing remains disabled until commercial data permissions and the subscription system are ready.</p></section></div>;
+  return <div className="page-content pro-plans-page">
+    <section className="pro-plans-hero"><span>FANTASY HUB PRO</span><h2>Pay for the edge.<br/><em>Keep fantasy management free.</em></h2><p>Core league connection and game-day management stay available to every manager. Pro packages Fantasy Hub’s original models, simulations, storytelling, and accountability tools.</p><b>{entitlement.pro ? "PRO ACTIVE" : "FOUNDING ACCESS SOON"}</b></section>
+    <section className="pro-showcase">
+      <article className="pro-feature-card"><div><span>SEASON SIMULATOR</span><h3>See the range, not just one prediction.</h3><p>Monte Carlo seasons model roster moves, injuries, playoff odds, and player-specific best and worst cases.</p></div><DashboardPreview type="sim" /></article>
+      <article className="pro-feature-card reverse"><div><span>TRADE INTELLIGENCE</span><h3>Packages built for both rosters.</h3><p>Pro finds mutual needs, applies manager negotiation profiles, and explains why each side should engage.</p></div><DashboardPreview type="trade" /></article>
+      <article className="pro-feature-card"><div><span>DECISION ADVANTAGE</span><h3>Make the call your matchup needs.</h3><p>Unlock the Start/Sit floor-to-ceiling slider, decision memory, and your season-long manager report card.</p></div><DashboardPreview type="start" /></article>
+    </section>
+    <section className="pro-theme-gallery panel"><header><div><span>PRO THEME LOCKER</span><h3>Your leagues. Your Sunday look.</h3></div><p>Choose any NFL-inspired palette and four sidebar badge packs.</p></header><div>{[{name:"Midway Night",colors:["#0b162a","#c83803"]},{name:"South Beach",colors:["#008e97","#fc4c02"]},{name:"Purple Reign",colors:["#241773","#9e7c0c"]},{name:"Gold Rush",colors:["#aa0000","#b3995d"]}].map((theme) => <article key={theme.name} style={{"--preview-primary":theme.colors[0],"--preview-secondary":theme.colors[1]} as CSSProperties}><i/><b>{theme.name}</b><small>Dashboard + badge pack</small></article>)}</div></section>
+    <section className="plan-grid"><article className="panel"><span>FREE</span><h3>$0</h3><p>Connect and manage your fantasy world.</p><ul><li>Unlimited Sleeper and ESPN league connections</li><li>All Leagues portfolio view</li><li>My Team, live scores, and matchups</li><li>Player rankings and ADP</li><li>Manual trade calculator</li><li>Core Start/Sit and waiver-wire access</li></ul><strong>CURRENT PLAN</strong></article><article className="panel featured"><span>FANTASY HUB PRO</span><h3>Pricing coming soon</h3><p>Proprietary intelligence built by Fantasy Hub.</p><ul>{proFeatures.map((feature) => <li key={feature}>{feature}</li>)}<li>All NFL themes and badge customization</li><li>Start/Sit aggressiveness strategy</li></ul>{entitlement.pro ? <strong>PRO IS ACTIVE</strong> : <a href="mailto:support@treyj233.chatgpt.site?subject=Fantasy%20Hub%20Pro%20Founding%20Access">Join the founding-access list →</a>}</article></section>
+    <section className="pro-principle panel"><b>OUR FREEMIUM PROMISE</b><p>Fantasy Hub will not charge merely to display a connected league. Paid access is reserved for original Fantasy Hub analysis and experiences. Billing remains disabled until commercial data permissions and the subscription system are ready.</p></section>
+  </div>;
+}
+
+function DashboardPreview({ type }: { type: "sim" | "trade" | "start" }) {
+  if (type === "trade") return <div className="dashboard-preview trade"><header><i>FH</i><span><b>Trade Lab</b><small>Mutual roster fit</small></span><em>PRO</em></header><section><p><small>YOU RECEIVE</small><b>WR · 91</b><span>Weekly advantage</span></p><strong>↔<small>78% LIKELY</small></strong><p><small>THEY RECEIVE</small><b>RB · 88</b><span>Fills top need</span></p></section><footer><i/><i/><i/></footer></div>;
+  if (type === "start") return <div className="dashboard-preview start"><header><i>FH</i><span><b>Start / Sit</b><small>Matchup strategy</small></span><em>PRO</em></header><section><b>72%</b><span>SHOOT FOR UPSIDE</span><input aria-label="Preview aggressiveness" type="range" value="72" readOnly/><footer><small>PROTECT FLOOR</small><small>CHASE CEILING</small></footer></section><div><p><b>WR A</b><span>18.4 ceiling</span></p><p className="pick"><b>WR B</b><span>22.8 ceiling</span></p></div></div>;
+  return <div className="dashboard-preview sim"><header><i>FH</i><span><b>Season Simulator</b><small>1,000 modeled futures</small></span><em>PRO</em></header><section>{[42,61,74,68,88].map((height,index) => <i key={height} style={{height:`${height}%`}}><small>{[5,25,50,75,95][index]}th</small></i>)}</section><footer><p><b>10.2</b><small>MEDIAN WINS</small></p><p><b>18%</b><small>TITLE ODDS</small></p><p><b>+3.1</b><small>ROSTER EDGE</small></p></footer></div>;
 }
 
 function ManageLeagues({
@@ -2317,6 +2337,8 @@ function ManageLeagues({
   onTeamThemeChange,
   badgeTheme,
   onBadgeThemeChange,
+  isPro,
+  onUpgrade,
   onOpen,
   onAdd,
   onRemove,
@@ -2331,6 +2353,8 @@ function ManageLeagues({
   onTeamThemeChange: (team: string) => void;
   badgeTheme: BadgeTheme;
   onBadgeThemeChange: (theme: BadgeTheme) => void;
+  isPro: boolean;
+  onUpgrade: () => void;
   onOpen: (league: ConnectedLeague) => Promise<void>;
   onAdd: (
     provider: LeagueProvider,
@@ -2481,7 +2505,7 @@ function ManageLeagues({
           <span>LEAGUES & ACCOUNTS</span>
         </div>
       </section>
-      <section className="appearance-panel panel">
+      <section className={`appearance-panel panel ${isPro ? "" : "appearance-pro-locked"}`}>
         <div className="panel-header">
           <div>
             <span>PERSONALIZE YOUR HUB</span>
@@ -2491,6 +2515,7 @@ function ManageLeagues({
             Team
             <select
               value={teamTheme}
+              disabled={!isPro}
               onChange={(event) => onTeamThemeChange(event.target.value)}
             >
               {nflThemes.map((team) => (
@@ -2531,6 +2556,7 @@ function ManageLeagues({
               className={team.id === teamTheme ? "active" : ""}
               onClick={() => onTeamThemeChange(team.id)}
               aria-pressed={team.id === teamTheme}
+              disabled={!isPro}
             >
               <i
                 style={{
@@ -2550,9 +2576,10 @@ function ManageLeagues({
         <div className="badge-theme-builder">
           <header><div><span>SIDEBAR BADGE PACK</span><h4>Choose your navigation style</h4></div><small>Saved on this device</small></header>
           <div className="badge-theme-grid" role="radiogroup" aria-label="Sidebar badge theme">
-            {badgeThemes.map((pack) => <button type="button" role="radio" aria-checked={badgeTheme === pack.id} className={`${pack.id} ${badgeTheme === pack.id ? "active" : ""}`} key={pack.id} onClick={() => onBadgeThemeChange(pack.id)}><span>{pack.preview.map((icon, index) => <i key={`${icon}-${index}`}>{icon}</i>)}</span><strong>{pack.name}</strong><small>{pack.detail}</small></button>)}
+            {badgeThemes.map((pack) => <button type="button" role="radio" aria-checked={badgeTheme === pack.id} disabled={!isPro} className={`${pack.id} ${badgeTheme === pack.id ? "active" : ""}`} key={pack.id} onClick={() => onBadgeThemeChange(pack.id)}><span>{pack.preview.map((icon, index) => <i key={`${icon}-${index}`}>{icon}</i>)}</span><strong>{pack.name}</strong><small>{pack.detail}</small></button>)}
           </div>
         </div>
+        {!isPro && <div className="appearance-pro-callout"><span>FANTASY HUB PRO</span><strong>Make the Hub yours.</strong><p>Unlock every NFL-inspired dashboard palette and all four sidebar badge packs.</p><button onClick={onUpgrade}>Explore Pro themes →</button></div>}
       </section>
       <section className="provider-grid" aria-label="Fantasy providers">
         {providers.map((item) => (
@@ -6449,6 +6476,8 @@ function StartSit({
   choice,
   setChoice,
   context,
+  isPro,
+  onUpgrade,
 }: {
   leagueId: string;
   week: number;
@@ -6458,6 +6487,8 @@ function StartSit({
   choice: string;
   setChoice: (v: string) => void;
   context: RankingContext | null;
+  isPro: boolean;
+  onUpgrade: () => void;
 }) {
   const projectionPlatform = useContext(ProjectionPlatformContext);
   const decisions = useMemo(() => startSitDecisions(players), [players]);
@@ -6508,7 +6539,7 @@ function StartSit({
     const confidence = Math.min(95, Math.max(50, Math.round(55 + Math.abs(recommended.projection - options.find((item) => item.id !== recommended.id)!.projection) * 4)));
     return { id: `start-sit:${week}:${decision.starter.id}`, leagueId, week, category: "start_sit", recommendation: recommended.name, alternatives: options.map((player) => { const range = matchupAdjustedRange(player); return { id: player.id, name: player.name, position: player.position, projection: player.projection, floor: range.floor, ceiling: range.ceiling }; }), information: { aggressiveness, recommendedAggression, teamProjection, opponentProjection, projectionSource: projectionPlatform, scoring: context?.scoring ?? null }, confidence };
   }), [aggressiveness, context?.scoring, decisions, leagueId, opponentProjection, projectionPlatform, recommendedAggression, teamProjection, week]);
-  useEffect(() => { rememberedStartSit.forEach((decision) => rememberDecision(decision)); }, [rememberedStartSit]);
+  useEffect(() => { if (isPro) rememberedStartSit.forEach((decision) => rememberDecision(decision)); }, [isPro, rememberedStartSit]);
   if (!decisions.length)
     return (
       <div className="page-content">
@@ -6606,12 +6637,10 @@ function StartSit({
                   ? `You project ${Math.abs(matchupGap).toFixed(1)} points ahead. Protect the favorite outcome with dependable volume.`
                   : "The matchup is close enough to favor balanced median outcomes."}
           </p>
-          <button onClick={() => setAggressiveness(recommendedAggression)}>
-            Use recommended
-          </button>
+          {isPro ? <button onClick={() => setAggressiveness(recommendedAggression)}>Use recommended</button> : <button onClick={onUpgrade}>Unlock matchup strategy</button>}
         </div>
       </section>
-      <section className="aggression-panel panel">
+      <section className={`aggression-panel panel ${isPro ? "" : "pro-control-locked"}`}>
         <div>
           <span>START / SIT AGGRESSIVENESS</span>
           <strong>{aggressiveness}%</strong>
@@ -6624,6 +6653,7 @@ function StartSit({
           max="100"
           step="1"
           value={aggressiveness}
+          disabled={!isPro}
           onChange={(event) => setAggressiveness(Number(event.target.value))}
           style={{
             background: `linear-gradient(90deg, var(--green) 0%, var(--gold) ${aggressiveness}%, #dfe7df ${aggressiveness}%, #dfe7df 100%)`,
@@ -6634,6 +6664,7 @@ function StartSit({
           <span>Balanced</span>
           <span>Chase ceiling</span>
         </div>
+        {!isPro && <button className="inline-pro-unlock" onClick={onUpgrade}>PRO · Unlock floor-to-ceiling strategy</button>}
       </section>
       <div className="start-sit-decisions">
         {decisions.map((decision, decisionIndex) => {
@@ -6664,7 +6695,7 @@ function StartSit({
                 setSelectedBySlot((current) => ({ ...current, [decision.starter.id]: player.name }));
                 setChoice(player.name);
                 const memory = rememberedStartSit[decisionIndex];
-                if (memory) rememberDecision({ ...memory, userSelection: player.name });
+                if (isPro && memory) rememberDecision({ ...memory, userSelection: player.name });
               }}
             >
               <div className="choice-top">
@@ -7468,6 +7499,8 @@ function TradeLab({
   selectedTeamId,
   rankings,
   context,
+  isPro,
+  onUpgrade,
 }: {
   leagueId: string;
   week: number;
@@ -7475,6 +7508,8 @@ function TradeLab({
   selectedTeamId: string;
   rankings: LeagueRanking[];
   context: RankingContext | null;
+  isPro: boolean;
+  onUpgrade: () => void;
 }) {
   const yourTeam = teams.find((team) => team.id === selectedTeamId);
   const opponents = teams.filter(
@@ -7489,7 +7524,7 @@ function TradeLab({
     opponents.find((team) => team.id === selectedId) ?? opponents[0];
   const partnerStyle = partner ? (styles[partner.id] ?? "Neutral") : "Neutral";
   const suggestions =
-    yourTeam && partner
+    isPro && yourTeam && partner
       ? buildTradeSuggestions(
           yourTeam,
           partner,
@@ -7644,10 +7679,10 @@ function TradeLab({
     <div className="page-content">
       <SectionIntro
         kicker="LIVE LEAGUE TRADE INTELLIGENCE"
-        title="Find trades both actual rosters have a reason to accept"
-        text="Every package uses players currently owned by the two selected teams. League-adjusted value, lineup demand, positional weakness, package balance, and manager behavior shape each suggestion."
+        title="Evaluate any deal, then let Pro find the best ones"
+        text="The manual calculator is free and uses players currently owned by both teams. Fantasy Hub Pro adds roster-wide suggestions, mutual-need analysis, negotiation behavior, and estimated acceptance."
       />
-      <section className="trade-controls panel">
+      <section className={`trade-controls panel ${isPro ? "" : "trade-suggestion-controls-locked"}`}>
         <div>
           <label htmlFor="trade-partner">Trade partner</label>
           <select
@@ -7662,7 +7697,7 @@ function TradeLab({
             ))}
           </select>
         </div>
-        <div>
+        <div className="negotiation-profile-control">
           <span>Negotiation profile</span>
           <div
             className="style-toggle"
@@ -7675,6 +7710,7 @@ function TradeLab({
                   key={style}
                   className={partnerStyle === style ? "active" : ""}
                   onClick={() => updateStyle(style)}
+                  disabled={!isPro}
                 >
                   {style}
                 </button>
@@ -7690,6 +7726,7 @@ function TradeLab({
               ? "Only recommends high-confidence packages with an overpay, a top need, and a clear roster gain."
               : "Uses balanced value ranges and requires a practical improvement for both starting lineups."}
         </p>
+        {!isPro && <button className="inline-pro-unlock trade-profile-unlock" onClick={onUpgrade}>PRO · Unlock negotiation profiles and suggested packages</button>}
       </section>
       <section className="trade-calculator panel">
         <header>
@@ -7770,7 +7807,13 @@ function TradeLab({
           </span>
         </div>
       </section>
-      {suggestion ? (
+      {!isPro ? (
+        <section className="trade-suggestions-paywall panel">
+          <div><span>FANTASY HUB PRO</span><h3>Turn this calculator into a trade strategy.</h3><p>Manual player-for-player evaluation stays free. Pro scans every roster, identifies mutual needs, builds viable multi-player packages, adapts to each manager’s negotiation profile, and estimates acceptance.</p></div>
+          <div className="trade-suggestion-preview" aria-hidden="true"><b>OPTION 1</b><strong>Upgrade WR depth without sacrificing your core</strong><span>78% modeled acceptance</span><i>Suggested from actual roster strengths</i></div>
+          <button onClick={onUpgrade}>Unlock trade suggestions →</button>
+        </section>
+      ) : suggestion ? (
         <>
           <div
             className="suggestion-tabs"

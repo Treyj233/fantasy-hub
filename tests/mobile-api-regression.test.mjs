@@ -53,3 +53,15 @@ test("freemium access is durable, visible, and enforced on proprietary APIs", as
   assert.match(story, /requirePro/);
   assert.match(simulator, /requirePro/);
 });
+
+test("free tools retain manual utility while proprietary controls require Pro", async () => {
+  const dashboard = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
+  assert.match(dashboard, /Manual trade calculator/);
+  assert.match(dashboard, /Unlock trade suggestions/);
+  assert.match(dashboard, /disabled=\{!isPro\}/);
+  assert.match(dashboard, /PRO · Unlock floor-to-ceiling strategy/);
+  assert.match(dashboard, /appearance-pro-locked/);
+  assert.match(dashboard, /DashboardPreview type="sim"/);
+  assert.match(dashboard, /DashboardPreview type="trade"/);
+  assert.match(dashboard, /DashboardPreview type="start"/);
+});
