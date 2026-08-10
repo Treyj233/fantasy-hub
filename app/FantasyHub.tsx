@@ -10,7 +10,7 @@ type View =
   | "All Leagues"
   | "Scoreboard"
   | "NFL Games"
-  | "Dynasty Analytics"
+  | "League Analytics"
   | "My Team"
   | "Team Rankings"
   | "Player Rankings"
@@ -527,7 +527,7 @@ const nav: { label: View; displayLabel?: string; mark: string; tone: string; gro
   { label: "Simulator", mark: "✦", tone: "indigo", group: "Team Management" },
   { label: "League Stories", mark: "✎", tone: "violet", group: "League Insights" },
   { label: "Manager Report", mark: "✓", tone: "teal", group: "League Insights" },
-  { label: "Dynasty Analytics", mark: "◈", tone: "purple", group: "League Insights" },
+  { label: "League Analytics", mark: "◈", tone: "purple", group: "League Insights" },
   { label: "Team Rankings", mark: "↥", tone: "teal", group: "League Insights" },
   { label: "Player Rankings", mark: "♛", tone: "gold", group: "League Insights" },
   { label: "ADP", mark: "⌁", tone: "cyan", group: "League Insights" },
@@ -1586,8 +1586,6 @@ export default function FantasyHub({
   async function openConnectedLeague(league: ConnectedLeague) {
     setLeagueId(league.id);
     setLeagueName(league.name);
-    if (league.format !== "Dynasty" && view === "Dynasty Analytics")
-      setView("Command Center");
     await importLeague(league.id, connection?.sleeperUserId, league.rosterId);
   }
 
@@ -1604,12 +1602,7 @@ export default function FantasyHub({
   const selectedConnectedLeague = availableLeagues.find(
     (league) => league.id === leagueId,
   );
-  const isDynastyLeague =
-    selectedConnectedLeague?.format === "Dynasty" ||
-    rankingContext?.format === "Dynasty";
-  const visibleNav = nav.filter(
-    (item) => item.label !== "Dynasty Analytics" || isDynastyLeague,
-  );
+  const visibleNav = nav;
   const rosterReady = players.length > 0;
   const periodLabel =
     leagueStatus === "pre_draft" || leagueWeek < 1
@@ -1954,10 +1947,9 @@ export default function FantasyHub({
             defaultWeek={defaultGameWeek}
           />
         )}
-        {view === "Dynasty Analytics" &&
-          isDynastyLeague &&
+        {view === "League Analytics" &&
           (rosterReady ? (
-            <DynastyAnalytics
+            <LeagueAnalytics
               players={players}
               rankings={leagueRankings}
               context={rankingContext}
@@ -4337,7 +4329,38 @@ const dynastyCurves: Record<
   DEF: { peakEnd: 99, annualDecline: 0 },
 };
 
-function DynastyAnalytics({
+function RedraftAnalytics({ players, rankings, context, setSelectedPlayer }: { players: Player[]; rankings: LeagueRanking[]; context: RankingContext | null; setSelectedPlayer: (player: Player) => void }) {
+  const starters = players.filter(isStartingPlayer);
+  const bench = players.filter((player) => !isStartingPlayer(player));
+  const ranges = starters.map((player) => ({ player, range: matchupAdjustedRange(player) }));
+  const projection = starters.reduce((sum, player) => sum + player.projection, 0);
+  const floor = ranges.reduce((sum, item) => sum + item.range.floor, 0);
+  const ceiling = ranges.reduce((sum, item) => sum + item.range.ceiling, 0);
+  const injuryRisks = players.filter((player) => !/healthy/i.test(player.status));
+  const usableDepth = bench.filter((player) => player.projection >= 5 && !/out|suspended/i.test(player.status));
+  const rankingById = new Map(rankings.map((player) => [player.id, player]));
+  const positions = ["QB", "RB", "WR", "TE"];
+  const roomAnalytics = positions.map((position) => {
+    const room = players.filter((player) => player.position === position).sort((a, b) => b.projection - a.projection);
+    const projected = room.reduce((sum, player) => sum + player.projection, 0);
+    const bestRank = Math.min(...room.map((player) => rankingById.get(player.id)?.overallRank ?? 9999));
+    return { position, room, projected, bestRank };
+  });
+  const strengths = [...starters].sort((a, b) => b.projection - a.projection).slice(0, 6);
+  const volatilityWatch = [...ranges].sort((a, b) => (b.range.ceiling - b.range.floor) - (a.range.ceiling - a.range.floor)).slice(0, 6);
+  const requiredSlots = (context?.rosterSlots ?? []).filter((slot) => slot !== "BN").length;
+  const emptySlots = Math.max(0, requiredSlots - starters.length);
+  const posture = emptySlots ? "Repair the active lineup first" : injuryRisks.length >= 3 ? "Protect weekly availability" : usableDepth.length < 3 ? "Add playable bench depth" : "Press weekly matchup advantages";
+  return <div className="page-content dynasty-page league-analytics-redraft">
+    <section className="dynasty-hero"><div><span>REDRAFT ANALYTICS</span><h2>{posture}</h2><p>Weekly projection ranges, lineup availability, usable depth, positional concentration, and league-adjusted ranks shape this season’s roster plan.</p></div><div className="window-score"><small>LINEUP MEDIAN</small><strong>{projection.toFixed(1)}</strong><span>{floor.toFixed(1)} floor · {ceiling.toFixed(1)} ceiling</span></div></section>
+    <div className="dynasty-metrics"><Metric label="Starting projection" value={projection.toFixed(1)} detail={`${starters.length} active lineup players`} tone="good"/><Metric label="Playable depth" value={String(usableDepth.length)} detail="Bench players projected for 5+ points" tone={usableDepth.length >= 3 ? "good" : "warn"}/><Metric label="Availability flags" value={String(injuryRisks.length)} detail="Injury or suspension designations" tone={injuryRisks.length ? "warn" : "good"}/><Metric label="Empty starters" value={String(emptySlots)} detail="Unfilled required lineup slots" tone={emptySlots ? "warn" : "good"}/></div>
+    <div className="dynasty-main"><section className="panel dynasty-trajectory"><Header eyebrow="WEEKLY OUTCOME RANGE" title="How wide is this lineup’s path?"/><div className="redraft-range"><span style={{ width: `${Math.min(100, (floor / Math.max(ceiling, 1)) * 100)}%` }}/><i style={{ left: `${Math.min(96, (projection / Math.max(ceiling, 1)) * 100)}%` }}/></div><div className="redraft-range-labels"><b>Floor {floor.toFixed(1)}</b><b>Median {projection.toFixed(1)}</b><b>Ceiling {ceiling.toFixed(1)}</b></div><p>A wider range creates comeback upside but increases the chance of a low weekly result. Start/Sit aggressiveness decides which part of this distribution matters most.</p></section><section className="panel dynasty-allocation"><Header eyebrow="POSITION ROOMS" title="Where this roster’s points live"/><div className="allocation-grid">{roomAnalytics.map((room) => <article key={room.position}><strong>{room.position}</strong><span>{room.room.length} players · {room.bestRank < 9999 ? `best asset #${room.bestRank}` : "rank pending"}</span><div><i className="prime" style={{ width: `${Math.min(100, room.projected * 2)}%` }}/></div><small>{room.projected.toFixed(1)} combined projected points</small></article>)}</div></section></div>
+    <div className="dynasty-lists"><section className="panel"><Header eyebrow="WEEKLY FOUNDATIONS" title="Players carrying the median"/><p className="model-caveat">These are the largest current contributors to the connected platform’s weekly lineup projection.</p><div className="dynasty-player-list">{strengths.map((player) => <button key={player.id} onClick={() => setSelectedPlayer(player)}><span className={`pos pos-${player.position.toLowerCase()}`}>{player.position}</span><p><strong>{player.name}</strong><small>{player.team} · {formatRosterSlot(player.role)}</small></p><b>{player.projection.toFixed(1)}<small>Projected points</small></b><em className="core">Foundation</em></button>)}</div></section><section className="panel"><Header eyebrow="VOLATILITY WATCH" title="Players who can swing the week"/><p className="model-caveat">Large floor-to-ceiling ranges can help an underdog and hurt a favorite. This is role variance, not a recommendation to bench the player.</p><div className="dynasty-player-list">{volatilityWatch.map(({ player, range }) => <button key={player.id} onClick={() => setSelectedPlayer(player)}><span className={`pos pos-${player.position.toLowerCase()}`}>{player.position}</span><p><strong>{player.name}</strong><small>{range.floor.toFixed(1)} floor · {range.ceiling.toFixed(1)} ceiling</small></p><b>{(range.ceiling - range.floor).toFixed(1)}<small>Point range</small></b><em className="watch">Monitor</em></button>)}</div></section></div>
+    <section className="panel dynasty-plan"><Header eyebrow="SEASON PLAYBOOK" title="Three redraft management priorities"/><div><article><b>01</b><span><strong>{emptySlots ? "Fill every active lineup slot" : "Keep the weekly lineup optimized"}</strong><p>{emptySlots ? `${emptySlots} required starter slot${emptySlots === 1 ? " is" : "s are"} currently empty.` : "Revisit close calls as projections, injuries, weather, and matchup strength update."}</p></span><em>Before kickoff</em></article><article><b>02</b><span><strong>{injuryRisks.length ? "Build an availability contingency" : "Preserve healthy depth"}</strong><p>{injuryRisks.length ? `${injuryRisks.length} roster players carry a current availability flag. Avoid waiting until kickoff windows close.` : "No current availability flags require an emergency move; maintain flexible bench coverage."}</p></span><em>This week</em></article><article><b>03</b><span><strong>{usableDepth.length < 3 ? "Upgrade playable depth" : "Use depth to attack weaknesses"}</strong><p>{usableDepth.length < 3 ? "The bench has limited credible weekly replacements. Prioritize waivers with immediate roles." : "Your bench can absorb normal volatility. Explore trades that consolidate depth into stronger starters."}</p></span><em>Ongoing</em></article></div></section>
+  </div>;
+}
+
+function LeagueAnalytics({
   players,
   rankings,
   context,
@@ -4348,6 +4371,8 @@ function DynastyAnalytics({
   context: RankingContext | null;
   setSelectedPlayer: (player: Player) => void;
 }) {
+  const isDynasty = context?.format === "Dynasty";
+  if (!isDynasty) return <RedraftAnalytics players={players} rankings={rankings} context={context} setSelectedPlayer={setSelectedPlayer} />;
   const rosterIds = new Set(players.map((player) => player.id));
   const positionRanks = new Map<string, number>();
   const playerPositionRanks = new Map<string, number>();
