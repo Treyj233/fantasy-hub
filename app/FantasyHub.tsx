@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 
 type View =
   | "Command Center"
@@ -33,6 +33,8 @@ type Player = {
   role: string;
   weatherAdjustment?: number;
   weatherSummary?: string;
+  matchupStrength?: MatchupStrength | null;
+  matchupSourceSeason?: number;
   snapPct?: number | null;
   snapAverage?: number | null;
   snapWeek?: number | null;
@@ -42,6 +44,20 @@ type Player = {
   team2025?: string | null;
   teamOffenseRank2025?: number | null;
   teamPointsPerGame2025?: number | null;
+};
+type MatchupStrength = {
+  team: string;
+  position: string;
+  rank: number;
+  pointsAllowed: number;
+  games: number;
+  score: number;
+  label: "Great" | "Favorable" | "Neutral" | "Tough" | "Avoid";
+};
+type MatchupStrengthData = {
+  sourceSeason: number;
+  updatedAt: string;
+  positions: Record<string, Record<string, MatchupStrength>>;
 };
 const PlayerOpenContext = createContext<(player: Player) => void>(() => undefined);
 const nflLogoCode = (team: string) =>
@@ -698,6 +714,34 @@ function applyOpponent(
   return { ...player, opponent: `${isAway ? "@" : "vs"} ${opponent}` };
 }
 
+const opponentCode = (opponent: string) => opponent.replace(/^(vs|@)\s+/, "").trim();
+const matchupPosition = (position: string) => position === "FB" ? "RB" : position;
+function applyMatchupStrength(player: Player, data: MatchupStrengthData | null) {
+  const opponent = opponentCode(player.opponent);
+  return {
+    ...player,
+    matchupStrength: data?.positions[matchupPosition(player.position)]?.[opponent] ?? null,
+    matchupSourceSeason: data?.sourceSeason,
+  };
+}
+
+function MatchupBadge({ player }: { player: Pick<Player, "position" | "opponent" | "matchupStrength" | "matchupSourceSeason"> }) {
+  if (player.opponent === "BYE") return <span className="matchup-team bye">BYE</span>;
+  const strength = player.matchupStrength;
+  if (!strength) return <span className="matchup-team neutral">{player.opponent}</span>;
+  const hue = Math.round((strength.score / 100) * 120);
+  return (
+    <span
+      className="matchup-team"
+      style={{ "--matchup-hue": hue, "--matchup-position": `${strength.score}%` } as CSSProperties}
+      title={`${player.matchupSourceSeason ?? 2025} ${matchupPosition(player.position)} matchup: ${strength.label}, ${strength.rank}${strength.rank === 1 ? "st" : strength.rank === 2 ? "nd" : strength.rank === 3 ? "rd" : "th"} most PPR fantasy points allowed (${strength.pointsAllowed.toFixed(1)} per game)`}
+    >
+      <b>{player.opponent}</b>
+      <span><i />{strength.label} · #{strength.rank}</span>
+    </span>
+  );
+}
+
 const rankedPlayers: RankedPlayer[] = [
   {
     id: "rank-1",
@@ -1162,17 +1206,21 @@ export default function FantasyHub({
       const currentWeek = Math.max(1, data.league.currentWeek ?? 1);
       let weather: WeatherData | null = null;
       let schedule: NflScheduleData | null = null;
+      let matchupStrengths: MatchupStrengthData | null = null;
       try {
-        const [weatherResponse, scheduleResponse] = await Promise.all([
+        const [weatherResponse, scheduleResponse, matchupResponse] = await Promise.all([
           fetch(
             `/api/weather?season=${encodeURIComponent(season)}&week=${currentWeek}`,
           ),
           fetch(`/api/nfl-schedule?season=${encodeURIComponent(season)}`),
+          fetch(`/api/matchup-strength?season=${encodeURIComponent(season)}`),
         ]);
         if (weatherResponse.ok)
           weather = (await weatherResponse.json()) as WeatherData;
         if (scheduleResponse.ok)
           schedule = (await scheduleResponse.json()) as NflScheduleData;
+        if (matchupResponse.ok)
+          matchupStrengths = (await matchupResponse.json()) as MatchupStrengthData;
       } catch {
         /* Schedule and weather enrichment are optional; core roster loading continues. */
       }
@@ -1181,7 +1229,7 @@ export default function FantasyHub({
       const importedTeams = (data.teams ?? []).map((team) => ({
         ...team,
         roster: team.roster.map((player) =>
-          applyWeather(applyOpponent(player, schedule, currentWeek), weather),
+          applyMatchupStrength(applyWeather(applyOpponent(player, schedule, currentWeek), weather), matchupStrengths),
         ),
       }));
       setLeagueTeams(importedTeams);
@@ -1197,12 +1245,12 @@ export default function FantasyHub({
       }
       setLeagueRankings(
         (data.rankings ?? []).map((player) =>
-          applyWeather(applyOpponent(player, schedule, currentWeek), weather),
+          applyMatchupStrength(applyWeather(applyOpponent(player, schedule, currentWeek), weather), matchupStrengths),
         ),
       );
       setWaiverPlayers(
         (data.waiverPlayers ?? []).map((player) =>
-          applyWeather(applyOpponent(player, schedule, currentWeek), weather),
+          applyMatchupStrength(applyWeather(applyOpponent(player, schedule, currentWeek), weather), matchupStrengths),
         ),
       );
       setLeagueStatus(data.league.status ?? "unknown");
@@ -4402,7 +4450,12 @@ function RosterSection({
                     {player.role}
                   </span>
                 </td>
-                <td>{player.opponent}</td>
+                <td>
+                  <MatchupBadge player={player} />
+                  {player.weatherSummary && (
+                    <small className="roster-weather">☁ {player.weatherSummary}</small>
+                  )}
+                </td>
                 <td>
                   <b className="league-projection">
                     {typeof player.leagueProjection === "number"
@@ -6547,6 +6600,9 @@ function HeadToHeadMatchup({
   const [matchupId, setMatchupId] = useState<number | null>(initialMatchupId);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [nflSchedule, setNflSchedule] = useState<NflScheduleData | null>(null);
+  const [matchupWeather, setMatchupWeather] = useState<WeatherData | null>(null);
+  const [matchupStrengths, setMatchupStrengths] = useState<MatchupStrengthData | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -6594,6 +6650,29 @@ function HeadToHeadMatchup({
     };
   }, [leagueId, week]);
 
+  useEffect(() => {
+    const season = data?.league.season;
+    if (!season) return;
+    const controller = new AbortController();
+    Promise.all([
+      fetch(`/api/nfl-schedule?season=${encodeURIComponent(season)}`, { signal: controller.signal }),
+      fetch(`/api/weather?season=${encodeURIComponent(season)}&week=${week}`, { signal: controller.signal }),
+      fetch(`/api/matchup-strength?season=${encodeURIComponent(season)}`, { signal: controller.signal }),
+    ])
+      .then(async ([scheduleResponse, weatherResponse, strengthResponse]) => {
+        if (scheduleResponse.ok) setNflSchedule(await scheduleResponse.json() as NflScheduleData);
+        if (weatherResponse.ok) setMatchupWeather(await weatherResponse.json() as WeatherData);
+        if (strengthResponse.ok) setMatchupStrengths(await strengthResponse.json() as MatchupStrengthData);
+      })
+      .catch((requestError) => {
+        if (requestError?.name !== "AbortError") {
+          setNflSchedule(null);
+          setMatchupWeather(null);
+        }
+      });
+    return () => controller.abort();
+  }, [data?.league.season, week]);
+
   const matchup =
     data?.matchups.find((item) => item.matchupId === matchupId) ?? null;
   const orderedTeams = matchup
@@ -6607,13 +6686,23 @@ function HeadToHeadMatchup({
         ? firstTeam.rosterId
         : secondTeam.rosterId
       : "";
+  const matchupPlayer = (player: ScoreboardPlayer) =>
+    applyMatchupStrength(
+      applyWeather(
+        applyOpponent(playerShell(player), nflSchedule, week),
+        matchupWeather,
+      ),
+      matchupStrengths,
+    );
 
   const teamColumn = (team: ScoreboardTeam | undefined, side: string) => {
     if (!team) return <section className="head-to-head-team empty">Team pending</section>;
     const starters = team.topPlayers.filter((player) => player.isStarter);
     const bench = team.topPlayers.filter((player) => !player.isStarter);
     const renderPlayers = (players: ScoreboardPlayer[]) =>
-      players.map((player) => (
+      players.map((player) => {
+        const enriched = matchupPlayer(player);
+        return (
         <article className="head-to-head-player" key={player.id}>
           <PlayerHeadshot id={player.id} position={player.position} />
           <p>
@@ -6630,10 +6719,15 @@ function HeadToHeadMatchup({
                 ? ` · ${player.receptions}/${player.targets} REC`
                 : ""}
             </small>
+            <span className="head-to-head-matchup">
+              <MatchupBadge player={enriched} />
+              {enriched.weatherSummary && <small>☁ {enriched.weatherSummary}</small>}
+            </span>
           </p>
           <b>{player.points.toFixed(2)}</b>
         </article>
-      ));
+        );
+      });
     return (
       <section className={`head-to-head-team ${team.isMine ? "mine" : ""}`}>
         <header>
@@ -6664,7 +6758,7 @@ function HeadToHeadMatchup({
         <div>
           <span>LIVE MATCHUP CENTER</span>
           <h2>{data?.league.name ?? "Loading matchup…"}</h2>
-          <p>Fantasy scoring and player stat lines refresh every 30 seconds.</p>
+          <p>Fantasy scoring refreshes every 30 seconds. NFL opponent, weather, and position matchup grades use live schedule data and {matchupStrengths?.sourceSeason ?? 2025} fantasy points allowed.</p>
         </div>
         <label>
           Week
