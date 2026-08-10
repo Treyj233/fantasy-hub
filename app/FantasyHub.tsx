@@ -255,6 +255,9 @@ type ConnectedLeague = {
 };
 const sleeperLeagueUrl = (leagueId: string) =>
   `https://sleeper.com/leagues/${encodeURIComponent(leagueId)}`;
+function PlatformLogo({ provider = "Sleeper" }: { provider?: string }) {
+  return provider.toLowerCase() === "sleeper" ? <span className="platform-logo" role="img" aria-label="Sleeper" /> : <span className="platform-logo-fallback">{provider}</span>;
+}
 const rememberDecision = (decision: { id: string; leagueId: string; week: number; category: string; recommendation: string; alternatives: unknown[]; information: Record<string, unknown>; confidence: number; userSelection?: string | null }) => {
   if (!decision.leagueId) return;
   void fetch("/api/decisions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(decision) }).catch(() => undefined);
@@ -1612,7 +1615,7 @@ export default function FantasyHub({
                 rel="noopener noreferrer"
                 aria-label={`${platformActionLabel(view)} (opens in a new tab)`}
               >
-                <i aria-hidden="true">S</i>
+                <PlatformLogo />
                 <span>{platformActionLabel(view)}</span>
                 <b aria-hidden="true">↗</b>
               </a>
@@ -3003,7 +3006,7 @@ function AllLeagues({
                   <p><span>{scan.league.name} · {issue.category}</span><strong>{issue.title}</strong><small>{issue.detail}</small></p>
                   <div className="portfolio-action-buttons">
                     <button onClick={() => void onOpen(scan.league, actionView(issue.category))}>Review in Hub</button>
-                    <a href={sleeperLeagueUrl(scan.league.id)} target="_blank" rel="noopener noreferrer">Open Sleeper ↗</a>
+                    <a className="platform-link" href={sleeperLeagueUrl(scan.league.id)} target="_blank" rel="noopener noreferrer" aria-label="Open league in Sleeper (opens in a new tab)"><PlatformLogo /><span>Open</span><b aria-hidden="true">↗</b></a>
                   </div>
                 </article>
               ))}
@@ -3114,7 +3117,7 @@ function AllLeagues({
                 </span>
                 <div className="league-scan-actions">
                   <button onClick={() => void onOpen(scan.league)}>Open in Hub</button>
-                  <a href={sleeperLeagueUrl(scan.league.id)} target="_blank" rel="noopener noreferrer">Sleeper ↗</a>
+                  <a className="platform-link" href={sleeperLeagueUrl(scan.league.id)} target="_blank" rel="noopener noreferrer" aria-label="Open league in Sleeper (opens in a new tab)"><PlatformLogo /><b aria-hidden="true">↗</b></a>
                 </div>
               </footer>
             </article>
