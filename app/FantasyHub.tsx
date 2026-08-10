@@ -532,7 +532,7 @@ const nav: { label: View; displayLabel?: string; mark: string; tone: string; gro
   { label: "Player Rankings", mark: "♛", tone: "gold", group: "League Insights" },
   { label: "ADP", mark: "⌁", tone: "cyan", group: "League Insights" },
   { label: "Scoreboard", displayLabel: "Fantasy Scoreboard", mark: "▣", tone: "red", group: "Live" },
-  { label: "NFL Games", mark: "●", tone: "football", group: "Live" },
+  { label: "NFL Games", mark: "🏈", tone: "football", group: "Live" },
   { label: "Matchups", displayLabel: "Fantasy Matchups", mark: "◎", tone: "sky", group: "Live" },
 ];
 
