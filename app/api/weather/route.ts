@@ -52,7 +52,7 @@ export async function GET(request: Request) {
   const requestedWeek = Number(url.searchParams.get("week"));
   const season = Number.isInteger(requestedSeason) && requestedSeason >= 2020 && requestedSeason <= 2035 ? requestedSeason : new Date().getUTCFullYear();
   const week = Number.isInteger(requestedWeek) && requestedWeek >= 1 && requestedWeek <= 18 ? requestedWeek : 1;
-  const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates=${season}0901-${season + 1}0115&limit=1000`, { next: { revalidate: 21600 } });
+  const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates=${season}&seasontype=2&week=${week}`, { next: { revalidate: 21600 } });
   if (!response.ok) return Response.json({ error: "NFL schedule unavailable" }, { status: 502 });
   const payload = await response.json() as { events?: EspnEvent[] };
   const events = (payload.events ?? []).filter((event) => event.season?.year === season && event.season?.type === 2 && event.week?.number === week);

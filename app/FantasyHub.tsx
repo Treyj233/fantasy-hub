@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
-type View = "Command Center" | "Scoreboard" | "NFL Games" | "Dynasty Analytics" | "My Team" | "Team Rankings" | "Player Ranks" | "Start / Sit" | "Waiver Wire" | "Trade Lab" | "Matchups" | "Simulator" | "Manage Leagues";
+type View = "Command Center" | "All Leagues" | "Scoreboard" | "NFL Games" | "Dynasty Analytics" | "My Team" | "Team Rankings" | "Player Ranks" | "Start / Sit" | "Waiver Wire" | "Trade Lab" | "Matchups" | "Simulator" | "Manage Leagues";
 type Player = { id: string; name: string; position: string; team: string; opponent: string; projection: number; leagueProjection?: number | null; floor: number; ceiling: number; trend: number; status: string; role: string; weatherAdjustment?: number; weatherSummary?: string };
 type RankedPlayer = Player & { overallRank: number; positionRank: number; tier: 1 | 2 | 3 | 4; outlook: string };
 type PlayerWeek = { season: string; week: number; points: number; totalYards: number; touchdowns: number; passYards: number; passTouchdowns: number; interceptions: number; rushAttempts: number; rushYards: number; rushTouchdowns: number; targets: number; receptions: number; receivingYards: number; receivingTouchdowns: number };
@@ -32,9 +32,10 @@ type SimulationContext = { league: { name: string; season: string; currentWeek: 
 type SimulationResult = { playoffOdds: number; byeOdds: number; titleOdds: number; medianWins: number; winPercentiles: { label: string; value: number }[]; seed: number; topDrivers: string[]; riskDrivers: string[] };
 type TradeAssetValue = { id: string; name: string; position: string; meta: string; value: number };
 type TradeSuggestion = { id: string; title: string; receive: TradeAssetValue[]; send: TradeAssetValue[]; yourBenefit: number; partnerBenefit: number; acceptance: number; confidence: number; whyYou: string; whyThem: string };
+type LeagueScan = { league: ConnectedLeague; teamName: string; week: number; projection: number; status: "ready" | "review" | "urgent" | "unavailable"; issues: { id: string; severity: "critical" | "warning" | "watch"; category: string; title: string; detail: string }[] };
 
 const nav: { label: View; mark: string }[] = [
-  { label: "Command Center", mark: "★" }, { label: "Scoreboard", mark: "▣" }, { label: "NFL Games", mark: "🏈" }, { label: "My Team", mark: "●" },
+  { label: "Command Center", mark: "★" }, { label: "All Leagues", mark: "◆" }, { label: "Scoreboard", mark: "▣" }, { label: "NFL Games", mark: "🏈" }, { label: "My Team", mark: "●" },
   { label: "Dynasty Analytics", mark: "◈" },
   { label: "Team Rankings", mark: "↥" }, { label: "Player Ranks", mark: "♛" }, { label: "Start / Sit", mark: "⚡" }, { label: "Waiver Wire", mark: "+" },
   { label: "Trade Lab", mark: "↔" }, { label: "Matchups", mark: "◎" },
@@ -346,6 +347,7 @@ export default function FantasyHub({ accountUser }: { accountUser: AccountUser |
         {view !== "Manage Leagues" && leagueTeams.length > 1 && <section className={`team-picker-strip ${selectedTeamId ? "selected" : ""}`}><div><span>{selectedTeamId ? "YOUR TEAM IS ACTIVE" : "ONE MORE STEP"}</span><strong>{selectedLeagueTeam ? selectedLeagueTeam.teamName : "Which team is yours?"}</strong><small>{selectedLeagueTeam ? `Managed by ${selectedLeagueTeam.managerName}. Your roster now powers every dashboard view.` : "Choose your fantasy team so another manager’s roster never replaces yours."}</small></div><label>Fantasy team<select value={selectedTeamId} onChange={(event) => selectLeagueTeam(event.target.value)}><option value="">Choose your team</option>{leagueTeams.map((team) => <option key={team.id} value={team.id}>{team.teamName} · {team.managerName}</option>)}</select></label></section>}
 
         {view === "Command Center" && (rosterReady ? <CommandCenter players={players} waiverPlayers={waiverPlayers} totals={totals} setView={setView} setSelectedPlayer={setSelectedPlayer} starterChoice={starterChoice} setStarterChoice={setStarterChoice} periodLabel={periodLabel} /> : rosterEmptyState)}
+        {view === "All Leagues" && <AllLeagues leagues={availableLeagues} onOpen={async (league) => { await openConnectedLeague(league); setView("Command Center"); }} />}
         {view === "Scoreboard" && <Scoreboard key={`${leagueId}-${defaultGameWeek}`} leagueId={leagueId} defaultWeek={defaultGameWeek} />}
         {view === "NFL Games" && <NflGames key={`${leagueId}-${defaultGameWeek}`} leagueId={leagueId} season={selectedConnectedLeague?.season ?? leagueSeason} defaultWeek={defaultGameWeek} />}
         {view === "Dynasty Analytics" && isDynastyLeague && (rosterReady ? <DynastyAnalytics players={players} rankings={leagueRankings} context={rankingContext} setSelectedPlayer={setSelectedPlayer} /> : rosterEmptyState)}
@@ -417,6 +419,76 @@ function ManageLeagues({ connectedLeagues, managedLeagues, accountError, teamThe
     <section className="manage-connect panel"><div className="panel-header"><div><span>ADD FROM {selectedProvider.name.toUpperCase()}</span><h3>Connect another league</h3></div></div><div className="manage-form"><div className="method-toggle"><button className={identifierType === "username" ? "active" : ""} onClick={() => setIdentifierType("username")}>Username</button><button className={identifierType === "league_id" ? "active" : ""} onClick={() => setIdentifierType("league_id")}>League ID</button></div><label>{identifierType === "username" ? `${selectedProvider.name} username` : `${selectedProvider.name} league ID`}<input value={identifier} onChange={(event) => setIdentifier(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void addLeague(); }} placeholder={identifierType === "username" ? `Enter ${selectedProvider.name} username` : provider === "yahoo" ? "League ID or 461.l.12345" : "Enter numeric league ID"} autoComplete="off" /></label><button className="manage-add" onClick={() => void addLeague()} disabled={busy || !identifier.trim()}>{busy ? "Connecting…" : provider === "sleeper" ? "Connect league" : "Save league"}</button></div>{(error || accountError) && <p className="manage-message error">{error || accountError}</p>}{success && <p className="manage-message success">{success}</p>}<div className={`provider-note ${provider}`}><b>{provider === "sleeper" ? "LIVE CONNECTION" : provider === "yahoo" ? "AUTHORIZATION NEEDED" : "SAVED REFERENCE"}</b><p>{provider === "sleeper" ? "Username finds every team you own. League ID adds one public league directly." : provider === "yahoo" ? "Yahoo requires account authorization before Fantasy Hub can read private rosters or scoring." : "ESPN league IDs are saved now. Live roster sync is not shown until a reliable provider connection is available."}</p></div></section>
     <section className="managed-list panel"><div className="panel-header"><div><span>CONNECTED SOURCES</span><h3>Your leagues and accounts</h3></div><b>{connectedLeagues.length + managedLeagues.length} records</b></div>{connectedLeagues.map((league) => <article key={`live-${league.id}`}><i className="provider-badge sleeper">S</i><p><strong>{league.name}</strong><small>Sleeper · {league.season} · {league.teams} teams · {league.format} · {league.scoring}</small></p><span className="connection-status live">● LIVE</span><button className="open-league" onClick={() => void onOpen(league)}>Open</button></article>)}{managedLeagues.map((league) => <article key={league.id}><i className={`provider-badge ${league.provider}`}>{league.provider === "yahoo" ? "Y!" : league.provider.slice(0, 1).toUpperCase()}</i><p><strong>{league.identifier}</strong><small>{league.provider[0].toUpperCase() + league.provider.slice(1)} · {league.identifierType === "league_id" ? "League ID" : "Username"}</small></p><span className={`connection-status ${league.status}`}>{league.status === "live" ? "CONNECTED" : league.status === "oauth_required" ? "AUTH NEEDED" : "SAVED"}</span><button className="remove-league" onClick={() => void onRemove(league.id)} aria-label={`Remove ${league.identifier}`}>Remove</button></article>)}{!connectedLeagues.length && !managedLeagues.length && <div className="managed-empty"><strong>No leagues added yet</strong><p>Choose a provider above and enter a username or league ID to get started.</p></div>}</section>
   </div>;
+}
+
+function AllLeagues({ leagues, onOpen }: { leagues: ConnectedLeague[]; onOpen: (league: ConnectedLeague) => Promise<void> }) {
+  const [scans, setScans] = useState<LeagueScan[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  useEffect(() => {
+    if (!leagues.length) return;
+    const controller = new AbortController();
+    const loadingTimer = window.setTimeout(() => setLoading(true), 0);
+    void Promise.all(leagues.map(async (league): Promise<LeagueScan> => {
+      try {
+        const leagueResponse = await fetch(`/api/league?id=${encodeURIComponent(league.id)}`, { signal: controller.signal });
+        if (!leagueResponse.ok) throw new Error("League unavailable");
+        const payload = await leagueResponse.json() as { league: { currentWeek?: number; projectionWeek?: number; status?: string }; teams: LeagueTeam[]; waiverPlayers?: WaiverPlayer[] };
+        const week = Math.min(18, Math.max(1, payload.league.projectionWeek ?? payload.league.currentWeek ?? 1));
+        const weatherResponse = await fetch(`/api/weather?season=${encodeURIComponent(league.season ?? String(new Date().getUTCFullYear()))}&week=${week}`, { signal: controller.signal });
+        const weather = weatherResponse.ok ? await weatherResponse.json() as WeatherData : null;
+        const team = payload.teams.find((item) => item.id === league.rosterId);
+        if (!team) throw new Error("Roster unavailable");
+        const starters = team.roster.filter(isStartingPlayer);
+        const bench = team.roster.filter((player) => player.role === "Bench");
+        const healthyBench = bench.filter((player) => !["Out", "IR", "Suspended"].includes(player.status));
+        const issues: LeagueScan["issues"] = [];
+        const addIssue = (severity: "critical" | "warning" | "watch", category: string, title: string, detail: string) => issues.push({ id: `${league.id}-${issues.length}`, severity, category, title, detail });
+        const unavailable = starters.filter((player) => ["Out", "IR", "Suspended"].includes(player.status));
+        unavailable.forEach((player) => addIssue("critical", "Availability", `${player.name} is ${player.status}`, `${player.role} is occupied by an unavailable player. Replace before lineups lock.`));
+        starters.filter((player) => ["Doubtful", "Questionable"].includes(player.status)).forEach((player) => addIssue(player.status === "Doubtful" ? "critical" : "warning", "Injury", `${player.name} is ${player.status}`, `Monitor the ${player.role} starter and identify a contingency from your bench or waivers.`));
+        if (starters.length < league.starterCount) addIssue("critical", "Lineup", `${league.starterCount - starters.length} starter slot${league.starterCount - starters.length === 1 ? " is" : "s are"} unfilled`, `Fantasy Hub found ${starters.length} active lineup entries for ${league.starterCount} required slots.`);
+        starters.filter((player) => player.projection <= .5 && !unavailable.some((item) => item.id === player.id)).forEach((player) => addIssue("critical", "Role", `${player.name} projects near zero`, `${player.name} is in ${player.role} but is not expected to have a meaningful role this week.`));
+        const canFill = (benchPlayer: Player, starter: Player) => starter.role === benchPlayer.position || starter.role.includes(benchPlayer.position) || (["FLEX", "WR_RB_FLEX", "REC_FLEX"].includes(starter.role) && ["RB", "WR", "TE"].includes(benchPlayer.position)) || (["SUPER_FLEX", "QB_FLEX"].includes(starter.role) && ["QB", "RB", "WR", "TE"].includes(benchPlayer.position));
+        const upgrades = healthyBench.flatMap((benchPlayer) => {
+          const starter = starters.filter((player) => canFill(benchPlayer, player)).sort((a, b) => a.projection - b.projection)[0];
+          const edge = starter ? benchPlayer.projection - starter.projection : 0;
+          return starter && edge >= 1.5 ? [{ benchPlayer, starter, edge }] : [];
+        }).sort((a, b) => b.edge - a.edge).slice(0, 2);
+        upgrades.forEach(({ benchPlayer, starter, edge }) => addIssue(edge >= 4 ? "critical" : "warning", "Lineup", `Start ${benchPlayer.name} over ${starter.name}`, `Fantasy Hub projects a ${edge.toFixed(1)}-point improvement in ${starter.role}.`));
+        const playingTeams = new Set(weather?.games.flatMap((game) => game.teams) ?? []);
+        if (playingTeams.size) starters.filter((player) => player.team !== "FA" && !playingTeams.has(normalizeNflTeam(player.team))).forEach((player) => addIssue("critical", "Bye week", `${player.name} appears to be on bye`, `${player.name} is currently in ${player.role}, but ${player.team} is not on the Week ${week} NFL slate.`));
+        starters.forEach((player) => {
+          const game = weather?.games.find((item) => item.teams.includes(normalizeNflTeam(player.team)));
+          if (!game?.forecastAvailable || game.indoor) return;
+          const severe = (game.windMph ?? 0) >= 20 || (game.precipitationProbability ?? 0) >= 70 || (game.temperatureF ?? 60) <= 20;
+          const sensitive = ["QB", "WR", "TE", "K"].includes(player.position);
+          if (severe && sensitive) addIssue("warning", "Weather", `${player.name} has weather risk`, `${game.summary} Review floor and ceiling before locking ${player.role}.`);
+        });
+        const teamClusters = starters.reduce<Record<string, Player[]>>((groups, player) => ({ ...groups, [player.team]: [...(groups[player.team] ?? []), player] }), {});
+        Object.entries(teamClusters).filter(([nflTeam, group]) => nflTeam !== "FA" && group.length >= 3).forEach(([nflTeam, group]) => addIssue("watch", "Exposure", `${group.length} starters rely on ${nflTeam}`, `A single low-scoring NFL game could affect ${group.map((player) => player.name).join(", ")}.`));
+        const weakestStarter = [...starters].filter((player) => ["RB", "WR", "TE"].includes(player.position)).sort((a, b) => a.projection - b.projection)[0];
+        const topWaiver = payload.waiverPlayers?.[0];
+        if (weakestStarter && topWaiver && topWaiver.projection >= weakestStarter.projection + 3) addIssue("watch", "Waivers", `${topWaiver.name} is available`, `Top available player projects ${topWaiver.projection.toFixed(1)}, ${Number(topWaiver.projection - weakestStarter.projection).toFixed(1)} above ${weakestStarter.name}.`);
+        const severityRank = { critical: 0, warning: 1, watch: 2 } as const;
+        const ordered = issues.sort((a, b) => severityRank[a.severity] - severityRank[b.severity]);
+        return { league, teamName: team.teamName, week, projection: Number(starters.reduce((sum, player) => sum + player.projection, 0).toFixed(1)), status: ordered.some((issue) => issue.severity === "critical") ? "urgent" : ordered.some((issue) => issue.severity === "warning") ? "review" : "ready", issues: ordered };
+      } catch {
+        return { league, teamName: "Roster unavailable", week: 1, projection: 0, status: "unavailable", issues: [{ id: `${league.id}-unavailable`, severity: "warning", category: "Connection", title: "League could not be scanned", detail: "Open the league to refresh its roster and settings." }] };
+      }
+    })).then((results) => {
+      const statusRank = { urgent: 0, review: 1, unavailable: 2, ready: 3 } as const;
+      if (!controller.signal.aborted) setScans(results.sort((a, b) => statusRank[a.status] - statusRank[b.status]));
+    }).finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    return () => { controller.abort(); window.clearTimeout(loadingTimer); };
+  }, [leagues, refreshKey]);
+
+  const issueCount = scans.reduce((sum, scan) => sum + scan.issues.length, 0);
+  const urgentCount = scans.reduce((sum, scan) => sum + scan.issues.filter((issue) => issue.severity === "critical").length, 0);
+  const readyCount = scans.filter((scan) => scan.status === "ready").length;
+  if (!leagues.length) return <div className="page-content"><SectionIntro kicker="MULTI-LEAGUE COMMAND" title="Connect your leagues to build a weekly action list" text="Once leagues are connected, Fantasy Hub will scan every roster for lineup, injury, bye-week, weather, and waiver decisions." /><section className="panel scoreboard-empty">No leagues are connected yet.</section></div>;
+  return <div className="page-content all-leagues-page"><section className="all-leagues-hero"><div><span>MULTI-LEAGUE COMMAND</span><h2>One checklist.<br /><em>Every league covered.</em></h2><p>Fantasy Hub scans your real rosters and moves the most urgent decisions to the top.</p></div><button onClick={() => setRefreshKey((value) => value + 1)} disabled={loading}>{loading ? "Scanning…" : "Refresh all leagues"}</button></section><section className="all-league-metrics"><article><span>CONNECTED</span><strong>{leagues.length}</strong><small>leagues monitored</small></article><article className={urgentCount ? "urgent" : ""}><span>URGENT</span><strong>{urgentCount}</strong><small>decisions need action</small></article><article><span>OPEN ITEMS</span><strong>{issueCount}</strong><small>across all rosters</small></article><article className="ready"><span>READY</span><strong>{readyCount}</strong><small>lineups clear</small></article></section>{loading && !scans.length ? <section className="all-leagues-loading panel">Scanning league settings, starters, injuries, waivers, schedule, and weather…</section> : <section className="league-scan-list">{scans.map((scan) => <article className={`league-scan-card ${scan.status}`} key={scan.league.id}><header><div><span>WEEK {scan.week} · {scan.league.format.toUpperCase()}</span><h3>{scan.league.name}</h3><small>{scan.teamName} · {scan.league.scoring} · {scan.projection.toFixed(1)} projected points</small></div><b>{scan.status === "urgent" ? "ACTION NEEDED" : scan.status === "review" ? "REVIEW" : scan.status === "ready" ? "READY" : "REFRESH"}</b></header><div className="league-issue-list">{scan.issues.length ? scan.issues.map((issue) => <div className={issue.severity} key={issue.id}><i>{issue.severity === "critical" ? "!" : issue.severity === "warning" ? "△" : "•"}</i><p><span>{issue.category}</span><strong>{issue.title}</strong><small>{issue.detail}</small></p></div>) : <div className="clear"><i>✓</i><p><strong>No immediate action found</strong><small>Starters, availability, byes, weather, and obvious lineup edges look clear.</small></p></div>}</div><footer><span>{scan.issues.length} item{scan.issues.length === 1 ? "" : "s"} · scanned now</span><button onClick={() => void onOpen(scan.league)}>Open league →</button></footer></article>)}</section>}</div>;
 }
 
 function Scoreboard({ leagueId, defaultWeek }: { leagueId: string; defaultWeek: number }) {
