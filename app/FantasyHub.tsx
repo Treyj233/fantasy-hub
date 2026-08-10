@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { Fragment, createContext, useContext, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { estimatedWinProbability, playerLeverage, rootingInterests, whatDoINeed } from "./game-day-model.mjs";
 
 type View =
@@ -5244,6 +5244,7 @@ function TeamRankings({
   context: RankingContext | null;
   setSelectedPlayer: (player: Player) => void;
 }) {
+  const [expandedTeamId, setExpandedTeamId] = useState("");
   const rankingById = new Map(rankings.map((player) => [player.id, player]));
   const isDynasty = context?.format === "Dynasty";
   const positions = ["QB", "RB", "WR", "TE"];
@@ -5426,18 +5427,23 @@ function TeamRankings({
           const secondRounders =
             team.draftCapital?.picks.filter((pick) => pick.round === 2)
               .length ?? 0;
+          const allAssets = [...team.roster].sort((a, b) => {
+            const aRank = rankingById.get(a.id)?.overallRank ?? 9999;
+            const bRank = rankingById.get(b.id)?.overallRank ?? 9999;
+            return aRank - bRank || b.projection - a.projection;
+          });
+          const expanded = expandedTeamId === team.id;
           return (
+            <Fragment key={team.id}>
             <article
-              className={`team-rank-row ${isDynasty ? "dynasty" : ""} ${team.id === selectedTeamId ? "your-team" : ""}`}
-              key={team.id}
+              className={`team-rank-row ${isDynasty ? "dynasty" : ""} ${team.id === selectedTeamId ? "your-team" : ""} ${expanded ? "expanded" : ""}`}
             >
               <b className="overall-place">#{overallRanks.get(team.id)}</b>
               <div className="rank-team-name">
-                <strong>{team.teamName}</strong>
-                <small>
-                  {team.managerName}
-                  {team.id === selectedTeamId ? " · YOUR TEAM" : ""}
-                </small>
+                <button className="team-rank-toggle" type="button" aria-expanded={expanded} onClick={() => setExpandedTeamId((current) => current === team.id ? "" : team.id)}>
+                  <span><strong>{team.teamName}</strong><small>{team.managerName}{team.id === selectedTeamId ? " · YOUR TEAM" : ""}</small></span>
+                  <i>{expanded ? "−" : "+"}</i>
+                </button>
               </div>
               <strong className="team-score">{team.overallScore}</strong>
               {positions.map((position) => (
@@ -5470,6 +5476,15 @@ function TeamRankings({
                 ))}
               </div>
             </article>
+            {expanded && <section className="team-assets-drawer">
+              <header><div><span>COMPLETE TEAM ASSETS</span><strong>{team.teamName}</strong></div><small>{allAssets.length} rostered players{isDynasty ? ` · ${team.draftCapital?.picks.length ?? 0} draft picks` : ""}</small></header>
+              <div className="team-assets-grid">{allAssets.map((player) => {
+                const ranking = rankingById.get(player.id);
+                return <button type="button" key={player.id} onClick={() => setSelectedPlayer(player)}><span className={`pos pos-${player.position.toLowerCase()}`}>{player.position}</span><p><strong>{player.name}</strong><small>{player.team} · {formatRosterSlot(player.role)}</small></p><b>{ranking ? `#${ranking.overallRank}` : `${player.projection.toFixed(1)} PTS`}</b></button>;
+              })}</div>
+              {isDynasty && Boolean(team.draftCapital?.picks.length) && <div className="team-pick-assets"><span>DRAFT CAPITAL</span>{team.draftCapital!.picks.map((pick) => <b key={pick.id}>{pick.season} R{pick.round}{pick.originalRosterId !== team.id ? " · ACQUIRED" : ""}</b>)}</div>}
+            </section>}
+            </Fragment>
           );
         })}
       </section>
