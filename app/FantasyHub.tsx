@@ -1020,6 +1020,10 @@ export default function FantasyHub({
   const [teamTheme, setTeamTheme] = useState("GB");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [draggedLeagueId, setDraggedLeagueId] = useState("");
+  const [leagueDropTarget, setLeagueDropTarget] = useState<{
+    id: string;
+    position: "before" | "after";
+  } | null>(null);
   const importRequest = useRef(0);
   const leagueDragOccurred = useRef(false);
 
@@ -1260,19 +1264,23 @@ export default function FantasyHub({
     });
   }
 
-  function dropConnectedLeague(targetLeagueId: string) {
+  function dropConnectedLeague(
+    targetLeagueId: string,
+    position: "before" | "after",
+  ) {
     if (!draggedLeagueId || draggedLeagueId === targetLeagueId) return;
     setAvailableLeagues((current) => {
       const fromIndex = current.findIndex(
         (league) => league.id === draggedLeagueId,
       );
-      const targetIndex = current.findIndex(
-        (league) => league.id === targetLeagueId,
-      );
-      if (fromIndex < 0 || targetIndex < 0) return current;
+      if (fromIndex < 0) return current;
       const ordered = [...current];
       const [moved] = ordered.splice(fromIndex, 1);
-      ordered.splice(targetIndex, 0, moved);
+      const targetIndex = ordered.findIndex(
+        (league) => league.id === targetLeagueId,
+      );
+      if (targetIndex < 0) return current;
+      ordered.splice(targetIndex + (position === "after" ? 1 : 0), 0, moved);
       window.localStorage.setItem(
         "fantasy-hub-league-order",
         JSON.stringify(ordered.map((league) => league.id)),
@@ -1537,11 +1545,15 @@ export default function FantasyHub({
             </div>
             <div
               className={`league-pills ${draggedLeagueId ? "drag-active" : ""}`}
+              onDragLeave={(event) => {
+                if (!event.currentTarget.contains(event.relatedTarget as Node | null))
+                  setLeagueDropTarget(null);
+              }}
             >
               {availableLeagues.map((league) => (
                 <button
                   key={league.id}
-                  className={`${leagueId === league.id ? "active" : ""} ${draggedLeagueId === league.id ? "dragging" : ""}`}
+                  className={`${leagueId === league.id ? "active" : ""} ${draggedLeagueId === league.id ? "dragging" : ""} ${leagueDropTarget?.id === league.id && draggedLeagueId !== league.id ? `drop-${leagueDropTarget.position}` : ""}`}
                   draggable
                   onDragStart={(event) => {
                     leagueDragOccurred.current = true;
@@ -1552,13 +1564,33 @@ export default function FantasyHub({
                   onDragOver={(event) => {
                     event.preventDefault();
                     event.dataTransfer.dropEffect = "move";
+                    if (draggedLeagueId !== league.id) {
+                      const bounds = event.currentTarget.getBoundingClientRect();
+                      setLeagueDropTarget({
+                        id: league.id,
+                        position:
+                          event.clientX < bounds.left + bounds.width / 2
+                            ? "before"
+                            : "after",
+                      });
+                    }
                   }}
                   onDrop={(event) => {
                     event.preventDefault();
-                    dropConnectedLeague(league.id);
+                    if (draggedLeagueId !== league.id) {
+                      const bounds = event.currentTarget.getBoundingClientRect();
+                      dropConnectedLeague(
+                        league.id,
+                        event.clientX < bounds.left + bounds.width / 2
+                          ? "before"
+                          : "after",
+                      );
+                    }
+                    setLeagueDropTarget(null);
                   }}
                   onDragEnd={() => {
                     setDraggedLeagueId("");
+                    setLeagueDropTarget(null);
                     window.setTimeout(() => {
                       leagueDragOccurred.current = false;
                     }, 0);
