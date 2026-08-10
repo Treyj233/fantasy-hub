@@ -3855,7 +3855,7 @@ function AllLeagueScoreboard({
                 <b>{league.name}</b>
               </header>
               {mine && opponent ? (
-                <div className="score-bug">
+                <div className={`score-bug portfolio-score-bug ${winTone}`}>
                   {[mine, opponent].map((team) => (
                     <div className={team.isMine ? "mine" : ""} key={team.rosterId}>
                       <span>{team.teamName.slice(0, 3).toUpperCase()}</span>
@@ -3864,21 +3864,23 @@ function AllLeagueScoreboard({
                       {leader === team.rosterId && <i>▲</i>}
                     </div>
                   ))}
+                  <aside className="scorebug-probability" aria-label="Estimated win probability">
+                    <small>EXPECTED WIN</small>
+                    <strong>{winProbability == null ? "—" : `${winProbability}%`}</strong>
+                    <span>{winOutlook}</span>
+                  </aside>
                 </div>
               ) : (
                 <p className="portfolio-score-pending">{data ? `Your Week ${week} matchup has not been posted.` : loading ? "Loading your matchup…" : "This league’s scoreboard is unavailable."}</p>
               )}
-              {consequence && <div className={`matchup-consequence ${winTone}`}>
-                <div className="probability-copy"><span><i /> LIVE OUTLOOK</span><strong>Estimated win probability</strong><small>{winProbability == null ? "League projections are unavailable for this matchup." : `${consequence.mineRemaining.toFixed(1)} projected points remaining · refreshed ${updatedAt ? new Date(updatedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "now"}`}</small></div>
-                <div className="probability-orbit" style={{ background: `conic-gradient(var(--probability-color) ${winProbability ?? 0}%, color-mix(in srgb,var(--ink) 10%,transparent) 0)` }}><div><b>{winProbability == null ? "—" : `${winProbability}%`}</b><small>TO WIN</small></div></div>
-                <em>{winOutlook}</em>
-              </div>}
+              <div className="portfolio-score-scroll">
               {consequence?.status !== "final" && need && <section className={`what-needed ${expandedNeeds.has(league.id) ? "expanded" : "collapsed"}`}>
                 <button className="need-collapse-toggle" type="button" aria-expanded={expandedNeeds.has(league.id)} onClick={() => setExpandedNeeds((current) => { const next = new Set(current); if (next.has(league.id)) next.delete(league.id); else next.add(league.id); return next; })}><span><i /> LIVE WIN PATH</span><strong>{need.teamNeed ? `${need.teamNeed.toFixed(1)} PTS NEEDED` : "PROJECTED LEAD"}</strong><em aria-hidden="true">⌄</em></button>
                 {expandedNeeds.has(league.id) && <div className="need-expanded-content"><p>{need.message}</p>
                 {need.targets.slice(0, 4).map((target) => <article key={target.id}><PlayerHeadshot id={target.id} position={target.position} /><div><div className="need-player-row"><button className="inline-player-link" onClick={() => openPlayer(playerShell(target))}>{target.name}</button><b>{target.progress}%</b></div><small>Needs about <b>{target.pointsNeeded.toFixed(1)} more points</b> · {target.statLine}</small><span className="need-progress"><i style={{ width: `${target.progress}%` }} /></span><em>{target.points.toFixed(1)} scored toward a {target.targetTotal.toFixed(1)} point target</em></div></article>)}</div>}
               </section>}
               {consequence?.status === "final" && <div className="postgame-review"><b>{consequence.mine.points > consequence.opponent.points ? "WIN" : consequence.mine.points < consequence.opponent.points ? "LOSS" : "TIE"}</b><p><strong>Postgame review</strong><small>{Math.abs(consequence.mine.points - consequence.opponent.points) <= 5 ? "A close final margin decided this matchup." : "The final scoring margin was decisive."} Results describe what happened, not whether the original lineup decision was sound.</small></p></div>}
+              </div>
               <footer className="score-game-actions">
                 <button onClick={() => void onOpenLeague(league)}>Open league scoreboard →</button>
               </footer>
