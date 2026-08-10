@@ -2080,22 +2080,42 @@ function SignInScreen() {
 }
 
 function AccountLoading() {
+  const progress = useEstimatedLoadingProgress(true);
+  const roundedProgress = Math.round(progress);
   return (
     <main className="auth-shell account-loading-shell">
       <section className="auth-card auth-loading">
         <span>FANTASY HUB</span>
         <h1>Loading your leagues…</h1>
         <p>Pulling together your saved account and league workspace.</p>
-        <div className="load-progress indeterminate" role="progressbar" aria-label="Loading connected leagues" aria-valuetext="Loading account and leagues">
-          <span />
+        <div className="load-progress" role="progressbar" aria-label="Loading connected leagues" aria-valuemin={0} aria-valuemax={100} aria-valuenow={roundedProgress}>
+          <span style={{ width: `${roundedProgress}%` }} />
         </div>
-        <small className="load-progress-label">Connecting to your league portfolio…</small>
+        <small className="load-progress-label">Connecting to your league portfolio… {roundedProgress}%</small>
         <i />
         <i />
         <i />
       </section>
     </main>
   );
+}
+
+function useEstimatedLoadingProgress(active: boolean) {
+  const [progress, setProgress] = useState(8);
+  useEffect(() => {
+    if (!active) return;
+    const reset = window.setTimeout(() => setProgress(8), 0);
+    const timer = window.setInterval(() => {
+      setProgress((current) =>
+        Math.min(92, current + Math.max(0.7, (92 - current) * 0.07)),
+      );
+    }, 350);
+    return () => {
+      window.clearTimeout(reset);
+      window.clearInterval(timer);
+    };
+  }, [active]);
+  return progress;
 }
 
 function EmptyRoster({
@@ -2615,6 +2635,13 @@ function AllLeagues({
   const [refreshKey, setRefreshKey] = useState(0);
   const [scanCompleted, setScanCompleted] = useState(0);
   const lastAutomaticScan = useRef("");
+  const scanIsActive = loading || (leagues.length > 0 && !scans.length);
+  const estimatedScanProgress = useEstimatedLoadingProgress(scanIsActive);
+  const completedScanProgress =
+    (scanCompleted / Math.max(1, leagues.length)) * 100;
+  const visibleScanProgress = Math.round(
+    Math.min(99, Math.max(estimatedScanProgress, completedScanProgress)),
+  );
 
   useEffect(() => {
     if (!leagues.length) return;
@@ -3167,7 +3194,7 @@ function AllLeagues({
           </section>
         </>
       )}
-      {(loading || (leagues.length > 0 && !scans.length)) ? (
+      {scanIsActive ? (
         <section className="all-leagues-loading panel">
           <strong>Scanning your league portfolio…</strong>
           <p>Checking settings, starters, injuries, waivers, schedule, and weather.</p>
@@ -3176,12 +3203,12 @@ function AllLeagues({
             role="progressbar"
             aria-label="Scanning connected leagues"
             aria-valuemin={0}
-            aria-valuemax={leagues.length}
-            aria-valuenow={scanCompleted}
+            aria-valuemax={100}
+            aria-valuenow={visibleScanProgress}
           >
-            <span style={{ width: `${Math.max(4, (scanCompleted / Math.max(1, leagues.length)) * 100)}%` }} />
+            <span style={{ width: `${visibleScanProgress}%` }} />
           </div>
-          <small>{scanCompleted} of {leagues.length} leagues scanned</small>
+          <small>{scanCompleted} of {leagues.length} leagues scanned · about {visibleScanProgress}% complete</small>
         </section>
       ) : (
         <section className="league-scan-list">
