@@ -743,6 +743,21 @@ function MatchupBadge({ player }: { player: Pick<Player, "position" | "opponent"
   );
 }
 
+function matchupAdjustedRange(player: Player) {
+  const strength = player.matchupStrength;
+  if (!strength) return { floor: player.floor, ceiling: player.ceiling, edge: 0, confidence: 0 };
+  const confidence = Math.min(1, strength.games / 8);
+  const edge = ((strength.score - 50) / 50) * confidence;
+  const floorFactor = 1 + edge * (edge >= 0 ? 0.04 : 0.12);
+  const ceilingFactor = 1 + edge * (edge >= 0 ? 0.12 : 0.04);
+  return {
+    floor: Number(Math.max(0, player.floor * floorFactor).toFixed(1)),
+    ceiling: Number(Math.max(player.projection, player.ceiling * ceilingFactor).toFixed(1)),
+    edge,
+    confidence,
+  };
+}
+
 const rankedPlayers: RankedPlayer[] = [
   {
     id: "rank-1",
@@ -4174,6 +4189,11 @@ function CommandCenter({
     [primaryDecision.name, secondaryDecision.name].includes(starterChoice)
       ? starterChoice
       : (primaryDecision?.name ?? "");
+  const matchupEdges = players
+    .filter((player) => isStartingPlayer(player) && player.matchupStrength)
+    .map((player) => ({ player, range: matchupAdjustedRange(player) }))
+    .sort((a, b) => Math.abs(b.range.edge) - Math.abs(a.range.edge));
+  const topMatchupEdge = matchupEdges[0];
   return (
     <div className="page-content">
       <section className="hero">
@@ -4335,23 +4355,24 @@ function CommandCenter({
         <section className="panel matchup-card">
           <Header
             eyebrow="MATCHUP EDGE"
-            title="Attack this coverage profile"
-            action="Explore"
-            onClick={() => setView("Matchups")}
+            title="Opponent rankings shape the tails"
+            action="Open Start / Sit"
+            onClick={() => setView("Start / Sit")}
           />
-          <strong>DAL receivers vs NYG secondary</strong>
-          <p>
-            New York’s zone-heavy profile elevates CeeDee Lamb’s target floor
-            and yards-after-catch opportunity.
-          </p>
-          <div>
-            <span>
-              Zone rate <b>71%</b>
-            </span>
-            <span>
-              WR advantage <b>+8.4</b>
-            </span>
-          </div>
+          {topMatchupEdge ? (
+            <>
+              <strong>{topMatchupEdge.player.name} · {topMatchupEdge.player.matchupStrength!.label} {topMatchupEdge.player.position} matchup</strong>
+              <p>
+                {topMatchupEdge.player.opponent} ranks #{topMatchupEdge.player.matchupStrength!.rank} in PPR fantasy points allowed to {matchupPosition(topMatchupEdge.player.position)}. The platform projection remains the median; Fantasy Hub adjusts the outcome range used by Start/Sit.
+              </p>
+              <div>
+                <span>Floor <b>{topMatchupEdge.player.floor.toFixed(1)} → {topMatchupEdge.range.floor.toFixed(1)}</b></span>
+                <span>Ceiling <b>{topMatchupEdge.player.ceiling.toFixed(1)} → {topMatchupEdge.range.ceiling.toFixed(1)}</b></span>
+              </div>
+            </>
+          ) : (
+            <p>Opponent rankings will appear after the NFL schedule maps this roster to a supported position matchup.</p>
+          )}
         </section>
       </div>
     </div>
@@ -5322,10 +5343,12 @@ function StartSit({
       : aggressiveness > 65
         ? "Shoot for upside"
         : "Balanced";
-  const scorePlayer = (player: Player) =>
-    player.projection * 0.5 +
-    player.floor * 0.5 * (1 - aggressiveness / 100) +
-    player.ceiling * 0.5 * (aggressiveness / 100);
+  const scorePlayer = (player: Player) => {
+    const range = matchupAdjustedRange(player);
+    return player.projection * 0.5 +
+      range.floor * 0.5 * (1 - aggressiveness / 100) +
+      range.ceiling * 0.5 * (aggressiveness / 100);
+  };
   if (!decisions.length)
     return (
       <div className="page-content">
@@ -5473,6 +5496,7 @@ function StartSit({
               {options.map((player) => {
                 const modelChoice = recommendedPlayer.id === player.id;
                 const currentlyStarting = player.id === decision.starter.id;
+                const adjustedRange = matchupAdjustedRange(player);
                 return <button
               key={player.id}
               className={`compare-card ${activeChoice === player.name ? "selected" : ""}`}
@@ -5490,29 +5514,32 @@ function StartSit({
               <small>
                 {player.team} · {player.opponent}
               </small>
+              <MatchupBadge player={player} />
               <h3>{player.name}</h3>
               <div className="range-bar">
                 <i
                   style={{
-                    left: `${player.floor * 2.3}%`,
-                    width: `${(player.ceiling - player.floor) * 2.3}%`,
+                    left: `${adjustedRange.floor * 2.3}%`,
+                    width: `${(adjustedRange.ceiling - adjustedRange.floor) * 2.3}%`,
                   }}
                 />
                 <b style={{ left: `${player.projection * 2.3}%` }} />
               </div>
               <div className="range-labels">
                 <span>
-                  Floor <b>{player.floor}</b>
+                  Floor <b>{adjustedRange.floor}</b>
                 </span>
                 <span>
                   Projection <b>{player.projection}</b>
                 </span>
                 <span>
-                  Ceiling <b>{player.ceiling}</b>
+                  Ceiling <b>{adjustedRange.ceiling}</b>
                 </span>
               </div>
               <p>
-                {aggressiveness > 65
+                {player.matchupStrength
+                  ? `${player.matchupStrength.label} ${player.position} matchup (defense rank #${player.matchupStrength.rank}) ${adjustedRange.edge >= 0 ? "expands upside" : "adds downside risk"}. ${aggressiveness > 65 ? "Ceiling" : aggressiveness < 35 ? "Floor" : "Balanced tails"} drive a ${scorePlayer(player).toFixed(1)} risk-adjusted score.`
+                  : aggressiveness > 65
                   ? `Ceiling carries more weight at this setting. Risk-adjusted score: ${scorePlayer(player).toFixed(1)}.`
                   : aggressiveness < 35
                     ? `Floor and role certainty carry more weight. Risk-adjusted score: ${scorePlayer(player).toFixed(1)}.`
