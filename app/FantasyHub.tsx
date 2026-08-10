@@ -44,6 +44,24 @@ const nav: { label: View; mark: string }[] = [
 
 const normalizeNflTeam = (team: string) => ({ JAC: "JAX", WSH: "WAS" } as Record<string, string>)[team] ?? team;
 const isStartingPlayer = (player: Player) => !["Bench", "IR", "TAXI"].includes(player.role);
+const defaultColors = { primary: "#0b8650", secondary: "#f1b432" };
+const colorPalettes = [
+  { name: "Field", primary: "#0b8650", secondary: "#f1b432" },
+  { name: "Midnight", primary: "#142b52", secondary: "#5bc0eb" },
+  { name: "Royal", primary: "#3d2c8d", secondary: "#f4c95d" },
+  { name: "Fire", primary: "#9f2d20", secondary: "#ffb000" },
+  { name: "Coastal", primary: "#006d77", secondary: "#83c5be" },
+];
+
+function colorChannels(hex: string) {
+  const value = /^#[0-9a-f]{6}$/i.test(hex) ? hex.slice(1) : "0b8650";
+  return [Number.parseInt(value.slice(0, 2), 16), Number.parseInt(value.slice(2, 4), 16), Number.parseInt(value.slice(4, 6), 16)];
+}
+
+function mixColor(hex: string, target: number, strength: number) {
+  const mixed = colorChannels(hex).map((channel) => Math.round(channel + (target - channel) * strength));
+  return `#${mixed.map((channel) => channel.toString(16).padStart(2, "0")).join("")}`;
+}
 
 function applyWeather(player: Player, weather: WeatherData | null) {
   const game = weather?.games.find((item) => item.teams.includes(normalizeNflTeam(player.team)));
@@ -108,12 +126,16 @@ export default function FantasyHub({ accountUser }: { accountUser: AccountUser |
   const [accountLoading, setAccountLoading] = useState(Boolean(accountUser));
   const [accountError, setAccountError] = useState("");
   const [theme, setTheme] = useState<Theme>("light");
+  const [primaryColor, setPrimaryColor] = useState(defaultColors.primary);
+  const [secondaryColor, setSecondaryColor] = useState(defaultColors.secondary);
   const importRequest = useRef(0);
 
   useEffect(() => {
     const savedTheme = window.localStorage.getItem("fantasy-hub-theme");
+    const savedPrimary = window.localStorage.getItem("fantasy-hub-primary");
+    const savedSecondary = window.localStorage.getItem("fantasy-hub-secondary");
     const initialTheme: Theme = savedTheme === "light" || savedTheme === "dark" ? savedTheme : window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-    const timer = window.setTimeout(() => setTheme(initialTheme), 0);
+    const timer = window.setTimeout(() => { setTheme(initialTheme); if (savedPrimary) setPrimaryColor(savedPrimary); if (savedSecondary) setSecondaryColor(savedSecondary); }, 0);
     return () => window.clearTimeout(timer);
   }, []);
 
@@ -122,6 +144,22 @@ export default function FantasyHub({ accountUser }: { accountUser: AccountUser |
     document.documentElement.style.colorScheme = theme;
     window.localStorage.setItem("fantasy-hub-theme", theme);
   }, [theme]);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    const primaryRgb = colorChannels(primaryColor).join(" ");
+    const secondaryRgb = colorChannels(secondaryColor).join(" ");
+    root.style.setProperty("--green", primaryColor);
+    root.style.setProperty("--green-2", mixColor(primaryColor, 255, .16));
+    root.style.setProperty("--deep", mixColor(primaryColor, 0, .62));
+    root.style.setProperty("--lime", secondaryColor);
+    root.style.setProperty("--gold", mixColor(secondaryColor, 0, .08));
+    root.style.setProperty("--gold-light", mixColor(secondaryColor, 255, .22));
+    root.style.setProperty("--brand-primary-rgb", primaryRgb);
+    root.style.setProperty("--brand-secondary-rgb", secondaryRgb);
+    window.localStorage.setItem("fantasy-hub-primary", primaryColor);
+    window.localStorage.setItem("fantasy-hub-secondary", secondaryColor);
+  }, [primaryColor, secondaryColor]);
 
   useEffect(() => {
     if (!accountUser) return;
@@ -305,7 +343,7 @@ export default function FantasyHub({ accountUser }: { accountUser: AccountUser |
         {view === "Trade Lab" && <TradeLab key={`${leagueId}-${selectedTeamId}`} teams={leagueTeams} selectedTeamId={selectedTeamId} rankings={leagueRankings} context={rankingContext} />}
         {view === "Matchups" && (rosterReady ? <Matchups key={`${leagueId}-${defaultGameWeek}`} players={players} season={selectedConnectedLeague?.season ?? "2026"} defaultWeek={defaultGameWeek} /> : rosterEmptyState)}
         {view === "Simulator" && (rosterReady ? <Simulator key={`${leagueId}-${selectedTeamId}`} simulations={simulations} setSimulations={setSimulations} leagueId={leagueId} teams={leagueTeams} selectedTeamId={selectedTeamId} context={rankingContext} /> : rosterEmptyState)}
-        {view === "Manage Leagues" && <ManageLeagues connectedLeagues={availableLeagues} managedLeagues={managedLeagues} accountError={accountError} onOpen={async (league) => { setView("Command Center"); await openConnectedLeague(league); }} onAdd={addManagedLeague} onRemove={removeManagedLeague} />}
+        {view === "Manage Leagues" && <ManageLeagues connectedLeagues={availableLeagues} managedLeagues={managedLeagues} accountError={accountError} primaryColor={primaryColor} secondaryColor={secondaryColor} onColorsChange={(primary, secondary) => { setPrimaryColor(primary); setSecondaryColor(secondary); }} onOpen={async (league) => { setView("Command Center"); await openConnectedLeague(league); }} onAdd={addManagedLeague} onRemove={removeManagedLeague} />}
       </section>
 
       {selectedPlayer && <PlayerPanel key={selectedPlayer.id} player={selectedPlayer} close={() => setSelectedPlayer(null)} />}
@@ -327,7 +365,7 @@ function EmptyRoster({ leagueSelected, loading, leagueName }: { leagueSelected: 
   return <div className="page-content"><SectionIntro kicker={loading ? "LOADING LEAGUE" : "ROSTER NOT AVAILABLE"} title={title} text={text} /><section className="panel scoreboard-empty">{loading ? "Loading league data…" : leagueSelected ? "No players have been assigned to your roster." : "No league selected."}</section></div>;
 }
 
-function ManageLeagues({ connectedLeagues, managedLeagues, accountError, onOpen, onAdd, onRemove }: { connectedLeagues: ConnectedLeague[]; managedLeagues: ManagedLeague[]; accountError: string; onOpen: (league: ConnectedLeague) => Promise<void>; onAdd: (provider: LeagueProvider, identifierType: "username" | "league_id", identifier: string) => Promise<void>; onRemove: (id: string) => Promise<void> }) {
+function ManageLeagues({ connectedLeagues, managedLeagues, accountError, primaryColor, secondaryColor, onColorsChange, onOpen, onAdd, onRemove }: { connectedLeagues: ConnectedLeague[]; managedLeagues: ManagedLeague[]; accountError: string; primaryColor: string; secondaryColor: string; onColorsChange: (primary: string, secondary: string) => void; onOpen: (league: ConnectedLeague) => Promise<void>; onAdd: (provider: LeagueProvider, identifierType: "username" | "league_id", identifier: string) => Promise<void>; onRemove: (id: string) => Promise<void> }) {
   const [provider, setProvider] = useState<LeagueProvider>("sleeper");
   const [identifierType, setIdentifierType] = useState<"username" | "league_id">("username");
   const [identifier, setIdentifier] = useState("");
@@ -359,6 +397,7 @@ function ManageLeagues({ connectedLeagues, managedLeagues, accountError, onOpen,
 
   return <div className="page-content manage-leagues">
     <section className="manage-hero"><div><span>YOUR FANTASY UNIVERSE</span><h2>Every league.<br /><em>One command center.</em></h2><p>Connect with a username or add a specific league ID. Each connection is saved only to your Fantasy Hub account.</p></div><div className="manage-count"><strong>{connectedLeagues.length + managedLeagues.filter((item) => item.provider !== "sleeper").length}</strong><span>LEAGUES & ACCOUNTS</span></div></section>
+    <section className="appearance-panel panel"><div className="panel-header"><div><span>PERSONALIZE YOUR HUB</span><h3>Make the dashboard yours</h3></div><button onClick={() => onColorsChange(defaultColors.primary, defaultColors.secondary)}>Reset colors</button></div><p>Primary color shapes the dashboard foundation. Secondary color controls highlights, active navigation, and key accents. Your selection is saved on this device.</p><div className="color-controls"><label><span>Primary color</span><input type="color" value={primaryColor} onChange={(event) => onColorsChange(event.target.value, secondaryColor)} /><b>{primaryColor.toUpperCase()}</b></label><label><span>Secondary color</span><input type="color" value={secondaryColor} onChange={(event) => onColorsChange(primaryColor, event.target.value)} /><b>{secondaryColor.toUpperCase()}</b></label><div className="palette-presets" role="group" aria-label="Color palette presets">{colorPalettes.map((palette) => <button key={palette.name} className={palette.primary === primaryColor && palette.secondary === secondaryColor ? "active" : ""} onClick={() => onColorsChange(palette.primary, palette.secondary)}><i style={{ background: `linear-gradient(135deg, ${palette.primary} 0 50%, ${palette.secondary} 50%)` }} /><span>{palette.name}</span></button>)}</div></div></section>
     <section className="provider-grid" aria-label="Fantasy providers">{providers.map((item) => <button key={item.id} className={provider === item.id ? `active provider-${item.id}` : `provider-${item.id}`} onClick={() => { setProvider(item.id); setError(""); setSuccess(""); }}><i>{item.short}</i><span><strong>{item.name}</strong><small>{item.description}</small></span>{provider === item.id && <b>SELECTED</b>}</button>)}</section>
     <section className="manage-connect panel"><div className="panel-header"><div><span>ADD FROM {selectedProvider.name.toUpperCase()}</span><h3>Connect another league</h3></div></div><div className="manage-form"><div className="method-toggle"><button className={identifierType === "username" ? "active" : ""} onClick={() => setIdentifierType("username")}>Username</button><button className={identifierType === "league_id" ? "active" : ""} onClick={() => setIdentifierType("league_id")}>League ID</button></div><label>{identifierType === "username" ? `${selectedProvider.name} username` : `${selectedProvider.name} league ID`}<input value={identifier} onChange={(event) => setIdentifier(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void addLeague(); }} placeholder={identifierType === "username" ? `Enter ${selectedProvider.name} username` : provider === "yahoo" ? "League ID or 461.l.12345" : "Enter numeric league ID"} autoComplete="off" /></label><button className="manage-add" onClick={() => void addLeague()} disabled={busy || !identifier.trim()}>{busy ? "Connecting…" : provider === "sleeper" ? "Connect league" : "Save league"}</button></div>{(error || accountError) && <p className="manage-message error">{error || accountError}</p>}{success && <p className="manage-message success">{success}</p>}<div className={`provider-note ${provider}`}><b>{provider === "sleeper" ? "LIVE CONNECTION" : provider === "yahoo" ? "AUTHORIZATION NEEDED" : "SAVED REFERENCE"}</b><p>{provider === "sleeper" ? "Username finds every team you own. League ID adds one public league directly." : provider === "yahoo" ? "Yahoo requires account authorization before Fantasy Hub can read private rosters or scoring." : "ESPN league IDs are saved now. Live roster sync is not shown until a reliable provider connection is available."}</p></div></section>
     <section className="managed-list panel"><div className="panel-header"><div><span>CONNECTED SOURCES</span><h3>Your leagues and accounts</h3></div><b>{connectedLeagues.length + managedLeagues.length} records</b></div>{connectedLeagues.map((league) => <article key={`live-${league.id}`}><i className="provider-badge sleeper">S</i><p><strong>{league.name}</strong><small>Sleeper · {league.season} · {league.teams} teams · {league.format} · {league.scoring}</small></p><span className="connection-status live">● LIVE</span><button className="open-league" onClick={() => void onOpen(league)}>Open</button></article>)}{managedLeagues.map((league) => <article key={league.id}><i className={`provider-badge ${league.provider}`}>{league.provider === "yahoo" ? "Y!" : league.provider.slice(0, 1).toUpperCase()}</i><p><strong>{league.identifier}</strong><small>{league.provider[0].toUpperCase() + league.provider.slice(1)} · {league.identifierType === "league_id" ? "League ID" : "Username"}</small></p><span className={`connection-status ${league.status}`}>{league.status === "live" ? "CONNECTED" : league.status === "oauth_required" ? "AUTH NEEDED" : "SAVED"}</span><button className="remove-league" onClick={() => void onRemove(league.id)} aria-label={`Remove ${league.identifier}`}>Remove</button></article>)}{!connectedLeagues.length && !managedLeagues.length && <div className="managed-empty"><strong>No leagues added yet</strong><p>Choose a provider above and enter a username or league ID to get started.</p></div>}</section>
