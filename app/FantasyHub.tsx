@@ -2503,11 +2503,6 @@ function ManageLeagues({
               <b>NO PASSWORD SHARING</b>
             </div>
             <p>The extension reads your league while you are signed into ESPN and sends league data—not your password or ESPN cookies—to Fantasy Hub.</p>
-            <div className="espn-sync-steps">
-              <span><b>1</b><strong>Download the extension</strong><small>Extract the ZIP, open chrome://extensions, enable Developer mode, and choose Load unpacked.</small></span>
-              <span><b>2</b><strong>Open your ESPN league</strong><small>Stay signed into ESPN and open the private football league you want to add.</small></span>
-              <span><b>3</b><strong>Pair and sync</strong><small>Generate a code below, open the extension, choose your team, then return here.</small></span>
-            </div>
             <div className="espn-sync-actions">
               <a className="manage-add" href="/extensions/fantasy-hub-espn-sync.zip" download>Download extension</a>
               <button className="manage-add secondary" onClick={() => void createEspnPairing()} disabled={busy}>{busy ? "Generating…" : "Generate pairing code"}</button>
@@ -2519,6 +2514,30 @@ function ManageLeagues({
                 <button onClick={() => void navigator.clipboard.writeText(pairing.code)}>Copy code</button>
               </div>
             )}
+            <div className="espn-detailed-instructions">
+              <header><span>COMPLETE SETUP GUIDE</span><strong>Chrome desktop · Extension v0.1.4</strong></header>
+              <ol>
+                <li><b>1</b><span><strong>Download and extract the extension</strong><small>Click <em>Download extension</em> above. Open your Downloads folder and double-click the ZIP so you have a normal folder containing manifest.json, popup.html, popup.js, and popup.css.</small></span></li>
+                <li><b>2</b><span><strong>Open Chrome’s extension manager</strong><small>Type <code>chrome://extensions</code> into Chrome’s address bar and press Return. Turn on <em>Developer mode</em> in the upper-right corner.</small></span></li>
+                <li><b>3</b><span><strong>Install the extracted folder</strong><small>Click <em>Load unpacked</em> near the upper-left and select the extracted folder—not the ZIP and not popup.html. Confirm the card says Fantasy Hub ESPN Sync version 0.1.4.</small></span></li>
+                <li><b>4</b><span><strong>Pin the extension</strong><small>Click Chrome’s puzzle-piece icon and pin Fantasy Hub ESPN Sync. Always open it from this toolbar icon; do not open popup.html directly.</small></span></li>
+                <li><b>5</b><span><strong>Open both signed-in sites</strong><small>Keep Fantasy Hub open and signed in in one Chrome tab. In another tab, sign into ESPN and open the private fantasy football league you want to connect.</small></span></li>
+                <li><b>6</b><span><strong>Create a fresh pairing code</strong><small>Return here and click <em>Generate pairing code</em>. Copy the one-time code. It expires after ten minutes and must be regenerated after a failed or completed attempt.</small></span></li>
+                <li><b>7</b><span><strong>Load your ESPN league</strong><small>Return to the ESPN league tab and open the pinned extension. Paste the pairing code. Confirm the League ID and season, then click <em>Load teams from ESPN</em>.</small></span></li>
+                <li><b>8</b><span><strong>Select your team and sync</strong><small>Choose the team you manage and click <em>Sync to Fantasy Hub</em>. Wait for the green success message before closing the extension.</small></span></li>
+                <li><b>9</b><span><strong>Refresh Fantasy Hub</strong><small>Return here and click <em>Refresh synced leagues</em>. Your ESPN league should then appear with your selected roster across Fantasy Hub.</small></span></li>
+              </ol>
+              <aside>
+                <strong>If syncing does not complete</strong>
+                <ul>
+                  <li>Verify the installed extension card shows version 0.1.4.</li>
+                  <li>Keep both Fantasy Hub and the correct ESPN league open and signed in.</li>
+                  <li>Generate a new pairing code for every retry.</li>
+                  <li>Remove older extension versions instead of loading multiple copies.</li>
+                  <li>Use desktop Chrome, Edge, or Brave; mobile browsers cannot load this preliminary extension.</li>
+                </ul>
+              </aside>
+            </div>
           </section>
         )}
         {espnSelection && (
