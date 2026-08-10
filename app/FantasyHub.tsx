@@ -965,7 +965,9 @@ export default function FantasyHub({
   const [accountError, setAccountError] = useState("");
   const [theme, setTheme] = useState<Theme>("light");
   const [teamTheme, setTeamTheme] = useState("GB");
+  const [draggedLeagueId, setDraggedLeagueId] = useState("");
   const importRequest = useRef(0);
+  const leagueDragOccurred = useRef(false);
 
   useEffect(() => {
     const savedTheme = window.localStorage.getItem("fantasy-hub-theme");
@@ -1192,6 +1194,27 @@ export default function FantasyHub({
         ordered[nextIndex],
         ordered[currentIndex],
       ];
+      window.localStorage.setItem(
+        "fantasy-hub-league-order",
+        JSON.stringify(ordered.map((league) => league.id)),
+      );
+      return ordered;
+    });
+  }
+
+  function dropConnectedLeague(targetLeagueId: string) {
+    if (!draggedLeagueId || draggedLeagueId === targetLeagueId) return;
+    setAvailableLeagues((current) => {
+      const fromIndex = current.findIndex(
+        (league) => league.id === draggedLeagueId,
+      );
+      const targetIndex = current.findIndex(
+        (league) => league.id === targetLeagueId,
+      );
+      if (fromIndex < 0 || targetIndex < 0) return current;
+      const ordered = [...current];
+      const [moved] = ordered.splice(fromIndex, 1);
+      ordered.splice(targetIndex, 0, moved);
       window.localStorage.setItem(
         "fantasy-hub-league-order",
         JSON.stringify(ordered.map((league) => league.id)),
@@ -1435,14 +1458,53 @@ export default function FantasyHub({
                 automatically.
               </small>
             </div>
-            <div className="league-pills">
+            <div
+              className={`league-pills ${draggedLeagueId ? "drag-active" : ""}`}
+            >
               {availableLeagues.map((league) => (
                 <button
                   key={league.id}
-                  className={leagueId === league.id ? "active" : ""}
-                  onClick={() => openConnectedLeague(league)}
+                  className={`${leagueId === league.id ? "active" : ""} ${draggedLeagueId === league.id ? "dragging" : ""}`}
+                  draggable
+                  onDragStart={(event) => {
+                    leagueDragOccurred.current = true;
+                    setDraggedLeagueId(league.id);
+                    event.dataTransfer.effectAllowed = "move";
+                    event.dataTransfer.setData("text/plain", league.id);
+                  }}
+                  onDragOver={(event) => {
+                    event.preventDefault();
+                    event.dataTransfer.dropEffect = "move";
+                  }}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    dropConnectedLeague(league.id);
+                  }}
+                  onDragEnd={() => {
+                    setDraggedLeagueId("");
+                    window.setTimeout(() => {
+                      leagueDragOccurred.current = false;
+                    }, 0);
+                  }}
+                  onKeyDown={(event) => {
+                    if (!event.altKey) return;
+                    if (event.key === "ArrowLeft") {
+                      event.preventDefault();
+                      moveConnectedLeague(league.id, -1);
+                    }
+                    if (event.key === "ArrowRight") {
+                      event.preventDefault();
+                      moveConnectedLeague(league.id, 1);
+                    }
+                  }}
+                  onClick={() => {
+                    if (!leagueDragOccurred.current)
+                      void openConnectedLeague(league);
+                  }}
                   disabled={importState === "loading"}
+                  title="Drag to reorder · Alt+Left/Right also moves this league"
                 >
+                  <i className="league-drag-handle" aria-hidden="true">⋮⋮</i>
                   <b>{league.name}</b>
                   <small>
                     {league.season} · {league.teams} teams · {league.format} ·{" "}
