@@ -44,14 +44,24 @@ const nav: { label: View; mark: string }[] = [
 
 const normalizeNflTeam = (team: string) => ({ JAC: "JAX", WSH: "WAS" } as Record<string, string>)[team] ?? team;
 const isStartingPlayer = (player: Player) => !["Bench", "IR", "TAXI"].includes(player.role);
-const defaultColors = { primary: "#0b8650", secondary: "#f1b432" };
-const colorPalettes = [
-  { name: "Field", primary: "#0b8650", secondary: "#f1b432" },
-  { name: "Midnight", primary: "#142b52", secondary: "#5bc0eb" },
-  { name: "Royal", primary: "#3d2c8d", secondary: "#f4c95d" },
-  { name: "Fire", primary: "#9f2d20", secondary: "#ffb000" },
-  { name: "Coastal", primary: "#006d77", secondary: "#83c5be" },
-];
+const nflThemes = [
+  { id:"ARI",name:"Arizona Cardinals",primary:"#97233F",secondary:"#000000" },{ id:"ATL",name:"Atlanta Falcons",primary:"#A71930",secondary:"#000000" },
+  { id:"BAL",name:"Baltimore Ravens",primary:"#241773",secondary:"#9E7C0C" },{ id:"BUF",name:"Buffalo Bills",primary:"#00338D",secondary:"#C60C30" },
+  { id:"CAR",name:"Carolina Panthers",primary:"#0085CA",secondary:"#101820" },{ id:"CHI",name:"Chicago Bears",primary:"#0B162A",secondary:"#C83803" },
+  { id:"CIN",name:"Cincinnati Bengals",primary:"#FB4F14",secondary:"#000000" },{ id:"CLE",name:"Cleveland Browns",primary:"#311D00",secondary:"#FF3C00" },
+  { id:"DAL",name:"Dallas Cowboys",primary:"#003594",secondary:"#869397" },{ id:"DEN",name:"Denver Broncos",primary:"#FB4F14",secondary:"#002244" },
+  { id:"DET",name:"Detroit Lions",primary:"#0076B6",secondary:"#B0B7BC" },{ id:"GB",name:"Green Bay Packers",primary:"#203731",secondary:"#FFB612" },
+  { id:"HOU",name:"Houston Texans",primary:"#03202F",secondary:"#A71930" },{ id:"IND",name:"Indianapolis Colts",primary:"#002C5F",secondary:"#A2AAAD" },
+  { id:"JAX",name:"Jacksonville Jaguars",primary:"#006778",secondary:"#D7A22A" },{ id:"KC",name:"Kansas City Chiefs",primary:"#E31837",secondary:"#FFB81C" },
+  { id:"LV",name:"Las Vegas Raiders",primary:"#000000",secondary:"#A5ACAF" },{ id:"LAC",name:"Los Angeles Chargers",primary:"#0080C6",secondary:"#FFC20E" },
+  { id:"LAR",name:"Los Angeles Rams",primary:"#003594",secondary:"#FFA300" },{ id:"MIA",name:"Miami Dolphins",primary:"#008E97",secondary:"#FC4C02" },
+  { id:"MIN",name:"Minnesota Vikings",primary:"#4F2683",secondary:"#FFC62F" },{ id:"NE",name:"New England Patriots",primary:"#002244",secondary:"#C60C30" },
+  { id:"NO",name:"New Orleans Saints",primary:"#101820",secondary:"#D3BC8D" },{ id:"NYG",name:"New York Giants",primary:"#0B2265",secondary:"#A71930" },
+  { id:"NYJ",name:"New York Jets",primary:"#125740",secondary:"#000000" },{ id:"PHI",name:"Philadelphia Eagles",primary:"#004C54",secondary:"#A5ACAF" },
+  { id:"PIT",name:"Pittsburgh Steelers",primary:"#101820",secondary:"#FFB612" },{ id:"SF",name:"San Francisco 49ers",primary:"#AA0000",secondary:"#B3995D" },
+  { id:"SEA",name:"Seattle Seahawks",primary:"#002244",secondary:"#69BE28" },{ id:"TB",name:"Tampa Bay Buccaneers",primary:"#D50A0A",secondary:"#34302B" },
+  { id:"TEN",name:"Tennessee Titans",primary:"#0C2340",secondary:"#4B92DB" },{ id:"WAS",name:"Washington Commanders",primary:"#5A1414",secondary:"#FFB612" },
+] as const;
 
 function colorChannels(hex: string) {
   const value = /^#[0-9a-f]{6}$/i.test(hex) ? hex.slice(1) : "0b8650";
@@ -126,16 +136,14 @@ export default function FantasyHub({ accountUser }: { accountUser: AccountUser |
   const [accountLoading, setAccountLoading] = useState(Boolean(accountUser));
   const [accountError, setAccountError] = useState("");
   const [theme, setTheme] = useState<Theme>("light");
-  const [primaryColor, setPrimaryColor] = useState(defaultColors.primary);
-  const [secondaryColor, setSecondaryColor] = useState(defaultColors.secondary);
+  const [teamTheme, setTeamTheme] = useState("GB");
   const importRequest = useRef(0);
 
   useEffect(() => {
     const savedTheme = window.localStorage.getItem("fantasy-hub-theme");
-    const savedPrimary = window.localStorage.getItem("fantasy-hub-primary");
-    const savedSecondary = window.localStorage.getItem("fantasy-hub-secondary");
+    const savedTeamTheme = window.localStorage.getItem("fantasy-hub-team-theme");
     const initialTheme: Theme = savedTheme === "light" || savedTheme === "dark" ? savedTheme : window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-    const timer = window.setTimeout(() => { setTheme(initialTheme); if (savedPrimary) setPrimaryColor(savedPrimary); if (savedSecondary) setSecondaryColor(savedSecondary); }, 0);
+    const timer = window.setTimeout(() => { setTheme(initialTheme); if (savedTeamTheme && nflThemes.some((team) => team.id === savedTeamTheme)) setTeamTheme(savedTeamTheme); }, 0);
     return () => window.clearTimeout(timer);
   }, []);
 
@@ -147,6 +155,10 @@ export default function FantasyHub({ accountUser }: { accountUser: AccountUser |
 
   useEffect(() => {
     const root = document.documentElement;
+    const selectedTheme = nflThemes.find((team) => team.id === teamTheme) ?? nflThemes.find((team) => team.id === "GB")!;
+    const primaryColor = selectedTheme.primary;
+    const secondaryBrightness = colorChannels(selectedTheme.secondary).reduce((sum, channel) => sum + channel, 0) / 3;
+    const secondaryColor = secondaryBrightness < 80 ? mixColor(selectedTheme.secondary, 255, .48) : selectedTheme.secondary;
     const primaryRgb = colorChannels(primaryColor).join(" ");
     const secondaryRgb = colorChannels(secondaryColor).join(" ");
     root.style.setProperty("--green", primaryColor);
@@ -157,9 +169,11 @@ export default function FantasyHub({ accountUser }: { accountUser: AccountUser |
     root.style.setProperty("--gold-light", mixColor(secondaryColor, 255, .22));
     root.style.setProperty("--brand-primary-rgb", primaryRgb);
     root.style.setProperty("--brand-secondary-rgb", secondaryRgb);
-    window.localStorage.setItem("fantasy-hub-primary", primaryColor);
-    window.localStorage.setItem("fantasy-hub-secondary", secondaryColor);
-  }, [primaryColor, secondaryColor]);
+    root.dataset.nflTheme = selectedTheme.id;
+    window.localStorage.setItem("fantasy-hub-team-theme", selectedTheme.id);
+    window.localStorage.removeItem("fantasy-hub-primary");
+    window.localStorage.removeItem("fantasy-hub-secondary");
+  }, [teamTheme]);
 
   useEffect(() => {
     if (!accountUser) return;
@@ -343,7 +357,7 @@ export default function FantasyHub({ accountUser }: { accountUser: AccountUser |
         {view === "Trade Lab" && <TradeLab key={`${leagueId}-${selectedTeamId}`} teams={leagueTeams} selectedTeamId={selectedTeamId} rankings={leagueRankings} context={rankingContext} />}
         {view === "Matchups" && (rosterReady ? <Matchups key={`${leagueId}-${defaultGameWeek}`} players={players} season={selectedConnectedLeague?.season ?? "2026"} defaultWeek={defaultGameWeek} /> : rosterEmptyState)}
         {view === "Simulator" && (rosterReady ? <Simulator key={`${leagueId}-${selectedTeamId}`} simulations={simulations} setSimulations={setSimulations} leagueId={leagueId} teams={leagueTeams} selectedTeamId={selectedTeamId} context={rankingContext} /> : rosterEmptyState)}
-        {view === "Manage Leagues" && <ManageLeagues connectedLeagues={availableLeagues} managedLeagues={managedLeagues} accountError={accountError} primaryColor={primaryColor} secondaryColor={secondaryColor} onColorsChange={(primary, secondary) => { setPrimaryColor(primary); setSecondaryColor(secondary); }} onOpen={async (league) => { setView("Command Center"); await openConnectedLeague(league); }} onAdd={addManagedLeague} onRemove={removeManagedLeague} />}
+        {view === "Manage Leagues" && <ManageLeagues connectedLeagues={availableLeagues} managedLeagues={managedLeagues} accountError={accountError} teamTheme={teamTheme} onTeamThemeChange={setTeamTheme} onOpen={async (league) => { setView("Command Center"); await openConnectedLeague(league); }} onAdd={addManagedLeague} onRemove={removeManagedLeague} />}
       </section>
 
       {selectedPlayer && <PlayerPanel key={selectedPlayer.id} player={selectedPlayer} close={() => setSelectedPlayer(null)} />}
@@ -365,7 +379,7 @@ function EmptyRoster({ leagueSelected, loading, leagueName }: { leagueSelected: 
   return <div className="page-content"><SectionIntro kicker={loading ? "LOADING LEAGUE" : "ROSTER NOT AVAILABLE"} title={title} text={text} /><section className="panel scoreboard-empty">{loading ? "Loading league data…" : leagueSelected ? "No players have been assigned to your roster." : "No league selected."}</section></div>;
 }
 
-function ManageLeagues({ connectedLeagues, managedLeagues, accountError, primaryColor, secondaryColor, onColorsChange, onOpen, onAdd, onRemove }: { connectedLeagues: ConnectedLeague[]; managedLeagues: ManagedLeague[]; accountError: string; primaryColor: string; secondaryColor: string; onColorsChange: (primary: string, secondary: string) => void; onOpen: (league: ConnectedLeague) => Promise<void>; onAdd: (provider: LeagueProvider, identifierType: "username" | "league_id", identifier: string) => Promise<void>; onRemove: (id: string) => Promise<void> }) {
+function ManageLeagues({ connectedLeagues, managedLeagues, accountError, teamTheme, onTeamThemeChange, onOpen, onAdd, onRemove }: { connectedLeagues: ConnectedLeague[]; managedLeagues: ManagedLeague[]; accountError: string; teamTheme: string; onTeamThemeChange: (team: string) => void; onOpen: (league: ConnectedLeague) => Promise<void>; onAdd: (provider: LeagueProvider, identifierType: "username" | "league_id", identifier: string) => Promise<void>; onRemove: (id: string) => Promise<void> }) {
   const [provider, setProvider] = useState<LeagueProvider>("sleeper");
   const [identifierType, setIdentifierType] = useState<"username" | "league_id">("username");
   const [identifier, setIdentifier] = useState("");
@@ -378,6 +392,7 @@ function ManageLeagues({ connectedLeagues, managedLeagues, accountError, primary
     { id: "yahoo", name: "Yahoo", short: "Y!", description: "Save your league reference, then authorize Yahoo when OAuth is available." },
   ];
   const selectedProvider = providers.find((item) => item.id === provider)!;
+  const selectedNflTheme = nflThemes.find((team) => team.id === teamTheme) ?? nflThemes[0];
 
   async function addLeague() {
     if (!identifier.trim()) return;
@@ -397,7 +412,7 @@ function ManageLeagues({ connectedLeagues, managedLeagues, accountError, primary
 
   return <div className="page-content manage-leagues">
     <section className="manage-hero"><div><span>YOUR FANTASY UNIVERSE</span><h2>Every league.<br /><em>One command center.</em></h2><p>Connect with a username or add a specific league ID. Each connection is saved only to your Fantasy Hub account.</p></div><div className="manage-count"><strong>{connectedLeagues.length + managedLeagues.filter((item) => item.provider !== "sleeper").length}</strong><span>LEAGUES & ACCOUNTS</span></div></section>
-    <section className="appearance-panel panel"><div className="panel-header"><div><span>PERSONALIZE YOUR HUB</span><h3>Make the dashboard yours</h3></div><button onClick={() => onColorsChange(defaultColors.primary, defaultColors.secondary)}>Reset colors</button></div><p>Primary color shapes the dashboard foundation. Secondary color controls highlights, active navigation, and key accents. Your selection is saved on this device.</p><div className="color-controls"><label><span>Primary color</span><input type="color" value={primaryColor} onChange={(event) => onColorsChange(event.target.value, secondaryColor)} /><b>{primaryColor.toUpperCase()}</b></label><label><span>Secondary color</span><input type="color" value={secondaryColor} onChange={(event) => onColorsChange(primaryColor, event.target.value)} /><b>{secondaryColor.toUpperCase()}</b></label><div className="palette-presets" role="group" aria-label="Color palette presets">{colorPalettes.map((palette) => <button key={palette.name} className={palette.primary === primaryColor && palette.secondary === secondaryColor ? "active" : ""} onClick={() => onColorsChange(palette.primary, palette.secondary)}><i style={{ background: `linear-gradient(135deg, ${palette.primary} 0 50%, ${palette.secondary} 50%)` }} /><span>{palette.name}</span></button>)}</div></div></section>
+    <section className="appearance-panel panel"><div className="panel-header"><div><span>PERSONALIZE YOUR HUB</span><h3>Choose your NFL team theme</h3></div><label>Team<select value={teamTheme} onChange={(event) => onTeamThemeChange(event.target.value)}>{nflThemes.map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}</select></label></div><p>The selected team’s official-style primary and secondary palette carries across dashboard backgrounds, navigation, feature headers, cards, and highlights in both light and dark mode. Your selection is saved on this device.</p><div className="selected-team-theme"><i style={{ background: `linear-gradient(135deg, ${selectedNflTheme.primary} 0 50%, ${selectedNflTheme.secondary} 50%)` }} /><span><strong>{selectedNflTheme.name}</strong><small>{selectedNflTheme.primary} · {selectedNflTheme.secondary}</small></span></div><div className="team-theme-grid" role="group" aria-label="NFL team themes">{nflThemes.map((team) => <button key={team.id} className={team.id === teamTheme ? "active" : ""} onClick={() => onTeamThemeChange(team.id)} aria-pressed={team.id === teamTheme}><i style={{ background: `linear-gradient(135deg, ${team.primary} 0 50%, ${team.secondary} 50%)` }} /><span>{team.id}</span><small>{team.name.replace(/^(Arizona|Atlanta|Baltimore|Buffalo|Carolina|Chicago|Cincinnati|Cleveland|Dallas|Denver|Detroit|Green Bay|Houston|Indianapolis|Jacksonville|Kansas City|Las Vegas|Los Angeles|Miami|Minnesota|New England|New Orleans|New York|Philadelphia|Pittsburgh|San Francisco|Seattle|Tampa Bay|Tennessee|Washington) /, "")}</small></button>)}</div></section>
     <section className="provider-grid" aria-label="Fantasy providers">{providers.map((item) => <button key={item.id} className={provider === item.id ? `active provider-${item.id}` : `provider-${item.id}`} onClick={() => { setProvider(item.id); setError(""); setSuccess(""); }}><i>{item.short}</i><span><strong>{item.name}</strong><small>{item.description}</small></span>{provider === item.id && <b>SELECTED</b>}</button>)}</section>
     <section className="manage-connect panel"><div className="panel-header"><div><span>ADD FROM {selectedProvider.name.toUpperCase()}</span><h3>Connect another league</h3></div></div><div className="manage-form"><div className="method-toggle"><button className={identifierType === "username" ? "active" : ""} onClick={() => setIdentifierType("username")}>Username</button><button className={identifierType === "league_id" ? "active" : ""} onClick={() => setIdentifierType("league_id")}>League ID</button></div><label>{identifierType === "username" ? `${selectedProvider.name} username` : `${selectedProvider.name} league ID`}<input value={identifier} onChange={(event) => setIdentifier(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void addLeague(); }} placeholder={identifierType === "username" ? `Enter ${selectedProvider.name} username` : provider === "yahoo" ? "League ID or 461.l.12345" : "Enter numeric league ID"} autoComplete="off" /></label><button className="manage-add" onClick={() => void addLeague()} disabled={busy || !identifier.trim()}>{busy ? "Connecting…" : provider === "sleeper" ? "Connect league" : "Save league"}</button></div>{(error || accountError) && <p className="manage-message error">{error || accountError}</p>}{success && <p className="manage-message success">{success}</p>}<div className={`provider-note ${provider}`}><b>{provider === "sleeper" ? "LIVE CONNECTION" : provider === "yahoo" ? "AUTHORIZATION NEEDED" : "SAVED REFERENCE"}</b><p>{provider === "sleeper" ? "Username finds every team you own. League ID adds one public league directly." : provider === "yahoo" ? "Yahoo requires account authorization before Fantasy Hub can read private rosters or scoring." : "ESPN league IDs are saved now. Live roster sync is not shown until a reliable provider connection is available."}</p></div></section>
     <section className="managed-list panel"><div className="panel-header"><div><span>CONNECTED SOURCES</span><h3>Your leagues and accounts</h3></div><b>{connectedLeagues.length + managedLeagues.length} records</b></div>{connectedLeagues.map((league) => <article key={`live-${league.id}`}><i className="provider-badge sleeper">S</i><p><strong>{league.name}</strong><small>Sleeper · {league.season} · {league.teams} teams · {league.format} · {league.scoring}</small></p><span className="connection-status live">● LIVE</span><button className="open-league" onClick={() => void onOpen(league)}>Open</button></article>)}{managedLeagues.map((league) => <article key={league.id}><i className={`provider-badge ${league.provider}`}>{league.provider === "yahoo" ? "Y!" : league.provider.slice(0, 1).toUpperCase()}</i><p><strong>{league.identifier}</strong><small>{league.provider[0].toUpperCase() + league.provider.slice(1)} · {league.identifierType === "league_id" ? "League ID" : "Username"}</small></p><span className={`connection-status ${league.status}`}>{league.status === "live" ? "CONNECTED" : league.status === "oauth_required" ? "AUTH NEEDED" : "SAVED"}</span><button className="remove-league" onClick={() => void onRemove(league.id)} aria-label={`Remove ${league.identifier}`}>Remove</button></article>)}{!connectedLeagues.length && !managedLeagues.length && <div className="managed-empty"><strong>No leagues added yet</strong><p>Choose a provider above and enter a username or league ID to get started.</p></div>}</section>
