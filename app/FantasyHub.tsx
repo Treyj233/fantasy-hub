@@ -272,6 +272,7 @@ export default function FantasyHub({ accountUser }: { accountUser: AccountUser |
   const visibleNav = nav.filter((item) => item.label !== "Dynasty Analytics" || isDynastyLeague);
   const rosterReady = players.length > 0;
   const periodLabel = leagueStatus === "pre_draft" || leagueWeek < 1 ? "PRESEASON" : leagueStatus === "complete" ? "SEASON COMPLETE" : `WEEK ${leagueWeek}`;
+  const defaultGameWeek = leagueStatus === "pre_draft" || leagueWeek < 1 ? 1 : Math.min(18, leagueWeek);
   const rosterEmptyState = <EmptyRoster leagueSelected={Boolean(leagueId)} loading={importState === "loading"} leagueName={leagueName} />;
 
   if (!accountUser) return <SignInScreen />;
@@ -293,8 +294,8 @@ export default function FantasyHub({ accountUser }: { accountUser: AccountUser |
         {view !== "Manage Leagues" && leagueTeams.length > 1 && <section className={`team-picker-strip ${selectedTeamId ? "selected" : ""}`}><div><span>{selectedTeamId ? "YOUR TEAM IS ACTIVE" : "ONE MORE STEP"}</span><strong>{selectedLeagueTeam ? selectedLeagueTeam.teamName : "Which team is yours?"}</strong><small>{selectedLeagueTeam ? `Managed by ${selectedLeagueTeam.managerName}. Your roster now powers every dashboard view.` : "Choose your fantasy team so another manager’s roster never replaces yours."}</small></div><label>Fantasy team<select value={selectedTeamId} onChange={(event) => selectLeagueTeam(event.target.value)}><option value="">Choose your team</option>{leagueTeams.map((team) => <option key={team.id} value={team.id}>{team.teamName} · {team.managerName}</option>)}</select></label></section>}
 
         {view === "Command Center" && (rosterReady ? <CommandCenter players={players} waiverPlayers={waiverPlayers} totals={totals} setView={setView} setSelectedPlayer={setSelectedPlayer} starterChoice={starterChoice} setStarterChoice={setStarterChoice} periodLabel={periodLabel} /> : rosterEmptyState)}
-        {view === "Scoreboard" && <Scoreboard leagueId={leagueId} />}
-        {view === "NFL Games" && <NflGames leagueId={leagueId} />}
+        {view === "Scoreboard" && <Scoreboard key={`${leagueId}-${defaultGameWeek}`} leagueId={leagueId} defaultWeek={defaultGameWeek} />}
+        {view === "NFL Games" && <NflGames key={`${leagueId}-${defaultGameWeek}`} leagueId={leagueId} defaultWeek={defaultGameWeek} />}
         {view === "Dynasty Analytics" && isDynastyLeague && (rosterReady ? <DynastyAnalytics players={players} rankings={leagueRankings} context={rankingContext} setSelectedPlayer={setSelectedPlayer} /> : rosterEmptyState)}
         {view === "My Team" && (rosterReady ? <MyTeam players={players} setSelectedPlayer={setSelectedPlayer} /> : rosterEmptyState)}
         {view === "Team Rankings" && <TeamRankings teams={leagueTeams} selectedTeamId={selectedTeamId} rankings={leagueRankings} context={rankingContext} setSelectedPlayer={setSelectedPlayer} />}
@@ -302,7 +303,7 @@ export default function FantasyHub({ accountUser }: { accountUser: AccountUser |
         {view === "Start / Sit" && (rosterReady ? <StartSit players={players} choice={starterChoice} setChoice={setStarterChoice} teamProjection={totals.projection} context={rankingContext} /> : rosterEmptyState)}
         {view === "Waiver Wire" && <WaiverWire key={leagueId || "no-league"} players={waiverPlayers} leagueSelected={Boolean(leagueId)} leagueStatus={leagueStatus} context={rankingContext} setSelectedPlayer={setSelectedPlayer} />}
         {view === "Trade Lab" && <TradeLab key={`${leagueId}-${selectedTeamId}`} teams={leagueTeams} selectedTeamId={selectedTeamId} rankings={leagueRankings} context={rankingContext} />}
-        {view === "Matchups" && (rosterReady ? <Matchups players={players} season={selectedConnectedLeague?.season ?? "2026"} /> : rosterEmptyState)}
+        {view === "Matchups" && (rosterReady ? <Matchups key={`${leagueId}-${defaultGameWeek}`} players={players} season={selectedConnectedLeague?.season ?? "2026"} defaultWeek={defaultGameWeek} /> : rosterEmptyState)}
         {view === "Simulator" && (rosterReady ? <Simulator key={`${leagueId}-${selectedTeamId}`} simulations={simulations} setSimulations={setSimulations} leagueId={leagueId} teams={leagueTeams} selectedTeamId={selectedTeamId} context={rankingContext} /> : rosterEmptyState)}
         {view === "Manage Leagues" && <ManageLeagues connectedLeagues={availableLeagues} managedLeagues={managedLeagues} accountError={accountError} onOpen={async (league) => { setView("Command Center"); await openConnectedLeague(league); }} onAdd={addManagedLeague} onRemove={removeManagedLeague} />}
       </section>
@@ -364,8 +365,8 @@ function ManageLeagues({ connectedLeagues, managedLeagues, accountError, onOpen,
   </div>;
 }
 
-function Scoreboard({ leagueId }: { leagueId: string }) {
-  const [week, setWeek] = useState<number | null>(null);
+function Scoreboard({ leagueId, defaultWeek }: { leagueId: string; defaultWeek: number }) {
+  const [week, setWeek] = useState(defaultWeek);
   const [data, setData] = useState<ScoreboardData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -399,8 +400,8 @@ function Scoreboard({ leagueId }: { leagueId: string }) {
   return <div className="page-content"><section className="scoreboard-head"><div><span>WEEKLY SCOREBOARD</span><h2>{data?.league.name ?? "Loading league scores…"}</h2><p>Scores and player stat lines refresh automatically every 30 seconds.</p></div><label>Week<select value={week ?? ""} onChange={(event) => setWeek(Number(event.target.value))}>{Array.from({ length: 18 }, (_, index) => index + 1).map((value) => <option key={value} value={value}>Week {value}</option>)}</select></label><div className="live-refresh"><i />{loading ? "Refreshing" : `Updated ${data ? new Date(data.updatedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "—"}`}</div></section>{error && <section className="scoreboard-error">{error}</section>}<div className="scoreboard-grid">{data?.matchups.map((matchup) => { const away = matchup.teams[0]; const home = matchup.teams[1]; const leader = home && away ? (away.points > home.points ? away.rosterId : home.rosterId) : ""; return <article className={`score-game ${matchup.teams.some((team) => team.isMine) ? "my-game" : ""}`} key={matchup.matchupId}><header><span className={matchup.status === "Live" ? "game-live" : ""}>{matchup.status === "Live" ? "● LIVE" : matchup.status}</span><b>{matchup.teams.some((team) => team.isMine) ? "YOUR MATCHUP" : `MATCHUP ${matchup.matchupId}`}</b></header><div className="score-bug">{[away, home].filter(Boolean).map((team) => <div className={team.isMine ? "mine" : ""} key={team.rosterId}><span>{team.teamName.slice(0, 3).toUpperCase()}</span><p><strong>{team.teamName}</strong><small>{team.managerName}{team.isMine ? " · YOU" : ""}</small></p><b>{team.points.toFixed(2)}</b>{leader === team.rosterId && <i>▲</i>}</div>)}</div><div className="game-stats">{[away, home].filter(Boolean).map((team) => <section key={team.rosterId}><h4>{team.teamName} leaders</h4>{team.topPlayers.slice(0, 3).map((player) => <div key={player.id}><span className={`pos pos-${player.position.toLowerCase()}`}>{player.position}</span><p><strong>{player.name}</strong><small>{player.nflTeam} · {player.isStarter ? "Starter" : "Bench"}</small></p><b>{player.points.toFixed(1)}<small>PTS</small></b><em>{player.yards} YDS{player.touchdowns ? ` · ${player.touchdowns} TD` : ""}{player.targets ? ` · ${player.receptions}/${player.targets} REC` : ""}</em></div>)}</section>)}</div></article>; })}</div>{data && !data.matchups.length && <section className="panel scoreboard-empty">No matchups have been posted for Week {data.week}.</section>}</div>;
 }
 
-function NflGames({ leagueId }: { leagueId: string }) {
-  const [week, setWeek] = useState<number | null>(null);
+function NflGames({ leagueId, defaultWeek }: { leagueId: string; defaultWeek: number }) {
+  const [week, setWeek] = useState(defaultWeek);
   const [data, setData] = useState<NflGameData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -709,10 +710,10 @@ function TradeLab({ teams, selectedTeamId, rankings, context }: { teams: LeagueT
   </div>;
 }
 
-function Matchups({ players, season }: { players: Player[]; season: string }) {
+function Matchups({ players, season, defaultWeek }: { players: Player[]; season: string; defaultWeek: number }) {
   const [schedule, setSchedule] = useState<NflScheduleData | null>(null);
   const [weather, setWeather] = useState<WeatherData | null>(null);
-  const [week, setWeek] = useState<number | null>(null);
+  const [week, setWeek] = useState(defaultWeek);
   const [error, setError] = useState("");
   useEffect(() => {
     const controller = new AbortController();
