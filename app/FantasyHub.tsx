@@ -3606,10 +3606,15 @@ function AllLeagueScoreboard({
   const [viewMode, setViewMode] = useState<"all" | "drama">("drama");
   const [expandedNeeds, setExpandedNeeds] = useState<Set<string>>(new Set());
   const [swingFeed, setSwingFeed] = useState<{ id: string; league: string; text: string; previous: number; current: number; at: string }[]>([]);
+  const [pulseEvents, setPulseEvents] = useState<{ id: string; text: string; impact: "helps" | "hurts"; at: string }[]>([]);
   const previousOdds = useRef<Record<string, number>>({});
+  const previousPulseSnapshot = useRef<Record<string, { points: number; yards: number; touchdowns: number; receptions: number }>>({});
+  const previousPulseOdds = useRef<Record<string, number | null>>({});
   useEffect(() => {
     if (!leagues.length) return;
     let active = true;
+    previousPulseSnapshot.current = {};
+    previousPulseOdds.current = {};
     const refresh = async () => {
       setLoading(true);
       const results = await Promise.all(
@@ -3624,6 +3629,55 @@ function AllLeagueScoreboard({
         }),
       );
       if (!active) return;
+      const hadPulseBaseline = Object.keys(previousPulseSnapshot.current).length > 0;
+      const nextSnapshot: typeof previousPulseSnapshot.current = {};
+      const nextOdds: typeof previousPulseOdds.current = {};
+      const scoringEvents: { id: string; text: string; impact: "helps" | "hurts"; at: string; delta: number }[] = [];
+      results.forEach(([leagueId, data]) => {
+        const league = leagues.find((item) => item.id === leagueId);
+        const matchup = data?.matchups.find((item) => item.teams.some((team) => team.isMine));
+        const mine = matchup?.teams.find((team) => team.isMine);
+        const opponent = matchup?.teams.find((team) => !team.isMine);
+        if (!data || !league || !matchup || !mine || !opponent) return;
+        const mineStarters = mine.topPlayers.filter((player) => player.isStarter);
+        const opponentStarters = opponent.topPlayers.filter((player) => player.isStarter);
+        const mineRemaining = mineStarters.reduce((sum, player) => sum + Math.max(0, (player.projection ?? 0) - player.points), 0);
+        const opponentRemaining = opponentStarters.reduce((sum, player) => sum + Math.max(0, (player.projection ?? 0) - player.points), 0);
+        const status = matchup.status === "Final" ? "final" : matchup.status === "Scheduled" ? "pre" : "live";
+        const projectionsAvailable = [...mineStarters, ...opponentStarters].some((player) => player.projection != null);
+        const currentOdds = estimatedWinProbability({ yourPoints: mine.points, opponentPoints: opponent.points, yourRemaining: mineRemaining, opponentRemaining, status, projectionsAvailable });
+        nextOdds[leagueId] = currentOdds;
+        matchup.teams.forEach((team) => team.topPlayers.filter((player) => player.isStarter).forEach((player) => {
+          const key = `${leagueId}:${team.rosterId}:${player.id}`;
+          const previous = previousPulseSnapshot.current[key];
+          nextSnapshot[key] = { points: player.points, yards: player.yards, touchdowns: player.touchdowns, receptions: player.receptions };
+          const pointDelta = previous ? player.points - previous.points : 0;
+          if (status !== "live" || !previous || pointDelta <= .01) return;
+          const impact = team.isMine ? "helps" as const : "hurts" as const;
+          const touchdownDelta = player.touchdowns - previous.touchdowns;
+          const receptionDelta = player.receptions - previous.receptions;
+          const yardDelta = player.yards - previous.yards;
+          const play = touchdownDelta > 0
+            ? `${touchdownDelta > 1 ? `${touchdownDelta} touchdowns` : "a touchdown"}`
+            : receptionDelta > 0 && yardDelta > 0
+              ? `${receptionDelta > 1 ? `${receptionDelta} catches` : "a catch"} for ${yardDelta} yards`
+              : yardDelta > 0
+                ? `${yardDelta} new yards`
+                : `${pointDelta.toFixed(1)} fantasy points`;
+          const previousOdds = previousPulseOdds.current[leagueId];
+          const oddsChange = previousOdds != null && currentOdds != null
+            ? ` Win outlook ${currentOdds > previousOdds ? "rose" : currentOdds < previousOdds ? "fell" : "holds"} at ${currentOdds}%.`
+            : "";
+          const scoreImplication = team.isMine
+            ? mine.points >= opponent.points ? ` You now lead ${mine.points.toFixed(1)}–${opponent.points.toFixed(1)}.` : ` Your deficit is ${Math.abs(mine.points - opponent.points).toFixed(1)}.`
+            : mine.points >= opponent.points ? ` Your lead is ${Math.abs(mine.points - opponent.points).toFixed(1)}.` : ` You now trail ${mine.points.toFixed(1)}–${opponent.points.toFixed(1)}.`;
+          scoringEvents.push({ id: `${key}:${player.points}:${Date.now()}`, impact, delta: pointDelta, at: new Date().toISOString(), text: `${impact === "helps" ? "📈" : "📉"} ${player.name}: ${play} ${impact === "helps" ? "for you" : "for your opponent"} in ${league.name}.${scoreImplication}${oddsChange}` });
+        }));
+      });
+      previousPulseSnapshot.current = nextSnapshot;
+      previousPulseOdds.current = nextOdds;
+      if (scoringEvents.length) setPulseEvents((current) => [...scoringEvents.sort((a, b) => b.delta - a.delta), ...current].slice(0, 12));
+      else if (!hadPulseBaseline) setPulseEvents([]);
       setScores(Object.fromEntries(results));
       setUpdatedAt(new Date().toISOString());
       setLoading(false);
@@ -3753,7 +3807,7 @@ function AllLeagueScoreboard({
     : leagues;
   const projectedWins = gameDay.matchups.filter((item) => (item.winProbability ?? 0) >= 50).length;
   const closest = [...gameDay.matchups].sort((a, b) => Math.abs((a.winProbability ?? 50) - 50) - Math.abs((b.winProbability ?? 50) - 50))[0];
-  const pulseItems = [
+  const statusPulseItems = [
     gameDay.matchups.some((item) => item.status === "live")
       ? `${gameDay.matchups.filter((item) => item.status === "live").length} matchups live now`
       : `Week ${week} portfolio is standing by`,
@@ -3761,6 +3815,7 @@ function AllLeagueScoreboard({
     gameDay.leveragePlayers[0] ? `${gameDay.leveragePlayers[0].name} is your highest-leverage player` : "Leverage alerts appear at kickoff",
     featured && featured.status !== "final" ? `${featured.mineRemaining.toFixed(1)} projected points remain for ${featured.mine.teamName}` : "Final scores collapse into postgame reviews",
   ];
+  const pulseItems = pulseEvents.length ? pulseEvents.slice(0, 6).map((event) => event.text) : statusPulseItems;
   useEffect(() => {
     const original = document.title;
     document.title = gameDay.matchups.length
