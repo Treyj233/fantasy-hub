@@ -38,7 +38,7 @@ const fantasyPosition = (position: string) =>
 
 async function calculateSeason(season: number) {
   const response = await fetch(
-    "https://github.com/nflverse/nflverse-data/releases/download/player_stats/player_stats.csv",
+    `https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_${season}.csv`,
     { next: { revalidate: 21600 } },
   );
   if (!response.ok) return null;
@@ -95,8 +95,8 @@ export async function loadMatchupStrengths(requestedSeason: number) {
     const current = await seasonData(requestedSeason);
     if (current) return current;
   }
-  return (await seasonData(2025)) ?? {
-    sourceSeason: 2025,
+  return (await seasonData(2025)) ?? (await seasonData(2024)) ?? {
+    sourceSeason: 2024,
     updatedAt: new Date().toISOString(),
     positions: {},
   };
