@@ -2642,6 +2642,13 @@ function AllLeagues({
   const visibleScanProgress = Math.round(
     Math.min(99, Math.max(estimatedScanProgress, completedScanProgress)),
   );
+  const visibleScanCount = Math.min(
+    Math.max(0, leagues.length - 1),
+    Math.max(
+      scanCompleted,
+      Math.ceil((visibleScanProgress / 100) * leagues.length),
+    ),
+  );
 
   useEffect(() => {
     if (!leagues.length) return;
@@ -3208,7 +3215,7 @@ function AllLeagues({
           >
             <span style={{ width: `${visibleScanProgress}%` }} />
           </div>
-          <small>{scanCompleted} of {leagues.length} leagues scanned · about {visibleScanProgress}% complete</small>
+          <small>About {visibleScanCount} of {leagues.length} leagues scanned · {visibleScanProgress}% complete</small>
         </section>
       ) : (
         <section className="league-scan-list">
