@@ -1535,7 +1535,7 @@ export default function FantasyHub({
               </a>
             )}
             <button className="ghost season-roll" onClick={() => setView("Simulator")}>
-              Roll the season 🎲
+              Sim the season 🎲
             </button>
             <a
               className="account-chip"
