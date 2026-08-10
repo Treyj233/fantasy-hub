@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Fantasy Hub ESPN Sync</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <main>
+      <header><span>FANTASY HUB</span><h1>ESPN Private League Sync</h1></header>
+      <ol>
+        <li>Sign into ESPN and open your league.</li>
+        <li>Generate a pairing code in Fantasy Hub.</li>
+        <li>Load the league, choose your team, and sync.</li>
+      </ol>
+      <label>Pairing code<input id="pairing-code" maxlength="14" placeholder="XXXX-XXXX-XXXX" autocomplete="off" /></label>
+      <div class="split">
+        <label>League ID<input id="league-id" inputmode="numeric" placeholder="12345678" /></label>
+        <label>Season<input id="season" inputmode="numeric" maxlength="4" /></label>
+      </div>
+      <button id="load" type="button">Load teams from ESPN</button>
+      <label id="team-wrap" hidden>Your team<select id="team"></select></label>
+      <button id="sync" class="accent" type="button" hidden>Sync to Fantasy Hub</button>
+      <p id="status" role="status">ESPN passwords and cookies never leave your browser.</p>
+      <a href="https://fantasy-hub.treyj233.chatgpt.site" target="_blank" rel="noreferrer">Open Fantasy Hub ↗</a>
+    </main>
+    <script src="popup.js"></script>
+  </body>
+</html>

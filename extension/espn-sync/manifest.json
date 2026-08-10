@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "Fantasy Hub ESPN Sync",
+  "version": "0.1.0",
+  "description": "Securely sync a private ESPN fantasy football league to Fantasy Hub.",
+  "action": {
+    "default_title": "Fantasy Hub ESPN Sync",
+    "default_popup": "popup.html"
+  },
+  "permissions": ["activeTab", "scripting", "storage"],
+  "host_permissions": [
+    "https://*.espn.com/*",
+    "https://fantasy-hub.treyj233.chatgpt.site/*"
+  ]
+}

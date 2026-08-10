@@ -2038,6 +2038,9 @@ export default function FantasyHub({
             }}
             onAdd={addManagedLeague}
             onRemove={removeManagedLeague}
+            onRefresh={async () => {
+              await Promise.all([loadManagedLeagues(), loadLeagues()]);
+            }}
             onMove={moveConnectedLeague}
             onReorder={reorderConnectedLeague}
           />
@@ -2181,6 +2184,7 @@ function ManageLeagues({
   onOpen,
   onAdd,
   onRemove,
+  onRefresh,
   onMove,
   onReorder,
 }: {
@@ -2197,6 +2201,7 @@ function ManageLeagues({
     rosterId?: string,
   ) => Promise<{ id: string; name: string; season: string; teams: { id: string; name: string; managerName: string }[] } | null>;
   onRemove: (id: string) => Promise<void>;
+  onRefresh: () => Promise<void>;
   onMove: (id: string, direction: -1 | 1) => void;
   onReorder: (
     sourceId: string,
@@ -2217,6 +2222,7 @@ function ManageLeagues({
   } | null>(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [pairing, setPairing] = useState<{ code: string; expiresAt: string } | null>(null);
   const [espnSelection, setEspnSelection] = useState<{ id: string; name: string; season: string; teams: { id: string; name: string; managerName: string }[] } | null>(null);
   const providers: {
     id: LeagueProvider;
@@ -2267,6 +2273,22 @@ function ManageLeagues({
           ? requestError.message
           : "Unable to add league",
       );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function createEspnPairing() {
+    setBusy(true);
+    setError("");
+    setSuccess("");
+    try {
+      const response = await fetch("/api/espn-extension/pair", { method: "POST" });
+      const data = await response.json() as { code?: string; expiresAt?: string; error?: string };
+      if (!response.ok || !data.code || !data.expiresAt) throw new Error(data.error ?? "Unable to create pairing code");
+      setPairing({ code: data.code, expiresAt: data.expiresAt });
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Unable to create pairing code");
     } finally {
       setBusy(false);
     }
@@ -2474,6 +2496,31 @@ function ManageLeagues({
               : "Enter a public ESPN league ID, then select the team you manage. Private ESPN leagues cannot be read through league-ID access."}
           </p>
         </div>
+        {provider === "espn" && (
+          <section className="espn-private-sync">
+            <div className="espn-private-heading">
+              <div><span>PRIVATE ESPN LEAGUES</span><h4>Sync through your signed-in browser</h4></div>
+              <b>NO PASSWORD SHARING</b>
+            </div>
+            <p>The extension reads your league while you are signed into ESPN and sends league data—not your password or ESPN cookies—to Fantasy Hub.</p>
+            <div className="espn-sync-steps">
+              <span><b>1</b><strong>Download the extension</strong><small>Extract the ZIP, open chrome://extensions, enable Developer mode, and choose Load unpacked.</small></span>
+              <span><b>2</b><strong>Open your ESPN league</strong><small>Stay signed into ESPN and open the private football league you want to add.</small></span>
+              <span><b>3</b><strong>Pair and sync</strong><small>Generate a code below, open the extension, choose your team, then return here.</small></span>
+            </div>
+            <div className="espn-sync-actions">
+              <a className="manage-add" href="/extensions/fantasy-hub-espn-sync.zip" download>Download extension</a>
+              <button className="manage-add secondary" onClick={() => void createEspnPairing()} disabled={busy}>{busy ? "Generating…" : "Generate pairing code"}</button>
+              <button className="manage-add secondary" onClick={() => void onRefresh().then(() => setSuccess("Synced ESPN leagues refreshed."))}>Refresh synced leagues</button>
+            </div>
+            {pairing && (
+              <div className="espn-pairing-code">
+                <span><small>ONE-TIME CODE</small><strong>{pairing.code}</strong><em>Expires {new Date(pairing.expiresAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</em></span>
+                <button onClick={() => void navigator.clipboard.writeText(pairing.code)}>Copy code</button>
+              </div>
+            )}
+          </section>
+        )}
         {espnSelection && (
           <section className="espn-team-picker">
             <header><span>SELECT YOUR TEAM</span><strong>{espnSelection.name} · {espnSelection.season}</strong></header>

@@ -11,7 +11,7 @@ type EspnPlayer = {
 };
 type EspnRosterEntry = { lineupSlotId?: number; playerPoolEntry?: { player?: EspnPlayer } };
 type EspnTeam = { id?: number; abbrev?: string; name?: string; location?: string; nickname?: string; primaryOwner?: string; owners?: string[]; roster?: { entries?: EspnRosterEntry[] }; record?: { overall?: { wins?: number; losses?: number; ties?: number } } };
-type EspnPayload = {
+export type EspnPayload = {
   id?: number;
   seasonId?: number;
   scoringPeriodId?: number;
@@ -66,6 +66,22 @@ export async function fetchEspnLeague(leagueId: string, seasonHint?: number) {
       throw new Error("This ESPN league is private. Make it publicly viewable before importing by league ID.");
   }
   throw new Error("ESPN league not found for the current or previous season.");
+}
+
+export async function fetchEspnLeagueForUser(userId: string, leagueId: string, seasonHint?: number) {
+  const db = await getDb();
+  const rows = seasonHint
+    ? await db.select().from(espnLeagueSnapshots).where(and(eq(espnLeagueSnapshots.userId, userId), eq(espnLeagueSnapshots.leagueId, leagueId), eq(espnLeagueSnapshots.season, String(seasonHint)))).limit(1)
+    : await db.select().from(espnLeagueSnapshots).where(and(eq(espnLeagueSnapshots.userId, userId), eq(espnLeagueSnapshots.leagueId, leagueId))).orderBy(desc(espnLeagueSnapshots.syncedAt)).limit(1);
+  const snapshot = rows[0];
+  if (snapshot) {
+    try {
+      return JSON.parse(snapshot.payloadJson) as EspnPayload;
+    } catch {
+      // Fall through to public league access if an older snapshot is unreadable.
+    }
+  }
+  return fetchEspnLeague(leagueId, seasonHint);
 }
 
 export function espnLeagueSummary(payload: EspnPayload) {
@@ -160,3 +176,6 @@ export function normalizeEspnSimulation(payload: EspnPayload) {
     weeks: Array.from({ length: regularSeasonWeeks }, (_, index) => ({ week: index + 1, matchups: matchupPeriods.get(index + 1) ?? [] })),
   };
 }
+import { and, desc, eq } from "drizzle-orm";
+import { getDb } from "../../db";
+import { espnLeagueSnapshots } from "../../db/schema";

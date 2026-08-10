@@ -27,6 +27,28 @@ export const managedLeagues = sqliteTable("managed_leagues", {
   uniqueIndex("managed_leagues_user_provider_identifier").on(table.userId, table.provider, table.identifierType, table.identifier),
 ]);
 
+export const espnSyncPairings = sqliteTable("espn_sync_pairings", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  codeHash: text("code_hash").notNull(),
+  expiresAt: text("expires_at").notNull(),
+  usedAt: text("used_at"),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [
+  uniqueIndex("espn_sync_pairings_code_hash").on(table.codeHash),
+]);
+
+export const espnLeagueSnapshots = sqliteTable("espn_league_snapshots", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  leagueId: text("league_id").notNull(),
+  season: text("season").notNull(),
+  payloadJson: text("payload_json").notNull(),
+  syncedAt: text("synced_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [
+  uniqueIndex("espn_league_snapshots_user_league_season").on(table.userId, table.leagueId, table.season),
+]);
+
 export const seasonNarrativeSnapshots = sqliteTable("season_narrative_snapshots", {
   id: text("id").primaryKey(),
   userId: text("user_id").notNull(),

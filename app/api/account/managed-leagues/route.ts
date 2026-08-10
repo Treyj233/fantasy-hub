@@ -1,6 +1,6 @@
 import { and, desc, eq } from "drizzle-orm";
 import { getDb } from "../../../../db";
-import { managedLeagues } from "../../../../db/schema";
+import { espnLeagueSnapshots, managedLeagues } from "../../../../db/schema";
 import { getChatGPTUser } from "../../../chatgpt-auth";
 import { espnLeagueSummary, fetchEspnLeague } from "../../espn";
 
@@ -74,6 +74,9 @@ export async function DELETE(request: Request) {
   const id = new URL(request.url).searchParams.get("id")?.trim();
   if (!id) return Response.json({ error: "League connection ID required" }, { status: 400 });
   const db = await getDb();
+  const [league] = await db.select().from(managedLeagues).where(and(eq(managedLeagues.id, id), eq(managedLeagues.userId, user.userId))).limit(1);
+  if (league?.provider === "espn")
+    await db.delete(espnLeagueSnapshots).where(and(eq(espnLeagueSnapshots.userId, user.userId), eq(espnLeagueSnapshots.leagueId, league.identifier)));
   await db.delete(managedLeagues).where(and(eq(managedLeagues.id, id), eq(managedLeagues.userId, user.userId)));
   return Response.json({ removed: true });
 }

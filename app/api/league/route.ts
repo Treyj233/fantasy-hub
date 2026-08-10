@@ -1,6 +1,7 @@
 import { loadSnapProfiles, snapProfileFor } from "../../snap-data";
 import { loadPlayerSeasonProfiles, loadTeamOffenseProfiles, playerSeasonProfileFor } from "../../season-history";
-import { fetchEspnLeague, normalizeEspnLeague } from "../espn";
+import { fetchEspnLeagueForUser, normalizeEspnLeague } from "../espn";
+import { getChatGPTUser } from "../../chatgpt-auth";
 
 type SourcePlayer = { player_id?: string; full_name?: string; first_name?: string; last_name?: string; position?: string; team?: string; injury_status?: string | null; search_rank?: number; age?: number; status?: string; depth_chart_order?: number | null; depth_chart_position?: string | null };
 type SourceProjection = { player_id?: string; stats?: Record<string, number> };
@@ -23,11 +24,13 @@ function parsePlatformAdp(html: string) {
 export async function GET(request: Request) {
   const id = new URL(request.url).searchParams.get("id")?.trim();
   if (id?.startsWith("espn:")) {
+    const user = await getChatGPTUser();
+    if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
     const [, season, leagueId] = id.split(":");
     if (!leagueId || !/^\d{4,24}$/.test(leagueId))
       return Response.json({ error: "Invalid ESPN league ID" }, { status: 400 });
     try {
-      return Response.json(normalizeEspnLeague(await fetchEspnLeague(leagueId, Number(season))));
+      return Response.json(normalizeEspnLeague(await fetchEspnLeagueForUser(user.userId, leagueId, Number(season))));
     } catch (error) {
       return Response.json({ error: error instanceof Error ? error.message : "ESPN league unavailable" }, { status: 502 });
     }

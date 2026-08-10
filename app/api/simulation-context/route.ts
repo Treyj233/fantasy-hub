@@ -2,7 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { getDb } from "../../../db";
 import { managedLeagues, sleeperConnections } from "../../../db/schema";
 import { getChatGPTUser } from "../../chatgpt-auth";
-import { fetchEspnLeague, normalizeEspnSimulation } from "../espn";
+import { fetchEspnLeagueForUser, normalizeEspnSimulation } from "../espn";
 
 type MatchupRow = { roster_id?: number; matchup_id?: number | null; points?: number; custom_points?: number | null };
 
@@ -17,7 +17,7 @@ export async function GET(request: Request) {
     const [record] = await db.select().from(managedLeagues).where(and(eq(managedLeagues.userId, user.userId), eq(managedLeagues.provider, "espn"), eq(managedLeagues.identifier, sourceLeagueId ?? ""))).limit(1);
     if (!record?.rosterId) return Response.json({ error: "Select your ESPN team in Manage Leagues" }, { status: 409 });
     try {
-      return Response.json(normalizeEspnSimulation(await fetchEspnLeague(sourceLeagueId, Number(season))));
+      return Response.json(normalizeEspnSimulation(await fetchEspnLeagueForUser(user.userId, sourceLeagueId, Number(season))));
     } catch (error) {
       return Response.json({ error: error instanceof Error ? error.message : "ESPN simulation details unavailable" }, { status: 502 });
     }

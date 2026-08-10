@@ -2,7 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { getDb } from "../../../../db";
 import { managedLeagues, sleeperConnections } from "../../../../db/schema";
 import { getChatGPTUser } from "../../../chatgpt-auth";
-import { fetchEspnLeague, normalizeEspnLeague } from "../../espn";
+import { fetchEspnLeagueForUser, normalizeEspnLeague } from "../../espn";
 
 type SleeperLeague = { league_id?: string; previous_league_id?: string | null; name?: string; season?: string; total_rosters?: number; avatar?: string | null; settings?: { type?: number }; scoring_settings?: { rec?: number }; roster_positions?: string[] };
 
@@ -39,7 +39,7 @@ export async function GET() {
   const espnLeagues = (await Promise.all(espnRecords.map(async (record) => {
     if (!record.rosterId) return null;
     try {
-      const normalized = normalizeEspnLeague(await fetchEspnLeague(record.identifier, Number(record.season)));
+      const normalized = normalizeEspnLeague(await fetchEspnLeagueForUser(user.userId, record.identifier, Number(record.season)));
       const rosterSlots = normalized.rankingContext.rosterSlots;
       return { id: `espn:${normalized.league.season}:${record.identifier}`, sourceId: record.identifier, provider: "espn", name: normalized.league.name, season: normalized.league.season, teams: normalized.league.teams, format: normalized.rankingContext.format, scoring: normalized.rankingContext.scoring, rosterId: record.rosterId, starterCount: rosterSlots.filter((slot) => !["Bench", "IR"].includes(slot)).length };
     } catch {

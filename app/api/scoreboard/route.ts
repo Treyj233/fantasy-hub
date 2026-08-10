@@ -2,7 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { getDb } from "../../../db";
 import { managedLeagues, sleeperConnections } from "../../../db/schema";
 import { getChatGPTUser } from "../../chatgpt-auth";
-import { fetchEspnLeague, normalizeEspnScoreboard } from "../espn";
+import { fetchEspnLeagueForUser, normalizeEspnScoreboard } from "../espn";
 
 type MatchupRow = { roster_id?: number; matchup_id?: number | null; points?: number; custom_points?: number | null; players?: string[]; starters?: string[]; players_points?: Record<string, number> };
 type SourcePlayer = { full_name?: string; first_name?: string; last_name?: string; position?: string; team?: string };
@@ -22,7 +22,7 @@ export async function GET(request: Request) {
     const [record] = await db.select().from(managedLeagues).where(and(eq(managedLeagues.userId, user.userId), eq(managedLeagues.provider, "espn"), eq(managedLeagues.identifier, sourceLeagueId))).limit(1);
     if (!record?.rosterId) return Response.json({ error: "Select your ESPN team in Manage Leagues" }, { status: 409 });
     try {
-      return Response.json(normalizeEspnScoreboard(await fetchEspnLeague(sourceLeagueId, Number(season)), record.rosterId, requestedWeek));
+      return Response.json(normalizeEspnScoreboard(await fetchEspnLeagueForUser(user.userId, sourceLeagueId, Number(season)), record.rosterId, requestedWeek));
     } catch (error) {
       return Response.json({ error: error instanceof Error ? error.message : "ESPN scores unavailable" }, { status: 502 });
     }
