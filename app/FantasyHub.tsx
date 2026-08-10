@@ -2144,6 +2144,22 @@ function ManageLeagues({
   );
 }
 
+function leagueIssueIcon(category: string) {
+  const icons: Record<string, string> = {
+    Availability: "✚",
+    Injury: "🩹",
+    Lineup: "↕",
+    Role: "📉",
+    "Bye week": "📅",
+    Weather: "☔",
+    Exposure: "◎",
+    Waivers: "+",
+    "Draft Prep": "★",
+    Connection: "↻",
+  };
+  return icons[category] ?? "⚑";
+}
+
 function AllLeagues({
   leagues,
   onOpen,
@@ -2614,7 +2630,9 @@ function AllLeagues({
             <div className="portfolio-action-list">
               {inbox.slice(0, 8).map(({ scan, issue }) => (
                 <article className={issue.severity} key={`inbox-${issue.id}`}>
-                  <i>{issue.severity === "critical" ? "!" : issue.severity === "warning" ? "△" : "•"}</i>
+                  <i title={issue.category} aria-hidden="true">
+                    {leagueIssueIcon(issue.category)}
+                  </i>
                   <p><span>{scan.league.name} · {issue.category}</span><strong>{issue.title}</strong><small>{issue.detail}</small></p>
                   <div className="portfolio-action-buttons">
                     <button onClick={() => void onOpen(scan.league, actionView(issue.category))}>Review in Hub</button>
@@ -2699,12 +2717,8 @@ function AllLeagues({
                 {scan.issues.length ? (
                   scan.issues.map((issue) => (
                     <div className={issue.severity} key={issue.id}>
-                      <i>
-                        {issue.severity === "critical"
-                          ? "!"
-                          : issue.severity === "warning"
-                            ? "△"
-                            : "•"}
+                      <i title={issue.category} aria-hidden="true">
+                        {leagueIssueIcon(issue.category)}
                       </i>
                       <p>
                         <span>{issue.category}</span>
