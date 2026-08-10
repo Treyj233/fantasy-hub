@@ -2086,6 +2086,10 @@ function AccountLoading() {
         <span>FANTASY HUB</span>
         <h1>Loading your leagues…</h1>
         <p>Pulling together your saved account and league workspace.</p>
+        <div className="load-progress indeterminate" role="progressbar" aria-label="Loading connected leagues" aria-valuetext="Loading account and leagues">
+          <span />
+        </div>
+        <small className="load-progress-label">Connecting to your league portfolio…</small>
         <i />
         <i />
         <i />
@@ -2609,6 +2613,7 @@ function AllLeagues({
     leagues.length > 0 && cachedScans.length === 0,
   );
   const [refreshKey, setRefreshKey] = useState(0);
+  const [scanCompleted, setScanCompleted] = useState(0);
   const lastAutomaticScan = useRef("");
 
   useEffect(() => {
@@ -2621,9 +2626,12 @@ function AllLeagues({
       cachedScans.length === leagues.length &&
       cachedScans.every((scan) => leagueIds.has(scan.league.id));
     const controller = new AbortController();
-    const loadingTimer = cacheMatches
+    const loadingTimer = cacheMatches && refreshKey === 0
       ? undefined
-      : window.setTimeout(() => setLoading(true), 0);
+      : window.setTimeout(() => {
+          setScanCompleted(0);
+          setLoading(true);
+        }, 0);
     void Promise.all(
       leagues.map(async (league): Promise<LeagueScan> => {
         try {
@@ -2923,6 +2931,9 @@ function AllLeagues({
               },
             ],
           };
+        } finally {
+          if (!controller.signal.aborted)
+            setScanCompleted((completed) => Math.min(leagues.length, completed + 1));
         }
       }),
     )
@@ -3158,8 +3169,19 @@ function AllLeagues({
       )}
       {(loading || (leagues.length > 0 && !scans.length)) ? (
         <section className="all-leagues-loading panel">
-          Scanning league settings, starters, injuries, waivers, schedule, and
-          weather…
+          <strong>Scanning your league portfolio…</strong>
+          <p>Checking settings, starters, injuries, waivers, schedule, and weather.</p>
+          <div
+            className="load-progress"
+            role="progressbar"
+            aria-label="Scanning connected leagues"
+            aria-valuemin={0}
+            aria-valuemax={leagues.length}
+            aria-valuenow={scanCompleted}
+          >
+            <span style={{ width: `${Math.max(4, (scanCompleted / Math.max(1, leagues.length)) * 100)}%` }} />
+          </div>
+          <small>{scanCompleted} of {leagues.length} leagues scanned</small>
         </section>
       ) : (
         <section className="league-scan-list">

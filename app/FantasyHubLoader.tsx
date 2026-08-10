@@ -10,6 +10,10 @@ const FantasyHub = dynamic(() => import("./FantasyHub"), {
         <span>FANTASY HUB</span>
         <h1>Opening your Command Center…</h1>
         <p>The dashboard shell is ready while league tools load on demand.</p>
+        <div className="load-progress indeterminate" role="progressbar" aria-label="Loading Fantasy Hub" aria-valuetext="Loading application">
+          <span />
+        </div>
+        <small className="load-progress-label">Loading dashboard tools…</small>
         <i />
         <i />
         <i />
