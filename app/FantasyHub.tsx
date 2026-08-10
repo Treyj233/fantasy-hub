@@ -334,8 +334,13 @@ type TradeAssetValue = {
   id: string;
   name: string;
   position: string;
+  team: string;
   meta: string;
   value: number;
+  trueTalent: number;
+  currentOverall: number;
+  dynastyOverall: number;
+  confidence: "High" | "Medium" | "Low";
 };
 type TradeSuggestion = {
   id: string;
@@ -5393,47 +5398,162 @@ function WaiverWire({
   );
 }
 
+type FantasyTradeProfile = Pick<
+  TradeAssetValue,
+  "trueTalent" | "currentOverall" | "dynastyOverall" | "confidence"
+>;
+
+const clampTradeRating = (value: number, minimum = 45, maximum = 99) =>
+  Math.round(Math.max(minimum, Math.min(maximum, value)));
+
+function ratingFromPercentile(percentile: number) {
+  const value = Math.max(0, Math.min(100, percentile));
+  if (value >= 99.5) return 97;
+  if (value >= 98) return 94 + ((value - 98) / 1.5) * 2;
+  if (value >= 90) return 89 + ((value - 90) / 8) * 4;
+  if (value >= 75) return 85 + ((value - 75) / 15) * 3;
+  if (value >= 55) return 81 + ((value - 55) / 20) * 3;
+  if (value >= 35) return 77 + ((value - 35) / 20) * 3;
+  if (value >= 20) return 73 + ((value - 20) / 15) * 3;
+  if (value >= 8) return 68 + ((value - 8) / 12) * 4;
+  return 60 + (value / 8) * 7;
+}
+
+const rankingLookupKey = (player: Pick<Player, "name" | "position">) =>
+  `name:${player.name.toLowerCase().replace(/[^a-z0-9]/g, "")}:${player.position}`;
+
+function buildRankingLookup(rankings: LeagueRanking[]) {
+  const lookup = new Map<string, LeagueRanking>();
+  rankings.forEach((player) => {
+    lookup.set(player.id, player);
+    lookup.set(rankingLookupKey(player), player);
+  });
+  return lookup;
+}
+
+function rankingForPlayer(
+  player: Player,
+  rankingById: Map<string, LeagueRanking>,
+) {
+  return rankingById.get(player.id) ?? rankingById.get(rankingLookupKey(player));
+}
+
+function fantasyTradeProfile(
+  player: Player,
+  ranking: LeagueRanking | undefined,
+): FantasyTradeProfile {
+  const position = player.position;
+  const overallRank = ranking?.overallRank ?? 600;
+  const rankPercentile = 100 * (1 - (Math.min(600, overallRank) - 1) / 599);
+  const rankGrade = ratingFromPercentile(rankPercentile);
+  const ppg = ranking?.fantasyPpg2025;
+  const games = ranking?.gamesPlayed2025 ?? 0;
+  const productionBands: Record<string, [number, number]> = {
+    QB: [14, 25],
+    RB: [6, 21],
+    WR: [6, 21],
+    TE: [4, 17],
+  };
+  const [replacementPpg, elitePpg] = productionBands[position] ?? [5, 18];
+  const rawProductionGrade =
+    typeof ppg === "number"
+      ? clampTradeRating(
+          60 + ((ppg - replacementPpg) / (elitePpg - replacementPpg)) * 36,
+          52,
+          98,
+        )
+      : rankGrade;
+  const productionWeight = Math.min(0.72, (games / 14) * 0.72);
+  const productionGrade =
+    rankGrade + (rawProductionGrade - rankGrade) * productionWeight;
+  const snap = ranking?.snapAverage;
+  const roleGrade =
+    typeof snap === "number"
+      ? clampTradeRating(55 + snap * 0.42, 50, 97)
+      : rankGrade;
+  const weeklyProjection = Math.max(
+    player.projection,
+    player.leagueProjection ?? 0,
+  );
+  const weeklyGrade = clampTradeRating(
+    58 +
+      ((weeklyProjection - replacementPpg) / (elitePpg - replacementPpg)) * 36,
+    50,
+    98,
+  );
+  const status = player.status.toLowerCase();
+  const availabilityGrade =
+    status === "healthy"
+      ? 95
+      : status === "questionable"
+        ? 78
+        : status === "doubtful"
+          ? 60
+          : status === "out" || status === "ir" || status === "suspended"
+            ? 45
+            : 86;
+  const trueTalent = clampTradeRating(
+    rankGrade * 0.44 +
+      productionGrade * 0.34 +
+      roleGrade * 0.14 +
+      weeklyGrade * 0.08,
+  );
+  const currentOverall = clampTradeRating(
+    trueTalent * 0.5 +
+      weeklyGrade * 0.25 +
+      availabilityGrade * 0.15 +
+      roleGrade * 0.1,
+  );
+  const age = ranking?.age;
+  const peakAge: Record<string, number> = { QB: 29, RB: 24, WR: 26, TE: 27 };
+  const peak = peakAge[position] ?? 27;
+  const provenYoungPlayer =
+    games >= 8 && trueTalent >= 80 && rawProductionGrade >= 78;
+  const ageAdjustment =
+    typeof age !== "number"
+      ? 0
+      : age <= peak
+        ? provenYoungPlayer
+          ? Math.min(4, (peak - age) * 0.65)
+          : 0
+        : -(age - peak) * (position === "RB" ? 2.6 : position === "WR" ? 1.65 : position === "TE" ? 1.25 : 0.75);
+  const futureOverall = clampTradeRating(trueTalent + ageAdjustment);
+  const dynastyOverall = clampTradeRating(
+    trueTalent * 0.55 + futureOverall * 0.35 + availabilityGrade * 0.1,
+  );
+  const evidencePoints =
+    Math.min(2, games / 7) + (typeof snap === "number" ? 1 : 0) + (ranking ? 1 : 0);
+  const confidence =
+    evidencePoints >= 3.5 ? "High" : evidencePoints >= 2 ? "Medium" : "Low";
+  return { trueTalent, currentOverall, dynastyOverall, confidence };
+}
+
 function tradeAsset(
   player: Player,
   rankingById: Map<string, LeagueRanking>,
   format: "Dynasty" | "Keeper" | "Redraft" = "Redraft",
 ): TradeAssetValue {
-  const ranking = rankingById.get(player.id);
-  const rankValue = ranking
-    ? Math.max(
-        12,
-        Math.min(
-          96,
-          Math.round(104 - Math.log(ranking.overallRank + 1) * 13),
-        ),
-      )
-    : Math.max(10, Math.min(82, Math.round(player.projection * 3.2)));
-  const age = ranking?.age ?? null;
-  const dynastyAge = !age
-    ? 0
-    : player.position === "RB"
-      ? (25 - age) * 2.4
-      : player.position === "WR"
-        ? (27 - age) * 1.8
-        : player.position === "TE"
-          ? (28 - age) * 1.3
-          : (30 - age) * 0.8;
-  const formatAdjustment =
+  const ranking = rankingForPlayer(player, rankingById);
+  const profile = fantasyTradeProfile(player, ranking);
+  const formatOverall =
     format === "Dynasty"
-      ? dynastyAge
+      ? profile.dynastyOverall
       : format === "Keeper"
-        ? dynastyAge * 0.4
-        : player.projection * 0.45;
+        ? profile.currentOverall * 0.6 + profile.dynastyOverall * 0.4
+        : profile.currentOverall;
+  const scarcityAdjustment = (ranking?.lineupAdjustment ?? 0) * 0.3;
   const value = Math.max(
     8,
-    Math.min(99, Math.round(rankValue + formatAdjustment)),
+    Math.min(99, Math.round((formatOverall - 55) * 2.25 + scarcityAdjustment)),
   );
   return {
     id: player.id,
     name: player.name,
     position: player.position,
-    meta: `${player.position} · ${player.team}`,
+    team: player.team,
+    meta: `${player.team} · ${format} · ${profile.confidence} confidence`,
     value,
+    ...profile,
   };
 }
 
@@ -5450,7 +5570,9 @@ function teamNeeds(
         Math.ceil(context?.positionDemand[position] ?? 1),
       );
       const bestRank = Math.min(
-        ...room.map((player) => rankingById.get(player.id)?.overallRank ?? 500),
+        ...room.map(
+          (player) => rankingForPlayer(player, rankingById)?.overallRank ?? 500,
+        ),
         500,
       );
       return {
@@ -5472,7 +5594,7 @@ function tradeRosterStrength(
     Record<string, number>
   >((counts, slot) => ({ ...counts, [slot]: (counts[slot] ?? 0) + 1 }), {});
   const positionScore = (player: Player) => {
-    const ranking = rankingById.get(player.id);
+    const ranking = rankingForPlayer(player, rankingById);
     return ranking
       ? tradeAsset(
           player,
@@ -5536,7 +5658,7 @@ function buildTradeSuggestions(
   context: RankingContext | null,
   style: TradeStyle,
 ): TradeSuggestion[] {
-  const rankingById = new Map(rankings.map((player) => [player.id, player]));
+  const rankingById = buildRankingLookup(rankings);
   const format = context?.format ?? "Redraft";
   const yourNeeds = teamNeeds(yourTeam, rankingById, context);
   const partnerNeeds = teamNeeds(partner, rankingById, context);
@@ -5575,8 +5697,14 @@ function buildTradeSuggestions(
       const partnerTargetNeedRank = partnerNeedOrder.get(target.position) ?? 9;
       if (yourNeedRank > 2 || partnerNeedRank > 2) return [];
       if (yourOfferNeedRank === 0 || partnerTargetNeedRank === 0) return [];
-      const targetRank = rankingById.get(target.id)?.overallRank ?? 999;
-      const offerRank = rankingById.get(offer.id)?.overallRank ?? 999;
+      const targetRank = rankingForPlayer(
+        partner.roster.find((player) => player.id === target.id)!,
+        rankingById,
+      )?.overallRank ?? 999;
+      const offerRank = rankingForPlayer(
+        yourTeam.roster.find((player) => player.id === offer.id)!,
+        rankingById,
+      )?.overallRank ?? 999;
       const betterRank = Math.min(targetRank, offerRank);
       const worseRank = Math.max(targetRank, offerRank);
       const leagueSize = context?.teams ?? 12;
@@ -5766,7 +5894,7 @@ function TradeLab({
         </section>
       </div>
     );
-  const rankingById = new Map(rankings.map((player) => [player.id, player]));
+  const rankingById = buildRankingLookup(rankings);
   const tradeFormat = context?.format ?? "Redraft";
   const eligibleYourPlayers = yourTeam.roster.filter(
     (player) => !["K", "DEF"].includes(player.position),
@@ -7324,8 +7452,12 @@ function TradeAsset({ asset }: { asset: TradeAssetValue }) {
         {asset.position}
       </span>
       <p>
-        <button className="inline-player-link" onClick={() => openPlayer(playerShell({ ...asset, team: asset.meta.split(" · ")[0] }))}>{asset.name}</button>
+        <button className="inline-player-link" onClick={() => openPlayer(playerShell(asset))}>{asset.name}</button>
         <small>{asset.meta}</small>
+        <span className="trade-rating-profile">
+          Talent {asset.trueTalent} · Current {asset.currentOverall} · Dynasty{" "}
+          {asset.dynastyOverall}
+        </span>
       </p>
       <b>{asset.value}</b>
     </article>
