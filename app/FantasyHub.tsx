@@ -2646,7 +2646,7 @@ function AllLeagues({
     Math.max(0, leagues.length - 1),
     Math.max(
       scanCompleted,
-      Math.floor(Math.pow(visibleScanProgress / 100, 2.2) * leagues.length),
+      Math.floor(Math.pow(visibleScanProgress / 100, 1.35) * leagues.length),
     ),
   );
 

@@ -39,6 +39,6 @@ test("league scans expose visible determinate progress", async () => {
   assert.match(source, /aria-label="Scanning connected leagues"/);
   assert.match(source, /useEstimatedLoadingProgress\(scanIsActive\)/);
   assert.match(source, /const visibleScanCount = Math\.min/);
-  assert.match(source, /Math\.pow\(visibleScanProgress \/ 100, 2\.2\)/);
+  assert.match(source, /Math\.pow\(visibleScanProgress \/ 100, 1\.35\)/);
   assert.match(source, /About \{visibleScanCount\} of \{leagues\.length\} leagues scanned/);
 });
