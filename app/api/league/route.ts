@@ -18,7 +18,8 @@ export async function GET(request: Request) {
     const users = await usersResponse.json() as { user_id?: string; display_name?: string; metadata?: { team_name?: string } }[];
     const sourcePlayers = await playersResponse.json() as Record<string, SourcePlayer>;
     const tradedPicks = tradedPicksResponse?.ok ? await tradedPicksResponse.json().catch(() => []) as { season?: string; round?: number; roster_id?: number; owner_id?: number; previous_owner_id?: number }[] : [];
-    const projectionResponse = await fetch(`https://api.sleeper.com/projections/nfl/${league.season ?? new Date().getUTCFullYear()}/${league.leg ?? 1}?season_type=regular`, { next: { revalidate: 3600 } }).catch(() => null);
+    const projectionWeek = Math.min(18, Math.max(1, league.leg ?? 1));
+    const projectionResponse = await fetch(`https://api.sleeper.com/projections/nfl/${league.season ?? new Date().getUTCFullYear()}/${projectionWeek}?season_type=regular`, { next: { revalidate: 3600 } }).catch(() => null);
     const projectionPayload: unknown = projectionResponse?.ok ? await projectionResponse.json().catch(() => []) : [];
     const sourceProjections = Array.isArray(projectionPayload) ? projectionPayload as SourceProjection[] : [];
     const scoring = league.scoring_settings ?? {};
@@ -138,7 +139,7 @@ export async function GET(request: Request) {
       return { id: String(rosterId), ownerId: roster.owner_id, managerName, teamName: owner?.metadata?.team_name ?? `${managerName}'s Team`, roster: normalized, draftCapital: { score: Number(ownedPicks.reduce((sum, pick) => sum + pick.value, 0).toFixed(1)), picks: ownedPicks } };
     });
     const managers = users.flatMap((user, index) => user.user_id ? [{ id: user.user_id, name: user.display_name ?? `Manager ${index + 1}`, teamName: user.metadata?.team_name ?? `${user.display_name ?? `Manager ${index + 1}`}'s Team`, style: "Neutral" as const }] : []);
-    return Response.json({ league: { name: league.name ?? "Imported League", status: league.status ?? "unknown", teams: league.total_rosters, season: league.season, currentWeek: Math.max(0, league.leg ?? 0), managers: users.length }, teams, managers, rankingContext: { format, scoring: receptionLabel, teams: league.total_rosters ?? rosters.length, rosterSlots, positionDemand, tePremium: tePremiumValue, passTouchdown: scoring.pass_td ?? 4, interception: scoring.pass_int ?? -2, bonusRuleCount, scoringRuleCount: Object.values(scoring).filter((value) => value !== 0).length }, rankings: rankingPool, waiverPlayers });
+    return Response.json({ league: { name: league.name ?? "Imported League", status: league.status ?? "unknown", teams: league.total_rosters, season: league.season, currentWeek: Math.max(0, league.leg ?? 0), projectionWeek, managers: users.length }, teams, managers, rankingContext: { format, scoring: receptionLabel, teams: league.total_rosters ?? rosters.length, rosterSlots, positionDemand, tePremium: tePremiumValue, passTouchdown: scoring.pass_td ?? 4, interception: scoring.pass_int ?? -2, bonusRuleCount, scoringRuleCount: Object.values(scoring).filter((value) => value !== 0).length }, rankings: rankingPool, waiverPlayers });
   } catch {
     return Response.json({ error: "League unavailable" }, { status: 502 });
   }
