@@ -1101,7 +1101,7 @@ export default function FantasyHub({
         };
         setConnection(data.connection ?? null);
         await loadManagedLeagues();
-        if (data.connection) await loadLeagues();
+        if (data.connection) await loadLeagues(true);
       } catch {
         setAccountError(
           "We couldn’t load your Fantasy Hub account. Refresh and try again.",
@@ -1110,6 +1110,8 @@ export default function FantasyHub({
         setAccountLoading(false);
       }
     })();
+    // Account bootstrap intentionally runs only when the authenticated user changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accountUser]);
 
   const totals = useMemo(
@@ -1214,7 +1216,7 @@ export default function FantasyHub({
     }
   }
 
-  async function loadLeagues() {
+  async function loadLeagues(activateFirst = false) {
     const response = await fetch("/api/account/leagues");
     if (!response.ok) throw new Error("Leagues unavailable");
     const data = (await response.json()) as {
@@ -1241,6 +1243,12 @@ export default function FantasyHub({
     });
     setConnection(data.connection);
     setAvailableLeagues(orderedLeagues);
+    if (activateFirst && orderedLeagues.length) {
+      const defaultLeague = orderedLeagues[0];
+      setLeagueId(defaultLeague.id);
+      setLeagueName(defaultLeague.name);
+      await importLeague(defaultLeague.id, data.connection.sleeperUserId);
+    }
   }
 
   function moveConnectedLeague(leagueIdToMove: string, direction: -1 | 1) {
