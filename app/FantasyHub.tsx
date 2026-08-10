@@ -2540,7 +2540,9 @@ function AllLeagues({
 }) {
   const openPlayer = useContext(PlayerOpenContext);
   const [scans, setScans] = useState<LeagueScan[]>(cachedScans);
-  const [loading, setLoading] = useState(Boolean(leagueId));
+  const [loading, setLoading] = useState(
+    leagues.length > 0 && cachedScans.length === 0,
+  );
   const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
