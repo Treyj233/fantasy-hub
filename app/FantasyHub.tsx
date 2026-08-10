@@ -6133,36 +6133,36 @@ function buildTradeSuggestions(
 ): TradeSuggestion[] {
   const policy = {
     Aggressive: {
-      maxNeedRank: 3,
-      valueGapMultiplier: 1.45,
+      maxNeedRank: 4,
+      valueGapMultiplier: 1.8,
       eliteMismatchMultiplier: 4.25,
-      yourDeltaFloor: -0.35,
-      partnerDeltaFloor: -0.2,
-      combinedDeltaFloor: 0.15,
-      offerRatioFloor: 0.86,
-      acceptanceFloor: 34,
+      yourDeltaFloor: -0.55,
+      partnerDeltaFloor: -0.4,
+      combinedDeltaFloor: -0.1,
+      offerRatioFloor: 0.8,
+      acceptanceFloor: 25,
       requireConfidence: false,
     },
     Neutral: {
-      maxNeedRank: 2,
-      valueGapMultiplier: 1,
+      maxNeedRank: 3,
+      valueGapMultiplier: 1.35,
       eliteMismatchMultiplier: 2.5,
-      yourDeltaFloor: -0.1,
-      partnerDeltaFloor: -0.1,
-      combinedDeltaFloor: 0.4,
-      offerRatioFloor: 0.92,
-      acceptanceFloor: 45,
+      yourDeltaFloor: -0.3,
+      partnerDeltaFloor: -0.25,
+      combinedDeltaFloor: 0.05,
+      offerRatioFloor: 0.86,
+      acceptanceFloor: 35,
       requireConfidence: false,
     },
     Strict: {
-      maxNeedRank: 1,
-      valueGapMultiplier: 0.62,
+      maxNeedRank: 2,
+      valueGapMultiplier: 0.85,
       eliteMismatchMultiplier: 1.8,
-      yourDeltaFloor: 0,
-      partnerDeltaFloor: 0.15,
-      combinedDeltaFloor: 0.7,
-      offerRatioFloor: 1.03,
-      acceptanceFloor: 60,
+      yourDeltaFloor: -0.1,
+      partnerDeltaFloor: 0,
+      combinedDeltaFloor: 0.25,
+      offerRatioFloor: 0.95,
+      acceptanceFloor: 50,
       requireConfidence: true,
     },
   }[style];
@@ -6196,6 +6196,10 @@ function buildTradeSuggestions(
     context,
   );
   const premium = 1;
+  const hasPositionDepth = (team: LeagueTeam, position: string) => {
+    const desired = Math.max(1, Math.ceil(context?.positionDemand[position] ?? 1));
+    return team.roster.filter((player) => player.position === position).length > desired;
+  };
   const candidates = partnerAssets.flatMap((target) =>
     yourAssets.flatMap((offer) => {
       if (target.position === offer.position) return [];
@@ -6208,7 +6212,11 @@ function buildTradeSuggestions(
         partnerNeedRank > policy.maxNeedRank
       )
         return [];
-      if (yourOfferNeedRank === 0 || partnerTargetNeedRank === 0) return [];
+      if (
+        (yourOfferNeedRank === 0 && !hasPositionDepth(yourTeam, offer.position)) ||
+        (partnerTargetNeedRank === 0 && !hasPositionDepth(partner, target.position))
+      )
+        return [];
       if (
         policy.requireConfidence &&
         (target.confidence === "Low" || offer.confidence === "Low")
@@ -6348,7 +6356,7 @@ function buildTradeSuggestions(
   );
   return candidates
     .sort((a, b) => b.score - a.score)
-    .slice(0, 3)
+    .slice(0, 6)
     .map((candidate) => candidate.suggestion);
 }
 
@@ -6501,10 +6509,10 @@ function TradeLab({
     calculatorPartnerAfter >= calculatorPartnerBefore;
   const calculatorProfile =
     partnerStyle === "Aggressive"
-      ? { strongGap: 0.25, workableGap: 0.4, partnerGain: -0.2, yourGain: -0.3, offerRatio: 0.86 }
+      ? { strongGap: 0.32, workableGap: 0.5, partnerGain: -0.4, yourGain: -0.55, offerRatio: 0.8 }
       : partnerStyle === "Strict"
-        ? { strongGap: 0.1, workableGap: 0.16, partnerGain: 0.15, yourGain: 0, offerRatio: 1.03 }
-        : { strongGap: 0.18, workableGap: 0.3, partnerGain: 0, yourGain: 0, offerRatio: 0.92 };
+        ? { strongGap: 0.14, workableGap: 0.22, partnerGain: 0, yourGain: -0.1, offerRatio: 0.95 }
+        : { strongGap: 0.25, workableGap: 0.4, partnerGain: -0.25, yourGain: -0.3, offerRatio: 0.86 };
   const calculatorOfferRatio =
     calculatorSendAsset && calculatorReceiveAsset
       ? calculatorSendAsset.value / Math.max(1, calculatorReceiveAsset.value)
