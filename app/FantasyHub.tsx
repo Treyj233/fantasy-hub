@@ -7018,7 +7018,7 @@ function TradeLab({
   );
   const [selectedId, setSelectedId] = useState(opponents[0]?.id ?? "");
   const [styles, setStyles] = useState<Record<string, TradeStyle>>({});
-  const [activeTargetId, setActiveTargetId] = useState("");
+  const [activeSuggestionId, setActiveSuggestionId] = useState("");
   const [calculatorSendId, setCalculatorSendId] = useState("");
   const [calculatorReceiveId, setCalculatorReceiveId] = useState("");
   const partner =
@@ -7035,14 +7035,14 @@ function TradeLab({
         )
       : [];
   const suggestion =
-    suggestions.find((item) => item.receive[0]?.id === activeTargetId) ??
+    suggestions.find((item) => item.id === activeSuggestionId) ??
     suggestions[0] ??
     null;
   const tradeMemoryFor = (item: TradeSuggestion) => ({ id: `trade:${week}:${partner?.id ?? "partner"}:${item.id}`, leagueId, week, category: "trade", recommendation: item.title, alternatives: suggestions.map((option) => ({ id: option.id, title: option.title, send: option.send.map((asset) => asset.name), receive: option.receive.map((asset) => asset.name), acceptance: option.acceptance })), information: { partner: partner?.teamName, negotiationProfile: partnerStyle, format: context?.format ?? "Redraft", send: item.send.map((asset) => ({ id: asset.id, name: asset.name, value: asset.value })), receive: item.receive.map((asset) => ({ id: asset.id, name: asset.name, value: asset.value })), yourBenefit: item.yourBenefit, partnerBenefit: item.partnerBenefit }, confidence: item.confidence });
   const tradeMemory = suggestion ? tradeMemoryFor(suggestion) : null;
   function selectPartner(id: string) {
     setSelectedId(id);
-    setActiveTargetId("");
+    setActiveSuggestionId("");
     setCalculatorSendId("");
     setCalculatorReceiveId("");
   }
@@ -7320,7 +7320,7 @@ function TradeLab({
                 aria-selected={suggestion.id === item.id}
                 className={suggestion.id === item.id ? "active" : ""}
                 onClick={() => {
-                  setActiveTargetId(item.receive[0]?.id ?? "");
+                  setActiveSuggestionId(item.id);
                   setCalculatorSendId(item.send[0]?.id ?? "");
                   setCalculatorReceiveId(item.receive[0]?.id ?? "");
                   const memory = tradeMemoryFor(item);
