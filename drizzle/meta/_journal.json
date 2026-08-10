@@ -50,6 +50,13 @@
       "when": 1786396352529,
       "tag": "0006_little_smasher",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1786403562575,
+      "tag": "0007_melted_hardball",
+      "breakpoints": true
     }
   ]
 }

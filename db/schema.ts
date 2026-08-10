@@ -22,6 +22,18 @@ export const userPreferences = sqliteTable("user_preferences", {
   updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });
 
+export const subscriptions = sqliteTable("subscriptions", {
+  userId: text("user_id").primaryKey(),
+  email: text("email").notNull(),
+  plan: text("plan").notNull().default("free"),
+  status: text("status").notNull().default("inactive"),
+  provider: text("provider").notNull().default("manual"),
+  providerCustomerId: text("provider_customer_id"),
+  providerSubscriptionId: text("provider_subscription_id"),
+  currentPeriodEnd: text("current_period_end"),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
 export const managedLeagues = sqliteTable("managed_leagues", {
   id: text("id").primaryKey(),
   userId: text("user_id").notNull(),

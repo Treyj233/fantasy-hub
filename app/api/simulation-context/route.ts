@@ -3,12 +3,15 @@ import { getDb } from "../../../db";
 import { managedLeagues, sleeperConnections } from "../../../db/schema";
 import { getChatGPTUser } from "../../chatgpt-auth";
 import { fetchEspnLeagueForUser, normalizeEspnSimulation } from "../espn";
+import { requirePro } from "../../entitlements";
 
 type MatchupRow = { roster_id?: number; matchup_id?: number | null; points?: number; custom_points?: number | null };
 
 export async function GET(request: Request) {
   const user = await getChatGPTUser();
   if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
+  const paywall = await requirePro(user.userId);
+  if (paywall) return paywall;
   const leagueId = new URL(request.url).searchParams.get("leagueId")?.trim();
   if (leagueId?.startsWith("espn:")) {
     const [, season, sourceLeagueId] = leagueId.split(":");

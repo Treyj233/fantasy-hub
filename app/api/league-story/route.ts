@@ -2,6 +2,7 @@ import { and, asc, eq } from "drizzle-orm";
 import { getDb } from "../../../db";
 import { seasonNarrativeSnapshots, sleeperConnections } from "../../../db/schema";
 import { getChatGPTUser } from "../../chatgpt-auth";
+import { requirePro } from "../../entitlements";
 
 type MatchupRow = { roster_id?: number; matchup_id?: number | null; points?: number; custom_points?: number | null; starters?: string[]; players?: string[]; players_points?: Record<string, number> };
 type Roster = { roster_id?: number; owner_id?: string; players?: string[] };
@@ -14,6 +15,8 @@ type DraftPick = { player_id?: string; roster_id?: number; round?: number; pick_
 export async function GET(request: Request) {
   const user = await getChatGPTUser();
   if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
+  const paywall = await requirePro(user.userId);
+  if (paywall) return paywall;
   const leagueId = new URL(request.url).searchParams.get("leagueId")?.trim();
   if (!leagueId || !/^\d{6,24}$/.test(leagueId)) return Response.json({ error: "Select a league first" }, { status: 400 });
   const db = await getDb();

@@ -2,12 +2,15 @@ import { and, desc, eq } from "drizzle-orm";
 import { getDb } from "../../../db";
 import { decisionMemory, sleeperConnections } from "../../../db/schema";
 import { getChatGPTUser } from "../../chatgpt-auth";
+import { requirePro } from "../../entitlements";
 
 type DecisionInput = { id?: string; leagueId?: string; week?: number; category?: string; recommendation?: string; alternatives?: unknown[]; information?: Record<string, unknown>; confidence?: number; userSelection?: string | null };
 
 export async function POST(request: Request) {
   const user = await getChatGPTUser();
   if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
+  const paywall = await requirePro(user.userId);
+  if (paywall) return paywall;
   const body = await request.json().catch(() => ({})) as DecisionInput;
   if (!body.id || !body.leagueId || !body.category || !body.recommendation || !Number.isInteger(body.week)) return Response.json({ error: "Incomplete decision record" }, { status: 400 });
   const db = await getDb();
@@ -22,6 +25,8 @@ export async function POST(request: Request) {
 export async function GET(request: Request) {
   const user = await getChatGPTUser();
   if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
+  const paywall = await requirePro(user.userId);
+  if (paywall) return paywall;
   const leagueId = new URL(request.url).searchParams.get("leagueId")?.trim();
   if (!leagueId) return Response.json({ error: "Select a league first" }, { status: 400 });
   const db = await getDb();

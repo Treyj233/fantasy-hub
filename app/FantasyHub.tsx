@@ -20,6 +20,7 @@ type View =
   | "Trade Lab"
   | "Matchups"
   | "Simulator"
+  | "Fantasy Hub Pro"
   | "Manage Leagues";
 type Player = {
   id: string;
@@ -274,6 +275,7 @@ type RankingContext = {
   scoringRuleCount: number;
 };
 type AccountUser = { displayName: string; email: string };
+type AccountEntitlement = { plan: "free" | "pro"; status: string; pro: boolean; currentPeriodEnd: string | null };
 type AccountPreferences = {
   colorMode: Theme;
   teamTheme: string;
@@ -539,6 +541,7 @@ type NavGroup = "Portfolio" | "Live" | "Team Management" | "League Insights";
 const nav: { label: View; displayLabel?: string; mark: string; tone: string; group: NavGroup }[] = [
   { label: "All Leagues", mark: "◆", tone: "violet", group: "Portfolio" },
   { label: "Manage Leagues", mark: "⚙", tone: "slate", group: "Portfolio" },
+  { label: "Fantasy Hub Pro", displayLabel: "Fantasy Hub Pro", mark: "P", tone: "gold", group: "Portfolio" },
   { label: "Command Center", mark: "★", tone: "amber", group: "Team Management" },
   { label: "My Team", mark: "♟", tone: "blue", group: "Team Management" },
   { label: "Start / Sit", mark: "⚡", tone: "orange", group: "Team Management" },
@@ -1185,6 +1188,7 @@ export default function FantasyHub({
   const [scoreboardScope, setScoreboardScope] = useState<"all" | "league">("all");
   const [accountLoading, setAccountLoading] = useState(Boolean(accountUser));
   const [accountError, setAccountError] = useState("");
+  const [entitlement, setEntitlement] = useState<AccountEntitlement>({ plan: "free", status: "inactive", pro: false, currentPeriodEnd: null });
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
   const [theme, setTheme] = useState<Theme>("light");
   const [teamTheme, setTeamTheme] = useState("GB");
@@ -1277,8 +1281,10 @@ export default function FantasyHub({
         const data = (await response.json()) as {
           connection?: SleeperConnection | null;
           preferences?: AccountPreferences | null;
+          entitlement?: AccountEntitlement;
         };
         setConnection(data.connection ?? null);
+        setEntitlement(data.entitlement ?? { plan: "free", status: "inactive", pro: false, currentPeriodEnd: null });
         if (data.preferences) {
           setTheme(data.preferences.colorMode);
           setTeamTheme(data.preferences.teamTheme);
@@ -1659,6 +1665,7 @@ export default function FantasyHub({
     (league) => league.id === leagueId,
   );
   const visibleNav = nav;
+  const proViews = new Set<View>(["Command Center", "League Stories", "Manager Report", "League Analytics", "Trade Lab", "Simulator"]);
   const rosterReady = players.length > 0;
   const periodLabel =
     leagueStatus === "pre_draft" || leagueWeek < 1
@@ -1742,6 +1749,7 @@ export default function FantasyHub({
                     {item.mark}
                   </i>
                   {item.displayLabel ?? item.label}
+                  {proViews.has(item.label) && !entitlement.pro && <b className="nav-pro-tag">PRO</b>}
                 </button>
               ))}
             </div>
@@ -1941,7 +1949,8 @@ export default function FantasyHub({
           </section>
         )}
 
-        {view === "Command Center" &&
+        {view === "Command Center" && !entitlement.pro && <ProGate feature="Command Center" onUpgrade={() => setView("Fantasy Hub Pro")} />}
+        {view === "Command Center" && entitlement.pro &&
           (rosterReady ? (
             <CommandCenter
               players={players}
@@ -1970,14 +1979,16 @@ export default function FantasyHub({
             }}
           />
         )}
-        {view === "League Stories" && (
+        {view === "League Stories" && !entitlement.pro && <ProGate feature="League Stories" onUpgrade={() => setView("Fantasy Hub Pro")} />}
+        {view === "League Stories" && entitlement.pro && (
           <LeagueStories
             key={leagueId || "no-league"}
             leagueId={leagueId}
             setView={setView}
           />
         )}
-        {view === "Manager Report" && <ManagerReport key={leagueId || "no-league"} leagueId={leagueId} />}
+        {view === "Manager Report" && !entitlement.pro && <ProGate feature="Manager Report Card" onUpgrade={() => setView("Fantasy Hub Pro")} />}
+        {view === "Manager Report" && entitlement.pro && <ManagerReport key={leagueId || "no-league"} leagueId={leagueId} />}
         {view === "Scoreboard" && (
           scoreboardScope === "all" ? (
             <AllLeagueScoreboard
@@ -2009,7 +2020,8 @@ export default function FantasyHub({
             defaultWeek={defaultGameWeek}
           />
         )}
-        {view === "League Analytics" &&
+        {view === "League Analytics" && !entitlement.pro && <ProGate feature="League Analytics" onUpgrade={() => setView("Fantasy Hub Pro")} />}
+        {view === "League Analytics" && entitlement.pro &&
           (rosterReady ? (
             <LeagueAnalytics
               players={players}
@@ -2087,7 +2099,8 @@ export default function FantasyHub({
             setSelectedPlayer={setSelectedPlayer}
           />
         )}
-        {view === "Trade Lab" && (
+        {view === "Trade Lab" && !entitlement.pro && <ProGate feature="Trade Lab" onUpgrade={() => setView("Fantasy Hub Pro")} />}
+        {view === "Trade Lab" && entitlement.pro && (
           <TradeLab
             leagueId={leagueId}
             week={defaultGameWeek}
@@ -2109,7 +2122,8 @@ export default function FantasyHub({
           ) : (
             rosterEmptyState
           ))}
-        {view === "Simulator" &&
+        {view === "Simulator" && !entitlement.pro && <ProGate feature="Season Simulator" onUpgrade={() => setView("Fantasy Hub Pro")} />}
+        {view === "Simulator" && entitlement.pro &&
           (rosterReady ? (
             <Simulator
               key={`${leagueId}-${selectedTeamId}`}
@@ -2143,6 +2157,7 @@ export default function FantasyHub({
             onReorder={reorderConnectedLeague}
           />
         )}
+        {view === "Fantasy Hub Pro" && <ProPlans entitlement={entitlement} />}
       </section>
 
       {selectedPlayer && (
@@ -2285,6 +2300,15 @@ function EmptyRoster({
   );
 }
 
+function ProGate({ feature, onUpgrade }: { feature: string; onUpgrade: () => void }) {
+  return <div className="page-content pro-gate-page"><section className="pro-gate panel"><span>FANTASY HUB EXCLUSIVE</span><div className="pro-lock" aria-hidden="true">FH</div><h2>{feature} is a Pro experience.</h2><p>Your leagues, rosters, live scores, matchups, rankings, waiver pool, and Start/Sit tools remain free. Pro unlocks Fantasy Hub’s proprietary simulations, advanced analysis, decision memory, stories, and trade intelligence.</p><button onClick={onUpgrade}>Explore Fantasy Hub Pro →</button><small>Platform connection is not what you pay for. Pro is built around Fantasy Hub’s original models and experience.</small></section></div>;
+}
+
+function ProPlans({ entitlement }: { entitlement: AccountEntitlement }) {
+  const proFeatures = ["Season Simulator and scenario drivers", "Advanced Trade Lab and roster-impact modeling", "League Analytics and dynasty-window intelligence", "Manager Report Card and decision memory", "Automated league stories and season narrative", "Portfolio Command Center prioritization"];
+  return <div className="page-content pro-plans-page"><section className="pro-plans-hero"><span>FANTASY HUB PRO</span><h2>Pay for the edge.<br/><em>Keep fantasy management free.</em></h2><p>Core league connection and game-day management stay available to every manager. Pro packages Fantasy Hub’s original models, simulations, storytelling, and accountability tools.</p><b>{entitlement.pro ? "PRO ACTIVE" : "FOUNDING ACCESS SOON"}</b></section><section className="plan-grid"><article className="panel"><span>FREE</span><h3>$0</h3><p>Connect and manage your fantasy world.</p><ul><li>Unlimited Sleeper and ESPN league connections</li><li>All Leagues portfolio view</li><li>My Team, live scores, and matchups</li><li>Player rankings and ADP</li><li>Start/Sit and waiver-wire access</li><li>NFL games and weather context</li></ul><strong>CURRENT PLAN</strong></article><article className="panel featured"><span>FANTASY HUB PRO</span><h3>Pricing coming soon</h3><p>Proprietary intelligence built by Fantasy Hub.</p><ul>{proFeatures.map((feature) => <li key={feature}>{feature}</li>)}</ul>{entitlement.pro ? <strong>PRO IS ACTIVE</strong> : <a href="mailto:support@treyj233.chatgpt.site?subject=Fantasy%20Hub%20Pro%20Founding%20Access">Join the founding-access list →</a>}</article></section><section className="pro-principle panel"><b>OUR FREEMIUM PROMISE</b><p>Fantasy Hub will not charge merely to display a connected league. Paid access is reserved for original Fantasy Hub analysis and experiences. Billing remains disabled until commercial data permissions and the subscription system are ready.</p></section></div>;
+}
+
 function ManageLeagues({
   connectedLeagues,
   managedLeagues,
@@ -2336,6 +2360,8 @@ function ManageLeagues({
   } | null>(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [deleteConfirmation, setDeleteConfirmation] = useState("");
+  const [deletingAccount, setDeletingAccount] = useState(false);
   const [pairing, setPairing] = useState<{ code: string; expiresAt: string } | null>(null);
   const [espnSelection, setEspnSelection] = useState<{ id: string; name: string; season: string; teams: { id: string; name: string; managerName: string }[] } | null>(null);
   const providers: {
@@ -2411,6 +2437,25 @@ function ManageLeagues({
       setError(requestError instanceof Error ? requestError.message : "Unable to create pairing code");
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function deleteAccount() {
+    if (deleteConfirmation !== "DELETE") return;
+    setDeletingAccount(true);
+    setError("");
+    try {
+      const response = await fetch("/api/v1/account", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirmation: deleteConfirmation }),
+      });
+      const data = await response.json() as { error?: { message?: string } };
+      if (!response.ok) throw new Error(data.error?.message ?? "Unable to delete account");
+      window.location.assign("/signout-with-chatgpt?return_to=%2F");
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Unable to delete account");
+      setDeletingAccount(false);
     }
   }
 
@@ -2810,6 +2855,20 @@ function ManageLeagues({
             </p>
           </div>
         )}
+      </section>
+      <section className="account-danger-zone panel">
+        <div>
+          <span>ACCOUNT &amp; PRIVACY</span>
+          <h3>Delete Fantasy Hub account</h3>
+          <p>Permanently removes saved connections, league snapshots, preferences, narratives, and decision history. This does not delete your Sleeper or ESPN account.</p>
+        </div>
+        <label>
+          Type DELETE to confirm
+          <input value={deleteConfirmation} onChange={(event) => setDeleteConfirmation(event.target.value)} autoComplete="off" />
+        </label>
+        <button type="button" disabled={deleteConfirmation !== "DELETE" || deletingAccount} onClick={() => void deleteAccount()}>
+          {deletingAccount ? "Deleting…" : "Delete account"}
+        </button>
       </section>
     </div>
   );
