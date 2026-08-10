@@ -3313,10 +3313,25 @@ function AllLeagueScoreboard({
       const winProbability = estimatedWinProbability({ yourPoints: mine.points, opponentPoints: opponent.points, yourRemaining: mineRemaining, opponentRemaining, status, projectionsAvailable });
       return [{ league, data, matchup, mine, opponent, mineStarters, opponentStarters, mineRemaining, opponentRemaining, winProbability, status }];
     });
-    const exposures = matchups.flatMap((item) => [...item.mineStarters.map((player) => ({ playerId: player.id, playerName: player.name, side: "you", margin: item.mine.points - item.opponent.points, remainingProjection: Math.max(0, (player.projection ?? 0) - player.points), pointsNeeded: Math.max(0, item.opponent.points + item.opponentRemaining - item.mine.points - item.mineRemaining + Math.max(0, (player.projection ?? 0) - player.points)), state: item.status, leagueId: item.league.id })), ...item.opponentStarters.map((player) => ({ playerId: player.id, playerName: player.name, side: "opponent", margin: item.mine.points - item.opponent.points, remainingProjection: Math.max(0, (player.projection ?? 0) - player.points), pointsNeeded: 0, state: item.status, leagueId: item.league.id }))]);
-    const interests = rootingInterests(exposures).slice(0, 5);
+    const exposures = matchups.flatMap((item) => [...item.mineStarters.map((player) => ({ playerId: player.id, playerName: player.name, position: player.position, nflTeam: player.nflTeam, side: "you", margin: item.mine.points - item.opponent.points, remainingProjection: Math.max(0, (player.projection ?? 0) - player.points), pointsNeeded: Math.max(0, item.opponent.points + item.opponentRemaining - item.mine.points - item.mineRemaining + Math.max(0, (player.projection ?? 0) - player.points)), state: item.status, leagueId: item.league.id, leagueName: item.league.name })), ...item.opponentStarters.map((player) => ({ playerId: player.id, playerName: player.name, position: player.position, nflTeam: player.nflTeam, side: "opponent", margin: item.mine.points - item.opponent.points, remainingProjection: Math.max(0, (player.projection ?? 0) - player.points), pointsNeeded: 0, state: item.status, leagueId: item.league.id, leagueName: item.league.name }))]);
     const playerGroups = new Map<string, typeof exposures>();
     exposures.forEach((item) => playerGroups.set(item.playerId, [...(playerGroups.get(item.playerId) ?? []), item]));
+    const interests = rootingInterests(exposures).slice(0, 5).map((interest) => {
+      const playerExposures = playerGroups.get(interest.playerId) ?? [];
+      const helps = playerExposures.filter((item) => item.side === "you").length;
+      const hurts = playerExposures.length - helps;
+      return {
+        ...interest,
+        position: playerExposures[0]?.position ?? "NFL",
+        nflTeam: playerExposures[0]?.nflTeam ?? "NFL",
+        sentiment: helps && hurts ? "mixed" : helps ? "cheer" : "fade",
+        affectedLeagues: playerExposures.map((item) => ({
+          id: item.leagueId,
+          name: item.leagueName,
+          impact: item.side === "you" ? "helps" : "hurts",
+        })),
+      };
+    });
     const leveragePlayers = [...playerGroups.entries()].map(([id, items]) => ({ id, name: items[0].playerName, ...playerLeverage(items), exposures: items })).sort((a, b) => b.score - a.score);
     const activePlayers = matchups.flatMap((item) => [...item.mineStarters, ...item.opponentStarters]).filter((player) => player.points > 0 && (player.projection == null || player.points < player.projection)).length;
     const completedPlayers = matchups.reduce(
@@ -3374,7 +3389,7 @@ function AllLeagueScoreboard({
         </div>
       </section>
       <div className="game-day-insights">
-        <section className="panel rooting-interests"><header><span>ROOTING INTERESTS</span><h3>Your watch list</h3></header>{gameDay.interests.length ? gameDay.interests.map((interest) => <article key={interest.playerId}><b className={`leverage-${interest.level.toLowerCase()}`}>{interest.level}</b><p><strong>{interest.playerName}</strong><small>{interest.text}</small></p><em>{interest.score}</em></article>) : <p className="game-day-empty">Rooting interests appear when weekly lineups and projections are available.</p>}</section>
+        <section className="panel rooting-interests"><header><div><span>ROOTING INTERESTS</span><h3>Who to cheer—and who to stop</h3></div><b>📣 GAME-DAY PULSE</b></header>{gameDay.interests.length ? gameDay.interests.map((interest) => <article className={`rooting-${interest.sentiment}`} key={interest.playerId}><div className="rooting-visual"><NflTeamLogo team={interest.nflTeam} /><PlayerHeadshot id={interest.playerId} position={interest.position} /><i aria-hidden="true">{interest.sentiment === "cheer" ? "📣" : interest.sentiment === "fade" ? "🛑" : "⚖️"}</i></div><p><span>{interest.sentiment === "cheer" ? "ROOT FOR" : interest.sentiment === "fade" ? "ROOT AGAINST" : "MIXED ROOTING INTEREST"}</span><strong>{interest.playerName}</strong><small>{interest.text}</small><span className="rooting-leagues">{interest.affectedLeagues.map((league) => <b className={league.impact} key={`${interest.playerId}-${league.id}`}>{league.impact === "helps" ? "↑" : "↓"} {league.name}</b>)}</span></p><em><small>{interest.level}</small>{interest.score}</em></article>) : <p className="game-day-empty">Rooting interests appear when weekly lineups and projections are available.</p>}</section>
         <section className="panel sunday-swing"><header><span>SUNDAY SWING</span><h3>Observed this session</h3></header>{swingFeed.length ? swingFeed.map((item) => <article key={item.id}><b className={item.current >= item.previous ? "positive" : "negative"}>{item.current >= item.previous ? "↑" : "↓"} {Math.abs(item.current - item.previous)} pts</b><p><strong>{item.league}</strong><small>{item.text}</small></p><time>{item.at ? new Date(item.at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "Now"}</time></article>) : <p className="game-day-empty">Changes will appear after Fantasy Hub observes a scoring refresh. No event history is fabricated.</p>}</section>
       </div>
       <div className="portfolio-scoreboard-grid">

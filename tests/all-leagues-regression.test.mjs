@@ -28,4 +28,8 @@ test("portfolio Scoreboard keeps matchup status in scope", async () => {
     /\.filter\(\(player\) => item\.status/,
   );
   assert.match(component, /matchup\.status === "final"/);
+  assert.match(component, /affectedLeagues/);
+  assert.match(component, /leagueName: item\.league\.name/);
+  assert.match(component, /ROOT FOR/);
+  assert.match(component, /ROOT AGAINST/);
 });
