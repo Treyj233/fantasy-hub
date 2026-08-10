@@ -3356,7 +3356,7 @@ function NflGames({
                   <span style={{ backgroundColor: `#${team.color}` }}>
                     {team.abbreviation}
                   </span>
-                  <p>
+                  <p style={{ backgroundColor: `#${team.color}` }}>
                     <strong>{team.displayName}</strong>
                     <small>
                       {team.record}
