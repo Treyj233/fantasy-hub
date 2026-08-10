@@ -7489,11 +7489,14 @@ function SectionIntro({
   );
 }
 function Status({ value }: { value: string }) {
+  const isQuestionable = value.toLowerCase() === "questionable";
   return (
     <span
       className={`status ${value === "Healthy" ? "healthy" : "questionable"}`}
+      aria-label={isQuestionable ? "Questionable" : undefined}
+      title={isQuestionable ? "Questionable" : undefined}
     >
-      {value}
+      {isQuestionable ? "?" : value}
     </span>
   );
 }
