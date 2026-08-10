@@ -2935,6 +2935,7 @@ function NflGames({
     defaultWeek >= 1 && defaultWeek <= 18 ? defaultWeek : 1,
   );
   const [data, setData] = useState<NflGameData | null>(null);
+  const [weather, setWeather] = useState<WeatherData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [expandedGames, setExpandedGames] = useState<Set<string>>(
@@ -3064,6 +3065,21 @@ function NflGames({
     };
   }, [leagueId, season, week]);
 
+  useEffect(() => {
+    if (!leagueId) return;
+    const controller = new AbortController();
+    void fetch(
+      `/api/weather?season=${encodeURIComponent(season)}&week=${week}`,
+      { signal: controller.signal },
+    )
+      .then(async (response) =>
+        response.ok ? ((await response.json()) as WeatherData) : null,
+      )
+      .then((payload) => setWeather(payload))
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, [leagueId, season, week]);
+
   return (
     <div className="page-content nfl-games-page">
       <section className="nfl-games-head">
@@ -3081,6 +3097,7 @@ function NflGames({
             value={week ?? ""}
             onChange={(event) => {
               setExpandedGames(new Set());
+              setWeather(null);
               setWeek(Number(event.target.value));
             }}
           >
@@ -3134,6 +3151,24 @@ function NflGames({
       <div className="nfl-game-grid">
         {data?.games.map((game) => {
           const isExpanded = expandedGames.has(game.id);
+          const gameTeams = game.teams.map((team) =>
+            normalizeNflTeam(team.abbreviation),
+          );
+          const gameWeather = weather?.games.find(
+            (forecast) =>
+              forecast.gameId === game.id ||
+              (gameTeams.length === 2 &&
+                gameTeams.every((team) => forecast.teams.includes(team))),
+          );
+          const weatherIcon = gameWeather?.indoor
+            ? "🏟️"
+            : (gameWeather?.precipitationProbability ?? 0) >= 40
+              ? "🌧️"
+              : (gameWeather?.windMph ?? 0) >= 15
+                ? "💨"
+                : (gameWeather?.temperatureF ?? 60) <= 35
+                  ? "❄️"
+                  : "☀️";
           const yourPlayerCount = game.impactPlayers.filter(
             (player) => player.side === "You",
           ).length;
@@ -3163,6 +3198,29 @@ function NflGames({
               {game.impactPlayers.length > 0 && (
                 <em>{game.impactPlayers.length} MATCHUP PLAYERS</em>
               )}
+              {gameWeather &&
+                (gameWeather.indoor || gameWeather.forecastAvailable) && (
+                  <span className="game-weather" title={gameWeather.summary}>
+                    <i aria-hidden="true">{weatherIcon}</i>
+                    {gameWeather.indoor ? (
+                      <b>Indoor</b>
+                    ) : (
+                      <>
+                        {gameWeather.temperatureF != null && (
+                          <b>{Math.round(gameWeather.temperatureF)}°</b>
+                        )}
+                        {gameWeather.windMph != null && (
+                          <small>{Math.round(gameWeather.windMph)} mph wind</small>
+                        )}
+                        {gameWeather.precipitationProbability != null && (
+                          <small>
+                            {Math.round(gameWeather.precipitationProbability)}% rain
+                          </small>
+                        )}
+                      </>
+                    )}
+                  </span>
+                )}
             </header>
             <div className="nfl-score-bug">
               {game.teams.map((team) => (
