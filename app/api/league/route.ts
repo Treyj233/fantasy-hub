@@ -9,12 +9,12 @@ export async function GET(request: Request) {
       fetch(`https://api.sleeper.app/v1/league/${id}`, { next: { revalidate: 300 } }),
       fetch(`https://api.sleeper.app/v1/league/${id}/rosters`, { next: { revalidate: 300 } }),
       fetch(`https://api.sleeper.app/v1/league/${id}/users`, { next: { revalidate: 300 } }),
-      fetch("https://api.sleeper.app/v1/players/nfl?active=true", { next: { revalidate: 86400 } }),
+      fetch("https://api.sleeper.app/v1/players/nfl", { next: { revalidate: 86400 } }),
       fetch(`https://api.sleeper.app/v1/league/${id}/traded_picks`, { next: { revalidate: 300 } }).catch(() => null),
     ]);
     if (!leagueResponse.ok || !rostersResponse.ok || !usersResponse.ok || !playersResponse.ok) throw new Error("League unavailable");
     const league = await leagueResponse.json() as { name?: string; status?: string; total_rosters?: number; season?: string; leg?: number; roster_positions?: string[]; scoring_settings?: Record<string, number>; settings?: { type?: number; draft_rounds?: number } };
-    const rosters = await rostersResponse.json() as { roster_id?: number; owner_id?: string; players?: string[]; starters?: string[] }[];
+    const rosters = await rostersResponse.json() as { roster_id?: number; owner_id?: string; players?: string[]; starters?: string[]; reserve?: string[]; taxi?: string[] }[];
     const users = await usersResponse.json() as { user_id?: string; display_name?: string; metadata?: { team_name?: string } }[];
     const sourcePlayers = await playersResponse.json() as Record<string, SourcePlayer>;
     const tradedPicks = tradedPicksResponse?.ok ? await tradedPicksResponse.json().catch(() => []) as { season?: string; round?: number; roster_id?: number; owner_id?: number; previous_owner_id?: number }[] : [];
@@ -120,12 +120,14 @@ export async function GET(request: Request) {
       const managerName = owner?.display_name ?? `Manager ${rosterIndex + 1}`;
       const starterIds = roster.starters ?? [];
       const starterSet = new Set(starterIds);
+      const reserveSet = new Set(roster.reserve ?? []);
+      const taxiSet = new Set(roster.taxi ?? []);
       const benchIds = (roster.players ?? []).filter((playerId) => !starterSet.has(playerId));
       const orderedRoster = [
         ...starterIds.map((playerId, index) => ({ playerId, role: league.roster_positions?.[index] ?? "Starter" })),
-        ...benchIds.map((playerId) => ({ playerId, role: "Bench" })),
+        ...benchIds.map((playerId) => ({ playerId, role: reserveSet.has(playerId) ? "IR" : taxiSet.has(playerId) ? "TAXI" : "Bench" })),
       ];
-      const normalized = orderedRoster.slice(0, 24).flatMap(({ playerId, role }) => {
+      const normalized = orderedRoster.flatMap(({ playerId, role }) => {
         const player = sourcePlayers[playerId];
         if (!player) return [];
         const projection = opportunityProjection(playerId, player);

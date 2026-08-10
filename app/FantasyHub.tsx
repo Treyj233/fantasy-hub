@@ -43,6 +43,7 @@ const nav: { label: View; mark: string }[] = [
 ];
 
 const normalizeNflTeam = (team: string) => ({ JAC: "JAX", WSH: "WAS" } as Record<string, string>)[team] ?? team;
+const isStartingPlayer = (player: Player) => !["Bench", "IR", "TAXI"].includes(player.role);
 
 function applyWeather(player: Player, weather: WeatherData | null) {
   const game = weather?.games.find((item) => item.teams.includes(normalizeNflTeam(player.team)));
@@ -142,8 +143,8 @@ export default function FantasyHub({ accountUser }: { accountUser: AccountUser |
   }, [accountUser]);
 
   const totals = useMemo(() => ({
-    projection: players.filter((p) => p.role !== "Bench" && p.role !== "IR" && p.role !== "TAXI").reduce((sum, p) => sum + p.projection, 0),
-    ceiling: players.filter((p) => p.role !== "Bench" && p.role !== "IR" && p.role !== "TAXI").reduce((sum, p) => sum + p.ceiling, 0),
+    projection: players.filter(isStartingPlayer).reduce((sum, p) => sum + p.projection, 0),
+    ceiling: players.filter(isStartingPlayer).reduce((sum, p) => sum + p.ceiling, 0),
   }), [players]);
 
   async function importLeague(idOverride?: string, ownerIdOverride?: string) {
@@ -452,7 +453,7 @@ function DynastyAnalytics({ players, rankings, context, setSelectedPlayer }: { p
     const phase = yearsToCliff >= 3 ? "Development" : yearsToCliff >= 0 ? "Prime" : "Cliff watch";
     return { ...player, curve, yearsToCliff, phase, positionRank: playerPositionRanks.get(player.id) ?? null };
   });
-  const starters = assets.filter((player) => players.find((rosterPlayer) => rosterPlayer.id === player.id)?.role !== "Bench");
+  const starters = assets.filter((player) => { const rosterPlayer = players.find((candidate) => candidate.id === player.id); return rosterPlayer ? isStartingPlayer(rosterPlayer) : false; });
   const averageAge = assets.length ? assets.reduce((sum, player) => sum + (player.age ?? 0), 0) / assets.length : 0;
   const cliffWatch = assets.filter((player) => player.yearsToCliff <= 1 && player.position !== "K" && player.position !== "DEF").sort((a, b) => a.yearsToCliff - b.yearsToCliff || a.overallRank - b.overallRank);
   const youngCore = assets.filter((player) => player.yearsToCliff >= 3 && player.overallRank <= (context?.teams ?? 12) * 8).sort((a, b) => a.overallRank - b.overallRank);
@@ -518,13 +519,13 @@ function CommandCenter({ players, waiverPlayers, totals, setView, setSelectedPla
 }
 
 function MyTeam({ players, setSelectedPlayer }: { players: Player[]; setSelectedPlayer: (p: Player) => void }) {
-  const starters = players.filter((player) => player.role !== "Bench");
-  const bench = players.filter((player) => player.role === "Bench");
-  return <div className="page-content"><SectionIntro kicker="ROSTER CONTROL" title="Your lineup in league order" text="Starters follow the exact slot sequence configured by your league. Bench players remain separate and preserve roster order." /><RosterSection title="Starters" detail={`${starters.length} active lineup slots`} players={starters} setSelectedPlayer={setSelectedPlayer} /><RosterSection title="Bench" detail={`${bench.length} reserve players`} players={bench} setSelectedPlayer={setSelectedPlayer} /></div>;
+  const starters = players.filter(isStartingPlayer);
+  const reserves = players.filter((player) => !isStartingPlayer(player));
+  return <div className="page-content"><SectionIntro kicker="ROSTER CONTROL" title="Your complete roster in league order" text="Starters follow the exact slot sequence configured by your league. Bench, injured reserve, and taxi players remain separate and preserve roster order." /><RosterSection title="Starters" detail={`${starters.length} active lineup slots`} players={starters} setSelectedPlayer={setSelectedPlayer} /><RosterSection title="Reserves" detail={`${reserves.length} bench, IR, and taxi players`} players={reserves} setSelectedPlayer={setSelectedPlayer} /></div>;
 }
 
 function RosterSection({ title, detail, players, setSelectedPlayer }: { title: string; detail: string; players: Player[]; setSelectedPlayer: (player: Player) => void }) {
-  return <section className="roster-section panel"><header><div><span>{title === "Starters" ? "ACTIVE LINEUP" : "RESERVES"}</span><h3>{title}</h3></div><small>{detail}</small></header><div className="table-panel"><table><thead><tr><th>Player</th><th>Slot</th><th>Matchup</th><th>League projection</th><th>Fantasy Hub</th><th>FH edge</th><th>Status</th></tr></thead><tbody>{players.map((player) => { const hasLeagueProjection = typeof player.leagueProjection === "number"; const edge = hasLeagueProjection ? player.projection - player.leagueProjection! : null; return <tr key={player.id} onClick={() => setSelectedPlayer(player)}><td><span className={`pos pos-${player.position.toLowerCase()}`}>{player.position}</span><strong>{player.name}</strong><small>{player.team}</small></td><td><span className={player.role === "Bench" ? "roster-slot bench" : "roster-slot"}>{player.role}</span></td><td>{player.opponent}</td><td><span className="league-projection">{hasLeagueProjection ? player.leagueProjection!.toFixed(1) : "—"}</span></td><td><b className="hub-projection">{player.projection.toFixed(1)}</b></td><td><span className={edge === null ? "projection-edge neutral" : edge >= 0 ? "projection-edge positive" : "projection-edge negative"}>{edge === null ? "N/A" : `${edge >= 0 ? "+" : ""}${edge.toFixed(1)}`}</span></td><td><Status value={player.status} /></td></tr>; })}</tbody></table>{!players.length && <p className="empty-roster">No players are assigned to this section.</p>}</div></section>;
+  return <section className="roster-section panel"><header><div><span>{title === "Starters" ? "ACTIVE LINEUP" : "RESERVES"}</span><h3>{title}</h3></div><small>{detail}</small></header><div className="table-panel"><table><thead><tr><th>Player</th><th>Slot</th><th>Matchup</th><th>League projection</th><th>Fantasy Hub</th><th>FH edge</th><th>Status</th></tr></thead><tbody>{players.map((player) => { const hasLeagueProjection = typeof player.leagueProjection === "number"; const edge = hasLeagueProjection ? player.projection - player.leagueProjection! : null; return <tr key={player.id} onClick={() => setSelectedPlayer(player)}><td><span className={`pos pos-${player.position.toLowerCase()}`}>{player.position}</span><strong>{player.name}</strong><small>{player.team}</small></td><td><span className={isStartingPlayer(player) ? "roster-slot" : "roster-slot bench"}>{player.role}</span></td><td>{player.opponent}</td><td><span className="league-projection">{hasLeagueProjection ? player.leagueProjection!.toFixed(1) : "—"}</span></td><td><b className="hub-projection">{player.projection.toFixed(1)}</b></td><td><span className={edge === null ? "projection-edge neutral" : edge >= 0 ? "projection-edge positive" : "projection-edge negative"}>{edge === null ? "N/A" : `${edge >= 0 ? "+" : ""}${edge.toFixed(1)}`}</span></td><td><Status value={player.status} /></td></tr>; })}</tbody></table>{!players.length && <p className="empty-roster">No players are assigned to this section.</p>}</div></section>;
 }
 
 function TeamRankings({ teams, selectedTeamId, rankings, context, setSelectedPlayer }: { teams: LeagueTeam[]; selectedTeamId: string; rankings: LeagueRanking[]; context: RankingContext | null; setSelectedPlayer: (player: Player) => void }) {
@@ -545,7 +546,7 @@ function TeamRankings({ teams, selectedTeamId, rankings, context, setSelectedPla
       const depth = values.slice(count, count + 2).reduce((sum, value) => sum + value, 0) / Math.max(1, Math.min(2, values.length - count));
       return [position, Number((core * .82 + depth * .18).toFixed(1))];
     }));
-    const starterValues = team.roster.filter((player) => player.role !== "Bench").map(playerValue);
+    const starterValues = team.roster.filter(isStartingPlayer).map(playerValue);
     const starterScore = starterValues.reduce((sum, value) => sum + value, 0) / Math.max(1, starterValues.length);
     const depthValues = team.roster.filter((player) => player.role === "Bench").map(playerValue).sort((a, b) => b - a).slice(0, 5);
     const depthScore = depthValues.reduce((sum, value) => sum + value, 0) / Math.max(1, depthValues.length);
