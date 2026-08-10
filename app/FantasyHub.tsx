@@ -2937,6 +2937,18 @@ function NflGames({
   const [data, setData] = useState<NflGameData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [expandedGames, setExpandedGames] = useState<Set<string>>(
+    () => new Set(),
+  );
+
+  const toggleGamePlayers = (gameId: string) => {
+    setExpandedGames((current) => {
+      const next = new Set(current);
+      if (next.has(gameId)) next.delete(gameId);
+      else next.add(gameId);
+      return next;
+    });
+  };
 
   useEffect(() => {
     if (!leagueId) return;
@@ -3067,7 +3079,10 @@ function NflGames({
           Week
           <select
             value={week ?? ""}
-            onChange={(event) => setWeek(Number(event.target.value))}
+            onChange={(event) => {
+              setExpandedGames(new Set());
+              setWeek(Number(event.target.value));
+            }}
           >
             {Array.from({ length: 18 }, (_, index) => index + 1).map(
               (value) => (
@@ -3117,7 +3132,14 @@ function NflGames({
       )}
       {error && <section className="scoreboard-error">{error}</section>}
       <div className="nfl-game-grid">
-        {data?.games.map((game) => (
+        {data?.games.map((game) => {
+          const isExpanded = expandedGames.has(game.id);
+          const yourPlayerCount = game.impactPlayers.filter(
+            (player) => player.side === "You",
+          ).length;
+          const opponentPlayerCount = game.impactPlayers.length - yourPlayerCount;
+          const playerPanelId = `game-players-${game.id.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
+          return (
           <article
             className={`nfl-game-card ${game.impactPlayers.length ? "has-impact" : ""}`}
             key={game.id}
@@ -3162,33 +3184,52 @@ function NflGames({
             </div>
             {game.impactPlayers.length > 0 ? (
               <section className="impact-roster">
-                <h4>Players in your fantasy matchup</h4>
-                {game.impactPlayers.map((player) => (
-                  <div
-                    className={
-                      player.side === "You" ? "your-player" : "opponent-player"
-                    }
-                    key={`${player.side}-${player.id}`}
-                  >
-                    <span
-                      className={`pos pos-${player.position.toLowerCase()}`}
-                    >
-                      {player.position}
-                    </span>
-                    <p>
-                      <button className="inline-player-link" onClick={() => openPlayer(playerShell(player))}>{player.name}</button>
-                      <small>
-                        {player.nflTeam} ·{" "}
-                        {player.starter ? "Starter" : "Bench"}
-                      </small>
-                    </p>
-                    <em>{player.side}</em>
-                    <b>
-                      {player.fantasyPoints.toFixed(1)}
-                      <small>PTS</small>
-                    </b>
+                <button
+                  className="impact-roster-toggle"
+                  type="button"
+                  aria-expanded={isExpanded}
+                  aria-controls={playerPanelId}
+                  onClick={() => toggleGamePlayers(game.id)}
+                >
+                  <span>
+                    <strong>Players in your fantasy matchup</strong>
+                    <small>
+                      <b>{yourPlayerCount}</b> your team ·{" "}
+                      <b>{opponentPlayerCount}</b> opponent
+                    </small>
+                  </span>
+                  <i aria-hidden="true">⌄</i>
+                </button>
+                {isExpanded && (
+                  <div className="impact-roster-players" id={playerPanelId}>
+                    {game.impactPlayers.map((player) => (
+                      <div
+                        className={
+                          player.side === "You" ? "your-player" : "opponent-player"
+                        }
+                        key={`${player.side}-${player.id}`}
+                      >
+                        <span
+                          className={`pos pos-${player.position.toLowerCase()}`}
+                        >
+                          {player.position}
+                        </span>
+                        <p>
+                          <button className="inline-player-link" onClick={() => openPlayer(playerShell(player))}>{player.name}</button>
+                          <small>
+                            {player.nflTeam} ·{" "}
+                            {player.starter ? "Starter" : "Bench"}
+                          </small>
+                        </p>
+                        <em>{player.side}</em>
+                        <b>
+                          {player.fantasyPoints.toFixed(1)}
+                          <small>PTS</small>
+                        </b>
+                      </div>
+                    ))}
                   </div>
-                ))}
+                )}
               </section>
             ) : (
               <p className="no-impact">
@@ -3198,7 +3239,8 @@ function NflGames({
               </p>
             )}
           </article>
-        ))}
+          );
+        })}
       </div>
       {data && !data.games.length && (
         <section className="panel scoreboard-empty">
