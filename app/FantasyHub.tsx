@@ -320,8 +320,8 @@ type LeagueScan = {
 };
 
 const nav: { label: View; mark: string }[] = [
-  { label: "Command Center", mark: "★" },
   { label: "All Leagues", mark: "◆" },
+  { label: "Command Center", mark: "★" },
   { label: "Scoreboard", mark: "▣" },
   { label: "NFL Games", mark: "🏈" },
   { label: "My Team", mark: "●" },
