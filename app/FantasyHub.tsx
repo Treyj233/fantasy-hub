@@ -301,7 +301,7 @@ const platformActionLabel = (view: View, provider = "Sleeper") =>
       : view === "Waiver Wire"
         ? `Open waivers in ${provider}`
         : `Open league in ${provider}`;
-type LeagueProvider = "sleeper" | "espn" | "yahoo";
+type LeagueProvider = "sleeper" | "espn";
 type ManagedLeague = {
   id: string;
   provider: LeagueProvider;
@@ -2238,13 +2238,6 @@ function ManageLeagues({
       description:
         "Public league rosters, scoring, matchups, waivers, and settings by league ID.",
     },
-    {
-      id: "yahoo",
-      name: "Yahoo",
-      short: "Y!",
-      description:
-        "Save your league reference, then authorize Yahoo when OAuth is available.",
-    },
   ];
   const selectedProvider = providers.find((item) => item.id === provider)!;
   const selectedNflTheme =
@@ -2265,9 +2258,7 @@ function ManageLeagues({
       setSuccess(
         provider === "sleeper"
           ? "Sleeper connected. Your live leagues are ready."
-          : provider === "yahoo"
-            ? "Yahoo reference saved. Live sync will require Yahoo authorization."
-            : "ESPN league connected. Your live roster is ready.",
+          : "ESPN league connected. Your live roster is ready.",
       );
       setIdentifier("");
     } catch (requestError) {
@@ -2298,9 +2289,7 @@ function ManageLeagues({
         </div>
         <div className="manage-count">
           <strong>
-            {connectedLeagues.length +
-              managedLeagues.filter((item) => item.provider !== "sleeper" && item.status !== "live")
-                .length}
+            {connectedLeagues.length}
           </strong>
           <span>LEAGUES & ACCOUNTS</span>
         </div>
@@ -2414,11 +2403,6 @@ function ManageLeagues({
         <div className="integration-matrix">
           <article><i>S</i><span><strong>Sleeper</strong><small>Rosters · scoring · matchups · waivers</small></span><b className="live">LIVE</b></article>
           <article><i>E</i><span><strong>ESPN</strong><small>Public leagues · rosters · scoring · matchups · waivers</small></span><b className="live">LIVE</b></article>
-          <article><i>Y!</i><span><strong>Yahoo</strong><small>OAuth authorization required for private leagues</small></span><b className="auth">AUTH SETUP</b></article>
-          <article><i>N</i><span><strong>NFL.com</strong><small>Provider adapter planned</small></span><b>PLANNED</b></article>
-          <article><i>C</i><span><strong>CBS</strong><small>Provider adapter planned</small></span><b>PLANNED</b></article>
-          <article><i>M</i><span><strong>MFL</strong><small>Provider adapter planned</small></span><b>PLANNED</b></article>
-          <article><i>F</i><span><strong>Fantrax</strong><small>Provider adapter planned</small></span><b>PLANNED</b></article>
         </div>
       </section>
       <section className="manage-connect panel">
@@ -2457,9 +2441,7 @@ function ManageLeagues({
               placeholder={
                 identifierType === "username"
                   ? `Enter ${selectedProvider.name} username`
-                  : provider === "yahoo"
-                    ? "League ID or 461.l.12345"
-                    : "Enter numeric league ID"
+                  : "Enter numeric league ID"
               }
               autoComplete="off"
             />
@@ -2473,7 +2455,7 @@ function ManageLeagues({
               ? "Connecting…"
               : provider === "sleeper"
                 ? "Connect league"
-                : provider === "espn" ? "Find ESPN league" : "Save league"}
+                : "Find ESPN league"}
           </button>
         </div>
         {(error || accountError) && (
@@ -2484,16 +2466,12 @@ function ManageLeagues({
           <b>
             {provider === "sleeper"
               ? "LIVE CONNECTION"
-              : provider === "yahoo"
-                ? "AUTHORIZATION NEEDED"
-                : "PUBLIC LEAGUE CONNECTION"}
+              : "PUBLIC LEAGUE CONNECTION"}
           </b>
           <p>
             {provider === "sleeper"
               ? "Username finds every team you own. League ID adds one public league directly."
-              : provider === "yahoo"
-                ? "Yahoo requires account authorization before Fantasy Hub can read private rosters or scoring."
-                : "Enter a public ESPN league ID, then select the team you manage. Private ESPN leagues cannot be read through league-ID access."}
+              : "Enter a public ESPN league ID, then select the team you manage. Private ESPN leagues cannot be read through league-ID access."}
           </p>
         </div>
         {espnSelection && (
@@ -2601,12 +2579,10 @@ function ManageLeagues({
             </div>
           </article>
         ))}
-        {managedLeagues.filter((league) => league.status !== "live").map((league) => (
+        {managedLeagues.filter((league) => league.status !== "live" && (league.provider === "sleeper" || league.provider === "espn")).map((league) => (
           <article key={league.id}>
             <i className={`provider-badge ${league.provider}`}>
-              {league.provider === "yahoo"
-                ? "Y!"
-                : league.provider.slice(0, 1).toUpperCase()}
+              {league.provider.slice(0, 1).toUpperCase()}
             </i>
             <p>
               <strong>{league.identifier}</strong>

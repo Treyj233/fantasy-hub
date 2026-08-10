@@ -4,13 +4,12 @@ import { managedLeagues } from "../../../../db/schema";
 import { getChatGPTUser } from "../../../chatgpt-auth";
 import { espnLeagueSummary, fetchEspnLeague } from "../../espn";
 
-type Provider = "sleeper" | "espn" | "yahoo";
+type Provider = "sleeper" | "espn";
 type IdentifierType = "username" | "league_id";
 
 function validate(provider: Provider, identifierType: IdentifierType, identifier: string) {
   if (!identifier || identifier.length > 100) return "Enter a valid username or league ID";
-  if (identifierType === "league_id" && provider !== "yahoo" && !/^\d{4,24}$/.test(identifier)) return "League ID must be numeric";
-  if (identifierType === "league_id" && provider === "yahoo" && !/^(?:\d+\.l\.)?\d+$/.test(identifier)) return "Enter a Yahoo league ID or full league key";
+  if (identifierType === "league_id" && !/^\d{4,24}$/.test(identifier)) return "League ID must be numeric";
   if (identifierType === "username" && !/^[\w.@ -]{2,50}$/.test(identifier)) return "Enter a valid username";
   return null;
 }
@@ -30,7 +29,7 @@ export async function POST(request: Request) {
   const provider = payload.provider;
   const identifierType = payload.identifierType;
   const identifier = payload.identifier?.trim() ?? "";
-  if (!provider || !["sleeper", "espn", "yahoo"].includes(provider) || !identifierType || !["username", "league_id"].includes(identifierType)) {
+  if (!provider || !["sleeper", "espn"].includes(provider) || !identifierType || !["username", "league_id"].includes(identifierType)) {
     return Response.json({ error: "Choose a supported provider and connection method" }, { status: 400 });
   }
   const validationError = validate(provider, identifierType, identifier);
@@ -58,7 +57,7 @@ export async function POST(request: Request) {
     }
   }
   const now = new Date().toISOString();
-  const status = provider === "sleeper" || provider === "espn" ? "live" : "oauth_required";
+  const status = "live";
   const league = { id: crypto.randomUUID(), userId: user.userId, provider, identifierType, identifier, rosterId, leagueName, season, status, createdAt: now, updatedAt: now };
   const db = await getDb();
   await db.insert(managedLeagues).values(league).onConflictDoUpdate({
