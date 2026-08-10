@@ -10,7 +10,8 @@ type View =
   | "Dynasty Analytics"
   | "My Team"
   | "Team Rankings"
-  | "Player Ranks"
+  | "Player Rankings"
+  | "ADP"
   | "Start / Sit"
   | "Waiver Wire"
   | "Trade Lab"
@@ -329,7 +330,8 @@ const nav: { label: View; mark: string }[] = [
   { label: "My Team", mark: "●" },
   { label: "Dynasty Analytics", mark: "◈" },
   { label: "Team Rankings", mark: "↥" },
-  { label: "Player Ranks", mark: "♛" },
+  { label: "Player Rankings", mark: "♛" },
+  { label: "ADP", mark: "⌁" },
   { label: "Start / Sit", mark: "⚡" },
   { label: "Waiver Wire", mark: "+" },
   { label: "Trade Lab", mark: "↔" },
@@ -1396,8 +1398,16 @@ export default function FantasyHub({
             setSelectedPlayer={setSelectedPlayer}
           />
         )}
-        {view === "Player Ranks" && (
+        {view === "Player Rankings" && (
           <PlayerRanks
+            roster={players}
+            leagueRankings={leagueRankings}
+            context={rankingContext}
+            setSelectedPlayer={setSelectedPlayer}
+          />
+        )}
+        {view === "ADP" && (
+          <AdpPage
             roster={players}
             leagueRankings={leagueRankings}
             context={rankingContext}
@@ -1516,7 +1526,7 @@ function SignInScreen() {
         </small>
         <div className="auth-features">
           <b>Command Center</b>
-          <b>Player Ranks</b>
+          <b>Player Rankings</b>
           <b>Waiver Wire</b>
           <b>Trade Lab</b>
         </div>
@@ -3908,6 +3918,270 @@ function PlayerRanks({
 }) {
   const [position, setPosition] = useState("ALL");
   const [query, setQuery] = useState("");
+  const [sortBy, setSortBy] = useState<"overall" | "position" | "fit" | "age">(
+    "overall",
+  );
+  const rosterNames = new Set(
+    roster.map((player) => player.name.toLowerCase()),
+  );
+  const teamCount = context?.teams ?? 12;
+  const positionRanks = new Map<string, number>();
+  const personalizedPool: (RankedPlayer & Partial<LeagueRanking>)[] =
+    leagueRankings.map((player) => {
+      const positionRank = (positionRanks.get(player.position) ?? 0) + 1;
+      positionRanks.set(player.position, positionRank);
+      const tier: 1 | 2 | 3 | 4 =
+        player.overallRank <= teamCount
+          ? 1
+          : player.overallRank <= teamCount * 3
+            ? 2
+            : player.overallRank <= teamCount * 8
+              ? 3
+              : 4;
+      const ageNote =
+        context?.format === "Dynasty" && player.age
+          ? `${player.age}-year-old ${player.ageAdjustment >= 0 ? "timeline boost" : "age adjustment"}`
+          : `${context?.format ?? "Redraft"} horizon`;
+      const lineupNote =
+        player.lineupAdjustment >= 3
+          ? "high lineup demand"
+          : player.lineupAdjustment <= -1
+            ? "lower positional demand"
+            : "balanced positional demand";
+      return {
+        ...player,
+        positionRank,
+        tier,
+        outlook: `${ageNote}; ${lineupNote} in this league.`,
+      };
+    });
+  const pool: (RankedPlayer & Partial<LeagueRanking>)[] =
+    personalizedPool.length ? personalizedPool : rankedPlayers;
+  const filtered = pool
+    .filter(
+      (player) =>
+        (position === "ALL" || player.position === position) &&
+        player.name.toLowerCase().includes(query.trim().toLowerCase()),
+    )
+    .sort((a, b) => {
+      if (sortBy === "position")
+        return (
+          a.position.localeCompare(b.position) ||
+          a.positionRank - b.positionRank
+        );
+      if (sortBy === "fit")
+        return (
+          (b.lineupAdjustment ?? 0) - (a.lineupAdjustment ?? 0) ||
+          a.overallRank - b.overallRank
+        );
+      if (sortBy === "age")
+        return (a.age ?? 99) - (b.age ?? 99) || a.overallRank - b.overallRank;
+      return a.overallRank - b.overallRank;
+    });
+  const tiers = [1, 2, 3, 4] as const;
+  const tierLabels = {
+    1: "Elite difference-makers",
+    2: "Weekly advantages",
+    3: "Strong starters",
+    4: "Depth and emerging value",
+  };
+  return (
+    <div className="page-content">
+      <SectionIntro
+        kicker="FANTASY HUB RANKINGS"
+        title="Tier-based rankings built for your league"
+        text={
+          context
+            ? `Annual player value calibrated for ${context.teams}-team ${context.format.toLowerCase()}, ${context.scoring}, positional demand, age curve, role, and your exact lineup.`
+            : "Import a league to personalize every tier for scoring, format, lineup demand, positional scarcity, and roster horizon."
+        }
+      />
+      {context && (
+        <section className="ranking-context">
+          <span>
+            <b>{context.format}</b> roster horizon
+          </span>
+          <span>
+            <b>{context.scoring}</b> reception scoring
+          </span>
+          <span>
+            <b>{context.rosterSlots.filter((slot) => slot !== "BN").length}</b>{" "}
+            starter slots
+          </span>
+          <span>
+            <b>{context.positionDemand.QB > 1.4 ? "Superflex / 2QB" : "1QB"}</b>{" "}
+            quarterback value
+          </span>
+          {context.tePremium > 0 && (
+            <span>
+              <b>+{context.tePremium} TE PPR</b> premium active
+            </span>
+          )}
+        </section>
+      )}
+      <section className="ranking-method panel">
+        <div>
+          <span>HUB RANK</span>
+          <strong>League-adjusted overall value</strong>
+          <small>
+            Production signal, role security, health, and scoring fit.
+          </small>
+        </div>
+        <div>
+          <span>POSITION</span>
+          <strong>Scarcity inside each room</strong>
+          <small>Starter and flex demand change positional importance.</small>
+        </div>
+        <div>
+          <span>AGE CURVE</span>
+          <strong>Format-aware runway</strong>
+          <small>Dynasty weighs career horizon more than redraft.</small>
+        </div>
+        <div>
+          <span>MARKET GAP</span>
+          <strong>Rank compared with ADP</strong>
+          <small>Positive values identify players the Hub ranks earlier.</small>
+        </div>
+      </section>
+      <section className="rank-controls ranking-page-controls panel">
+        <div
+          className="position-filters"
+          role="group"
+          aria-label="Filter rankings by position"
+        >
+          {["ALL", "QB", "RB", "WR", "TE", "K", "DEF"].map((value) => (
+            <button
+              key={value}
+              className={position === value ? "active" : ""}
+              onClick={() => setPosition(value)}
+            >
+              {value}
+            </button>
+          ))}
+        </div>
+        <input
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Search all ranked players"
+          aria-label="Search player rankings"
+        />
+        <select
+          value={sortBy}
+          onChange={(event) => setSortBy(event.target.value as typeof sortBy)}
+          aria-label="Sort player rankings"
+        >
+          <option value="overall">Sort: Hub rank</option>
+          <option value="position">Sort: Position rank</option>
+          <option value="fit">Sort: Lineup fit</option>
+          <option value="age">Sort: Age</option>
+        </select>
+        <span>{filtered.length} players</span>
+      </section>
+      <div className="tier-list ranking-tier-list">
+        {tiers.map((tier) => {
+          const tierPlayers = filtered.filter((player) => player.tier === tier);
+          if (!tierPlayers.length) return null;
+          return (
+            <section className={`tier-section tier-${tier}`} key={tier}>
+              <header>
+                <div>
+                  <span>TIER {tier}</span>
+                  <h3>{tierLabels[tier]}</h3>
+                </div>
+                <small>{tierPlayers.length} players</small>
+              </header>
+              <div className="rank-table">
+                <div className="rank-row ranking-detail-row rank-head">
+                  <span>Rank</span>
+                  <span>Player</span>
+                  <span>Pos.</span>
+                  <span>Hub score</span>
+                  <span>Age</span>
+                  <span>League fit</span>
+                  <span>Hub vs ADP</span>
+                  <span>Why here</span>
+                </div>
+                {tierPlayers.map((player) => {
+                  const onRoster = rosterNames.has(player.name.toLowerCase());
+                  const marketRank =
+                    player.adpBySite?.Consensus ?? player.adpBySite?.Sleeper;
+                  const marketGap =
+                    typeof marketRank === "number"
+                      ? Math.round(marketRank - player.overallRank)
+                      : null;
+                  return (
+                    <button
+                      className={`rank-row ranking-detail-row ${onRoster ? "on-roster" : ""}`}
+                      key={`${player.name}-${player.team}`}
+                      onClick={() => setSelectedPlayer(player)}
+                    >
+                      <b>#{player.overallRank}</b>
+                      <span className="rank-player">
+                        <strong>{player.name}</strong>
+                        <small>
+                          {player.team}
+                          {onRoster ? " · YOUR TEAM" : ""}
+                        </small>
+                      </span>
+                      <span>
+                        <i
+                          className={`pos pos-${player.position.toLowerCase()}`}
+                        >
+                          {player.position}
+                          {player.positionRank}
+                        </i>
+                      </span>
+                      <strong className="hub-rank-score">
+                        {typeof player.rankingValue === "number"
+                          ? player.rankingValue.toFixed(1)
+                          : "—"}
+                      </strong>
+                      <span className="rank-age">{player.age ?? "—"}</span>
+                      <span
+                        className={`fit-adjustment ${(player.lineupAdjustment ?? 0) >= 0 ? "positive" : "negative"}`}
+                      >
+                        {typeof player.lineupAdjustment === "number"
+                          ? `${player.lineupAdjustment >= 0 ? "+" : ""}${player.lineupAdjustment.toFixed(1)}`
+                          : "—"}
+                      </span>
+                      <span
+                        className={`market-gap ${marketGap != null && marketGap > 0 ? "positive" : marketGap != null && marketGap < 0 ? "negative" : ""}`}
+                      >
+                        {marketGap == null
+                          ? "—"
+                          : `${marketGap > 0 ? "+" : ""}${marketGap}`}
+                      </span>
+                      <p>{player.outlook}</p>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+          );
+        })}
+        {!filtered.length && (
+          <section className="panel rank-empty">
+            No players match this filter.
+          </section>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function AdpPage({
+  roster,
+  leagueRankings,
+  context,
+  setSelectedPlayer,
+}: {
+  roster: Player[];
+  leagueRankings: LeagueRanking[];
+  context: RankingContext | null;
+  setSelectedPlayer: (player: Player) => void;
+}) {
+  const [position, setPosition] = useState("ALL");
+  const [query, setQuery] = useState("");
   const [adpSite, setAdpSite] = useState("Consensus");
   const [adpDirection, setAdpDirection] = useState<"asc" | "desc">("asc");
   const rosterNames = new Set(
@@ -3967,22 +4241,15 @@ function PlayerRanks({
     "RTSports",
     "Fantrax",
   ];
-  const tiers = [1, 2, 3, 4] as const;
-  const tierLabels = {
-    1: "Elite difference-makers",
-    2: "Weekly advantages",
-    3: "Strong starters",
-    4: "Depth and emerging value",
-  };
   return (
     <div className="page-content">
       <SectionIntro
-        kicker="PLAYER RANKINGS"
-        title="Rank the player pool for your league"
+        kicker="DRAFT MARKET"
+        title="Compare ADP across fantasy platforms"
         text={
           context
-            ? `Calibrated for ${context.teams}-team ${context.format.toLowerCase()}, ${context.scoring}, ${context.passTouchdown}-point passing touchdowns, and your exact starting lineup.`
-            : "Import a league to personalize every rank for scoring, format, lineup demand, and positional scarcity."
+            ? `${context.format} ADP aligned to ${context.scoring} and ${context.positionDemand.QB > 1.4 ? "superflex / 2QB" : "1QB"} where the source supports it.`
+            : "Import a league to select the most relevant scoring and roster-format ADP feed."
         }
       />
       {context && (
@@ -4063,72 +4330,73 @@ function PlayerRanks({
           active source again to reverse sorting.
         </small>
       </section>
-      <div className="tier-list">
-        {tiers.map((tier) => {
-          const tierPlayers = filtered.filter((player) => player.tier === tier);
-          if (!tierPlayers.length) return null;
-          return (
-            <section className={`tier-section tier-${tier}`} key={tier}>
-              <header>
-                <div>
-                  <span>TIER {tier}</span>
-                  <h3>{tierLabels[tier]}</h3>
-                </div>
-                <small>{tierPlayers.length} players</small>
-              </header>
-              <div className="rank-table">
-                <div className="rank-row rank-head">
-                  <span>Rank</span>
-                  <span>Player</span>
-                  <span>Pos.</span>
-                  <span>{adpSite} ADP</span>
-                  <span>Tier</span>
-                  <span>Why here</span>
-                </div>
-                {tierPlayers.map((player) => {
-                  const onRoster = rosterNames.has(player.name.toLowerCase());
-                  return (
-                    <button
-                      className={`rank-row ${onRoster ? "on-roster" : ""}`}
-                      key={`${player.name}-${player.team}`}
-                      onClick={() => setSelectedPlayer(player)}
-                    >
-                      <b>#{player.overallRank}</b>
-                      <span className="rank-player">
-                        <strong>{player.name}</strong>
-                        <small>
-                          {player.team}
-                          {onRoster ? " · YOUR TEAM" : ""}
-                        </small>
-                      </span>
-                      <span>
-                        <i
-                          className={`pos pos-${player.position.toLowerCase()}`}
-                        >
-                          {player.position}
-                          {player.positionRank}
-                        </i>
-                      </span>
-                      <strong className="rank-adp">
-                        {typeof player.adpBySite?.[adpSite] === "number"
-                          ? player.adpBySite[adpSite]?.toFixed(1)
-                          : "—"}
-                      </strong>
-                      <span className="rank-range">Tier {player.tier}</span>
-                      <p>{player.outlook}</p>
-                    </button>
-                  );
-                })}
-              </div>
-            </section>
-          );
-        })}
+      <section className="tier-section adp-market-table">
+        <header>
+          <div>
+            <span>{adpSite.toUpperCase()} MARKET</span>
+            <h3>Average draft position</h3>
+          </div>
+          <small>{filtered.length} players</small>
+        </header>
+        <div className="rank-table">
+          <div className="rank-row adp-market-row rank-head">
+            <span>ADP</span>
+            <span>Player</span>
+            <span>Pos.</span>
+            <span>Hub rank</span>
+            <span>Market gap</span>
+            <span>Availability</span>
+          </div>
+          {filtered.map((player) => {
+            const onRoster = rosterNames.has(player.name.toLowerCase());
+            const adp = player.adpBySite?.[adpSite];
+            const gap =
+              typeof adp === "number"
+                ? Math.round(adp - player.overallRank)
+                : null;
+            return (
+              <button
+                className={`rank-row adp-market-row ${onRoster ? "on-roster" : ""}`}
+                key={`${player.name}-${player.team}`}
+                onClick={() => setSelectedPlayer(player)}
+              >
+                <strong className="rank-adp">
+                  {typeof adp === "number" ? adp.toFixed(1) : "—"}
+                </strong>
+                <span className="rank-player">
+                  <strong>{player.name}</strong>
+                  <small>
+                    {player.team}
+                    {onRoster ? " · YOUR TEAM" : ""}
+                  </small>
+                </span>
+                <span>
+                  <i className={`pos pos-${player.position.toLowerCase()}`}>
+                    {player.position}
+                    {player.positionRank}
+                  </i>
+                </span>
+                <b>#{player.overallRank}</b>
+                <span
+                  className={`market-gap ${gap != null && gap > 0 ? "positive" : gap != null && gap < 0 ? "negative" : ""}`}
+                >
+                  {gap == null ? "—" : `${gap > 0 ? "+" : ""}${gap}`}
+                </span>
+                <p>
+                  {typeof adp === "number"
+                    ? `Typically selected near pick ${Math.round(adp)} on ${adpSite}.`
+                    : `${adpSite} ADP is not available for this player and format.`}
+                </p>
+              </button>
+            );
+          })}
+        </div>
         {!filtered.length && (
           <section className="panel rank-empty">
             No players match this filter.
           </section>
         )}
-      </div>
+      </section>
     </div>
   );
 }
