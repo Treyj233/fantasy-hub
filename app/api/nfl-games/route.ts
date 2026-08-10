@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { getDb } from "../../../db";
 import { sleeperConnections } from "../../../db/schema";
 import { getChatGPTUser } from "../../chatgpt-auth";
+import { loadNflSeasonSchedule } from "../../nfl-schedule-data";
 
 type MatchupRow = {
   roster_id?: number;
@@ -18,44 +19,19 @@ type SourcePlayer = {
   position?: string;
   team?: string;
 };
-type EspnCompetitor = {
-  homeAway?: string;
-  score?: string;
-  winner?: boolean;
-  team?: {
-    abbreviation?: string;
-    displayName?: string;
-    shortDisplayName?: string;
-    color?: string;
-    logo?: string;
-  };
-  records?: { name?: string; summary?: string }[];
-};
-type EspnEvent = {
-  id?: string;
-  date?: string;
-  name?: string;
-  season?: { year?: number; type?: number };
-  week?: { number?: number };
-  status?: {
-    displayClock?: string;
-    period?: number;
-    type?: {
-      state?: string;
-      completed?: boolean;
-      description?: string;
-      shortDetail?: string;
-    };
-  };
-  competitions?: {
-    competitors?: EspnCompetitor[];
-    venue?: { fullName?: string };
-    broadcasts?: { names?: string[] }[];
-  }[];
-};
-
 const normalizeTeam = (team?: string) =>
-  ({ JAC: "JAX", WSH: "WAS" })[team ?? ""] ?? team ?? "";
+  ({ JAC: "JAX", WSH: "WAS", LA: "LAR" })[team ?? ""] ?? team ?? "";
+
+const teamColors: Record<string, string> = {
+  ARI: "97233F", ATL: "A71930", BAL: "241773", BUF: "00338D",
+  CAR: "0085CA", CHI: "0B162A", CIN: "FB4F14", CLE: "311D00",
+  DAL: "003594", DEN: "FB4F14", DET: "0076B6", GB: "203731",
+  HOU: "03202F", IND: "002C5F", JAX: "006778", KC: "E31837",
+  LAC: "0080C6", LAR: "003594", LV: "000000", MIA: "008E97",
+  MIN: "4F2683", NE: "002244", NO: "D3BC8D", NYG: "0B2265",
+  NYJ: "125740", PHI: "004C54", PIT: "FFB612", SEA: "002244",
+  SF: "AA0000", TB: "D50A0A", TEN: "0C2340", WAS: "5A1414",
+};
 
 export async function GET(request: Request) {
   const user = await getChatGPTUser();
@@ -95,16 +71,13 @@ export async function GET(request: Request) {
   const season = league.season ?? String(new Date().getUTCFullYear());
   const seasonNumber = Number(season);
   const [
-    gamesResponse,
+    scheduleGames,
     matchupsResponse,
     rostersResponse,
     usersResponse,
     playersResponse,
   ] = await Promise.all([
-    fetch(
-      `https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates=${season}&seasontype=2&week=${week}`,
-      { next: { revalidate: 20 } },
-    ),
+    loadNflSeasonSchedule(seasonNumber),
     fetch(`https://api.sleeper.app/v1/league/${leagueId}/matchups/${week}`, {
       next: { revalidate: 15 },
     }),
@@ -118,12 +91,8 @@ export async function GET(request: Request) {
       next: { revalidate: 86400 },
     }),
   ]);
-  if (!gamesResponse.ok)
-    return Response.json(
-      { error: "NFL schedule unavailable" },
-      { status: 502 },
-    );
-  const gamesPayload = (await gamesResponse.json()) as { events?: EspnEvent[] };
+  if (!scheduleGames.length)
+    return Response.json({ error: "NFL schedule unavailable" }, { status: 502 });
   const matchupRows = matchupsResponse.ok
     ? ((await matchupsResponse.json()) as MatchupRow[])
     : [];
@@ -194,35 +163,13 @@ export async function GET(request: Request) {
       ];
     }),
   );
-  const games = (gamesPayload.events ?? [])
-    .filter(
-      (event) =>
-        event.competitions?.[0]?.competitors?.length === 2 &&
-        (event.week?.number == null || event.week.number === week) &&
-        (event.season?.year == null || event.season.year === seasonNumber),
-    )
-    .map((event) => {
-      const competition = event.competitions?.[0];
-      const teams = (competition?.competitors ?? [])
-        .map((competitor) => ({
-          abbreviation: normalizeTeam(competitor.team?.abbreviation),
-          name:
-            competitor.team?.shortDisplayName ??
-            competitor.team?.displayName ??
-            "Team",
-          displayName: competitor.team?.displayName ?? "Team",
-          homeAway: competitor.homeAway ?? "away",
-          score: Number(competitor.score ?? 0),
-          winner: Boolean(competitor.winner),
-          color: competitor.team?.color ?? "173f2a",
-          logo: competitor.team?.logo ?? null,
-          record:
-            competitor.records?.find((record) => record.name === "overall")
-              ?.summary ?? "",
-        }))
-        .sort((a, b) =>
-          a.homeAway === "away" ? -1 : b.homeAway === "away" ? 1 : 0,
-        );
+  const games = scheduleGames
+    .filter((game) => game.week === week)
+    .map((game) => {
+      const teams = [
+        { ...game.away, displayName: game.away.name, homeAway: "away", score: 0, winner: false, color: teamColors[game.away.abbreviation] ?? "173f2a", logo: null, record: "" },
+        { ...game.home, displayName: game.home.name, homeAway: "home", score: 0, winner: false, color: teamColors[game.home.abbreviation] ?? "173f2a", logo: null, record: "" },
+      ];
       const teamCodes = new Set(teams.map((team) => team.abbreviation));
       const impactPlayers = matchupPlayers
         .filter((player) => teamCodes.has(player.nflTeam))
@@ -231,25 +178,15 @@ export async function GET(request: Request) {
             Number(b.starter) - Number(a.starter) ||
             b.fantasyPoints - a.fantasyPoints,
         );
-      const state = event.status?.type?.state ?? "pre";
       return {
-        id: event.id ?? event.name ?? String(event.date),
-        date: event.date ?? "",
-        name: event.name ?? "NFL Game",
-        status:
-          event.status?.type?.shortDetail ??
-          event.status?.type?.description ??
-          "Scheduled",
-        state,
-        clock:
-          state === "in"
-            ? `${event.status?.period ? `Q${event.status.period} · ` : ""}${event.status?.displayClock ?? ""}`
-            : "",
-        venue: competition?.venue?.fullName ?? "",
-        broadcast:
-          competition?.broadcasts
-            ?.flatMap((broadcast) => broadcast.names ?? [])
-            .join(" · ") ?? "",
+        id: game.id,
+        date: game.date,
+        name: `${game.away.name} at ${game.home.name}`,
+        status: game.status,
+        state: "pre",
+        clock: "",
+        venue: game.venue,
+        broadcast: game.broadcast,
         teams,
         impactPlayers,
       };
@@ -264,6 +201,8 @@ export async function GET(request: Request) {
     league: { id: leagueId, name: league.name ?? "League", season },
     week,
     updatedAt: new Date().toISOString(),
+    scoresAvailable: false,
+    fallbackSchedule: true,
     fantasyMatchup: {
       available: Boolean(myRow && opponentRow),
       yourPoints: Number((myRow?.points ?? 0).toFixed(2)),

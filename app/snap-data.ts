@@ -55,7 +55,7 @@ async function fetchSnapProfiles(season: number) {
     const column = (name: string) => headers.indexOf(name);
     const grouped = new Map<
       string,
-      { week: number; offense: number | null; defense: number | null; special: number | null }[]
+      { week: number; offense: number | null; defense: number | null; special: number | null; offenseSnaps: number; defenseSnaps: number; specialSnaps: number }[]
     >();
     lines.forEach((line) => {
       const cells = csvRow(line);
@@ -66,6 +66,9 @@ async function fetchSnapProfiles(season: number) {
         offense: percentage(cells[column("offense_pct")]),
         defense: percentage(cells[column("defense_pct")]),
         special: percentage(cells[column("st_pct")]),
+        offenseSnaps: Number(cells[column("offense_snaps")]) || 0,
+        defenseSnaps: Number(cells[column("defense_snaps")]) || 0,
+        specialSnaps: Number(cells[column("st_snaps")]) || 0,
       };
       const key = normalizeName(name);
       grouped.set(key, [...(grouped.get(key) ?? []), record]);
@@ -85,12 +88,33 @@ async function fetchSnapProfiles(season: number) {
       const offensePct = average("offense");
       const defensePct = average("defense");
       const specialTeamsPct = average("special");
+      const weightedPercentage = (
+        pctField: "offense" | "defense" | "special",
+        snapField: "offenseSnaps" | "defenseSnaps" | "specialSnaps",
+      ) => {
+        const usable = ordered.filter(
+          (game) =>
+            typeof game[pctField] === "number" &&
+            game[pctField]! > 0 &&
+            game[snapField] > 0,
+        );
+        const playerSnaps = usable.reduce((sum, game) => sum + game[snapField], 0);
+        const unitSnaps = usable.reduce(
+          (sum, game) => sum + game[snapField] / (game[pctField]! / 100),
+          0,
+        );
+        return unitSnaps > 0 ? Number(((playerSnaps / unitSnaps) * 100).toFixed(1)) : null;
+      };
+      const seasonPct =
+        weightedPercentage("offense", "offenseSnaps") ??
+        weightedPercentage("defense", "defenseSnaps") ??
+        weightedPercentage("special", "specialSnaps");
       profiles.set(key, {
         season,
         games: ordered.length,
         latestWeek: latest.week,
         latestPct: latest.offense ?? latest.defense ?? latest.special,
-        averagePct: offensePct ?? defensePct ?? specialTeamsPct,
+        averagePct: seasonPct ?? offensePct ?? defensePct ?? specialTeamsPct,
         offensePct,
         defensePct,
         specialTeamsPct,

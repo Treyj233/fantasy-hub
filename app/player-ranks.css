@@ -120,11 +120,8 @@ html[data-theme="dark"] .adp-sites button.active {
   font-weight: 800;
 }
 .ranking-detail-row {
-  grid-template-columns: 48px minmax(
-      160px,
-      1.1fr
-    ) 58px 72px 44px 62px 72px 78px minmax(200px, 1.3fr);
-  min-width: 1040px;
+  grid-template-columns: 58px minmax(170px, 1.15fr) 58px 70px 88px 62px minmax(125px, .9fr) 82px 92px;
+  min-width: 980px;
 }
 .hub-rank-score {
   color: var(--green);
@@ -135,6 +132,7 @@ html[data-theme="dark"] .adp-sites button.active {
   font-size: 12px;
   font-weight: 850;
 }
+.position-rank,.fantasy-ppg,.games-played{font-size:12px;font-weight:900;font-variant-numeric:tabular-nums}.fantasy-ppg{color:var(--green)}.team-offense-rank b,.team-offense-rank small{display:block}.team-offense-rank b{font-size:12px}.team-offense-rank small{margin-top:2px;color:var(--muted);font-size:7px;white-space:nowrap}
 .rank-snap{font-size:12px;font-weight:900;font-variant-numeric:tabular-nums}.rank-snap small{display:block;margin-top:2px;color:var(--muted);font-size:7px}
 .fit-adjustment,
 .market-gap {

@@ -37,6 +37,11 @@ type Player = {
   snapAverage?: number | null;
   snapWeek?: number | null;
   snapSeason?: number | null;
+  fantasyPpg2025?: number | null;
+  gamesPlayed2025?: number | null;
+  team2025?: string | null;
+  teamOffenseRank2025?: number | null;
+  teamPointsPerGame2025?: number | null;
 };
 const PlayerOpenContext = createContext<(player: Player) => void>(() => undefined);
 const playerShell = (
@@ -174,6 +179,17 @@ type ConnectedLeague = {
   rosterId: string;
   starterCount: number;
 };
+const sleeperLeagueUrl = (leagueId: string) =>
+  `https://sleeper.com/leagues/${encodeURIComponent(leagueId)}`;
+
+const platformActionLabel = (view: View) =>
+  view === "Start / Sit" || view === "My Team"
+    ? "Open lineup in Sleeper"
+    : view === "Trade Lab"
+      ? "Prepare trade in Sleeper"
+      : view === "Waiver Wire"
+        ? "Open waivers in Sleeper"
+        : "Open league in Sleeper";
 type LeagueProvider = "sleeper" | "espn" | "yahoo";
 type ManagedLeague = {
   id: string;
@@ -1327,6 +1343,19 @@ export default function FantasyHub({
             <h1>{view}</h1>
           </div>
           <div className="top-actions">
+            {leagueId && (
+              <a
+                className="platform-open"
+                href={sleeperLeagueUrl(leagueId)}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={`${platformActionLabel(view)} (opens in a new tab)`}
+              >
+                <i aria-hidden="true">S</i>
+                <span>{platformActionLabel(view)}</span>
+                <b aria-hidden="true">↗</b>
+              </a>
+            )}
             <button className="ghost season-roll" onClick={() => setView("Simulator")}>
               Roll the season 🎲
             </button>
@@ -2488,7 +2517,10 @@ function AllLeagues({
                 <article className={issue.severity} key={`inbox-${issue.id}`}>
                   <i>{issue.severity === "critical" ? "!" : issue.severity === "warning" ? "△" : "•"}</i>
                   <p><span>{scan.league.name} · {issue.category}</span><strong>{issue.title}</strong><small>{issue.detail}</small></p>
-                  <button onClick={() => void onOpen(scan.league, actionView(issue.category))}>Take action →</button>
+                  <div className="portfolio-action-buttons">
+                    <button onClick={() => void onOpen(scan.league, actionView(issue.category))}>Review in Hub</button>
+                    <a href={sleeperLeagueUrl(scan.league.id)} target="_blank" rel="noopener noreferrer">Open Sleeper ↗</a>
+                  </div>
                 </article>
               ))}
               {!inbox.length && <div className="portfolio-clear"><i>✓</i><p><strong>Nothing needs immediate attention</strong><small>Every connected lineup passed the current availability, projection, bye, weather, and waiver scan.</small></p></div>}
@@ -2598,9 +2630,10 @@ function AllLeagues({
                   {scan.issues.length} item{scan.issues.length === 1 ? "" : "s"}{" "}
                   · scanned now
                 </span>
-                <button onClick={() => void onOpen(scan.league)}>
-                  Open league →
-                </button>
+                <div className="league-scan-actions">
+                  <button onClick={() => void onOpen(scan.league)}>Open in Hub</button>
+                  <a href={sleeperLeagueUrl(scan.league.id)} target="_blank" rel="noopener noreferrer">Sleeper ↗</a>
+                </div>
               </footer>
             </article>
           ))}
@@ -2618,7 +2651,9 @@ function Scoreboard({
   defaultWeek: number;
 }) {
   const openPlayer = useContext(PlayerOpenContext);
-  const [week, setWeek] = useState(defaultWeek);
+  const [week, setWeek] = useState(
+    defaultWeek >= 1 && defaultWeek <= 18 ? defaultWeek : 1,
+  );
   const [data, setData] = useState<ScoreboardData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -2810,7 +2845,9 @@ function NflGames({
   defaultWeek: number;
 }) {
   const openPlayer = useContext(PlayerOpenContext);
-  const [week, setWeek] = useState(defaultWeek);
+  const [week, setWeek] = useState(
+    defaultWeek >= 1 && defaultWeek <= 18 ? defaultWeek : 1,
+  );
   const [data, setData] = useState<NflGameData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -2924,10 +2961,8 @@ function NflGames({
       }
     };
     void refresh();
-    const timer = window.setInterval(refresh, 30000);
     return () => {
       active = false;
-      window.clearInterval(timer);
     };
   }, [leagueId, season, week]);
 
@@ -2938,8 +2973,8 @@ function NflGames({
           <span>NFL GAME HUB</span>
           <h2>Every game. Your matchup in focus.</h2>
           <p>
-            Live NFL scores refresh every 30 seconds. Matchup players are
-            attached when your fantasy matchup has been posted.
+            The complete season schedule is loaded now. Matchup players are
+            attached when your fantasy league posts its weekly matchup.
           </p>
         </div>
         <label>
@@ -2968,8 +3003,9 @@ function NflGames({
         <section className="schedule-fallback">
           <b>SCHEDULE MODE</b>
           <span>
-            Live scores are temporarily unavailable. Fantasy Hub is showing the
-            saved NFL schedule and will restore live game data automatically.
+            Fantasy Hub is using the published season schedule for preseason
+            testing. Live scores can be layered onto these games once the
+            regular-season feed is active.
           </span>
         </section>
       ) : data?.fantasyMatchup.available ? (
@@ -3071,7 +3107,7 @@ function NflGames({
             ) : (
               <p className="no-impact">
                 {data.fallbackSchedule
-                  ? "Live matchup-player tracking will return with the score feed."
+                  ? "Fantasy matchup players will appear here after your league posts its Week 1 matchup."
                   : "Fantasy matchup highlighting will appear here after the league posts this week’s matchup."}
               </p>
             )}
@@ -3514,7 +3550,22 @@ function buildDynastyPriorities({
   ];
 }
 
-function startSitDecision(players: Player[]) {
+function eligibleForSlot(player: Player, rawSlot: string) {
+  const slot = rawSlot.toUpperCase().replace(/\s+/g, "_");
+  if (slot === "QB") return player.position === "QB";
+  if (slot === "RB") return player.position === "RB";
+  if (slot === "WR") return player.position === "WR";
+  if (slot === "TE") return player.position === "TE";
+  if (["SUPER_FLEX", "SUPERFLEX", "QB_FLEX", "Q/W/R/T"].includes(slot))
+    return ["QB", "RB", "WR", "TE"].includes(player.position);
+  if (["FLEX", "REC_FLEX", "W/R/T"].includes(slot))
+    return ["RB", "WR", "TE"].includes(player.position);
+  if (["WR_RB_FLEX", "RB_WR_FLEX", "W/R"].includes(slot))
+    return ["RB", "WR"].includes(player.position);
+  return player.position === slot;
+}
+
+function startSitDecisions(players: Player[]) {
   const starters = players.filter(
     (player) =>
       player.role !== "Bench" &&
@@ -3528,37 +3579,43 @@ function startSitDecision(players: Player[]) {
       player.projection >= 2 &&
       !["Out", "IR", "Suspended"].includes(player.status),
   );
-  const eligible = (player: Player, slot: string) => {
-    if (slot === "QB") return player.position === "QB";
-    if (slot === "RB") return player.position === "RB";
-    if (slot === "WR") return player.position === "WR";
-    if (slot === "TE") return player.position === "TE";
-    if (slot.includes("SUPER") || slot.includes("QB_FLEX"))
-      return ["QB", "RB", "WR", "TE"].includes(player.position);
-    if (slot.includes("FLEX"))
-      return ["RB", "WR", "TE"].includes(player.position);
-    return player.position === slot;
-  };
-  return (
-    starters
-      .flatMap((starter) =>
-        bench
-          .filter(
-            (candidate) =>
-              eligible(candidate, starter.role) &&
-              candidate.projection >= Math.max(2, starter.projection * 0.55),
-          )
-          .map((candidate) => ({
-            starter,
-            candidate,
-            gap: Math.abs(starter.projection - candidate.projection),
-          })),
+  const assignedCandidates = bench.flatMap((candidate) => {
+    const bestSlot = starters
+      .filter(
+        (starter) =>
+          eligibleForSlot(candidate, starter.role) &&
+          candidate.projection >= Math.max(2, starter.projection * 0.55),
       )
-      .sort(
-        (a, b) =>
-          a.gap - b.gap || b.candidate.projection - a.candidate.projection,
-      )[0] ?? null
-  );
+      .map((starter) => ({
+        starter,
+        gap: Math.abs(starter.projection - candidate.projection),
+      }))
+      .sort((a, b) => a.gap - b.gap || a.starter.projection - b.starter.projection)[0];
+    return bestSlot ? [{ ...bestSlot, candidate }] : [];
+  });
+  return starters
+    .flatMap((starter) => {
+      const candidates = assignedCandidates
+        .filter((option) => option.starter.id === starter.id)
+        .sort(
+          (a, b) =>
+            a.gap - b.gap || b.candidate.projection - a.candidate.projection,
+        )
+        .slice(0, 3)
+        .map((option) => option.candidate);
+      return candidates.length
+        ? [{ starter, candidates, gap: Math.min(...candidates.map((candidate) => Math.abs(starter.projection - candidate.projection))) }]
+        : [];
+    })
+    .sort((a, b) => a.gap - b.gap)
+    .slice(0, 5);
+}
+
+function startSitDecision(players: Player[]) {
+  const decision = startSitDecisions(players)[0];
+  return decision
+    ? { starter: decision.starter, candidate: decision.candidates[0] }
+    : null;
 }
 
 function CommandCenter({
@@ -4203,9 +4260,9 @@ function PlayerRanks({
 }) {
   const [position, setPosition] = useState("ALL");
   const [query, setQuery] = useState("");
-  const [sortBy, setSortBy] = useState<"overall" | "position" | "fit" | "age">(
-    "overall",
-  );
+  const [sortBy, setSortBy] = useState<
+    "overall" | "position" | "ppg" | "games" | "offense" | "snaps"
+  >("overall");
   const rosterNames = new Set(
     roster.map((player) => player.name.toLowerCase()),
   );
@@ -4254,13 +4311,14 @@ function PlayerRanks({
           a.position.localeCompare(b.position) ||
           a.positionRank - b.positionRank
         );
-      if (sortBy === "fit")
-        return (
-          (b.lineupAdjustment ?? 0) - (a.lineupAdjustment ?? 0) ||
-          a.overallRank - b.overallRank
-        );
-      if (sortBy === "age")
-        return (a.age ?? 99) - (b.age ?? 99) || a.overallRank - b.overallRank;
+      if (sortBy === "ppg")
+        return (b.fantasyPpg2025 ?? -1) - (a.fantasyPpg2025 ?? -1) || a.overallRank - b.overallRank;
+      if (sortBy === "games")
+        return (b.gamesPlayed2025 ?? -1) - (a.gamesPlayed2025 ?? -1) || a.overallRank - b.overallRank;
+      if (sortBy === "offense")
+        return (a.teamOffenseRank2025 ?? 99) - (b.teamOffenseRank2025 ?? 99) || a.overallRank - b.overallRank;
+      if (sortBy === "snaps")
+        return (b.snapAverage ?? -1) - (a.snapAverage ?? -1) || a.overallRank - b.overallRank;
       return a.overallRank - b.overallRank;
     });
   const tiers = [1, 2, 3, 4] as const;
@@ -4306,26 +4364,24 @@ function PlayerRanks({
       )}
       <section className="ranking-method panel">
         <div>
-          <span>HUB RANK</span>
-          <strong>League-adjusted overall value</strong>
-          <small>
-            Production signal, role security, health, and scoring fit.
-          </small>
+          <span>2025 FANTASY PPG</span>
+          <strong>Actual regular-season scoring</strong>
+          <small>Average points per game adjusted for this league&apos;s reception scoring.</small>
         </div>
         <div>
-          <span>POSITION</span>
-          <strong>Scarcity inside each room</strong>
-          <small>Starter and flex demand change positional importance.</small>
+          <span>TEAM OFFENSE</span>
+          <strong>NFL points-per-game rank</strong>
+          <small>The player&apos;s 2025 team ranked by regular-season scoring.</small>
         </div>
         <div>
-          <span>AGE CURVE</span>
-          <strong>Format-aware runway</strong>
-          <small>Dynasty weighs career horizon more than redraft.</small>
+          <span>SEASON SNAP %</span>
+          <strong>Total participation share</strong>
+          <small>Season-long unit snaps, weighted by each game&apos;s available snaps.</small>
         </div>
         <div>
-          <span>MARKET GAP</span>
-          <strong>Rank compared with ADP</strong>
-          <small>Positive values identify players the Hub ranks earlier.</small>
+          <span>HUB RANKS</span>
+          <strong>Overall and positional standing</strong>
+          <small>League-adjusted value remains separate from historical production.</small>
         </div>
       </section>
       <section className="rank-controls ranking-page-controls panel">
@@ -4357,8 +4413,10 @@ function PlayerRanks({
         >
           <option value="overall">Sort: Hub rank</option>
           <option value="position">Sort: Position rank</option>
-          <option value="fit">Sort: Lineup fit</option>
-          <option value="age">Sort: Age</option>
+          <option value="ppg">Sort: 2025 fantasy PPG</option>
+          <option value="games">Sort: 2025 games played</option>
+          <option value="offense">Sort: Team offense rank</option>
+          <option value="snaps">Sort: Season snap %</option>
         </select>
         <span>{filtered.length} players</span>
       </section>
@@ -4377,24 +4435,18 @@ function PlayerRanks({
               </header>
               <div className="rank-table">
                 <div className="rank-row ranking-detail-row rank-head">
-                  <span>Rank</span>
+                  <span>Overall</span>
                   <span>Player</span>
                   <span>Pos.</span>
+                  <span>Pos. rank</span>
+                  <span>Fantasy PPG</span>
+                  <span>2025 GP</span>
+                  <span>Team offense</span>
                   <span>Hub score</span>
-                  <span>Age</span>
-                  <span>Snap %</span>
-                  <span>League fit</span>
-                  <span>Hub vs ADP</span>
-                  <span>Why here</span>
+                  <span>Season snap %</span>
                 </div>
                 {tierPlayers.map((player) => {
                   const onRoster = rosterNames.has(player.name.toLowerCase());
-                  const marketRank =
-                    player.adpBySite?.Consensus ?? player.adpBySite?.Sleeper;
-                  const marketGap =
-                    typeof marketRank === "number"
-                      ? Math.round(marketRank - player.overallRank)
-                      : null;
                   return (
                     <button
                       className={`rank-row ranking-detail-row ${onRoster ? "on-roster" : ""}`}
@@ -4414,36 +4466,29 @@ function PlayerRanks({
                           className={`pos pos-${player.position.toLowerCase()}`}
                         >
                           {player.position}
-                          {player.positionRank}
                         </i>
+                      </span>
+                      <strong className="position-rank">#{player.positionRank}</strong>
+                      <strong className="fantasy-ppg">
+                        {typeof player.fantasyPpg2025 === "number" ? player.fantasyPpg2025.toFixed(1) : "—"}
+                      </strong>
+                      <span className="games-played">{player.gamesPlayed2025 ?? "—"}</span>
+                      <span className="team-offense-rank">
+                        {typeof player.teamOffenseRank2025 === "number" ? (
+                          <><b>#{player.teamOffenseRank2025}</b><small>{player.team2025} · {player.teamPointsPerGame2025?.toFixed(1)} PPG</small></>
+                        ) : "—"}
                       </span>
                       <strong className="hub-rank-score">
                         {typeof player.rankingValue === "number"
                           ? player.rankingValue.toFixed(1)
                           : "—"}
                       </strong>
-                      <span className="rank-age">{player.age ?? "—"}</span>
                       <span className="rank-snap">
-                        {typeof player.snapPct === "number"
-                          ? `${player.snapPct.toFixed(0)}%`
+                        {typeof player.snapAverage === "number"
+                          ? `${player.snapAverage.toFixed(1)}%`
                           : "—"}
-                        {player.snapWeek ? <small>W{player.snapWeek}</small> : null}
+                        {player.snapSeason ? <small>{player.snapSeason} REG</small> : null}
                       </span>
-                      <span
-                        className={`fit-adjustment ${(player.lineupAdjustment ?? 0) >= 0 ? "positive" : "negative"}`}
-                      >
-                        {typeof player.lineupAdjustment === "number"
-                          ? `${player.lineupAdjustment >= 0 ? "+" : ""}${player.lineupAdjustment.toFixed(1)}`
-                          : "—"}
-                      </span>
-                      <span
-                        className={`market-gap ${marketGap != null && marketGap > 0 ? "positive" : marketGap != null && marketGap < 0 ? "negative" : ""}`}
-                      >
-                        {marketGap == null
-                          ? "—"
-                          : `${marketGap > 0 ? "+" : ""}${marketGap}`}
-                      </span>
-                      <p>{player.outlook}</p>
                     </button>
                   );
                 })}
@@ -4708,8 +4753,8 @@ function StartSit({
   setChoice: (v: string) => void;
   context: RankingContext | null;
 }) {
-  const decision = startSitDecision(players);
-  const options = decision ? [decision.starter, decision.candidate] : [];
+  const decisions = startSitDecisions(players);
+  const [selectedBySlot, setSelectedBySlot] = useState<Record<string, string>>({});
   const yourTeam = teams.find((team) => team.id === selectedTeamId);
   const opponentTeam =
     yourTeam?.matchupId != null
@@ -4743,17 +4788,11 @@ function StartSit({
       : aggressiveness > 65
         ? "Shoot for upside"
         : "Balanced";
-  const activeChoice = options.some((player) => player.name === choice)
-    ? choice
-    : (options[0]?.name ?? choice);
   const scorePlayer = (player: Player) =>
     player.projection * 0.5 +
     player.floor * 0.5 * (1 - aggressiveness / 100) +
     player.ceiling * 0.5 * (aggressiveness / 100);
-  const recommendedPlayer = [...options].sort(
-    (a, b) => scorePlayer(b) - scorePlayer(a),
-  )[0];
-  if (!decision)
+  if (!decisions.length)
     return (
       <div className="page-content">
         <SectionIntro
@@ -4879,15 +4918,34 @@ function StartSit({
           <span>Chase ceiling</span>
         </div>
       </section>
-      <div className="compare-grid">
-        {options.map((player) => {
-          const modelChoice = recommendedPlayer?.id === player.id;
-          const currentlyStarting = player.id === decision.starter.id;
-          return (
-            <button
+      <div className="start-sit-decisions">
+        {decisions.map((decision, decisionIndex) => {
+          const options = [decision.starter, ...decision.candidates];
+          const recommendedPlayer = [...options].sort(
+            (a, b) => scorePlayer(b) - scorePlayer(a),
+          )[0];
+          const storedChoice = selectedBySlot[decision.starter.id];
+          const activeChoice = options.some((player) => player.name === storedChoice)
+            ? storedChoice
+            : decisionIndex === 0 && options.some((player) => player.name === choice)
+              ? choice
+              : recommendedPlayer.name;
+          return <section className="start-sit-option" key={decision.starter.id}>
+            <header>
+              <div><span>LINEUP DECISION {decisionIndex + 1}</span><h3>{decision.starter.role} close call</h3></div>
+              <small>{decision.candidates.length} eligible bench alternative{decision.candidates.length === 1 ? "" : "s"}</small>
+            </header>
+            <div className="compare-grid">
+              {options.map((player) => {
+                const modelChoice = recommendedPlayer.id === player.id;
+                const currentlyStarting = player.id === decision.starter.id;
+                return <button
               key={player.id}
               className={`compare-card ${activeChoice === player.name ? "selected" : ""}`}
-              onClick={() => setChoice(player.name)}
+              onClick={() => {
+                setSelectedBySlot((current) => ({ ...current, [decision.starter.id]: player.name }));
+                setChoice(player.name);
+              }}
             >
               <div className="choice-top">
                 <span className={`pos pos-${player.position.toLowerCase()}`}>
@@ -4931,23 +4989,19 @@ function StartSit({
                   ? `CURRENT ${player.role}`
                   : `BENCH ALTERNATIVE · ELIGIBLE FOR ${decision.starter.role}`}
               </strong>
-            </button>
-          );
+            </button>;
+              })}
+            </div>
+            <section className="insight-box">
+              <span>FANTASY HUB VERDICT · {decision.starter.role}</span>
+              <h3>Start {recommendedPlayer.name}</h3>
+              <p>
+                At {aggressiveness}% aggressiveness, this recommendation weighs {aggressiveness > 65 ? "ceiling and game-breaking outcomes" : aggressiveness < 35 ? "floor, role certainty, and downside protection" : "floor, median, and ceiling more evenly"}. Every alternative shown is eligible for this lineup slot.
+              </p>
+            </section>
+          </section>;
         })}
       </div>
-      <section className="insight-box">
-        <span>FANTASY HUB VERDICT</span>
-        <h3>Start {recommendedPlayer?.name ?? activeChoice}</h3>
-        <p>
-          At {aggressiveness}% aggressiveness, the model weights{" "}
-          {aggressiveness > 65
-            ? "ceiling and game-breaking outcomes"
-            : aggressiveness < 35
-              ? "floor, role certainty, and downside protection"
-              : "floor, median, and ceiling more evenly"}
-          . The recommendation can change as your matchup posture changes.
-        </p>
-      </section>
     </div>
   );
 }
