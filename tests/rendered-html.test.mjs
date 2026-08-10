@@ -15,6 +15,7 @@ test("server-renders Fantasy Hub", async () => {
   assert.match(html, /Fantasy Hub/);
   assert.match(html, /Make every week count/i);
   assert.match(html, /Command Center/);
+  assert.match(html, /League Stories/);
   assert.match(html, /Waiver Wire/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/);
 });

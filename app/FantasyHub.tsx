@@ -5,6 +5,7 @@ import { estimatedWinProbability, playerLeverage, rootingInterests, whatDoINeed 
 
 type View =
   | "Command Center"
+  | "League Stories"
   | "All Leagues"
   | "Scoreboard"
   | "NFL Games"
@@ -460,6 +461,7 @@ const nav: { label: View; mark: string; tone: string; group: "Portfolio" | "Leag
   { label: "All Leagues", mark: "◆", tone: "violet", group: "Portfolio" },
   { label: "Manage Leagues", mark: "⚙", tone: "slate", group: "Portfolio" },
   { label: "Command Center", mark: "★", tone: "amber", group: "League" },
+  { label: "League Stories", mark: "✎", tone: "violet", group: "League" },
   { label: "My Team", mark: "♟", tone: "blue", group: "League" },
   { label: "Dynasty Analytics", mark: "◈", tone: "purple", group: "League" },
   { label: "Team Rankings", mark: "↥", tone: "teal", group: "League" },
@@ -1782,6 +1784,13 @@ export default function FantasyHub({
             }}
           />
         )}
+        {view === "League Stories" && (
+          <LeagueStories
+            key={leagueId || "no-league"}
+            leagueId={leagueId}
+            setView={setView}
+          />
+        )}
         {view === "Scoreboard" && (
           scoreboardScope === "all" ? (
             <AllLeagueScoreboard
@@ -1978,6 +1987,7 @@ function SignInScreen() {
         </small>
         <div className="auth-features">
           <b>Command Center</b>
+          <b>League Stories</b>
           <b>Player Rankings</b>
           <b>Waiver Wire</b>
           <b>Trade Lab</b>
@@ -2513,7 +2523,7 @@ function AllLeagues({
 }) {
   const openPlayer = useContext(PlayerOpenContext);
   const [scans, setScans] = useState<LeagueScan[]>(cachedScans);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(Boolean(leagueId));
   const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
@@ -3099,6 +3109,66 @@ function AllLeagues({
       )}
     </div>
   );
+}
+
+type LeagueStoryData = {
+  league: { name: string; season: string; currentWeek: number; completedWeek: number; provider: string };
+  updatedAt: string;
+  recap: { available: boolean; week: number; highScore: { teamName: string; points: number } | null; closestGame: { teams: { teamName: string; points: number }[] } | null; biggestWin: { teams: { teamName: string; points: number }[] } | null; biggestUpset: { winner: { teamName: string; points: number }; loser: { teamName: string; points: number }; seedGap: number } | null; lineupOutcomes: { teamName: string; benchPoints: number; topBenchPlayer: string | null; topBenchPoints: number }[] };
+  preview: { week: number; games: { matchupId: number; teams: { rosterId: number; teamName: string; managerName: string; points: number; isMine: boolean }[] }[] };
+  powerRankings: { rosterId: number; teamName: string; managerName: string; wins: number; losses: number; points: number; rank: number; movement: number; isMine: boolean }[];
+  rivalry: { opponentName: string; meetings: number; wins: number; losses: number } | null;
+  trades: { id: string; week: number; timestamp: number | null; teams: string[]; adds: { player: string; team: string }[]; drops: { player: string; team: string }[] }[];
+  playoff: { teams: number; startsWeek: number; weeksRemaining: number; yourRank: number | null; yourWins: number | null; lineWins: number | null; summary: string };
+  methodology: string;
+};
+
+function LeagueStories({ leagueId, setView }: { leagueId: string; setView: (view: View) => void }) {
+  const [story, setStory] = useState<LeagueStoryData | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [shared, setShared] = useState("");
+  useEffect(() => {
+    if (!leagueId) return;
+    const controller = new AbortController();
+    void fetch(`/api/league-story?leagueId=${encodeURIComponent(leagueId)}`, { signal: controller.signal })
+      .then(async (response) => {
+        const payload = await response.json() as LeagueStoryData & { error?: string };
+        if (!response.ok) throw new Error(payload.error ?? "League stories unavailable");
+        setStory(payload); setError("");
+      })
+      .catch((requestError) => { if (!controller.signal.aborted) setError(requestError instanceof Error ? requestError.message : "League stories unavailable"); })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    return () => controller.abort();
+  }, [leagueId]);
+  const shareStory = async (id: string, text: string) => {
+    try {
+      if (navigator.share) await navigator.share({ title: story?.league.name ?? "Fantasy Hub League Story", text });
+      else await navigator.clipboard.writeText(text);
+      setShared(id); window.setTimeout(() => setShared(""), 1800);
+    } catch { /* A canceled share sheet should leave the page unchanged. */ }
+  };
+  if (!leagueId) return <div className="page-content"><SectionIntro kicker="LEAGUE STORIES" title="Choose a league to open its story" text="Weekly recaps, rivalries, awards and playoff context are created from connected league history." /><section className="panel scoreboard-empty">No league selected.</section></div>;
+  if (loading && !story) return <div className="page-content"><SectionIntro kicker="LEAGUE STORIES" title="Writing this week’s chapter…" text="Fantasy Hub is reading observed matchup and transaction history." /></div>;
+  if (error && !story) return <div className="page-content"><SectionIntro kicker="LEAGUE STORIES" title="The league story is temporarily unavailable" text={error} /></div>;
+  if (!story) return null;
+  const highScoreText = story.recap.highScore ? `${story.recap.highScore.teamName} led ${story.league.name} in Week ${story.recap.week} with ${story.recap.highScore.points.toFixed(1)} points.` : "";
+  const biggestMargin = story.recap.biggestWin ? Math.abs(story.recap.biggestWin.teams[0].points - story.recap.biggestWin.teams[1].points) : 0;
+  return <div className="page-content league-stories-page">
+    <section className="league-stories-hero"><div><span>THE {story.league.season} LEAGUE STORY</span><h2>{story.league.name}</h2><p>Recaps, rivalries and the moments your group will actually talk about.</p></div><button onClick={() => void shareStory("league", `${story.league.name}: ${story.playoff.summary} ${highScoreText}`)}>{shared === "league" ? "Copied!" : "Share league pulse"}</button></section>
+    <section className="story-ticker panel"><span>WEEK {story.league.currentWeek}</span><strong>{story.playoff.summary}</strong><small>Updated {new Date(story.updatedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</small></section>
+    <div className="story-feature-grid">
+      <section className="panel weekly-recap"><header><div><span>WEEK {story.recap.week} RECAP</span><h3>The week that was</h3></div><button disabled={!story.recap.available} onClick={() => void shareStory("recap", highScoreText)}>{shared === "recap" ? "Copied!" : "Share recap"}</button></header>{story.recap.available ? <><article className="story-lead"><b>🏆 HIGH SCORE</b><strong>{story.recap.highScore?.teamName}</strong><em>{story.recap.highScore?.points.toFixed(1)} PTS</em></article><div className="story-awards"><article><span>PHOTO FINISH</span><strong>{story.recap.closestGame?.teams.map((team) => team.teamName).join(" vs ")}</strong><small>{story.recap.closestGame ? Math.abs(story.recap.closestGame.teams[0].points - story.recap.closestGame.teams[1].points).toFixed(1) : "—"}-point margin</small></article><article><span>STATEMENT WIN</span><strong>{story.recap.biggestWin?.teams.sort((a, b) => b.points - a.points)[0]?.teamName}</strong><small>{biggestMargin.toFixed(1)}-point margin</small></article>{story.recap.biggestUpset && <article><span>BIGGEST UPSET</span><strong>{story.recap.biggestUpset.winner.teamName}</strong><small>Beat a team ranked {story.recap.biggestUpset.seedGap} spot{story.recap.biggestUpset.seedGap === 1 ? "" : "s"} higher entering the week</small></article>}</div></> : <p className="story-empty">A recap will appear after the league records completed matchup scoring.</p>}</section>
+      <section className="panel matchup-preview"><header><div><span>WEEK {story.preview.week} PREVIEW</span><h3>Next on the schedule</h3></div><button onClick={() => setView("Matchups")}>Open matchup →</button></header>{story.preview.games.map((game) => <article className={game.teams.some((team) => team.isMine) ? "mine" : ""} key={game.matchupId}><span>{game.teams[0]?.teamName}<small>{game.teams[0]?.managerName}</small></span><b>VS</b><span>{game.teams[1]?.teamName}<small>{game.teams[1]?.managerName}</small></span>{game.teams.some((team) => team.isMine) && <em>YOUR MATCHUP</em>}</article>)}</section>
+    </div>
+    <div className="story-dashboard-grid">
+      <section className="panel power-story"><header><span>POWER RANKINGS</span><h3>Who’s moving?</h3></header>{story.powerRankings.map((team) => <article className={team.isMine ? "mine" : ""} key={team.rosterId}><b>{team.rank}</b><p><strong>{team.teamName}</strong><small>{team.wins}–{team.losses} · {team.points.toFixed(1)} PF</small></p><em className={team.movement > 0 ? "up" : team.movement < 0 ? "down" : "flat"}>{team.movement > 0 ? `↑ ${team.movement}` : team.movement < 0 ? `↓ ${Math.abs(team.movement)}` : "—"}</em></article>)}</section>
+      <section className="panel league-lore"><header><span>LEAGUE LORE</span><h3>Rivalries & playoff race</h3></header>{story.rivalry ? <article className="rivalry-card"><b>HEAD TO HEAD</b><strong>You vs {story.rivalry.opponentName}</strong><span>{story.rivalry.wins}–{story.rivalry.losses}</span><small>{story.rivalry.meetings ? `${story.rivalry.meetings} observed meeting${story.rivalry.meetings === 1 ? "" : "s"} this season` : "First observed meeting this season"}</small></article> : <p className="story-empty">A rivalry record appears when the current matchup is posted.</p>}<article className="playoff-story"><b>PLAYOFF PICTURE</b><strong>{story.playoff.yourRank ? `You are currently #${story.playoff.yourRank}` : "Standings pending"}</strong><small>{story.playoff.summary} Playoffs begin Week {story.playoff.startsWeek}.</small></article></section>
+      <section className="panel manager-moments"><header><span>MANAGER MOMENTS</span><h3>Outcome, not hindsight</h3></header>{story.recap.lineupOutcomes.map((outcome, index) => <article key={outcome.teamName}><b>{index === 0 ? "TOUGHEST BENCH" : "BENCH SPARK"}</b><p><strong>{outcome.teamName}</strong><small>{outcome.topBenchPlayer ? `${outcome.topBenchPlayer} scored ${outcome.topBenchPoints.toFixed(1)} on the bench.` : "No material bench scoring was recorded."}</small></p><em>{outcome.benchPoints.toFixed(1)}</em></article>)}<small className="decision-note">These are observed lineup outcomes. A lower-projected starter being outscored does not make the original decision wrong.</small></section>
+      <section className="panel trade-reactions"><header><span>TRADE WIRE</span><h3>Deals people will debate</h3></header>{story.trades.length ? story.trades.map((trade) => { const text = `Week ${trade.week} trade in ${story.league.name}: ${trade.adds.map((item) => `${item.player} to ${item.team}`).join(", ")}.`; return <article key={trade.id}><div><b>WEEK {trade.week} TRADE</b><strong>{trade.teams.join(" ↔ ")}</strong><small>{trade.adds.map((item) => `${item.player} → ${item.team}`).join(" · ")}</small></div><button onClick={() => void shareStory(trade.id, text)}>{shared === trade.id ? "Copied!" : "Share"}</button></article>; }) : <p className="story-empty">No completed trades were observed in the current recap window.</p>}</section>
+    </div>
+    <p className="story-methodology">{story.methodology}</p>
+  </div>;
 }
 
 function AllLeagueScoreboard({
