@@ -515,7 +515,7 @@ type LeagueScan = {
   }[];
 };
 
-const nav: { label: View; mark: string; tone: string; group: "Portfolio" | "League" | "Live" }[] = [
+const nav: { label: View; displayLabel?: string; mark: string; tone: string; group: "Portfolio" | "League" | "Live" }[] = [
   { label: "All Leagues", mark: "◆", tone: "violet", group: "Portfolio" },
   { label: "Manage Leagues", mark: "⚙", tone: "slate", group: "Portfolio" },
   { label: "Command Center", mark: "★", tone: "amber", group: "League" },
@@ -530,9 +530,9 @@ const nav: { label: View; mark: string; tone: string; group: "Portfolio" | "Leag
   { label: "Waiver Wire", mark: "+", tone: "emerald", group: "League" },
   { label: "Trade Lab", mark: "↔", tone: "pink", group: "League" },
   { label: "Simulator", mark: "✦", tone: "indigo", group: "League" },
-  { label: "Scoreboard", mark: "▣", tone: "red", group: "Live" },
+  { label: "Scoreboard", displayLabel: "Fantasy Scoreboard", mark: "▣", tone: "red", group: "Live" },
   { label: "NFL Games", mark: "●", tone: "football", group: "Live" },
-  { label: "Matchups", mark: "◎", tone: "sky", group: "Live" },
+  { label: "Matchups", displayLabel: "Fantasy Matchups", mark: "◎", tone: "sky", group: "Live" },
 ];
 
 const normalizeNflTeam = (team: string) =>
@@ -1662,12 +1662,12 @@ export default function FantasyHub({
                     if (item.label === "Scoreboard") setScoreboardScope("all");
                     setView(item.label);
                   }}
-                  title={sidebarCollapsed ? item.label : undefined}
+                  title={sidebarCollapsed ? (item.displayLabel ?? item.label) : undefined}
                 >
                   <i className={`nav-badge ${item.tone}`} aria-hidden="true">
                     {item.mark}
                   </i>
-                  {item.label}
+                  {item.displayLabel ?? item.label}
                 </button>
               ))}
             </div>
@@ -3619,14 +3619,14 @@ function AllLeagueScoreboard({
   if (!leagues.length)
     return (
       <div className="page-content">
-        <SectionIntro kicker="ALL LEAGUES SCOREBOARD" title="Connect a league to track your matchups" text="Your matchup from every connected league will appear together here." />
+        <SectionIntro kicker="FANTASY SCOREBOARD" title="Connect a league to track your matchups" text="Your matchup from every connected league will appear together here." />
       </div>
     );
   return (
     <div className="page-content portfolio-scoreboard-page">
       <section className="scoreboard-head portfolio-scoreboard-head">
         <div>
-          <span>ALL LEAGUES SCOREBOARD</span>
+          <span>FANTASY SCOREBOARD</span>
           <h2>Your matchups, one live view.</h2>
           <p>Only your matchup from each connected league is shown. Scores refresh every 30 seconds.</p>
         </div>
@@ -3766,7 +3766,7 @@ function Scoreboard({
     return (
       <div className="page-content">
         <SectionIntro
-          kicker="WEEKLY SCOREBOARD"
+          kicker="FANTASY SCOREBOARD"
           title="Choose a league to see every matchup"
           text="Select one of your connected leagues above and the live scoreboard will identify your matchup automatically."
         />
@@ -3779,7 +3779,7 @@ function Scoreboard({
     <div className="page-content">
       <section className="scoreboard-head">
         <div>
-          <span>WEEKLY SCOREBOARD</span>
+          <span>FANTASY SCOREBOARD</span>
           <h2>{data?.league.name ?? "Loading league scores…"}</h2>
           <p>
             Scores and player stat lines refresh automatically every 30 seconds.
@@ -7580,7 +7580,7 @@ function HeadToHeadMatchup({
     <div className="page-content head-to-head-page">
       <section className="head-to-head-hero">
         <div>
-          <span>LIVE MATCHUP CENTER</span>
+          <span>FANTASY MATCHUPS</span>
           <h2>{data?.league.name ?? "Loading matchup…"}</h2>
           <p>Fantasy scoring refreshes every 30 seconds. NFL opponent, weather, and position matchup grades use live schedule data and {matchupStrengths?.sourceSeason ?? 2025} fantasy points allowed.</p>
         </div>
