@@ -8652,8 +8652,6 @@ function PlayerPanel({
             <div>
               <article><span>LATEST WEEK</span><strong>{(history?.snapProfile?.latestPct ?? player.snapPct)?.toFixed(0)}%</strong><small>Week {history?.snapProfile?.latestWeek ?? player.snapWeek ?? "—"}</small></article>
               <article><span>SEASON AVG.</span><strong>{typeof (history?.snapProfile?.averagePct ?? player.snapAverage) === "number" ? `${(history?.snapProfile?.averagePct ?? player.snapAverage)!.toFixed(1)}%` : "—"}</strong><small>{history?.snapProfile?.games ?? "—"} games</small></article>
-              <article><span>OFFENSE</span><strong>{typeof history?.snapProfile?.offensePct === "number" ? `${history.snapProfile.offensePct.toFixed(1)}%` : "—"}</strong><small>Average share</small></article>
-              <article><span>DEFENSE / ST</span><strong>{typeof (history?.snapProfile?.defensePct ?? history?.snapProfile?.specialTeamsPct) === "number" ? `${(history?.snapProfile?.defensePct ?? history?.snapProfile?.specialTeamsPct)!.toFixed(1)}%` : "—"}</strong><small>Average share</small></article>
             </div>
           ) : (
             <p>Snap participation is not available for this player or season.</p>
