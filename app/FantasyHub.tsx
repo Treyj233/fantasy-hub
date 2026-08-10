@@ -2013,6 +2013,8 @@ export default function FantasyHub({
           (rosterReady ? (
             <LeagueAnalytics
               players={players}
+              teams={leagueTeams}
+              selectedTeamId={selectedTeamId}
               rankings={leagueRankings}
               context={rankingContext}
               setSelectedPlayer={setSelectedPlayer}
@@ -4624,11 +4626,15 @@ function RedraftAnalytics({ players, rankings, context, setSelectedPlayer }: { p
 
 function LeagueAnalytics({
   players,
+  teams,
+  selectedTeamId,
   rankings,
   context,
   setSelectedPlayer,
 }: {
   players: Player[];
+  teams: LeagueTeam[];
+  selectedTeamId: string;
   rankings: LeagueRanking[];
   context: RankingContext | null;
   setSelectedPlayer: (player: Player) => void;
@@ -4636,6 +4642,7 @@ function LeagueAnalytics({
   const isDynasty = context?.format === "Dynasty";
   if (!isDynasty) return <RedraftAnalytics players={players} rankings={rankings} context={context} setSelectedPlayer={setSelectedPlayer} />;
   const rosterIds = new Set(players.map((player) => player.id));
+  const rankingById = new Map(rankings.map((player) => [player.id, player]));
   const positionRanks = new Map<string, number>();
   const playerPositionRanks = new Map<string, number>();
   [...rankings]
@@ -4701,14 +4708,59 @@ function LeagueAnalytics({
     }),
     {},
   );
-  const baseStrength = starters.length
-    ? starters.reduce(
-        (sum, player) => sum + Math.max(20, 105 - player.overallRank * 0.7),
-        0,
-      ) / starters.length
-    : 50;
+  const assetValue = (rank: number) =>
+    Math.max(24, Math.min(98, 106 - Math.log2(rank + 1) * 10.5));
+  const maxDraftScore = Math.max(
+    0,
+    ...teams.map((team) => team.draftCapital?.score ?? 0),
+  );
+  const scoreTeamWindow = (team: LeagueTeam) => {
+    const rankedRoster = team.roster.flatMap((player) => {
+      const ranking = rankingById.get(player.id);
+      return ranking ? [{ player, ranking }] : [];
+    });
+    const startingValues = rankedRoster
+      .filter(({ player }) => isStartingPlayer(player))
+      .map(({ ranking }) => assetValue(ranking.overallRank));
+    const depthValues = rankedRoster
+      .filter(({ player }) => !isStartingPlayer(player))
+      .map(({ ranking }) => assetValue(ranking.overallRank))
+      .sort((a, b) => b - a)
+      .slice(0, 5);
+    const futureValues = rankedRoster
+      .filter(({ ranking }) => ranking.position !== "K" && ranking.position !== "DEF")
+      .sort((a, b) => a.ranking.overallRank - b.ranking.overallRank)
+      .slice(0, 10)
+      .map(({ ranking }) => {
+        const curve = dynastyCurves[ranking.position] ?? { peakEnd: 29, annualDecline: 2.5 };
+        const runway = Math.max(30, Math.min(98, 64 + (curve.peakEnd - (ranking.age ?? curve.peakEnd)) * 7));
+        return assetValue(ranking.overallRank) * .68 + runway * .32;
+      });
+    const average = (values: number[], fallback: number) =>
+      values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : fallback;
+    const starterScore = average(startingValues, 45);
+    const depthScore = average(depthValues, 42);
+    const futureScore = average(futureValues, 45);
+    const draftScore = maxDraftScore > 0
+      ? 35 + ((team.draftCapital?.score ?? 0) / maxDraftScore) * 65
+      : 50;
+    return {
+      score: Math.round(Math.max(20, Math.min(99, starterScore * .58 + depthScore * .16 + futureScore * .18 + draftScore * .08))),
+      starterScore,
+    };
+  };
+  const leagueWindowScores = teams
+    .map((team) => ({ team, ...scoreTeamWindow(team) }))
+    .sort((a, b) => b.score - a.score);
+  const selectedWindow = leagueWindowScores.find(({ team }) => team.id === selectedTeamId);
+  const baseStrength = selectedWindow?.score ?? 50;
+  const leagueAverage = leagueWindowScores.length
+    ? leagueWindowScores.reduce((sum, team) => sum + team.score, 0) / leagueWindowScores.length
+    : baseStrength;
+  const leagueWindowRank = Math.max(1, leagueWindowScores.findIndex(({ team }) => team.id === selectedTeamId) + 1);
+  const currentStarterScore = selectedWindow?.starterScore ?? baseStrength;
   const outlook = [0, 1, 2, 3].map((year) => {
-    const score = starters.length
+    const futureStarterScore = starters.length
       ? starters.reduce((sum, player) => {
           const futureAge = (player.age ?? player.curve.peakEnd) + year;
           const decline =
@@ -4718,16 +4770,36 @@ function LeagueAnalytics({
             futureAge <= player.curve.peakEnd - 3 ? Math.min(5, year * 1.3) : 0;
           return (
             sum +
-            Math.max(15, 105 - player.overallRank * 0.7 - decline + development)
+            Math.max(15, assetValue(player.overallRank) - decline + development)
           );
         }, 0) / starters.length
-      : 50;
+      : currentStarterScore;
+    const score = baseStrength + (futureStarterScore - currentStarterScore) * .58;
     return {
       year: new Date().getUTCFullYear() + year,
       score: Math.round(Math.min(99, Math.max(20, score))),
     };
   });
   const trajectory = outlook[3].score - outlook[0].score;
+  const windowLabel = baseStrength >= 78 && leagueWindowRank <= Math.max(3, Math.ceil(teams.length * .3))
+    ? "Championship window"
+    : baseStrength >= 68
+      ? "Contending window"
+      : baseStrength >= 58
+        ? "Fringe / retool window"
+        : "Build window";
+  const driverValue = (player: (typeof assets)[number]) => {
+    const runway = Math.max(30, Math.min(98, 64 + player.yearsToCliff * 7));
+    return assetValue(player.overallRank) * .72 + runway * .28;
+  };
+  const windowDrivers = [...assets]
+    .filter((player) => player.position !== "K" && player.position !== "DEF")
+    .sort((a, b) => driverValue(b) - driverValue(a));
+  const positiveDrivers = windowDrivers.slice(0, 3);
+  const pressureDrivers = [...starters]
+    .filter((player) => player.position !== "K" && player.position !== "DEF")
+    .sort((a, b) => driverValue(a) - driverValue(b))
+    .slice(0, 3);
   const strategy =
     baseStrength >= 72 && trajectory >= -7
       ? "Compete while protecting the next window"
@@ -4762,10 +4834,25 @@ function LeagueAnalytics({
         <div className="window-score">
           <small>WINDOW SCORE</small>
           <strong>{Math.round(baseStrength)}</strong>
-          <span>
-            {trajectory >= 0 ? "+" : ""}
-            {trajectory} over three years
-          </span>
+          <b>{windowLabel}</b>
+          <span>#{leagueWindowRank} of {teams.length || 1} · League avg. {leagueAverage.toFixed(0)}</span>
+        </div>
+      </section>
+      <section className="window-context panel">
+        <div className="window-context-summary">
+          <span>HOW TO READ IT</span>
+          <strong>{baseStrength >= leagueAverage ? `${(baseStrength - leagueAverage).toFixed(0)} points above league average` : `${(leagueAverage - baseStrength).toFixed(0)} points below league average`}</strong>
+          <small>58% starters · 16% depth · 18% age-adjusted core · 8% draft capital</small>
+          <i><b style={{ width: `${baseStrength}%` }} /></i>
+          <em><span>Build</span><span>Fringe</span><span>Contend</span><span>Title window</span></em>
+        </div>
+        <div className="window-driver-list positive">
+          <span>WINDOW LIFTERS</span>
+          {positiveDrivers.map((player) => <button key={`lift-${player.id}`} onClick={() => setSelectedPlayer(player)}><strong>{player.name}</strong><small>{player.positionRank ? `${player.position}${player.positionRank}` : player.position} · {player.phase}</small></button>)}
+        </div>
+        <div className="window-driver-list pressure">
+          <span>WINDOW PRESSURE</span>
+          {pressureDrivers.map((player) => <button key={`pressure-${player.id}`} onClick={() => setSelectedPlayer(player)}><strong>{player.name}</strong><small>{player.positionRank ? `${player.position}${player.positionRank}` : player.position} · {player.phase}</small></button>)}
         </div>
       </section>
       <div className="dynasty-metrics">
