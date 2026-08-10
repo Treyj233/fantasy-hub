@@ -35,3 +35,11 @@ test("portfolio Scoreboard keeps matchup status in scope", async () => {
   assert.match(component, /Live scoring preview/);
   assert.match(component, /These are not live events/);
 });
+
+test("expanded NFL games separate readable player groups", async () => {
+  const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
+  assert.match(source, /isExpanded \? "is-expanded"/);
+  assert.match(source, /YOUR TEAM/);
+  assert.match(source, /OPPONENT/);
+  assert.match(source, /sidePlayers\.map/);
+});

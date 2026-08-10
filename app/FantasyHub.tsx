@@ -3914,7 +3914,7 @@ function NflGames({
           const playerPanelId = `game-players-${game.id.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
           return (
           <article
-            className={`nfl-game-card ${game.impactPlayers.length ? "has-impact" : ""}`}
+            className={`nfl-game-card ${game.impactPlayers.length ? "has-impact" : ""} ${isExpanded ? "is-expanded" : ""}`}
             key={game.id}
           >
             <header>
@@ -4000,29 +4000,36 @@ function NflGames({
                 </button>
                 {isExpanded && (
                   <div className="impact-roster-players" id={playerPanelId}>
-                    {game.impactPlayers.map((player) => (
-                      <div
-                        className={
-                          player.side === "You" ? "your-player" : "opponent-player"
-                        }
-                        key={`${player.side}-${player.id}`}
-                      >
-                        <PlayerHeadshot id={player.id} position={player.position} />
-                        <p>
-                          <button className="inline-player-link" onClick={() => openPlayer(playerShell(player))}>{player.name}</button>
-                          <small>
-                            {player.nflTeam} ·{" "}
-                            {player.starter ? "Starter" : "Bench"}
-                          </small>
-                        </p>
-                        <em>{player.side}</em>
-                        <b>
-                          {player.fantasyPoints.toFixed(1)}
-                          <small>PTS</small>
-                        </b>
-                        <span className="impact-player-projection">{player.projection == null ? "Projection unavailable" : `${player.projection.toFixed(1)} ${data.league.projectionSource ?? "league projection"} · ${player.remainingProjection.toFixed(1)} remaining`}</span>
-                      </div>
-                    ))}
+                    {(["You", "Opponent"] as const).map((side) => {
+                      const sidePlayers = game.impactPlayers.filter(
+                        (player) => player.side === side,
+                      );
+                      if (!sidePlayers.length) return null;
+                      return (
+                        <section
+                          className={side === "You" ? "your-team" : "opponent-team"}
+                          key={side}
+                        >
+                          <header>
+                            <span>{side === "You" ? "YOUR TEAM" : "OPPONENT"}</span>
+                            <b>{sidePlayers.length} PLAYER{sidePlayers.length === 1 ? "" : "S"}</b>
+                          </header>
+                          <div>
+                            {sidePlayers.map((player) => (
+                              <article key={`${player.side}-${player.id}`}>
+                                <PlayerHeadshot id={player.id} position={player.position} />
+                                <p>
+                                  <button className="inline-player-link" onClick={() => openPlayer(playerShell(player))}>{player.name}</button>
+                                  <small>{player.nflTeam} · {player.position} · {player.starter ? "Starter" : "Bench"}</small>
+                                  <span>{player.projection == null ? "Projection unavailable" : `${player.projection.toFixed(1)} ${data.league.projectionSource ?? "league projection"} · ${player.remainingProjection.toFixed(1)} remaining`}</span>
+                                </p>
+                                <b>{player.fantasyPoints.toFixed(1)}<small>PTS</small></b>
+                              </article>
+                            ))}
+                          </div>
+                        </section>
+                      );
+                    })}
                   </div>
                 )}
               </section>
