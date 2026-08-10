@@ -1,13 +1,15 @@
-import { eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { getDb } from "../../../db";
-import { sleeperConnections } from "../../../db/schema";
+import { seasonNarrativeSnapshots, sleeperConnections } from "../../../db/schema";
 import { getChatGPTUser } from "../../chatgpt-auth";
 
 type MatchupRow = { roster_id?: number; matchup_id?: number | null; points?: number; custom_points?: number | null; starters?: string[]; players?: string[]; players_points?: Record<string, number> };
-type Roster = { roster_id?: number; owner_id?: string };
+type Roster = { roster_id?: number; owner_id?: string; players?: string[] };
 type Manager = { user_id?: string; display_name?: string; metadata?: { team_name?: string } };
 type Transaction = { transaction_id?: string; type?: string; status?: string; roster_ids?: number[]; adds?: Record<string, number>; drops?: Record<string, number>; created?: number };
-type Player = { full_name?: string; first_name?: string; last_name?: string; position?: string };
+type Player = { full_name?: string; first_name?: string; last_name?: string; position?: string; injury_status?: string | null };
+type Draft = { draft_id?: string; status?: string };
+type DraftPick = { player_id?: string; roster_id?: number; round?: number; pick_no?: number; draft_slot?: number };
 
 export async function GET(request: Request) {
   const user = await getChatGPTUser();
@@ -17,17 +19,19 @@ export async function GET(request: Request) {
   const db = await getDb();
   const [connection] = await db.select().from(sleeperConnections).where(eq(sleeperConnections.userId, user.userId)).limit(1);
   if (!connection) return Response.json({ error: "Connect a Sleeper account first" }, { status: 409 });
-  const [leagueResponse, rostersResponse, managersResponse, playersResponse] = await Promise.all([
+  const [leagueResponse, rostersResponse, managersResponse, playersResponse, draftsResponse] = await Promise.all([
     fetch(`https://api.sleeper.app/v1/league/${leagueId}`, { next: { revalidate: 60 } }),
     fetch(`https://api.sleeper.app/v1/league/${leagueId}/rosters`, { next: { revalidate: 300 } }),
     fetch(`https://api.sleeper.app/v1/league/${leagueId}/users`, { next: { revalidate: 300 } }),
     fetch("https://api.sleeper.app/v1/players/nfl", { next: { revalidate: 86400 } }),
+    fetch(`https://api.sleeper.app/v1/league/${leagueId}/drafts`, { next: { revalidate: 3600 } }).catch(() => null),
   ]);
   if (!leagueResponse.ok || !rostersResponse.ok || !managersResponse.ok) return Response.json({ error: "League story data is unavailable" }, { status: 502 });
   const league = await leagueResponse.json() as { name?: string; season?: string; leg?: number; settings?: { playoff_teams?: number; playoff_week_start?: number } };
   const rosters = await rostersResponse.json() as Roster[];
   const managers = await managersResponse.json() as Manager[];
   const players = playersResponse.ok ? await playersResponse.json() as Record<string, Player> : {};
+  const drafts = draftsResponse?.ok ? await draftsResponse.json().catch(() => []) as Draft[] : [];
   const currentWeek = Math.min(18, Math.max(1, league.leg ?? 1));
   const completedWeek = Math.max(0, currentWeek - 1);
   const weeksToLoad = Array.from({ length: currentWeek }, (_, index) => index + 1);
@@ -36,7 +40,7 @@ export async function GET(request: Request) {
       const response = await fetch(`https://api.sleeper.app/v1/league/${leagueId}/matchups/${week}`, { next: { revalidate: week < currentWeek ? 3600 : 30 } }).catch(() => null);
       return { week, rows: response?.ok ? await response.json().catch(() => []) as MatchupRow[] : [] };
     })),
-    Promise.all([completedWeek, currentWeek].filter((week, index, values) => week >= 1 && values.indexOf(week) === index).map(async (week) => {
+    Promise.all(weeksToLoad.map(async (week) => {
       const response = await fetch(`https://api.sleeper.app/v1/league/${leagueId}/transactions/${week}`, { next: { revalidate: week < currentWeek ? 3600 : 60 } }).catch(() => null);
       return { week, rows: response?.ok ? await response.json().catch(() => []) as Transaction[] : [] };
     })),
@@ -48,6 +52,10 @@ export async function GET(request: Request) {
     return [[roster.roster_id, { rosterId: roster.roster_id, ownerId: roster.owner_id ?? "", managerName: manager?.display_name ?? `Manager ${roster.roster_id}`, teamName: manager?.metadata?.team_name ?? `${manager?.display_name ?? `Manager ${roster.roster_id}`}'s Team`, isMine: roster.owner_id === connection.sleeperUserId }]];
   }));
   const playerName = (id: string) => players[id]?.full_name ?? (`${players[id]?.first_name ?? ""} ${players[id]?.last_name ?? ""}`.trim() || `Player ${id}`);
+  const draftPicks = (await Promise.all(drafts.filter((draft) => draft.draft_id).map(async (draft) => {
+    const response = await fetch(`https://api.sleeper.app/v1/draft/${draft.draft_id}/picks`, { next: { revalidate: 86400 } }).catch(() => null);
+    return response?.ok ? await response.json().catch(() => []) as DraftPick[] : [];
+  }))).flat();
   const allGames = weekPayloads.flatMap(({ week, rows }) => {
     const groups = new Map<number, MatchupRow[]>();
     rows.forEach((row, index) => { const key = row.matchup_id ?? 1000 + index; groups.set(key, [...(groups.get(key) ?? []), row]); });
@@ -93,6 +101,23 @@ export async function GET(request: Request) {
   const playoffWeek = league.settings?.playoff_week_start ?? 15;
   const playoffLine = standings[playoffTeams - 1];
   const mineStanding = standings.find((team) => team.isMine);
+  const myRoster = rosters.find((roster) => roster.owner_id === connection.sleeperUserId);
+  const myDraftPicks = draftPicks.filter((pick) => pick.roster_id === myRoster?.roster_id).sort((a, b) => (a.pick_no ?? 999) - (b.pick_no ?? 999));
+  const myTransactions = transactionPayloads.flatMap(({ week, rows }) => rows.flatMap((row) => Object.entries(row.adds ?? {}).filter(([, rosterId]) => rosterId === myRoster?.roster_id).map(([playerId]) => ({ week, playerId, player: playerName(playerId), type: row.type ?? "transaction" }))));
+  const acquisitionImpact = myTransactions.map((move) => ({ ...move, pointsAfter: Number(myGames.filter((game) => game.week >= move.week).reduce((total, game) => total + (game.teams.find((team) => team.rosterId === myRoster?.roster_id)?.playerPoints[move.playerId] ?? 0), 0).toFixed(1)) })).sort((a, b) => b.pointsAfter - a.pointsAfter);
+  const myResults = myGames.filter((game) => game.week <= completedWeek).map((game) => { const mine = game.teams.find((team) => team.rosterId === myRoster?.roster_id)!; const opponent = game.teams.find((team) => team.rosterId !== myRoster?.roster_id)!; return { week: game.week, opponent: opponent.teamName, yourPoints: mine.points, opponentPoints: opponent.points, margin: Number((mine.points - opponent.points).toFixed(2)), result: mine.points > opponent.points ? "W" : mine.points < opponent.points ? "L" : "T" }; });
+  const leagueAveragePoints = standings.length && completedWeek ? standings.reduce((sum, team) => sum + team.points, 0) / standings.length / completedWeek : 0;
+  const yourAveragePoints = mineStanding && completedWeek ? mineStanding.points / completedWeek : 0;
+  const rosterValueIndex = leagueAveragePoints > 0 ? Math.round(yourAveragePoints / leagueAveragePoints * 100) : 100;
+  const playoffProbability = !completedWeek || !mineStanding || !playoffLine ? 50 : Math.max(5, Math.min(95, Math.round((50 + (playoffTeams - mineStanding.rank) * 7 + (mineStanding.wins - playoffLine.wins) * 9) / 5) * 5));
+  const injuryCount = (myRoster?.players ?? []).filter((id) => players[id]?.injury_status && !["Healthy", ""] .includes(players[id]?.injury_status ?? "")).length;
+  const season = league.season ?? "";
+  await db.insert(seasonNarrativeSnapshots).values({ id: `${user.userId}:${leagueId}:${season}:${currentWeek}`, userId: user.userId, leagueId, season, week: currentWeek, playoffProbability, rosterValueIndex, injuryCount, record: `${mineStanding?.wins ?? 0}-${mineStanding?.losses ?? 0}`, pointsFor: mineStanding?.points ?? 0, capturedAt: new Date().toISOString() }).onConflictDoUpdate({ target: [seasonNarrativeSnapshots.userId, seasonNarrativeSnapshots.leagueId, seasonNarrativeSnapshots.season, seasonNarrativeSnapshots.week], set: { playoffProbability, rosterValueIndex, injuryCount, record: `${mineStanding?.wins ?? 0}-${mineStanding?.losses ?? 0}`, pointsFor: mineStanding?.points ?? 0, capturedAt: new Date().toISOString() } });
+  const snapshots = await db.select().from(seasonNarrativeSnapshots).where(and(eq(seasonNarrativeSnapshots.userId, user.userId), eq(seasonNarrativeSnapshots.leagueId, leagueId), eq(seasonNarrativeSnapshots.season, season))).orderBy(asc(seasonNarrativeSnapshots.week));
+  const closeResults = myResults.filter((result) => Math.abs(result.margin) <= 5);
+  const turningPoint = [...myResults].sort((a, b) => Math.abs(b.margin) - Math.abs(a.margin))[0] ?? null;
+  const recoveredInjuries = snapshots.flatMap((snapshot, index) => index && snapshot.injuryCount < snapshots[index - 1].injuryCount ? [{ week: snapshot.week, recovered: snapshots[index - 1].injuryCount - snapshot.injuryCount }] : []);
+  const wrappedShare = `${league.name ?? "My league"} ${season}: ${mineStanding?.wins ?? 0}-${mineStanding?.losses ?? 0}, ${mineStanding?.points.toFixed(1) ?? "0.0"} points scored${acquisitionImpact[0] ? `, best acquisition result: ${acquisitionImpact[0].player}` : ""}.`;
   return Response.json({
     league: { name: league.name ?? "League", season: league.season ?? "", currentWeek, completedWeek, provider: "Sleeper" },
     updatedAt: new Date().toISOString(),
@@ -103,5 +128,17 @@ export async function GET(request: Request) {
     trades,
     playoff: { teams: playoffTeams, startsWeek: playoffWeek, weeksRemaining: Math.max(0, playoffWeek - currentWeek), yourRank: completedWeek ? mineStanding?.rank ?? null : null, yourWins: completedWeek ? mineStanding?.wins ?? null : null, lineWins: completedWeek ? playoffLine?.wins ?? null : null, summary: !completedWeek ? "The playoff race begins after Week 1 results are recorded." : mineStanding && playoffLine ? mineStanding.rank <= playoffTeams ? `Currently inside the ${playoffTeams}-team playoff field, ${mineStanding.wins - playoffLine.wins} wins relative to the current cutoff.` : `Currently ${mineStanding.wins === playoffLine.wins ? "tied in wins with" : `${playoffLine.wins - mineStanding.wins} wins behind`} the playoff cutoff.` : "Playoff context is unavailable until standings are posted." },
     methodology: "Stories use observed Sleeper matchup scores, rosters and completed transactions. Power movement is standings-based; lineup notes describe outcomes, not decision quality."
+    ,seasonNarrative: {
+      draftDay: myDraftPicks.length ? { slot: myDraftPicks[0].draft_slot ?? null, picks: myDraftPicks.slice(0, 5).map((pick) => ({ round: pick.round ?? null, pick: pick.pick_no ?? null, player: pick.player_id ? playerName(pick.player_id) : "Unknown player" })), summary: `Your season began with ${myDraftPicks.length} recorded draft picks${myDraftPicks[0].draft_slot ? ` from draft slot ${myDraftPicks[0].draft_slot}` : ""}.` } : null,
+      acquisitions: acquisitionImpact.slice(0, 5),
+      results: myResults,
+      closeResults,
+      turningPoint,
+      snapshots: snapshots.map((snapshot) => ({ week: snapshot.week, playoffProbability: snapshot.playoffProbability, rosterValueIndex: snapshot.rosterValueIndex, injuryCount: snapshot.injuryCount, record: snapshot.record, pointsFor: snapshot.pointsFor })),
+      injuryRecoveries: recoveredInjuries,
+      bestDecision: acquisitionImpact[0] ?? null,
+      championshipPath: completedWeek ? `You are #${mineStanding?.rank ?? "—"}; an estimated ${playoffProbability}% playoff outlook with ${Math.max(0, playoffWeek - currentWeek)} regular-season weeks before the configured playoff start.` : "The championship path will take shape after Week 1 results are recorded.",
+      wrapped: { ready: currentWeek >= playoffWeek || completedWeek >= 14, headline: `${myTeam?.teamName ?? "Your team"}: The ${season} story`, record: `${mineStanding?.wins ?? 0}-${mineStanding?.losses ?? 0}`, points: mineStanding?.points ?? 0, closeWins: closeResults.filter((result) => result.result === "W").length, closeLosses: closeResults.filter((result) => result.result === "L").length, bestWeek: [...myResults].sort((a, b) => b.yourPoints - a.yourPoints)[0] ?? null, shareText: wrappedShare }
+    }
   });
 }

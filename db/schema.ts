@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { integer, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 export const sleeperConnections = sqliteTable("sleeper_connections", {
   userId: text("user_id").primaryKey(),
@@ -22,4 +22,20 @@ export const managedLeagues = sqliteTable("managed_leagues", {
   updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 }, (table) => [
   uniqueIndex("managed_leagues_user_provider_identifier").on(table.userId, table.provider, table.identifierType, table.identifier),
+]);
+
+export const seasonNarrativeSnapshots = sqliteTable("season_narrative_snapshots", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  leagueId: text("league_id").notNull(),
+  season: text("season").notNull(),
+  week: integer("week").notNull(),
+  playoffProbability: real("playoff_probability"),
+  rosterValueIndex: real("roster_value_index"),
+  injuryCount: integer("injury_count").notNull().default(0),
+  record: text("record").notNull(),
+  pointsFor: real("points_for").notNull().default(0),
+  capturedAt: text("captured_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [
+  uniqueIndex("season_narrative_user_league_season_week").on(table.userId, table.leagueId, table.season, table.week),
 ]);
