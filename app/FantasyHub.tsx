@@ -298,6 +298,11 @@ type TradeSuggestion = {
   confidence: number;
   whyYou: string;
   whyThem: string;
+  yourBefore: number;
+  yourAfter: number;
+  partnerBefore: number;
+  partnerAfter: number;
+  format: "Dynasty" | "Keeper" | "Redraft";
 };
 type LeagueScan = {
   league: ConnectedLeague;
@@ -4517,11 +4522,32 @@ function WaiverWire({
 function tradeAsset(
   player: Player,
   rankingById: Map<string, LeagueRanking>,
+  format: "Dynasty" | "Keeper" | "Redraft" = "Redraft",
 ): TradeAssetValue {
   const ranking = rankingById.get(player.id);
-  const value = ranking
-    ? Math.max(40, Math.min(99, Math.round(104 - ranking.overallRank * 0.32)))
-    : Math.max(35, Math.min(85, Math.round(player.projection * 3.4)));
+  const rankValue = ranking
+    ? Math.max(20, Math.min(99, Math.round(103 - ranking.overallRank * 0.28)))
+    : Math.max(10, Math.min(82, Math.round(player.projection * 3.2)));
+  const age = ranking?.age ?? null;
+  const dynastyAge = !age
+    ? 0
+    : player.position === "RB"
+      ? (25 - age) * 2.4
+      : player.position === "WR"
+        ? (27 - age) * 1.8
+        : player.position === "TE"
+          ? (28 - age) * 1.3
+          : (30 - age) * 0.8;
+  const formatAdjustment =
+    format === "Dynasty"
+      ? dynastyAge
+      : format === "Keeper"
+        ? dynastyAge * 0.4
+        : player.projection * 0.45;
+  const value = Math.max(
+    8,
+    Math.min(99, Math.round(rankValue + formatAdjustment)),
+  );
   return {
     id: player.id,
     name: player.name,
@@ -4557,6 +4583,68 @@ function teamNeeds(
     .sort((a, b) => b.score - a.score);
 }
 
+function tradeRosterStrength(
+  roster: Player[],
+  rankingById: Map<string, LeagueRanking>,
+  context: RankingContext | null,
+) {
+  const slotCounts = (context?.rosterSlots ?? []).reduce<
+    Record<string, number>
+  >((counts, slot) => ({ ...counts, [slot]: (counts[slot] ?? 0) + 1 }), {});
+  const positionScore = (player: Player) => {
+    const ranking = rankingById.get(player.id);
+    return ranking
+      ? Math.max(10, 110 - ranking.overallRank * 0.35)
+      : player.projection * 3;
+  };
+  const take = (position: string, count: number) =>
+    roster
+      .filter((player) => player.position === position)
+      .map(positionScore)
+      .sort((a, b) => b - a)
+      .slice(0, count);
+  const core = [
+    ...take("QB", Math.max(1, slotCounts.QB ?? 1)),
+    ...take("RB", Math.max(1, slotCounts.RB ?? 2)),
+    ...take("WR", Math.max(1, slotCounts.WR ?? 2)),
+    ...take("TE", Math.max(1, slotCounts.TE ?? 1)),
+  ];
+  const coreIds = new Set(
+    ["QB", "RB", "WR", "TE"].flatMap((position) =>
+      roster
+        .filter((player) => player.position === position)
+        .sort((a, b) => positionScore(b) - positionScore(a))
+        .slice(
+          0,
+          Math.max(
+            1,
+            slotCounts[position] ??
+              (position === "RB" || position === "WR" ? 2 : 1),
+          ),
+        )
+        .map((player) => player.id),
+    ),
+  );
+  const flexCount =
+    (slotCounts.FLEX ?? 0) +
+    (slotCounts.WR_RB_FLEX ?? 0) +
+    (slotCounts.REC_FLEX ?? 0);
+  const flex = roster
+    .filter(
+      (player) =>
+        ["RB", "WR", "TE"].includes(player.position) && !coreIds.has(player.id),
+    )
+    .map(positionScore)
+    .sort((a, b) => b - a)
+    .slice(0, flexCount);
+  const usable = [...core, ...flex];
+  return Number(
+    (
+      usable.reduce((sum, value) => sum + value, 0) / Math.max(1, usable.length)
+    ).toFixed(1),
+  );
+}
+
 function buildTradeSuggestions(
   yourTeam: LeagueTeam,
   partner: LeagueTeam,
@@ -4565,6 +4653,7 @@ function buildTradeSuggestions(
   style: TradeStyle,
 ): TradeSuggestion[] {
   const rankingById = new Map(rankings.map((player) => [player.id, player]));
+  const format = context?.format ?? "Redraft";
   const yourNeeds = teamNeeds(yourTeam, rankingById, context);
   const partnerNeeds = teamNeeds(partner, rankingById, context);
   const yourNeedOrder = new Map(
@@ -4577,7 +4666,7 @@ function buildTradeSuggestions(
     !["K", "DEF"].includes(player.position) && rankingById.has(player.id);
   const partnerAssets = partner.roster
     .filter(eligible)
-    .map((player) => tradeAsset(player, rankingById))
+    .map((player) => tradeAsset(player, rankingById, format))
     .sort(
       (a, b) =>
         (yourNeedOrder.get(a.position) ?? 9) -
@@ -4585,82 +4674,123 @@ function buildTradeSuggestions(
     );
   const yourAssets = yourTeam.roster
     .filter(eligible)
-    .map((player) => tradeAsset(player, rankingById));
-  const premium = style === "Strict" ? 1.08 : style === "Aggressive" ? 0.92 : 1;
-  const suggestions: TradeSuggestion[] = [];
-  const usedTargets = new Set<string>();
-  for (const target of partnerAssets) {
-    if (usedTargets.has(target.id)) continue;
-    const sendPool = [...yourAssets].sort((a, b) => {
-      const aNeed = partnerNeedOrder.get(a.position) ?? 9;
-      const bNeed = partnerNeedOrder.get(b.position) ?? 9;
-      return (
-        aNeed - bNeed ||
-        Math.abs(a.value - target.value * premium) -
-          Math.abs(b.value - target.value * premium)
+    .map((player) => tradeAsset(player, rankingById, format));
+  const yourBefore = tradeRosterStrength(yourTeam.roster, rankingById, context);
+  const partnerBefore = tradeRosterStrength(
+    partner.roster,
+    rankingById,
+    context,
+  );
+  const premium = 1;
+  const candidates = partnerAssets.flatMap((target) =>
+    yourAssets.flatMap((offer) => {
+      if (target.position === offer.position) return [];
+      const yourNeedRank = yourNeedOrder.get(target.position) ?? 9;
+      const partnerNeedRank = partnerNeedOrder.get(offer.position) ?? 9;
+      const yourOfferNeedRank = yourNeedOrder.get(offer.position) ?? 9;
+      const partnerTargetNeedRank = partnerNeedOrder.get(target.position) ?? 9;
+      if (yourNeedRank > 2 || partnerNeedRank > 2) return [];
+      if (yourOfferNeedRank === 0 || partnerTargetNeedRank === 0) return [];
+      const valueGap =
+        Math.abs(offer.value - target.value * premium) /
+        Math.max(1, target.value);
+      if (valueGap > 0.28) return [];
+      const targetPlayer = partner.roster.find(
+        (player) => player.id === target.id,
+      )!;
+      const offerPlayer = yourTeam.roster.find(
+        (player) => player.id === offer.id,
+      )!;
+      const yourAfterRoster = [
+        ...yourTeam.roster.filter((player) => player.id !== offer.id),
+        targetPlayer,
+      ];
+      const partnerAfterRoster = [
+        ...partner.roster.filter((player) => player.id !== target.id),
+        offerPlayer,
+      ];
+      const yourAfter = tradeRosterStrength(
+        yourAfterRoster,
+        rankingById,
+        context,
       );
-    });
-    let send = [sendPool[0]].filter(Boolean);
-    let sendValue = send.reduce((sum, asset) => sum + asset.value, 0);
-    if (sendValue < target.value * premium && sendPool[1]) {
-      const second = sendPool
-        .slice(1)
-        .sort(
-          (a, b) =>
-            Math.abs(sendValue + a.value * 0.72 - target.value * premium) -
-            Math.abs(sendValue + b.value * 0.72 - target.value * premium),
-        )[0];
-      if (second) {
-        send = [...send, second];
-        sendValue += second.value * 0.72;
-      }
-    }
-    if (!send.length) continue;
-    const valueGap =
-      Math.abs(sendValue - target.value) / Math.max(target.value, 1);
-    const yourNeed = yourNeedOrder.get(target.position) ?? 3;
-    const partnerNeed = Math.min(
-      ...send.map((asset) => partnerNeedOrder.get(asset.position) ?? 3),
-    );
-    const yourBenefit = Math.round(
-      Math.max(55, Math.min(96, 91 - yourNeed * 7 - valueGap * 18)),
-    );
-    const partnerBenefit = Math.round(
-      Math.max(
-        55,
-        Math.min(
-          96,
-          89 - partnerNeed * 7 + (sendValue / target.value - 1) * 18,
+      const partnerAfter = tradeRosterStrength(
+        partnerAfterRoster,
+        rankingById,
+        context,
+      );
+      const yourDelta = yourAfter - yourBefore;
+      const partnerDelta = partnerAfter - partnerBefore;
+      if (
+        yourDelta < -0.1 ||
+        partnerDelta < -0.1 ||
+        yourDelta + partnerDelta < 0.4
+      )
+        return [];
+      const yourBenefit = Math.round(
+        Math.max(52, Math.min(96, 68 + yourDelta * 8 + (2 - yourNeedRank) * 5)),
+      );
+      const partnerBenefit = Math.round(
+        Math.max(
+          52,
+          Math.min(96, 68 + partnerDelta * 8 + (2 - partnerNeedRank) * 5),
         ),
-      ),
-    );
-    const styleBase =
-      style === "Aggressive" ? 73 : style === "Strict" ? 52 : 64;
-    const acceptance = Math.round(
-      Math.max(
-        35,
-        Math.min(88, styleBase + (partnerBenefit - 70) * 0.55 - valueGap * 16),
-      ),
-    );
-    const sendPositions = [
-      ...new Set(send.map((asset) => asset.position)),
-    ].join("/");
-    suggestions.push({
-      id: `${partner.id}-${target.id}-${send.map((asset) => asset.id).join("-")}`,
-      title: `Address ${yourTeam.teamName}’s ${target.position} need`,
-      receive: [target],
-      send,
-      yourBenefit,
-      partnerBenefit,
-      acceptance,
-      confidence: Math.round(Math.max(58, Math.min(91, 88 - valueGap * 28))),
-      whyYou: `${target.name} improves a priority ${target.position} room using this league’s scoring and lineup value.`,
-      whyThem: `${send.map((asset) => asset.name).join(" and ")} ${send.length > 1 ? "add" : "adds"} ${sendPositions} value where ${partner.teamName} grades as comparatively thin.`,
-    });
-    usedTargets.add(target.id);
-    if (suggestions.length === 3) break;
-  }
-  return suggestions;
+      );
+      const styleBase =
+        style === "Aggressive" ? 76 : style === "Strict" ? 54 : 66;
+      const acceptance = Math.round(
+        Math.max(
+          30,
+          Math.min(
+            91,
+            styleBase +
+              partnerDelta * 7 -
+              valueGap * 35 +
+              (offer.value / Math.max(target.value, 1) - 1) * 18,
+          ),
+        ),
+      );
+      const suggestion: TradeSuggestion = {
+        id: `${partner.id}-${target.id}-${offer.id}`,
+        title: `${target.position} help for ${offer.position} surplus`,
+        receive: [target],
+        send: [offer],
+        yourBenefit,
+        partnerBenefit,
+        acceptance,
+        confidence: Math.round(
+          Math.max(
+            58,
+            Math.min(
+              94,
+              88 - valueGap * 35 + Math.min(yourDelta, partnerDelta) * 5,
+            ),
+          ),
+        ),
+        whyYou: `${target.name} addresses your #${yourNeedRank + 1} positional need and moves modeled roster strength from ${yourBefore.toFixed(1)} to ${yourAfter.toFixed(1)}.`,
+        whyThem: `${offer.name} addresses ${partner.teamName}’s #${partnerNeedRank + 1} need and moves its modeled roster strength from ${partnerBefore.toFixed(1)} to ${partnerAfter.toFixed(1)}.`,
+        yourBefore,
+        yourAfter,
+        partnerBefore,
+        partnerAfter,
+        format,
+      };
+      return [
+        {
+          suggestion,
+          score:
+            Math.min(yourDelta, partnerDelta) * 20 +
+            yourDelta +
+            partnerDelta -
+            valueGap * 8,
+        },
+      ];
+    }),
+  );
+  return candidates
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 3)
+    .map((candidate) => candidate.suggestion);
 }
 
 function TradeLab({
@@ -4680,7 +4810,9 @@ function TradeLab({
   );
   const [selectedId, setSelectedId] = useState(opponents[0]?.id ?? "");
   const [styles, setStyles] = useState<Record<string, TradeStyle>>({});
-  const [activeSuggestion, setActiveSuggestion] = useState(0);
+  const [activeTargetId, setActiveTargetId] = useState("");
+  const [calculatorSendId, setCalculatorSendId] = useState("");
+  const [calculatorReceiveId, setCalculatorReceiveId] = useState("");
   const partner =
     opponents.find((team) => team.id === selectedId) ?? opponents[0];
   const partnerStyle = partner ? (styles[partner.id] ?? "Neutral") : "Neutral";
@@ -4694,17 +4826,19 @@ function TradeLab({
           partnerStyle,
         )
       : [];
-  const suggestion = suggestions.length
-    ? suggestions[activeSuggestion % suggestions.length]
-    : null;
+  const suggestion =
+    suggestions.find((item) => item.receive[0]?.id === activeTargetId) ??
+    suggestions[0] ??
+    null;
   function selectPartner(id: string) {
     setSelectedId(id);
-    setActiveSuggestion(0);
+    setActiveTargetId("");
+    setCalculatorSendId("");
+    setCalculatorReceiveId("");
   }
   function updateStyle(style: TradeStyle) {
     if (!partner) return;
     setStyles((current) => ({ ...current, [partner.id]: style }));
-    setActiveSuggestion(0);
   }
   if (!yourTeam)
     return (
@@ -4719,7 +4853,7 @@ function TradeLab({
         </section>
       </div>
     );
-  if (!partner || !suggestion)
+  if (!partner)
     return (
       <div className="page-content">
         <SectionIntro
@@ -4732,6 +4866,92 @@ function TradeLab({
         </section>
       </div>
     );
+  const rankingById = new Map(rankings.map((player) => [player.id, player]));
+  const tradeFormat = context?.format ?? "Redraft";
+  const eligibleYourPlayers = yourTeam.roster.filter(
+    (player) => !["K", "DEF"].includes(player.position),
+  );
+  const eligiblePartnerPlayers = partner.roster.filter(
+    (player) => !["K", "DEF"].includes(player.position),
+  );
+  const effectiveSendId =
+    calculatorSendId ||
+    suggestion?.send[0]?.id ||
+    eligibleYourPlayers[0]?.id ||
+    "";
+  const effectiveReceiveId =
+    calculatorReceiveId ||
+    suggestion?.receive[0]?.id ||
+    eligiblePartnerPlayers[0]?.id ||
+    "";
+  const calculatorSend = yourTeam.roster.find(
+    (player) => player.id === effectiveSendId,
+  );
+  const calculatorReceive = partner.roster.find(
+    (player) => player.id === effectiveReceiveId,
+  );
+  const calculatorSendAsset = calculatorSend
+    ? tradeAsset(calculatorSend, rankingById, tradeFormat)
+    : null;
+  const calculatorReceiveAsset = calculatorReceive
+    ? tradeAsset(calculatorReceive, rankingById, tradeFormat)
+    : null;
+  const calculatorYourBefore = tradeRosterStrength(
+    yourTeam.roster,
+    rankingById,
+    context,
+  );
+  const calculatorPartnerBefore = tradeRosterStrength(
+    partner.roster,
+    rankingById,
+    context,
+  );
+  const calculatorYourAfter =
+    calculatorSend && calculatorReceive
+      ? tradeRosterStrength(
+          [
+            ...yourTeam.roster.filter(
+              (player) => player.id !== calculatorSend.id,
+            ),
+            calculatorReceive,
+          ],
+          rankingById,
+          context,
+        )
+      : calculatorYourBefore;
+  const calculatorPartnerAfter =
+    calculatorSend && calculatorReceive
+      ? tradeRosterStrength(
+          [
+            ...partner.roster.filter(
+              (player) => player.id !== calculatorReceive.id,
+            ),
+            calculatorSend,
+          ],
+          rankingById,
+          context,
+        )
+      : calculatorPartnerBefore;
+  const calculatorGap =
+    calculatorSendAsset && calculatorReceiveAsset
+      ? Math.abs(calculatorSendAsset.value - calculatorReceiveAsset.value) /
+        Math.max(1, calculatorReceiveAsset.value)
+      : 1;
+  const calculatorMutual =
+    calculatorYourAfter >= calculatorYourBefore &&
+    calculatorPartnerAfter >= calculatorPartnerBefore;
+  const calculatorViability =
+    !calculatorSend || !calculatorReceive
+      ? "Select players"
+      : calculatorSend.position === "TE" && calculatorReceive.position === "TE"
+        ? "Poor roster fit"
+        : calculatorMutual && calculatorGap <= 0.18
+          ? "Strong framework"
+          : calculatorMutual && calculatorGap <= 0.3
+            ? "Negotiable"
+            : calculatorGap <= 0.22
+              ? "Fair value, weak fit"
+              : "Low viability";
   return (
     <div className="page-content">
       <SectionIntro
@@ -4783,78 +5003,176 @@ function TradeLab({
               : "Prefers balanced value with a clear benefit for both starting lineups."}
         </p>
       </section>
-      <div
-        className="suggestion-tabs"
-        role="tablist"
-        aria-label="Recommended trade frameworks"
-      >
-        {suggestions.map((item, index) => (
-          <button
-            key={item.id}
-            role="tab"
-            aria-selected={index === activeSuggestion}
-            className={index === activeSuggestion ? "active" : ""}
-            onClick={() => setActiveSuggestion(index)}
-          >
-            <span>OPTION {index + 1}</span>
-            <strong>{item.title}</strong>
-            <small>{item.acceptance}% estimated acceptance</small>
-          </button>
-        ))}
-      </div>
-      <div className="trade-board">
-        <section>
-          <span>YOU RECEIVE</span>
-          {suggestion.receive.map((asset) => (
-            <TradeAsset key={asset.id} asset={asset} />
-          ))}
-        </section>
-        <div className="trade-balance">
-          <strong>
-            {Math.min(suggestion.yourBenefit, suggestion.partnerBenefit)}
-          </strong>
-          <span>Mutual benefit</span>
-          <i>↔</i>
-          <b>{suggestion.acceptance}% likely</b>
+      <section className="trade-calculator panel">
+        <header>
+          <div>
+            <span>TRADE CALCULATOR</span>
+            <h3>{tradeFormat} viability</h3>
+            <p>
+              {tradeFormat === "Dynasty"
+                ? "Values include player age, career runway, league demand, and roster impact."
+                : tradeFormat === "Keeper"
+                  ? "Values blend current-season utility with a partial age and runway adjustment."
+                  : "Values emphasize current-season rank, platform projection, lineup demand, and roster impact."}
+            </p>
+          </div>
+          <b className={calculatorViability.toLowerCase().replaceAll(" ", "-")}>
+            {calculatorViability}
+          </b>
+        </header>
+        <div className="calculator-grid">
+          <label>
+            You send
+            <select
+              value={effectiveSendId}
+              onChange={(event) => setCalculatorSendId(event.target.value)}
+            >
+              {yourTeam.roster
+                .filter((player) => !["K", "DEF"].includes(player.position))
+                .map((player) => (
+                  <option key={player.id} value={player.id}>
+                    {player.name} · {player.position}
+                  </option>
+                ))}
+            </select>
+          </label>
+          <div className="calculator-score">
+            <span>{calculatorSendAsset?.value ?? "—"}</span>
+            <i>↔</i>
+            <span>{calculatorReceiveAsset?.value ?? "—"}</span>
+            <small>
+              {calculatorGap < 1
+                ? `${Math.round(calculatorGap * 100)}% value gap`
+                : "Select both players"}
+            </small>
+          </div>
+          <label>
+            You receive
+            <select
+              value={effectiveReceiveId}
+              onChange={(event) => setCalculatorReceiveId(event.target.value)}
+            >
+              {partner.roster
+                .filter((player) => !["K", "DEF"].includes(player.position))
+                .map((player) => (
+                  <option key={player.id} value={player.id}>
+                    {player.name} · {player.position}
+                  </option>
+                ))}
+            </select>
+          </label>
         </div>
-        <section>
-          <span>{partner.teamName.toUpperCase()} RECEIVES</span>
-          {suggestion.send.map((asset) => (
-            <TradeAsset key={asset.id} asset={asset} />
-          ))}
-        </section>
-      </div>
-      <div className="mutual-grid">
-        <article>
-          <span>YOUR TEAM</span>
-          <strong>{suggestion.yourBenefit}</strong>
-          <h3>Why this helps you</h3>
-          <p>{suggestion.whyYou}</p>
-        </article>
-        <article>
-          <span>{partner?.teamName ?? "Trade partner"}</span>
-          <strong>{suggestion.partnerBenefit}</strong>
-          <h3>Why they may accept</h3>
-          <p>{suggestion.whyThem}</p>
-        </article>
-        <article>
-          <span>DEAL CONFIDENCE</span>
-          <strong>{suggestion.confidence}%</strong>
-          <h3>Framework quality</h3>
-          <p>
-            Confidence reflects role certainty, valuation range, roster-need
-            evidence, and the selected manager profile.
-          </p>
-        </article>
-      </div>
-      <section className="trade-note">
-        <strong>Actual rosters, modeled acceptance</strong>
-        <p>
-          Player ownership and team needs are live for this league. Aggressive,
-          Neutral, and Strict alter package thresholds, but acceptance remains
-          an estimate—not a claim about another manager’s decision.
-        </p>
+        <div className="calculator-impact">
+          <span>
+            Your roster{" "}
+            <b>
+              {calculatorYourBefore.toFixed(1)} →{" "}
+              {calculatorYourAfter.toFixed(1)}
+            </b>
+          </span>
+          <span>
+            {partner.teamName}{" "}
+            <b>
+              {calculatorPartnerBefore.toFixed(1)} →{" "}
+              {calculatorPartnerAfter.toFixed(1)}
+            </b>
+          </span>
+          <span>
+            Format <b>{tradeFormat}</b>
+          </span>
+        </div>
       </section>
+      {suggestion ? (
+        <>
+          <div
+            className="suggestion-tabs"
+            role="tablist"
+            aria-label="Recommended trade frameworks"
+          >
+            {suggestions.map((item, index) => (
+              <button
+                key={item.id}
+                role="tab"
+                aria-selected={suggestion.id === item.id}
+                className={suggestion.id === item.id ? "active" : ""}
+                onClick={() => {
+                  setActiveTargetId(item.receive[0]?.id ?? "");
+                  setCalculatorSendId(item.send[0]?.id ?? "");
+                  setCalculatorReceiveId(item.receive[0]?.id ?? "");
+                }}
+              >
+                <span>OPTION {index + 1}</span>
+                <strong>{item.title}</strong>
+                <small>{item.acceptance}% estimated acceptance</small>
+              </button>
+            ))}
+          </div>
+          <div className="trade-board">
+            <section>
+              <span>YOU RECEIVE</span>
+              {suggestion.receive.map((asset) => (
+                <TradeAsset key={asset.id} asset={asset} />
+              ))}
+            </section>
+            <div className="trade-balance">
+              <strong>
+                {Math.min(suggestion.yourBenefit, suggestion.partnerBenefit)}
+              </strong>
+              <span>Mutual benefit</span>
+              <i>↔</i>
+              <b>{suggestion.acceptance}% likely</b>
+            </div>
+            <section>
+              <span>{partner.teamName.toUpperCase()} RECEIVES</span>
+              {suggestion.send.map((asset) => (
+                <TradeAsset key={asset.id} asset={asset} />
+              ))}
+            </section>
+          </div>
+          <div className="mutual-grid">
+            <article>
+              <span>YOUR TEAM</span>
+              <strong>{suggestion.yourBenefit}</strong>
+              <h3>Why this helps you</h3>
+              <p>{suggestion.whyYou}</p>
+            </article>
+            <article>
+              <span>{partner?.teamName ?? "Trade partner"}</span>
+              <strong>{suggestion.partnerBenefit}</strong>
+              <h3>Why they may accept</h3>
+              <p>{suggestion.whyThem}</p>
+            </article>
+            <article>
+              <span>DEAL CONFIDENCE</span>
+              <strong>{suggestion.confidence}%</strong>
+              <h3>Framework quality</h3>
+              <p>
+                Confidence reflects role certainty, valuation range, roster-need
+                evidence, and the selected manager profile.
+              </p>
+            </article>
+          </div>
+          <section className="trade-note">
+            <strong>Actual rosters, modeled acceptance</strong>
+            <p>
+              Player ownership and team needs are live for this league.
+              Aggressive, Neutral, and Strict alter estimated acceptance, but
+              acceptance remains an estimate—not a claim about another manager’s
+              decision.
+            </p>
+          </section>
+        </>
+      ) : (
+        <section className="panel trade-no-suggestions">
+          <strong>No responsible recommendation for this matchup</strong>
+          <p>
+            The calculator remains available, but the engine found no
+            cross-position deal that addresses both teams’ needs without
+            weakening either usable lineup. Try another trade partner or test
+            your own framework above.
+          </p>
+        </section>
+      )}
     </div>
   );
 }
