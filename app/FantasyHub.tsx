@@ -172,6 +172,8 @@ type PlayerWeek = {
   totalYards: number;
   touchdowns: number;
   passYards: number;
+  passAttempts: number;
+  passCompletions: number;
   passTouchdowns: number;
   interceptions: number;
   rushAttempts: number;
@@ -181,6 +183,16 @@ type PlayerWeek = {
   receptions: number;
   receivingYards: number;
   receivingTouchdowns: number;
+  fumblesLost: number;
+  twoPointConversions: number;
+  fieldGoalsMade: number;
+  fieldGoalsAttempted: number;
+  extraPointsMade: number;
+  sacks: number;
+  defensiveInterceptions: number;
+  fumbleRecoveries: number;
+  defensiveTouchdowns: number;
+  pointsAllowed: number;
 };
 type PlayerHistory = {
   sourceStatus: "available" | "unavailable";
@@ -8558,6 +8570,47 @@ function PlayerPanel({
     ? playedWeeks.reduce((total, week) => total + week.points, 0) /
       playedWeeks.length
     : 0;
+  const logPosition = player.position.toUpperCase();
+  const gameLogColumns = logPosition === "QB"
+    ? [
+        { label: "CMP/ATT", value: (week: PlayerWeek) => `${week.passCompletions}/${week.passAttempts}` },
+        { label: "PASS YD", value: (week: PlayerWeek) => week.passYards },
+        { label: "PASS TD", value: (week: PlayerWeek) => week.passTouchdowns },
+        { label: "INT", value: (week: PlayerWeek) => week.interceptions },
+        { label: "RUSH", value: (week: PlayerWeek) => `${week.rushAttempts}-${week.rushYards}` },
+        { label: "RUSH TD", value: (week: PlayerWeek) => week.rushTouchdowns },
+      ]
+    : ["RB", "FB"].includes(logPosition)
+      ? [
+          { label: "CAR", value: (week: PlayerWeek) => week.rushAttempts },
+          { label: "RUSH YD", value: (week: PlayerWeek) => week.rushYards },
+          { label: "RUSH TD", value: (week: PlayerWeek) => week.rushTouchdowns },
+          { label: "REC/TGT", value: (week: PlayerWeek) => `${week.receptions}/${week.targets}` },
+          { label: "REC YD", value: (week: PlayerWeek) => week.receivingYards },
+          { label: "REC TD", value: (week: PlayerWeek) => week.receivingTouchdowns },
+        ]
+      : ["WR", "TE"].includes(logPosition)
+        ? [
+            { label: "TGT", value: (week: PlayerWeek) => week.targets },
+            { label: "REC", value: (week: PlayerWeek) => week.receptions },
+            { label: "REC YD", value: (week: PlayerWeek) => week.receivingYards },
+            { label: "REC TD", value: (week: PlayerWeek) => week.receivingTouchdowns },
+            { label: "RUSH", value: (week: PlayerWeek) => `${week.rushAttempts}-${week.rushYards}` },
+            { label: "FUM", value: (week: PlayerWeek) => week.fumblesLost },
+          ]
+        : logPosition === "K"
+          ? [
+              { label: "FGM", value: (week: PlayerWeek) => week.fieldGoalsMade },
+              { label: "FGA", value: (week: PlayerWeek) => week.fieldGoalsAttempted },
+              { label: "XPM", value: (week: PlayerWeek) => week.extraPointsMade },
+            ]
+          : [
+              { label: "SACK", value: (week: PlayerWeek) => week.sacks },
+              { label: "INT", value: (week: PlayerWeek) => week.defensiveInterceptions },
+              { label: "FR", value: (week: PlayerWeek) => week.fumbleRecoveries },
+              { label: "TD", value: (week: PlayerWeek) => week.defensiveTouchdowns },
+              { label: "PA", value: (week: PlayerWeek) => week.pointsAllowed },
+            ];
   const rosteredIn = portfolioScans.filter((scan) =>
     scan.roster.some(
       (candidate) =>
@@ -8810,13 +8863,9 @@ function PlayerPanel({
               <table>
                 <thead>
                   <tr>
-                    <th>Week</th>
-                    <th>PPR</th>
-                    <th>Total yd</th>
-                    <th>Pass</th>
-                    <th>Rush</th>
-                    <th>Receiving</th>
-                    <th>TD</th>
+                    <th>WK</th>
+                    <th>FPTS</th>
+                    {gameLogColumns.map((column) => <th key={column.label}>{column.label}</th>)}
                   </tr>
                 </thead>
                 <tbody>
@@ -8826,31 +8875,9 @@ function PlayerPanel({
                         <b>W{week.week}</b>
                       </td>
                       <td>
-                        <strong>{week.points.toFixed(1)}</strong>
+                        <strong className="game-log-points">{week.points.toFixed(1)}</strong>
                       </td>
-                      <td>{week.totalYards}</td>
-                      <td>
-                        <span>
-                          {week.passYards} yd · {week.passTouchdowns} TD
-                          {week.interceptions
-                            ? ` · ${week.interceptions} INT`
-                            : ""}
-                        </span>
-                      </td>
-                      <td>
-                        <span>
-                          {week.rushAttempts} att · {week.rushYards} yd ·{" "}
-                          {week.rushTouchdowns} TD
-                        </span>
-                      </td>
-                      <td>
-                        <span>
-                          {week.receptions}/{week.targets} ·{" "}
-                          {week.receivingYards} yd · {week.receivingTouchdowns}{" "}
-                          TD
-                        </span>
-                      </td>
-                      <td>{week.touchdowns}</td>
+                      {gameLogColumns.map((column) => <td key={column.label}>{column.value(week)}</td>)}
                     </tr>
                   ))}
                 </tbody>
