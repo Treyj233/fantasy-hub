@@ -1,5 +1,9 @@
 const hubOrigin = "https://fantasy-hub.treyj233.chatgpt.site";
-const extensionApi = globalThis.browser ?? globalThis.chrome;
+const extensionApi = globalThis.chrome?.runtime?.id
+  ? globalThis.chrome
+  : globalThis.browser?.runtime?.id
+    ? globalThis.browser
+    : null;
 const codeInput = document.querySelector("#pairing-code");
 const leagueInput = document.querySelector("#league-id");
 const seasonInput = document.querySelector("#season");
@@ -20,8 +24,19 @@ function teamName(team) {
 }
 
 async function activeEspnTab() {
-  if (!extensionApi?.tabs?.query) throw new Error("The extension cannot access this browser tab. Reinstall the latest extension and approve tab access.");
-  const [tab] = await extensionApi.tabs.query({ active: true, currentWindow: true });
+  if (!extensionApi?.tabs?.query) throw new Error("Open Fantasy Hub ESPN Sync from Chrome’s Extensions toolbar—not by opening popup.html directly.");
+  const tabs = await new Promise((resolve, reject) => {
+    if (extensionApi === globalThis.chrome) {
+      extensionApi.tabs.query({ active: true, currentWindow: true }, (result) => {
+        const message = extensionApi.runtime.lastError?.message;
+        if (message) reject(new Error(message));
+        else resolve(result ?? []);
+      });
+      return;
+    }
+    extensionApi.tabs.query({ active: true, currentWindow: true }).then(resolve, reject);
+  });
+  const [tab] = tabs;
   if (!tab?.id || !/^https:\/\/[^/]*espn\.com\//.test(tab.url || "")) throw new Error("Open your ESPN league in this tab first.");
   return tab;
 }
