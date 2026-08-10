@@ -3549,6 +3549,7 @@ function AllLeagueScoreboard({
   const [scores, setScores] = useState<Record<string, ScoreboardData | null>>({});
   const [loading, setLoading] = useState(false);
   const [updatedAt, setUpdatedAt] = useState("");
+  const [viewMode, setViewMode] = useState<"all" | "drama">("drama");
   const [swingFeed, setSwingFeed] = useState<{ id: string; league: string; text: string; previous: number; current: number; at: string }[]>([]);
   const previousOdds = useRef<Record<string, number>>({});
   useEffect(() => {
@@ -3655,6 +3656,40 @@ function AllLeagueScoreboard({
           : `${item.opponentStarters[0]?.name ?? "An opposing starter"} scored, tightening this matchup.`,
     };
   });
+  const dramaScore = (item?: (typeof gameDay.matchups)[number]) => {
+    if (!item) return -999;
+    const projectedMargin = Math.abs(
+      item.mine.points + item.mineRemaining - item.opponent.points - item.opponentRemaining,
+    );
+    const probabilityDrama = item.winProbability == null ? 0 : 50 - Math.abs(50 - item.winProbability);
+    return (item.status === "live" ? 100 : item.status === "pre" ? 20 : -40) + Math.max(0, 40 - projectedMargin) + probabilityDrama;
+  };
+  const featured = [...gameDay.matchups].sort((a, b) => dramaScore(b) - dramaScore(a))[0];
+  const matchupByLeague = new Map(gameDay.matchups.map((item) => [item.league.id, item]));
+  const orderedLeagues = viewMode === "drama"
+    ? [...leagues].sort((a, b) => dramaScore(matchupByLeague.get(b.id)) - dramaScore(matchupByLeague.get(a.id)))
+    : leagues;
+  const projectedWins = gameDay.matchups.filter((item) => (item.winProbability ?? 0) >= 50).length;
+  const closest = [...gameDay.matchups].sort((a, b) => Math.abs((a.winProbability ?? 50) - 50) - Math.abs((b.winProbability ?? 50) - 50))[0];
+  const pulseItems = [
+    gameDay.matchups.some((item) => item.status === "live")
+      ? `${gameDay.matchups.filter((item) => item.status === "live").length} matchups live now`
+      : `Week ${week} portfolio is standing by`,
+    closest ? `${closest.league.name} is your closest matchup at ${closest.winProbability ?? 50}%` : "Waiting for matchup projections",
+    gameDay.leveragePlayers[0] ? `${gameDay.leveragePlayers[0].name} is your highest-leverage player` : "Leverage alerts appear at kickoff",
+    featured && featured.status !== "final" ? `${featured.mineRemaining.toFixed(1)} projected points remain for ${featured.mine.teamName}` : "Final scores collapse into postgame reviews",
+  ];
+  useEffect(() => {
+    const original = document.title;
+    document.title = gameDay.matchups.length
+      ? `${projectedWins}-${Math.max(0, gameDay.matchups.length - projectedWins)} projected · Fantasy Hub`
+      : original;
+    return () => { document.title = original; };
+  }, [gameDay.matchups.length, projectedWins]);
+  const enterTvMode = () => {
+    if (!document.fullscreenElement) void document.documentElement.requestFullscreen?.();
+    else void document.exitFullscreen?.();
+  };
   if (!leagues.length)
     return (
       <div className="page-content">
@@ -3677,8 +3712,13 @@ function AllLeagueScoreboard({
         </label>
         <div className="live-refresh"><i />{loading ? "Refreshing" : `Updated ${updatedAt ? new Date(updatedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "—"}`}</div>
       </section>
+      <section className="sunday-pulse" aria-label="Sunday Pulse">
+        <b><i /> SUNDAY PULSE</b>
+        <div><span>{pulseItems.join("  •  ")}</span><span aria-hidden="true">{pulseItems.join("  •  ")}</span></div>
+        <button type="button" onClick={enterTvMode}>Full screen</button>
+      </section>
       <section className="game-day-command panel">
-        <header><div><span>GAME DAY COMMAND CENTER</span><h3>What matters across your portfolio</h3></div><b>{gameDay.matchups.length} ACTIVE MATCHUPS</b></header>
+        <header><div><span>GAME DAY COMMAND CENTER</span><h3>What matters across your portfolio</h3></div><div className="scoreboard-view-toggle"><button className={viewMode === "drama" ? "active" : ""} onClick={() => setViewMode("drama")}>Drama first</button><button className={viewMode === "all" ? "active" : ""} onClick={() => setViewMode("all")}>League order</button></div></header>
         <div className="game-day-metrics">
           <article><span>PROJECTED RECORD</span><strong>{gameDay.matchups.filter((item) => (item.winProbability ?? 0) >= 50).length}–{gameDay.matchups.filter((item) => (item.winProbability ?? 100) < 50).length}</strong><small>Based on estimated win probability</small></article>
           <article><span>CLOSE MATCHUPS</span><strong>{gameDay.matchups.filter((item) => Math.abs(item.mine.points + item.mineRemaining - item.opponent.points - item.opponentRemaining) <= 12).length}</strong><small>Projected margin within 12</small></article>
@@ -3686,12 +3726,20 @@ function AllLeagueScoreboard({
           <article><span>HIGHEST LEVERAGE</span><strong>{gameDay.leveragePlayers[0]?.name ?? "Waiting for lineups"}</strong><small>{gameDay.leveragePlayers[0] ? `${gameDay.leveragePlayers[0].level} · ${gameDay.leveragePlayers[0].score}/100 attention score` : "No direct exposure yet"}</small></article>
         </div>
       </section>
+      {featured && <section className="sunday-spotlight panel">
+        <div className="spotlight-kicker"><span>{featured.status === "live" ? "● LIVE" : featured.status === "final" ? "FINAL" : "UP NEXT"}</span><small>MOST IMPORTANT MATCHUP</small></div>
+        <div className="spotlight-team"><small>YOU · {featured.league.name}</small><strong>{featured.mine.teamName}</strong><b>{featured.mine.points.toFixed(2)}</b></div>
+        <div className="spotlight-versus"><span>VS</span><b>{featured.winProbability == null ? "—" : `${featured.winProbability}%`}</b><small>WIN CHANCE</small></div>
+        <div className="spotlight-team opponent"><small>OPPONENT</small><strong>{featured.opponent.teamName}</strong><b>{featured.opponent.points.toFixed(2)}</b></div>
+        <div className="spotlight-story"><strong>{Math.abs((featured.winProbability ?? 50) - 50) <= 10 ? "One play can swing this matchup." : (featured.winProbability ?? 0) >= 50 ? "Protect the lead as the late window develops." : "Your comeback path is still alive."}</strong><small>{featured.mineRemaining.toFixed(1)} of your projected points and {featured.opponentRemaining.toFixed(1)} opponent points remain.</small></div>
+        <button type="button" onClick={() => void onOpenLeague(featured.league)}>Watch matchup →</button>
+      </section>}
       <div className="game-day-insights">
         <section className="panel rooting-interests"><header><div><span>ROOTING INTERESTS</span><h3>Who to cheer—and who to stop</h3></div><b>📣 GAME-DAY PULSE</b></header>{gameDay.interests.length ? gameDay.interests.map((interest) => <article className={`rooting-${interest.sentiment}`} key={interest.playerId}><div className="rooting-visual"><NflTeamLogo team={interest.nflTeam} /><PlayerHeadshot id={interest.playerId} position={interest.position} /><i aria-hidden="true">{interest.sentiment === "cheer" ? "📣" : interest.sentiment === "fade" ? "🛑" : "⚖️"}</i></div><p><span>{interest.sentiment === "cheer" ? "ROOT FOR" : interest.sentiment === "fade" ? "ROOT AGAINST" : "MIXED ROOTING INTEREST"}</span><strong>{interest.playerName}</strong><small>{interest.text}</small><span className="rooting-leagues">{interest.affectedLeagues.map((league) => <b className={league.impact} key={`${interest.playerId}-${league.id}`}>{league.impact === "helps" ? "↑" : "↓"} {league.name}</b>)}</span></p><em><small>{interest.level}</small>{interest.score}</em></article>) : <p className="game-day-empty">Rooting interests appear when weekly lineups and projections are available.</p>}</section>
         <section className={`panel sunday-swing ${!swingFeed.length && sundaySwingPreview.length ? "preview" : ""}`}><header><div><span>SUNDAY SWING</span><h3>{swingFeed.length ? "Observed this session" : "Live scoring preview"}</h3></div>{!swingFeed.length && sundaySwingPreview.length && <b>TEST MODE</b>}</header>{swingFeed.length ? swingFeed.map((item) => <article key={item.id}><b className={item.current >= item.previous ? "positive" : "negative"}>{item.current >= item.previous ? "↑" : "↓"} {Math.abs(item.current - item.previous)} pts</b><p><strong>{item.league}</strong><small>{item.text}</small></p><time>{item.at ? new Date(item.at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "Now"}</time></article>) : sundaySwingPreview.length ? <><p className="swing-preview-note">Illustrative preview using your connected matchups. These are not live events and will disappear when real scoring swings are observed.</p>{sundaySwingPreview.map((item, index) => <article className="swing-preview-card" key={item.id}><b className={item.current >= item.previous ? "positive" : "negative"}>{item.current >= item.previous ? "↑" : "↓"} {Math.abs(item.current - item.previous)} pts</b><p><strong>{item.league}</strong><small>{item.text}</small><span><i style={{ width: `${item.current}%` }} /></span></p><time>Q{Math.min(4, index + 1)} · DEMO</time></article>)}</> : <p className="game-day-empty">Changes will appear after Fantasy Hub observes a scoring refresh. No event history is fabricated.</p>}</section>
       </div>
       <div className="portfolio-scoreboard-grid">
-        {leagues.map((league) => {
+        {orderedLeagues.map((league) => {
           const data = scores[league.id];
           const matchup = data?.matchups.find((item) => item.teams.some((team) => team.isMine));
           const mine = matchup?.teams.find((team) => team.isMine);
