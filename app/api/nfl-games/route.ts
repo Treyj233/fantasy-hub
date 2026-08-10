@@ -19,6 +19,7 @@ type SourcePlayer = {
   position?: string;
   team?: string;
 };
+type SourceProjection = { player_id?: string; stats?: Record<string, number> };
 const normalizeTeam = (team?: string) =>
   ({ JAC: "JAX", WSH: "WAS", LA: "LAR" })[team ?? ""] ?? team ?? "";
 
@@ -63,6 +64,7 @@ export async function GET(request: Request) {
     name?: string;
     season?: string;
     leg?: number;
+    scoring_settings?: Record<string, number>;
   };
   const week =
     Number.isInteger(requestedWeek) && requestedWeek >= 1 && requestedWeek <= 18
@@ -76,6 +78,7 @@ export async function GET(request: Request) {
     rostersResponse,
     usersResponse,
     playersResponse,
+    projectionsResponse,
   ] = await Promise.all([
     loadNflSeasonSchedule(seasonNumber),
     fetch(`https://api.sleeper.app/v1/league/${leagueId}/matchups/${week}`, {
@@ -90,6 +93,7 @@ export async function GET(request: Request) {
     fetch("https://api.sleeper.app/v1/players/nfl?active=true", {
       next: { revalidate: 86400 },
     }),
+    fetch(`https://api.sleeper.com/projections/nfl/${season}/${week}?season_type=regular`, { next: { revalidate: 900 } }).catch(() => null),
   ]);
   if (!scheduleGames.length)
     return Response.json({ error: "NFL schedule unavailable" }, { status: 502 });
@@ -112,6 +116,14 @@ export async function GET(request: Request) {
   const players = playersResponse.ok
     ? ((await playersResponse.json()) as Record<string, SourcePlayer>)
     : {};
+  const projectionPayload: unknown = projectionsResponse?.ok ? await projectionsResponse.json().catch(() => []) : [];
+  const projectionRows: SourceProjection[] = Array.isArray(projectionPayload) ? projectionPayload : [];
+  const receptionValue = league.scoring_settings?.rec ?? 1;
+  const projectionKey = receptionValue >= .75 ? "pts_ppr" : receptionValue >= .25 ? "pts_half_ppr" : "pts_std";
+  const projectionByPlayer = new Map(projectionRows.flatMap((row) => {
+    const value = row.stats?.[projectionKey];
+    return row.player_id && typeof value === "number" ? [[row.player_id, Number(value.toFixed(2))]] : [];
+  }));
   const myRoster = rosters.find(
     (roster) => roster.owner_id === connection.sleeperUserId,
   );
@@ -159,6 +171,8 @@ export async function GET(request: Request) {
           fantasyPoints: Number(
             (row?.players_points?.[playerId] ?? 0).toFixed(2),
           ),
+          projection: projectionByPlayer.get(playerId) ?? null,
+          remainingProjection: Math.max(0, Number(((projectionByPlayer.get(playerId) ?? 0) - (row?.players_points?.[playerId] ?? 0)).toFixed(2))),
         },
       ];
     }),
@@ -198,7 +212,7 @@ export async function GET(request: Request) {
         new Date(a.date).getTime() - new Date(b.date).getTime(),
     );
   return Response.json({
-    league: { id: leagueId, name: league.name ?? "League", season },
+    league: { id: leagueId, name: league.name ?? "League", season, provider: "Sleeper", projectionSource: "Sleeper Projections" },
     week,
     updatedAt: new Date().toISOString(),
     scoresAvailable: false,
