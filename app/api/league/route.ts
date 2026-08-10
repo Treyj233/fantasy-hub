@@ -57,31 +57,25 @@ export async function GET(request: Request) {
       DEF: (slotCounts.DEF ?? 0) + (slotCounts.DST ?? 0),
     };
     const positionBaselines: Record<string, number> = { QB: 21, RB: 15, WR: 14, TE: 11, K: 8, DEF: 8 };
-    const opportunityProjection = (playerId: string, player: SourcePlayer) => {
-      const sourced = leagueProjections.get(playerId);
+    const internalProjection = (playerId: string, player: SourcePlayer) => {
+      const leagueSiteProjection = leagueProjections.get(playerId);
       const position = player.position ?? "";
       const depth = player.depth_chart_order ?? null;
       const status = (player.status ?? "").toLowerCase();
-      const unavailable = player.injury_status === "Out" || player.injury_status === "IR" || status.includes("inactive") || status.includes("injured reserve") || status.includes("practice") || status.includes("suspend");
-      if (unavailable) return Math.min(sourced ?? .1, .2);
-      if (typeof sourced === "number") {
-        if (depth != null && depth >= 4) return Math.min(sourced, 1.2);
-        if (depth === 3) return Math.min(sourced, position === "RB" || position === "WR" ? 3.5 : 1.5);
-        if (depth != null && depth >= 2 && position === "QB") return Math.min(sourced, 1.2);
-        return sourced;
-      }
-      if (position === "DEF") return positionBaselines.DEF;
+      const injury = (player.injury_status ?? "").toLowerCase();
+      const unavailable = injury === "out" || injury === "ir" || status.includes("inactive") || status.includes("injured reserve") || status.includes("practice") || status.includes("suspend");
+      if (unavailable) return Math.min(leagueSiteProjection ?? .1, .2);
+      if (position === "DEF") return leagueSiteProjection ?? positionBaselines.DEF;
       if (!player.team) return 0;
-      if (depth != null) {
-        if (depth >= 4) return .1;
-        if (depth === 3) return position === "RB" || position === "WR" ? .8 : .2;
-        if (depth === 2) return position === "QB" ? .3 : position === "TE" ? 2 : 3.5;
-      }
       const sourceRank = player.search_rank && player.search_rank > 0 ? player.search_rank : 9999;
-      if (sourceRank <= 60) return positionBaselines[position] * .65;
-      if (sourceRank <= 150) return position === "QB" ? .5 : position === "TE" ? 1.8 : 2.5;
-      if (sourceRank <= 300) return .6;
-      return .1;
+      const rankFactor = sourceRank <= 25 ? 1.35 : sourceRank <= 60 ? 1.12 : sourceRank <= 120 ? .85 : sourceRank <= 220 ? .55 : sourceRank <= 350 ? .3 : .08;
+      const rolePrior = (positionBaselines[position] ?? 5) * rankFactor;
+      let projection = typeof leagueSiteProjection === "number" ? leagueSiteProjection * .8 + rolePrior * .2 : rolePrior;
+      const depthFactor = depth == null || depth <= 1 ? 1 : depth === 2 ? ({ QB: .18, RB: .72, WR: .76, TE: .78 } as Record<string, number>)[position] ?? .82 : depth === 3 ? ({ QB: .08, RB: .42, WR: .4, TE: .38 } as Record<string, number>)[position] ?? .45 : .15;
+      projection *= depthFactor;
+      if (injury === "doubtful") projection *= .45;
+      else if (injury === "questionable") projection *= .9;
+      return Math.max(.1, projection);
     };
     const dynastyAgeAdjustment = (player: SourcePlayer) => {
       if (format === "Redraft" || !player.age) return 0;
@@ -93,7 +87,7 @@ export async function GET(request: Request) {
       const position = player.position ?? "";
       if (!['QB', 'RB', 'WR', 'TE', 'K', 'DEF'].includes(position) || !player.team) return [];
       const sourceRank = player.search_rank && player.search_rank > 0 ? player.search_rank : 9999;
-      const projectedPoints = opportunityProjection(playerId, player);
+      const projectedPoints = internalProjection(playerId, player);
       const lineupAdjustment = Math.min(11, Math.max(-4, ((positionDemand[position] ?? 0) - 1) * (position === "QB" ? 6.5 : 3.2)));
       const ageAdjustment = dynastyAgeAdjustment(player);
       const availabilityAdjustment = player.injury_status === "Out" || player.injury_status === "IR" ? -5 : player.injury_status ? -1.5 : 0;
@@ -131,7 +125,7 @@ export async function GET(request: Request) {
       const normalized = orderedRoster.flatMap(({ playerId, role }) => {
         const player = sourcePlayers[playerId];
         if (!player) return [];
-        const projection = opportunityProjection(playerId, player);
+        const projection = internalProjection(playerId, player);
         return [{ id: player.player_id ?? playerId, name: player.full_name ?? `${player.first_name ?? ""} ${player.last_name ?? ""}`.trim(), position: player.position ?? "FLEX", team: player.team ?? "FA", opponent: "Matchup pending", projection: Number(projection.toFixed(1)), leagueProjection: leagueProjections.get(playerId) ?? null, floor: Number((projection * .58).toFixed(1)), ceiling: Number((projection * 1.52).toFixed(1)), trend: 0, status: player.injury_status ?? "Healthy", role }];
       });
       const rosterId = roster.roster_id ?? rosterIndex + 1;
