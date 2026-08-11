@@ -61,12 +61,19 @@ test("portfolio Scoreboard opens both Matchups and league scoreboards", async ()
   assert.match(source, />League scoreboard →<\/button>/);
 });
 
-test("mobile navigation keeps labels and platform handoff copy", async () => {
+test("mobile navigation provides a sticky badge rail and accessible menu drawer", async () => {
   const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
+  const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
   assert.match(source, /className="nav-label"/);
   assert.match(source, /className="platform-open-copy"/);
   assert.match(source, /Open ESPN/);
   assert.match(source, /Open Sleeper/);
+  assert.match(source, /className="mobile-menu-toggle"/);
+  assert.match(source, /aria-controls="primary-sidebar"/);
+  assert.match(source, /className="mobile-nav-strip"/);
+  assert.match(source, /className="mobile-drawer-backdrop"/);
+  assert.match(styles, /\.mobile-header-stack\{position:sticky/);
+  assert.match(styles, /\.mobile-nav-open \.sidebar\{transform:translateX\(0\)\}/);
 });
 
 test("portfolio Scoreboard keeps matchup status in scope", async () => {

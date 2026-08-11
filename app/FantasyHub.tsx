@@ -1233,6 +1233,7 @@ export default function FantasyHub({
   const effectiveTeamTheme = entitlement.pro ? teamTheme : "GB";
   const effectiveBadgeTheme: BadgeTheme = entitlement.pro ? badgeTheme : "arcade";
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [draggedLeagueId, setDraggedLeagueId] = useState("");
   const [leagueDropTarget, setLeagueDropTarget] = useState<{
     id: string;
@@ -1242,6 +1243,15 @@ export default function FantasyHub({
   const leagueDragOccurred = useRef(false);
 
   useEffect(() => initializeNativeRuntime(), []);
+
+  useEffect(() => {
+    if (!mobileNavOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMobileNavOpen(false);
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    return () => document.removeEventListener("keydown", closeOnEscape);
+  }, [mobileNavOpen]);
 
   useEffect(() => {
     const savedTheme = window.localStorage.getItem("fantasy-hub-theme");
@@ -1728,10 +1738,10 @@ export default function FantasyHub({
     <ProjectionPlatformContext.Provider value={leaguePlatform}>
     <PlayerOpenContext.Provider value={setSelectedPlayer}>
     <main
-      className={`app-shell ${sidebarCollapsed ? "sidebar-collapsed" : ""}`}
+      className={`app-shell ${sidebarCollapsed ? "sidebar-collapsed" : ""} ${mobileNavOpen ? "mobile-nav-open" : ""}`}
       data-release="scoreboard-render-fix-2"
     >
-      <aside className="sidebar">
+      <aside className="sidebar" id="primary-sidebar">
         <button
           className="sidebar-collapse"
           type="button"
@@ -1779,6 +1789,7 @@ export default function FantasyHub({
                     if (item.label === "Matchups") setSelectedMatchupId(null);
                     if (item.label === "Scoreboard") setScoreboardScope("all");
                     setView(item.label);
+                    setMobileNavOpen(false);
                   }}
                   title={sidebarCollapsed ? (item.displayLabel ?? item.label) : undefined}
                 >
@@ -1819,9 +1830,28 @@ export default function FantasyHub({
           <small>Lineups lock Sunday · 12:00 PM</small>
         </div>
       </aside>
+      <button
+        className="mobile-drawer-backdrop"
+        type="button"
+        aria-label="Close navigation menu"
+        onClick={() => setMobileNavOpen(false)}
+      />
 
       <section className="workspace">
+        <div className="mobile-header-stack">
         <header className="topbar">
+          <button
+            className="mobile-menu-toggle"
+            type="button"
+            aria-label={mobileNavOpen ? "Close navigation menu" : "Open navigation menu"}
+            aria-controls="primary-sidebar"
+            aria-expanded={mobileNavOpen}
+            onClick={() => setMobileNavOpen((current) => !current)}
+          >
+            <span aria-hidden="true" />
+            <span aria-hidden="true" />
+            <span aria-hidden="true" />
+          </button>
           <div>
             <p>
               {periodLabel} · {leagueSeason} SEASON
@@ -1846,7 +1876,7 @@ export default function FantasyHub({
               </a>
             )}
             <button className="ghost season-roll pro-top-action" onClick={() => setView("Fantasy Hub Pro")}>
-              Fantasy Hub Pro <b>PRO</b>
+              <span>Fantasy Hub Pro</span> <b>PRO</b>
             </button>
             <a
               className="account-chip"
@@ -1860,6 +1890,26 @@ export default function FantasyHub({
             </a>
           </div>
         </header>
+        <nav className="mobile-nav-strip" aria-label="Quick Fantasy Hub navigation">
+          {visibleNav.map((item) => (
+            <button
+              key={item.label}
+              type="button"
+              className={view === item.label ? "active" : ""}
+              aria-label={item.displayLabel ?? item.label}
+              aria-current={view === item.label ? "page" : undefined}
+              title={item.displayLabel ?? item.label}
+              onClick={() => {
+                if (item.label === "Matchups") setSelectedMatchupId(null);
+                if (item.label === "Scoreboard") setScoreboardScope("all");
+                setView(item.label);
+              }}
+            >
+              <i className={`nav-badge ${item.tone}`} aria-hidden="true">{item.mark}</i>
+            </button>
+          ))}
+        </nav>
+        </div>
 
         {view !== "Manage Leagues" && availableLeagues.length > 0 && (
           <section className="league-switcher">
