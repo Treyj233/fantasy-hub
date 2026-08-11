@@ -11,7 +11,7 @@ export async function POST(request: Request) {
     const rawBody = await request.text();
     const { stripe, config } = await getStripe();
     if (!config.webhookSecret) return Response.json({ error: "Webhook is not configured" }, { status: 503 });
-    const event = stripe.webhooks.constructEvent(rawBody, signature, config.webhookSecret);
+    const event = await stripe.webhooks.constructEventAsync(rawBody, signature, config.webhookSecret);
     if (event.type === "checkout.session.completed") await syncCheckout(stripe, event.data.object);
     if (event.type === "customer.subscription.created" || event.type === "customer.subscription.updated" || event.type === "customer.subscription.deleted") {
       await syncSubscription(event.data.object);

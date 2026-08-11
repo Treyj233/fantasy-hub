@@ -13,7 +13,7 @@ test("Stripe Checkout only accepts server-mapped Fantasy Hub plans", async () =>
 test("Stripe webhooks verify the raw signed body before granting Pro", async () => {
   const source = await readFile(new URL("../app/api/webhooks/stripe/route.ts", import.meta.url), "utf8");
   assert.match(source, /await request\.text\(\)/);
-  assert.match(source, /constructEvent\(rawBody, signature, config\.webhookSecret\)/);
+  assert.match(source, /await stripe\.webhooks\.constructEventAsync\(rawBody, signature, config\.webhookSecret\)/);
   assert.match(source, /customer\.subscription\.deleted/);
   assert.match(source, /onConflictDoUpdate/);
 });
