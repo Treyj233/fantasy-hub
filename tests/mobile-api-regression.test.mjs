@@ -61,9 +61,12 @@ test("free tools retain manual utility while proprietary controls require Pro", 
   assert.match(dashboard, /disabled=\{!isPro\}/);
   assert.match(dashboard, /PRO · Unlock floor-to-ceiling strategy/);
   assert.match(dashboard, /appearance-pro-locked/);
-  assert.match(dashboard, /DashboardPreview type="sim"/);
-  assert.match(dashboard, /DashboardPreview type="trade"/);
-  assert.match(dashboard, /DashboardPreview type="start"/);
+  assert.match(dashboard, /ProFeatureArtwork type="sim"/);
+  assert.match(dashboard, /ProFeatureArtwork type="trade"/);
+  assert.match(dashboard, /ProFeatureArtwork type="start"/);
+  assert.match(dashboard, /pro-simulator-horizontal\.jpg/);
+  assert.match(dashboard, /pro-trade-horizontal\.jpg/);
+  assert.match(dashboard, /pro-start-sit-horizontal\.jpg/);
 });
 
 test("free accounts are forced to the base green appearance on client and server", async () => {
