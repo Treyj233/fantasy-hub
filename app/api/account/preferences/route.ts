@@ -17,7 +17,7 @@ export async function POST(request: Request) {
   const db = await getDb();
   const [[current], entitlement] = await Promise.all([
     db.select().from(userPreferences).where(eq(userPreferences.userId, user.userId)).limit(1),
-    entitlementFor(user.userId),
+    entitlementFor(user.userId, user.email),
   ]);
   const now = new Date().toISOString();
   const values = {

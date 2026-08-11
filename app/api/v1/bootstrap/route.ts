@@ -17,7 +17,7 @@ export async function GET(request: Request) {
     db.select().from(sleeperConnections).where(eq(sleeperConnections.userId, user.userId)).limit(1),
     db.select().from(userPreferences).where(eq(userPreferences.userId, user.userId)).limit(1),
     db.select().from(managedLeagues).where(eq(managedLeagues.userId, user.userId)).orderBy(desc(managedLeagues.updatedAt)),
-    entitlementFor(user.userId),
+    entitlementFor(user.userId, user.email),
   ]);
   const effectivePreferences = preferences ? {
     ...preferences,

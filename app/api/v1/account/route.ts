@@ -20,7 +20,7 @@ import { apiError, apiJson } from "../_shared/http";
 export async function GET() {
   const user = await getChatGPTUser();
   if (!user) return apiError("AUTH_REQUIRED", "Sign in required", 401);
-  const entitlement = await entitlementFor(user.userId);
+  const entitlement = await entitlementFor(user.userId, user.email);
   return apiJson({
     user: { id: user.userId, displayName: user.displayName, email: user.email },
     entitlement,

@@ -10,7 +10,7 @@ type MatchupRow = { roster_id?: number; matchup_id?: number | null; points?: num
 export async function GET(request: Request) {
   const user = await getChatGPTUser();
   if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
-  const paywall = await requirePro(user.userId);
+  const paywall = await requirePro(user.userId, user.email);
   if (paywall) return paywall;
   const leagueId = new URL(request.url).searchParams.get("leagueId")?.trim();
   if (leagueId?.startsWith("espn:")) {

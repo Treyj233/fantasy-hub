@@ -11,7 +11,7 @@ export async function GET() {
   const [[connection], [preferences], entitlement] = await Promise.all([
     db.select().from(sleeperConnections).where(eq(sleeperConnections.userId, user.userId)).limit(1),
     db.select().from(userPreferences).where(eq(userPreferences.userId, user.userId)).limit(1),
-    entitlementFor(user.userId),
+    entitlementFor(user.userId, user.email),
   ]);
   const effectivePreferences = preferences ? {
     ...preferences,

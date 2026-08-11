@@ -9,7 +9,7 @@ type DecisionInput = { id?: string; leagueId?: string; week?: number; category?:
 export async function POST(request: Request) {
   const user = await getChatGPTUser();
   if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
-  const paywall = await requirePro(user.userId);
+  const paywall = await requirePro(user.userId, user.email);
   if (paywall) return paywall;
   const body = await request.json().catch(() => ({})) as DecisionInput;
   if (!body.id || !body.leagueId || !body.category || !body.recommendation || !Number.isInteger(body.week)) return Response.json({ error: "Incomplete decision record" }, { status: 400 });
@@ -25,7 +25,7 @@ export async function POST(request: Request) {
 export async function GET(request: Request) {
   const user = await getChatGPTUser();
   if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
-  const paywall = await requirePro(user.userId);
+  const paywall = await requirePro(user.userId, user.email);
   if (paywall) return paywall;
   const leagueId = new URL(request.url).searchParams.get("leagueId")?.trim();
   if (!leagueId) return Response.json({ error: "Select a league first" }, { status: 400 });

@@ -79,3 +79,16 @@ test("free accounts are forced to the base green appearance on client and server
   assert.match(accountRoute, /teamTheme: entitlement\.pro \? preferences\.teamTheme : "GB"/);
   assert.match(bootstrapRoute, /badgeTheme: entitlement\.pro \? preferences\.badgeTheme : "arcade"/);
 });
+
+test("verified owner accounts receive Pro independently from customer billing", async () => {
+  const [entitlements, account, simulation] = await Promise.all([
+    readFile(new URL("../app/entitlements.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/account/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/simulation-context/route.ts", import.meta.url), "utf8"),
+  ]);
+  assert.match(entitlements, /FANTASY_HUB_OWNER_EMAILS/);
+  assert.match(entitlements, /verifiedEmail\.trim\(\)\.toLowerCase\(\)/);
+  assert.match(entitlements, /plan: "pro", status: "active", pro: true/);
+  assert.match(account, /entitlementFor\(user\.userId, user\.email\)/);
+  assert.match(simulation, /requirePro\(user\.userId, user\.email\)/);
+});
