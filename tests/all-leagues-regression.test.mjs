@@ -106,7 +106,8 @@ test("Sleeper mobile actions deep link to the selected league", async () => {
 test("mobile My Team roster fits without horizontal scrolling", async () => {
   const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
   assert.match(styles, /\.roster-section \.table-panel\{overflow-x:hidden/);
-  assert.match(styles, /grid-template-areas:"player slot projection" "matchup matchup status"/);
+  assert.match(styles, /grid-template-columns:minmax\(0,1fr\) 48px 44px;grid-template-areas:"player slot projection" "matchup matchup status"/);
+  assert.match(styles, /grid-template-columns:32px minmax\(0,1fr\)/);
   assert.match(styles, /\.roster-section \.roster-temperature\{display:none\}/);
   assert.match(styles, /\.sidebar nav,\.sidebar-collapsed \.sidebar nav\{padding-right:0;padding-left:0\}/);
 });

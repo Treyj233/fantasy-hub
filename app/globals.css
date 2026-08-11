@@ -562,16 +562,16 @@ html[data-theme="dark"] .account-theme-customizer{color:var(--gold-light)}
   .roster-section .table-panel{overflow-x:hidden;padding:0 8px}
   .roster-section table,.roster-section tbody{display:block;width:100%}
   .roster-section thead{display:none}
-  .roster-section tbody tr{display:grid;width:100%;grid-template-columns:minmax(0,1fr) auto auto;grid-template-areas:"player slot projection" "matchup matchup status";align-items:center;column-gap:7px;row-gap:7px;padding:9px 4px;border-bottom:1px solid var(--line)}
+  .roster-section tbody tr{display:grid;width:100%;grid-template-columns:minmax(0,1fr) 48px 44px;grid-template-areas:"player slot projection" "matchup matchup status";align-items:center;column-gap:7px;row-gap:7px;padding:9px 4px;border-bottom:1px solid var(--line)}
   .roster-section tbody tr:last-child{border-bottom:0}
   .roster-section tbody td{min-width:0;padding:0;border:0}
-  .roster-section td.roster-player-cell{grid-area:player;grid-template-columns:29px minmax(0,1fr);gap:6px;min-width:0}
-  .roster-section .roster-player-cell>.pos,.roster-section .roster-player-cell>.empty-player-mark{width:29px;height:29px;font-size:7px}
+  .roster-section td.roster-player-cell{display:grid;grid-area:player;grid-template-columns:32px minmax(0,1fr);align-items:center;gap:6px;min-width:0}
+  .roster-section .roster-player-cell>.pos,.roster-section .roster-player-cell>.empty-player-mark{display:grid;width:29px;height:29px;place-items:center;align-self:center;justify-self:start;margin:0;font-size:7px;line-height:1;text-align:center}
   .roster-section .roster-player-copy strong{font-size:11px}
   .roster-section .roster-player-copy small{margin-top:2px;font-size:8px}
-  .roster-section tbody td:nth-child(2){grid-area:slot}
+  .roster-section tbody td:nth-child(2){grid-area:slot;justify-self:center;width:48px;text-align:center}
   .roster-section tbody td:nth-child(3){display:flex;grid-area:matchup;min-width:0;align-items:center;gap:7px}
-  .roster-section tbody td:nth-child(4){grid-area:projection;text-align:right}
+  .roster-section tbody td:nth-child(4){grid-area:projection;justify-self:end;width:44px;text-align:right}
   .roster-section tbody td:nth-child(4):before{display:block;margin-bottom:2px;color:var(--muted);font-size:6px;font-weight:900;letter-spacing:.08em;content:"PROJ"}
   .roster-section tbody td:nth-child(5){grid-area:status;justify-self:end}
   .roster-section .matchup-team{min-width:0;grid-template-columns:auto minmax(68px,1fr);padding:5px 6px}
