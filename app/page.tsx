@@ -5,5 +5,5 @@ export const dynamic = "force-dynamic";
 
 export default async function Home() {
   const user = await getChatGPTUser();
-  return <FantasyHubLoader accountUser={user ? { displayName: user.displayName, email: user.email } : null} />;
+  return <FantasyHubLoader accountUser={user ? { displayName: user.displayName, email: user.email, provider: user.provider, signOutPath: user.signOutPath } : null} />;
 }

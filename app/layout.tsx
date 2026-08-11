@@ -1,9 +1,11 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { headers } from "next/headers";
+import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
 import "./trade-calculator.css";
 import "./player-ranks.css";
+import { getClerkRuntimeKeys } from "./clerk-config";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({
@@ -43,13 +45,14 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  const clerkKeys = await getClerkRuntimeKeys();
   return (
     <html lang="en" className="h-full antialiased">
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
-        {children}
+        {clerkKeys ? <ClerkProvider publishableKey={clerkKeys.publishableKey}>{children}</ClerkProvider> : children}
       </body>
     </html>
   );

@@ -15,6 +15,7 @@
     "loadtest:smoke": "k6 run loadtest/k6-smoke.js"
   },
   "dependencies": {
+    "@clerk/nextjs": "^7.7.3",
     "drizzle-orm": "0.45.2",
     "next": "16.2.6",
     "react": "19.2.6",

@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, createContext, useContext, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import Link from "next/link";
 import { estimatedWinProbability, playerLeverage, rootingInterests, whatDoINeed } from "./game-day-model.mjs";
 
 type View =
@@ -274,7 +275,7 @@ type RankingContext = {
   bonusRuleCount: number;
   scoringRuleCount: number;
 };
-type AccountUser = { displayName: string; email: string };
+type AccountUser = { displayName: string; email: string; provider: "clerk" | "chatgpt"; signOutPath: string };
 type AccountEntitlement = { plan: "free" | "pro"; status: string; pro: boolean; currentPeriodEnd: string | null };
 type AccountPreferences = {
   colorMode: Theme;
@@ -1810,7 +1811,7 @@ export default function FantasyHub({
             </button>
             <a
               className="account-chip"
-              href="/signout-with-chatgpt?return_to=/"
+              href={accountUser.signOutPath}
             >
               <span>{accountUser.displayName.slice(0, 1).toUpperCase()}</span>
               <small>
@@ -2140,6 +2141,7 @@ export default function FantasyHub({
           ))}
         {view === "Manage Leagues" && (
           <ManageLeagues
+            signOutPath={accountUser.signOutPath}
             connectedLeagues={availableLeagues}
             managedLeagues={managedLeagues}
             accountError={accountError}
@@ -2209,8 +2211,11 @@ function SignInScreen() {
           Sign in to save your Fantasy Hub profile, connect your Sleeper
           username, and open every league from one personalized dashboard.
         </p>
-        <a className="auth-primary" href="/signin-with-chatgpt?return_to=/">
-          Sign in to Fantasy Hub
+        <Link className="auth-primary" href="/sign-in">
+          Continue with Google, Apple, or email
+        </Link>
+        <a className="auth-secondary" href="/signin-with-chatgpt?return_to=/">
+          Continue with ChatGPT
         </a>
         <small className="auth-safety">
           Fantasy Hub never asks for or stores your Sleeper password.
@@ -2330,6 +2335,7 @@ function DashboardPreview({ type }: { type: "sim" | "trade" | "start" }) {
 }
 
 function ManageLeagues({
+  signOutPath,
   connectedLeagues,
   managedLeagues,
   accountError,
@@ -2346,6 +2352,7 @@ function ManageLeagues({
   onMove,
   onReorder,
 }: {
+  signOutPath: string;
   connectedLeagues: ConnectedLeague[];
   managedLeagues: ManagedLeague[];
   accountError: string;
@@ -2476,7 +2483,7 @@ function ManageLeagues({
       });
       const data = await response.json() as { error?: { message?: string } };
       if (!response.ok) throw new Error(data.error?.message ?? "Unable to delete account");
-      window.location.assign("/signout-with-chatgpt?return_to=%2F");
+      window.location.assign(signOutPath);
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Unable to delete account");
       setDeletingAccount(false);

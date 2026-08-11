@@ -42,7 +42,7 @@ const FantasyHub = dynamic(() => import("./FantasyHub"), {
 export default function FantasyHubLoader({
   accountUser,
 }: {
-  accountUser: { displayName: string; email: string } | null;
+  accountUser: { displayName: string; email: string; provider: "clerk" | "chatgpt"; signOutPath: string } | null;
 }) {
   return <FantasyHub accountUser={accountUser} />;
 }

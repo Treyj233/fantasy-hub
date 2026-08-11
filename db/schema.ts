@@ -11,6 +11,18 @@ export const sleeperConnections = sqliteTable("sleeper_connections", {
   updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });
 
+export const accountIdentities = sqliteTable("account_identities", {
+  id: text("id").primaryKey(),
+  provider: text("provider").notNull(),
+  providerUserId: text("provider_user_id").notNull(),
+  canonicalUserId: text("canonical_user_id").notNull(),
+  verifiedEmail: text("verified_email").notNull(),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [
+  uniqueIndex("account_identities_provider_user").on(table.provider, table.providerUserId),
+]);
+
 export const userPreferences = sqliteTable("user_preferences", {
   userId: text("user_id").primaryKey(),
   email: text("email").notNull(),
