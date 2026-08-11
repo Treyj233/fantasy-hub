@@ -16,6 +16,13 @@ test("All Leagues loading state only uses component inputs", async () => {
   );
 });
 
+test("All Leagues is presented as Mission Hub", async () => {
+  const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
+  assert.match(source, /label: "All Leagues", displayLabel: "Mission Hub"/);
+  assert.match(source, /<span>MISSION HUB<\/span>/);
+  assert.match(source, /<h1>\{viewTitle\}<\/h1>/);
+});
+
 test("portfolio Scoreboard keeps matchup status in scope", async () => {
   const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
   const start = source.indexOf("function AllLeagueScoreboard(");

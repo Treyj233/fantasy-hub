@@ -573,7 +573,7 @@ type LeagueScan = {
 
 type NavGroup = "Portfolio" | "Live" | "Team Management" | "League Insights";
 const nav: { label: View; displayLabel?: string; mark: string; tone: string; group: NavGroup }[] = [
-  { label: "All Leagues", mark: "◆", tone: "violet", group: "Portfolio" },
+  { label: "All Leagues", displayLabel: "Mission Hub", mark: "◆", tone: "violet", group: "Portfolio" },
   { label: "Manage Leagues", mark: "⚙", tone: "slate", group: "Portfolio" },
   { label: "Fantasy Hub Pro", displayLabel: "Fantasy Hub Pro", mark: "P", tone: "gold", group: "Portfolio" },
   { label: "Command Center", mark: "★", tone: "amber", group: "Team Management" },
@@ -1713,6 +1713,7 @@ export default function FantasyHub({
       leagueName={leagueName}
     />
   );
+  const viewTitle = nav.find((item) => item.label === view)?.displayLabel ?? view;
 
   if (!accountUser) return <SignInScreen />;
   if (accountLoading) return <AccountLoading />;
@@ -1818,7 +1819,7 @@ export default function FantasyHub({
             <p>
               {periodLabel} · {leagueSeason} SEASON
             </p>
-            <h1>{view}</h1>
+            <h1>{viewTitle}</h1>
           </div>
           <div className="top-actions">
             {leagueId && (
@@ -2357,7 +2358,7 @@ function ProPlans({ entitlement }: { entitlement: AccountEntitlement }) {
       setBillingBusy("");
     }
   }
-  const proFeatures = ["Season Simulator and scenario drivers", "Advanced Trade Lab and roster-impact modeling", "League Analytics and dynasty-window intelligence", "Manager Report Card and decision memory", "Automated league stories and season narrative", "Portfolio Command Center prioritization"];
+  const proFeatures = ["Season Simulator and scenario drivers", "Advanced Trade Lab and roster-impact modeling", "League Analytics and dynasty-window intelligence", "Manager Report Card and decision memory", "Automated league stories and season narrative", "Mission Hub prioritization"];
   return <div className="page-content pro-plans-page">
     <section className="pro-plans-hero"><span>FANTASY HUB PRO</span><h2>Pay for the edge.<br/><em>Keep fantasy management free.</em></h2><p>Core league connection and game-day management stay available to every manager. Pro packages Fantasy Hub’s original models, simulations, storytelling, and accountability tools.</p><b>{entitlement.pro ? "PRO ACTIVE" : "7 DAYS FREE · THEN $4.99/MO"}</b>{entitlement.pro && <button className="billing-manage" disabled={billingBusy === "portal"} onClick={() => void openBilling("/api/billing/portal")}>{billingBusy === "portal" ? "Opening billing…" : "Manage billing"}</button>}</section>
     <section className="pro-showcase">
@@ -3440,8 +3441,8 @@ function AllLeagues({
     return (
       <div className="page-content">
         <SectionIntro
-          kicker="MULTI-LEAGUE COMMAND"
-          title="Connect your leagues to build a weekly action list"
+          kicker="MISSION HUB"
+          title="Connect your leagues to build your Mission Hub"
           text="Once leagues are connected, Fantasy Hub will scan every roster for lineup, injury, bye-week, weather, and waiver decisions."
         />
         <section className="panel portfolio-empty">
@@ -3455,7 +3456,7 @@ function AllLeagues({
     <div className="page-content all-leagues-page">
       <section className="all-leagues-hero">
         <div>
-          <span>MULTI-LEAGUE COMMAND</span>
+          <span>MISSION HUB</span>
           <h2>
             One checklist.
             <br />
