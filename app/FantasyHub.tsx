@@ -1878,16 +1878,25 @@ export default function FantasyHub({
             <button className="ghost season-roll pro-top-action" onClick={() => setView("Fantasy Hub Pro")}>
               <span>Fantasy Hub Pro</span> <b>PRO</b>
             </button>
-            <a
-              className="account-chip"
-              href={accountUser.signOutPath}
-            >
-              <span>{accountUser.displayName.slice(0, 1).toUpperCase()}</span>
-              <small>
-                {connection?.displayName ?? accountUser.displayName}
-                <b>Sign out</b>
-              </small>
-            </a>
+            <div className="account-actions">
+              <a className="account-chip" href={accountUser.signOutPath}>
+                <span>{accountUser.displayName.slice(0, 1).toUpperCase()}</span>
+                <small>
+                  {connection?.displayName ?? accountUser.displayName}
+                  <b>Sign out</b>
+                </small>
+              </a>
+              <button
+                className="account-theme-customizer"
+                type="button"
+                onClick={() => {
+                  setView("Manage Leagues");
+                  window.setTimeout(() => document.getElementById("hub-appearance")?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+                }}
+              >
+                Theme Customizer
+              </button>
+            </div>
           </div>
         </header>
         <nav className="mobile-nav-strip" aria-label="Quick Fantasy Hub navigation">

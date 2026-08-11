@@ -541,3 +541,8 @@ html[data-theme="dark"] .mobile-header-stack{background:rgb(24 27 34 / .96)}
 html[data-theme="dark"] .mobile-menu-toggle{color:#f3f5f4;background:#22262e;border-color:#4a515e}
 html[data-theme="dark"] .mobile-nav-strip{border-top-color:#363c47}
 html[data-theme="dark"] .mobile-nav-strip .mobile-rail-theme{background:rgb(24 27 34 / .98);border-color:#414855}
+
+/* Account utilities sit directly beneath the profile/sign-out control. */
+.account-actions{display:grid;justify-items:start;gap:3px}.account-theme-customizer{padding:2px 0;color:var(--green);background:transparent;border:0;font-size:7px;font-weight:950;letter-spacing:.03em;text-align:left}.account-theme-customizer:hover{text-decoration:underline}
+html[data-theme="dark"] .account-theme-customizer{color:var(--gold-light)}
+@media(max-width:700px){.account-actions{display:none}}

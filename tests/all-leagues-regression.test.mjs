@@ -72,6 +72,8 @@ test("mobile navigation provides a sticky badge rail and accessible menu drawer"
   assert.match(source, /aria-controls="primary-sidebar"/);
   assert.match(source, /className="mobile-nav-strip"/);
   assert.match(source, /className="mobile-rail-theme"/);
+  assert.match(source, /className="account-theme-customizer"/);
+  assert.match(source, /Theme Customizer\s*<\/button>/);
   assert.match(source, /className="mobile-drawer-backdrop"/);
   assert.match(styles, /\.mobile-header-stack\{position:sticky/);
   assert.match(styles, /\.mobile-nav-open \.sidebar\{transform:translateX\(0\)\}/);
