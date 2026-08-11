@@ -1,4 +1,4 @@
-import { AppStoreServerAPIClient, Environment } from "@apple/app-store-server-library";
+import type { AppStoreServerAPIClient as AppStoreServerAPIClientType } from "@apple/app-store-server-library";
 
 export const APP_STORE_PRODUCTS = new Set([
   "com.fantasyhubapp.pro.monthly",
@@ -40,7 +40,11 @@ function decodeJwsPayload(value: string) {
 export async function verifyAppleTransaction(transactionId: string) {
   const config = await runtimeConfig();
   if (!config) throw new Error("App Store Server credentials are not configured");
-  let response: Awaited<ReturnType<AppStoreServerAPIClient["getTransactionInfo"]>> | null = null;
+  // This package initializes cryptographic randomness when it is evaluated.
+  // Cloudflare Workers only permits that work inside a request handler, so the
+  // runtime import must stay inside this function rather than at module scope.
+  const { AppStoreServerAPIClient, Environment } = await import("@apple/app-store-server-library");
+  let response: Awaited<ReturnType<AppStoreServerAPIClientType["getTransactionInfo"]>> | null = null;
   let environment = "Production";
   try {
     response = await new AppStoreServerAPIClient(config.privateKey, config.keyId, config.issuerId, config.bundleId, Environment.PRODUCTION).getTransactionInfo(transactionId);
