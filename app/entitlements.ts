@@ -7,6 +7,7 @@ export type AccountEntitlement = {
   status: "inactive" | "trialing" | "active" | "past_due" | "canceled";
   pro: boolean;
   currentPeriodEnd: string | null;
+  provider: "stripe" | "apple" | "manual" | null;
 };
 
 async function ownerEmails() {
@@ -26,14 +27,15 @@ async function ownerEmails() {
 
 export async function entitlementFor(userId: string, verifiedEmail?: string): Promise<AccountEntitlement> {
   if (verifiedEmail && (await ownerEmails()).has(verifiedEmail.trim().toLowerCase()))
-    return { plan: "pro", status: "active", pro: true, currentPeriodEnd: null };
+    return { plan: "pro", status: "active", pro: true, currentPeriodEnd: null, provider: "manual" };
   const db = await getDb();
   const [record] = await db.select().from(subscriptions).where(eq(subscriptions.userId, userId)).limit(1);
   const status = (record?.status ?? "inactive") as AccountEntitlement["status"];
   const plan = record?.plan === "pro" ? "pro" : "free";
   const currentPeriodEnd = record?.currentPeriodEnd ?? null;
   const unexpired = !currentPeriodEnd || new Date(currentPeriodEnd).getTime() > Date.now();
-  return { plan, status, pro: plan === "pro" && unexpired && (status === "active" || status === "trialing"), currentPeriodEnd };
+  const provider = record?.provider === "stripe" || record?.provider === "apple" || record?.provider === "manual" ? record.provider : null;
+  return { plan, status, pro: plan === "pro" && unexpired && (status === "active" || status === "trialing"), currentPeriodEnd, provider };
 }
 
 export async function requirePro(userId: string, verifiedEmail?: string) {

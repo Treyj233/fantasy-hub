@@ -311,7 +311,7 @@ function startVisiblePolling(refresh: () => Promise<void>, intervalMs = 30_000) 
     document.removeEventListener("visibilitychange", runWhenVisible);
   };
 }
-type AccountEntitlement = { plan: "free" | "pro"; status: string; pro: boolean; currentPeriodEnd: string | null };
+type AccountEntitlement = { plan: "free" | "pro"; status: string; pro: boolean; currentPeriodEnd: string | null; provider: "stripe" | "apple" | "manual" | null };
 type AccountPreferences = {
   colorMode: Theme;
   teamTheme: string;
@@ -1251,7 +1251,7 @@ export default function FantasyHub({
   const [scoreboardScope, setScoreboardScope] = useState<"all" | "league">("all");
   const [accountLoading, setAccountLoading] = useState(Boolean(accountUser));
   const [accountError, setAccountError] = useState("");
-  const [entitlement, setEntitlement] = useState<AccountEntitlement>({ plan: "free", status: "inactive", pro: false, currentPeriodEnd: null });
+  const [entitlement, setEntitlement] = useState<AccountEntitlement>({ plan: "free", status: "inactive", pro: false, currentPeriodEnd: null, provider: null });
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
   const [theme, setTheme] = useState<Theme>("light");
   const [teamTheme, setTeamTheme] = useState("GB");
@@ -1351,7 +1351,7 @@ export default function FantasyHub({
           entitlement?: AccountEntitlement;
         };
         setConnection(data.connection ?? null);
-        const nextEntitlement = data.entitlement ?? { plan: "free" as const, status: "inactive", pro: false, currentPeriodEnd: null };
+        const nextEntitlement = data.entitlement ?? { plan: "free" as const, status: "inactive", pro: false, currentPeriodEnd: null, provider: null };
         setEntitlement(nextEntitlement);
         if (data.preferences) {
           setTheme(data.preferences.colorMode);
@@ -2513,8 +2513,11 @@ function ProPlans({ entitlement }: { entitlement: AccountEntitlement }) {
     }
   }
   const proFeatures = ["Season Simulator and scenario drivers", "Advanced Trade Lab and roster-impact modeling", "League Analytics and dynasty-window intelligence", "Manager Report Card and decision memory", "Automated league stories and season narrative", "Mission Hub prioritization"];
+  const billingProvider = entitlement.provider;
+  const canManageBilling = entitlement.pro && (nativeIos ? billingProvider === "apple" : billingProvider === "stripe");
   return <div className="page-content pro-plans-page">
-    <section className="pro-plans-hero"><span>FANTASY HUB PRO</span><h2>Pay for the edge.<br/><em>Keep fantasy management free.</em></h2><p>Core league connection and game-day management stay available to every manager. Pro packages Fantasy Hub’s original models, simulations, storytelling, and accountability tools.</p><b>{entitlement.pro ? "PRO ACTIVE" : "7 DAYS FREE · THEN $4.99/MO"}</b>{entitlement.pro && <button className="billing-manage" disabled={billingBusy === "portal"} onClick={() => void openBilling("/api/billing/portal")}>{billingBusy === "portal" ? "Opening billing…" : "Manage billing"}</button>}</section>
+    <section className="pro-plans-hero"><div className="pro-hero-copy"><span>FANTASY HUB PRO</span><h2>Turn every league into<br/><em>a better Sunday.</em></h2><p>Live game-day energy meets original strategy tools, simulations, storytelling, and accountability—built around every team you manage.</p><div className="pro-hero-pills"><b>∞ LEAGUES</b><b>LIVE GAME DAY</b><b>32 TEAM THEMES</b></div></div><div className="pro-hero-mark"><FHLogo label="Fantasy Hub Pro"/><strong>PRO</strong></div><b className="pro-status-badge">{entitlement.pro ? "PRO ACTIVE" : "7 DAYS FREE · THEN $4.99/MO"}</b>{canManageBilling && <button className="billing-manage" disabled={billingBusy === "portal"} onClick={() => void openBilling("/api/billing/portal")}>{billingBusy === "portal" ? "Opening billing…" : nativeIos ? "Manage in App Store" : "Manage billing"}</button>}{entitlement.pro && billingProvider === "manual" && <p className="billing-access-note">Owner access is active. There is no recurring subscription or billing account to manage.</p>}{entitlement.pro && billingProvider === "apple" && !nativeIos && <p className="billing-access-note">This membership is billed through Apple. Manage it from Subscriptions on your Apple device.</p>}</section>
+    <section className="pro-campaign-reel" aria-label="Fantasy Hub Pro experiences"><article style={{backgroundImage:'url("/marketing/app-store/plans-every-league.jpg")'}}><span>YOUR FANTASY WORLD</span><b>Every league. Your look.</b></article><article style={{backgroundImage:'url("/marketing/app-store/plans-gameday.jpg")'}}><span>LIVE SUNDAYS</span><b>Feel every matchup swing.</b></article><article style={{backgroundImage:'url("/marketing/app-store/plans-tools.jpg")'}}><span>WINNING MOVES</span><b>Decisions with an edge.</b></article></section>
     <section className="pro-showcase">
       <article className="pro-feature-card"><div><span>SEASON SIMULATOR</span><h3>See the range, not just one prediction.</h3><p>Monte Carlo seasons model roster moves, injuries, playoff odds, and player-specific best and worst cases.</p></div><DashboardPreview type="sim" /></article>
       <article className="pro-feature-card reverse"><div><span>TRADE INTELLIGENCE</span><h3>Packages built for both rosters.</h3><p>Pro finds mutual needs, applies manager negotiation profiles, and explains why each side should engage.</p></div><DashboardPreview type="trade" /></article>
