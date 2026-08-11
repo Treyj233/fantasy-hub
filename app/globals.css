@@ -554,3 +554,36 @@ html[data-theme="dark"] .account-theme-customizer{color:var(--gold-light)}
 .action-queue-groups>.action-priority-this-week>header b{background:#2878c8}
 .action-queue-groups>.action-priority-monitor>header b{color:#352300;background:#f0bd38}
 .action-queue-groups>.no-action-group>header b{color:#fff;background:#27875a}
+
+/* Keep the complete My Team roster readable within a phone viewport. */
+@media(max-width:700px){
+  .roster-section>header{align-items:flex-start;gap:8px;padding:14px 12px 11px}
+  .roster-section>header small{max-width:52%;font-size:9px;line-height:1.35;text-align:right}
+  .roster-section .table-panel{overflow-x:hidden;padding:0 8px}
+  .roster-section table,.roster-section tbody{display:block;width:100%}
+  .roster-section thead{display:none}
+  .roster-section tbody tr{display:grid;width:100%;grid-template-columns:minmax(0,1fr) auto auto;grid-template-areas:"player slot projection" "matchup matchup status";align-items:center;column-gap:7px;row-gap:7px;padding:9px 4px;border-bottom:1px solid var(--line)}
+  .roster-section tbody tr:last-child{border-bottom:0}
+  .roster-section tbody td{min-width:0;padding:0;border:0}
+  .roster-section td.roster-player-cell{grid-area:player;grid-template-columns:29px minmax(0,1fr);gap:6px;min-width:0}
+  .roster-section .roster-player-cell>.pos,.roster-section .roster-player-cell>.empty-player-mark{width:29px;height:29px;font-size:7px}
+  .roster-section .roster-player-copy strong{font-size:11px}
+  .roster-section .roster-player-copy small{margin-top:2px;font-size:8px}
+  .roster-section tbody td:nth-child(2){grid-area:slot}
+  .roster-section tbody td:nth-child(3){display:flex;grid-area:matchup;min-width:0;align-items:center;gap:7px}
+  .roster-section tbody td:nth-child(4){grid-area:projection;text-align:right}
+  .roster-section tbody td:nth-child(4):before{display:block;margin-bottom:2px;color:var(--muted);font-size:6px;font-weight:900;letter-spacing:.08em;content:"PROJ"}
+  .roster-section tbody td:nth-child(5){grid-area:status;justify-self:end}
+  .roster-section .matchup-team{min-width:0;grid-template-columns:auto minmax(68px,1fr);padding:5px 6px}
+  .roster-section .matchup-team>span{font-size:7px}
+  .roster-section .roster-temperature{display:none}
+  .roster-section .roster-weather{overflow:hidden;max-width:105px;margin:0;font-size:7px;text-overflow:ellipsis;white-space:nowrap}
+  .roster-section .roster-slot{min-width:35px;padding:4px 6px;font-size:8px}
+  .roster-section .status,.roster-section .empty-slot-status{font-size:8px;white-space:nowrap}
+
+  .sidebar nav,.sidebar-collapsed .sidebar nav{padding-right:0;padding-left:0}
+  .sidebar nav .nav-group,.sidebar-collapsed .sidebar nav .nav-group{align-items:stretch;width:100%}
+  .sidebar nav .nav-group>span,.sidebar-collapsed .sidebar nav .nav-group>span{padding-left:4px}
+  .sidebar nav button,.sidebar nav button.active,.sidebar nav button:not(.active),.sidebar-collapsed .sidebar nav button{width:100%;padding-right:7px;padding-left:3px}
+  .sidebar nav button:hover{transform:none}
+}
