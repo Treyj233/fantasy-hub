@@ -3,6 +3,7 @@ import { getDb } from "../../../../db";
 import { managedLeagues, sleeperConnections } from "../../../../db/schema";
 import { getChatGPTUser } from "../../../chatgpt-auth";
 import { fetchEspnLeagueForUser, normalizeEspnLeague } from "../../espn";
+import { fetchCachedUpstream } from "../../upstream-cache";
 
 type SleeperLeague = { league_id?: string; previous_league_id?: string | null; name?: string; season?: string; total_rosters?: number; avatar?: string | null; settings?: { type?: number }; scoring_settings?: { rec?: number }; roster_positions?: string[] };
 
@@ -25,7 +26,7 @@ export async function GET(request: Request) {
   const currentSeason = new Date().getUTCFullYear();
   const seasons = [String(currentSeason), String(currentSeason - 1)];
   const leagueGroups = connection ? await Promise.all(seasons.map(async (season) => {
-    const response = await fetch(`https://api.sleeper.app/v1/user/${connection.sleeperUserId}/leagues/nfl/${season}`, { next: { revalidate: 300 } });
+    const response = await fetchCachedUpstream(`https://api.sleeper.app/v1/user/${connection.sleeperUserId}/leagues/nfl/${season}`, 300);
     return response.ok ? await response.json() as SleeperLeague[] : [];
   })) : [];
   const uniqueLeagueRecords = Array.from(new Map(leagueGroups.flat().filter((league) => league.league_id).map((league) => [league.league_id!, league])).values());
@@ -39,7 +40,7 @@ export async function GET(request: Request) {
   });
   const sleeperLeagues = (await Promise.all(latestNamedLeagueRecords.map(async (league) => {
     if (!league.league_id) return null;
-    const rosterResponse = await fetch(`https://api.sleeper.app/v1/league/${league.league_id}/rosters`, { next: { revalidate: 300 } });
+    const rosterResponse = await fetchCachedUpstream(`https://api.sleeper.app/v1/league/${league.league_id}/rosters`, 300);
     const rosters = rosterResponse.ok ? await rosterResponse.json() as { roster_id?: number; owner_id?: string }[] : [];
     const myRoster = rosters.find((roster) => roster.owner_id === connection.sleeperUserId);
     if (!myRoster) return null;

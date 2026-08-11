@@ -3,6 +3,7 @@ import { getDb } from "../../../db";
 import { managedLeagues, sleeperConnections } from "../../../db/schema";
 import { getChatGPTUser } from "../../chatgpt-auth";
 import { fetchEspnLeagueForUser, normalizeEspnScoreboard } from "../espn";
+import { fetchCachedUpstream } from "../upstream-cache";
 
 type MatchupRow = { roster_id?: number; matchup_id?: number | null; points?: number; custom_points?: number | null; players?: string[]; starters?: string[]; players_points?: Record<string, number> };
 type SourcePlayer = { full_name?: string; first_name?: string; last_name?: string; position?: string; team?: string };
@@ -32,18 +33,18 @@ export async function GET(request: Request) {
   const [connection] = await db.select().from(sleeperConnections).where(eq(sleeperConnections.userId, user.userId)).limit(1);
   if (!connection) return Response.json({ error: "Connect a Sleeper account first" }, { status: 409 });
 
-  const leagueResponse = await fetch(`https://api.sleeper.app/v1/league/${leagueId}`, { next: { revalidate: 30 } });
+  const leagueResponse = await fetchCachedUpstream(`https://api.sleeper.app/v1/league/${leagueId}`, 30);
   if (!leagueResponse.ok) return Response.json({ error: "League unavailable" }, { status: 404 });
   const league = await leagueResponse.json() as { name?: string; season?: string; leg?: number; total_rosters?: number; roster_positions?: string[]; scoring_settings?: Record<string, number> };
   const week = Number.isInteger(requestedWeek) && requestedWeek >= 1 && requestedWeek <= 18 ? requestedWeek : Math.max(1, league.leg ?? 1);
   const season = league.season ?? String(new Date().getUTCFullYear());
   const [matchupsResponse, rostersResponse, usersResponse, playersResponse, statsResponse, projectionsResponse] = await Promise.all([
-    fetch(`https://api.sleeper.app/v1/league/${leagueId}/matchups/${week}`, { next: { revalidate: 15 } }),
-    fetch(`https://api.sleeper.app/v1/league/${leagueId}/rosters`, { next: { revalidate: 300 } }),
-    fetch(`https://api.sleeper.app/v1/league/${leagueId}/users`, { next: { revalidate: 300 } }),
-    fetch("https://api.sleeper.app/v1/players/nfl?active=true", { next: { revalidate: 86400 } }),
-    fetch(`https://api.sleeper.com/stats/nfl/regular/${season}/${week}`, { next: { revalidate: 30 } }).catch(() => null),
-    fetch(`https://api.sleeper.com/projections/nfl/${season}/${week}?season_type=regular`, { next: { revalidate: 900 } }).catch(() => null),
+    fetchCachedUpstream(`https://api.sleeper.app/v1/league/${leagueId}/matchups/${week}`, 15),
+    fetchCachedUpstream(`https://api.sleeper.app/v1/league/${leagueId}/rosters`, 300),
+    fetchCachedUpstream(`https://api.sleeper.app/v1/league/${leagueId}/users`, 300),
+    fetchCachedUpstream("https://api.sleeper.app/v1/players/nfl?active=true", 86400),
+    fetchCachedUpstream(`https://api.sleeper.com/stats/nfl/regular/${season}/${week}`, 30).catch(() => null),
+    fetchCachedUpstream(`https://api.sleeper.com/projections/nfl/${season}/${week}?season_type=regular`, 900).catch(() => null),
   ]);
   if (!matchupsResponse.ok || !rostersResponse.ok || !usersResponse.ok || !playersResponse.ok) return Response.json({ error: "Weekly scores unavailable" }, { status: 502 });
   const matchupRows = await matchupsResponse.json() as MatchupRow[];

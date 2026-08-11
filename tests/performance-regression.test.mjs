@@ -18,6 +18,24 @@ test("portfolio scans and weather requests use bounded client caches", async () 
   assert.match(source, /lastAutomaticScan/);
 });
 
+test("launch traffic is bounded and public provider data is edge cached", async () => {
+  const [client, scoreboard, league, cache, loadTest] = await Promise.all([
+    readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/scoreboard/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/league/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/upstream-cache.ts", import.meta.url), "utf8"),
+    readFile(new URL("../loadtest/k6-smoke.js", import.meta.url), "utf8"),
+  ]);
+  assert.match(client, /mapWithConcurrency\(\s*leagues,\s*3,/);
+  assert.match(client, /document\.visibilityState === "visible"/);
+  assert.match(scoreboard, /fetchCachedUpstream/);
+  assert.match(league, /fetchCachedUpstream/);
+  assert.match(cache, /cacheEverything: true/);
+  assert.match(cache, /"500-599": 0/);
+  assert.match(loadTest, /target: 250/);
+  assert.match(loadTest, /sleep\(30\)/);
+});
+
 test("initial league scan retries transient failures before showing a result", async () => {
   const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
   assert.match(source, /for \(let attempt = 0; attempt < 3; attempt \+= 1\)/);

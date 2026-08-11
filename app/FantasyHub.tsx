@@ -276,6 +276,39 @@ type RankingContext = {
   scoringRuleCount: number;
 };
 type AccountUser = { displayName: string; email: string; provider: "clerk" | "chatgpt"; signOutPath: string };
+
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  mapper: (item: T, index: number) => Promise<R>,
+) {
+  const results = new Array<R>(items.length);
+  let nextIndex = 0;
+  const workers = Array.from(
+    { length: Math.min(Math.max(1, limit), items.length) },
+    async () => {
+      while (nextIndex < items.length) {
+        const index = nextIndex;
+        nextIndex += 1;
+        results[index] = await mapper(items[index], index);
+      }
+    },
+  );
+  await Promise.all(workers);
+  return results;
+}
+
+function startVisiblePolling(refresh: () => Promise<void>, intervalMs = 30_000) {
+  const runWhenVisible = () => {
+    if (document.visibilityState === "visible") void refresh();
+  };
+  const timer = window.setInterval(runWhenVisible, intervalMs);
+  document.addEventListener("visibilitychange", runWhenVisible);
+  return () => {
+    window.clearInterval(timer);
+    document.removeEventListener("visibilitychange", runWhenVisible);
+  };
+}
 type AccountEntitlement = { plan: "free" | "pro"; status: string; pro: boolean; currentPeriodEnd: string | null };
 type AccountPreferences = {
   colorMode: Theme;
@@ -2988,8 +3021,10 @@ function AllLeagues({
           setScanCompleted(0);
           setLoading(true);
         }, 0);
-    void Promise.all(
-      leagues.map(async (league): Promise<LeagueScan> => {
+    void mapWithConcurrency(
+      leagues,
+      3,
+      async (league): Promise<LeagueScan> => {
         try {
           let leagueResponse: Response | null = null;
           for (let attempt = 0; attempt < 3; attempt += 1) {
@@ -3291,7 +3326,7 @@ function AllLeagues({
           if (!controller.signal.aborted)
             setScanCompleted((completed) => Math.min(leagues.length, completed + 1));
         }
-      }),
+      },
     )
       .then((results) => {
         const statusRank = {
@@ -3736,8 +3771,10 @@ function AllLeagueScoreboard({
     previousPulseOdds.current = {};
     const refresh = async () => {
       setLoading(true);
-      const results = await Promise.all(
-        leagues.map(async (league) => {
+      const results = await mapWithConcurrency(
+        leagues,
+        3,
+        async (league) => {
           try {
             const response = await fetch(`/api/scoreboard?leagueId=${encodeURIComponent(league.id)}&week=${week}`);
             if (!response.ok) return [league.id, null] as const;
@@ -3745,7 +3782,7 @@ function AllLeagueScoreboard({
           } catch {
             return [league.id, null] as const;
           }
-        }),
+        },
       );
       if (!active) return;
       const hadPulseBaseline = Object.keys(previousPulseSnapshot.current).length > 0;
@@ -3814,10 +3851,10 @@ function AllLeagueScoreboard({
       setLoading(false);
     };
     void refresh();
-    const timer = window.setInterval(refresh, 30000);
+    const stopPolling = startVisiblePolling(refresh);
     return () => {
       active = false;
-      window.clearInterval(timer);
+      stopPolling();
     };
   }, [leagues, week]);
   const gameDay = useMemo(() => {
@@ -4132,10 +4169,10 @@ function Scoreboard({
       }
     };
     void refresh();
-    const timer = window.setInterval(refresh, 30000);
+    const stopPolling = startVisiblePolling(refresh);
     return () => {
       active = false;
-      window.clearInterval(timer);
+      stopPolling();
     };
   }, [leagueId, week]);
 
@@ -5551,8 +5588,8 @@ function MyTeam({
       } catch { /* Roster remains available when live scoring is unavailable. */ }
     };
     void refresh();
-    const timer = window.setInterval(refresh, 30000);
-    return () => { active = false; window.clearInterval(timer); };
+    const stopPolling = startVisiblePolling(refresh);
+    return () => { active = false; stopPolling(); };
   }, [leagueId, week]);
   const starters = players.filter(isStartingPlayer);
   const reserves = players.filter((player) => !isStartingPlayer(player));
@@ -7987,10 +8024,10 @@ function HeadToHeadMatchup({
       }
     };
     void refresh();
-    const timer = window.setInterval(refresh, 30000);
+    const stopPolling = startVisiblePolling(refresh);
     return () => {
       active = false;
-      window.clearInterval(timer);
+      stopPolling();
     };
   }, [leagueId, week]);
 

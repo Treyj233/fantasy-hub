@@ -5,6 +5,7 @@ import { getChatGPTUser } from "../../chatgpt-auth";
 import { and, eq } from "drizzle-orm";
 import { getDb } from "../../../db";
 import { leagueDataSnapshots } from "../../../db/schema";
+import { fetchCachedUpstream } from "../upstream-cache";
 
 type SourcePlayer = { player_id?: string; full_name?: string; first_name?: string; last_name?: string; position?: string; team?: string; injury_status?: string | null; search_rank?: number; age?: number; status?: string; depth_chart_order?: number | null; depth_chart_position?: string | null };
 type SourceProjection = { player_id?: string; stats?: Record<string, number> };
@@ -55,11 +56,11 @@ export async function GET(request: Request) {
   if (!id || !/^\d{6,24}$/.test(id)) return Response.json({ error: "Invalid league ID" }, { status: 400 });
   try {
     const [leagueResponse, rostersResponse, usersResponse, playersResponse, tradedPicksResponse] = await Promise.all([
-      fetch(`https://api.sleeper.app/v1/league/${id}`, { next: { revalidate: 300 } }),
-      fetch(`https://api.sleeper.app/v1/league/${id}/rosters`, { next: { revalidate: 300 } }),
-      fetch(`https://api.sleeper.app/v1/league/${id}/users`, { next: { revalidate: 300 } }),
-      fetch("https://api.sleeper.app/v1/players/nfl", { next: { revalidate: 86400 } }),
-      fetch(`https://api.sleeper.app/v1/league/${id}/traded_picks`, { next: { revalidate: 300 } }).catch(() => null),
+      fetchCachedUpstream(`https://api.sleeper.app/v1/league/${id}`, 300),
+      fetchCachedUpstream(`https://api.sleeper.app/v1/league/${id}/rosters`, 300),
+      fetchCachedUpstream(`https://api.sleeper.app/v1/league/${id}/users`, 300),
+      fetchCachedUpstream("https://api.sleeper.app/v1/players/nfl", 86400),
+      fetchCachedUpstream(`https://api.sleeper.app/v1/league/${id}/traded_picks`, 300).catch(() => null),
     ]);
     if (!leagueResponse.ok || !rostersResponse.ok || !usersResponse.ok || !playersResponse.ok) throw new Error("League unavailable");
     const league = await leagueResponse.json() as { name?: string; status?: string; total_rosters?: number; season?: string; leg?: number; roster_positions?: string[]; scoring_settings?: Record<string, number>; settings?: { type?: number; draft_rounds?: number } };
@@ -73,10 +74,10 @@ export async function GET(request: Request) {
     const adpPath = receptionValue >= .75 ? "ppr-overall" : receptionValue >= .25 ? "half-point-ppr-overall" : "overall";
     const isDynasty = league.settings?.type === 2;
     const [projectionResponse, matchupResponse, adpResponse, sleeperAdpResponse] = await Promise.all([
-      fetch(`https://api.sleeper.com/projections/nfl/${league.season ?? new Date().getUTCFullYear()}/${projectionWeek}?season_type=regular`, { next: { revalidate: 3600 } }).catch(() => null),
-      fetch(`https://api.sleeper.app/v1/league/${id}/matchups/${projectionWeek}`, { next: { revalidate: 60 } }).catch(() => null),
-      isDynasty ? Promise.resolve(null) : fetch(`https://www.fantasypros.com/nfl/adp/${adpPath}.php`, { next: { revalidate: 21600 }, headers: { "User-Agent": "Fantasy Hub ADP comparison" } }).catch(() => null),
-      fetch(`https://api.sleeper.com/projections/nfl/${league.season ?? new Date().getUTCFullYear()}?season_type=regular&order_by=adp_ppr`, { next: { revalidate: 21600 } }).catch(() => null),
+      fetchCachedUpstream(`https://api.sleeper.com/projections/nfl/${league.season ?? new Date().getUTCFullYear()}/${projectionWeek}?season_type=regular`, 3600).catch(() => null),
+      fetchCachedUpstream(`https://api.sleeper.app/v1/league/${id}/matchups/${projectionWeek}`, 60).catch(() => null),
+      isDynasty ? Promise.resolve(null) : fetchCachedUpstream(`https://www.fantasypros.com/nfl/adp/${adpPath}.php`, 21600, { headers: { "User-Agent": "Fantasy Hub ADP comparison" } }).catch(() => null),
+      fetchCachedUpstream(`https://api.sleeper.com/projections/nfl/${league.season ?? new Date().getUTCFullYear()}?season_type=regular&order_by=adp_ppr`, 21600).catch(() => null),
     ]);
     const projectionPayload: unknown = projectionResponse?.ok ? await projectionResponse.json().catch(() => []) : [];
     const sourceProjections = Array.isArray(projectionPayload) ? projectionPayload as SourceProjection[] : [];
