@@ -547,3 +547,10 @@ html[data-theme="dark"] .mobile-nav-strip .mobile-rail-theme{background:rgb(24 2
 html[data-theme="dark"] .account-theme-customizer{color:var(--gold-light)}
 @media(max-width:700px){.account-actions{display:none}}
 .start-sit-option .compare-card>.matchup-team{margin-top:12px}
+.action-queue-groups>section:first-child>header b{background:var(--green)}
+.action-queue-groups>.action-priority-act-now>header b{background:#c93642}
+.action-queue-groups>.action-priority-before-kickoff>header b{background:#d97706}
+.action-queue-groups>.action-priority-tonight>header b{background:#7c3aed}
+.action-queue-groups>.action-priority-this-week>header b{background:#2878c8}
+.action-queue-groups>.action-priority-monitor>header b{color:#352300;background:#f0bd38}
+.action-queue-groups>.no-action-group>header b{color:#fff;background:#27875a}

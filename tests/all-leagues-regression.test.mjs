@@ -85,6 +85,15 @@ test("Start Sit separates position and matchup badges", async () => {
   assert.match(styles, /\.start-sit-option \.compare-card>\.matchup-team\{margin-top:12px\}/);
 });
 
+test("Full Action Queue badges use stable priority colors", async () => {
+  const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
+  const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  assert.match(source, /action-priority-\$\{priority\.toLowerCase\(\)\.replaceAll\(" ", "-"\)\}/);
+  for (const priority of ["act-now", "before-kickoff", "tonight", "this-week", "monitor"]) {
+    assert.match(styles, new RegExp(`action-priority-${priority}>header b`));
+  }
+});
+
 test("portfolio Scoreboard keeps matchup status in scope", async () => {
   const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
   const start = source.indexOf("function AllLeagueScoreboard(");
