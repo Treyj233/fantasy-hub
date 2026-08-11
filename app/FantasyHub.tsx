@@ -2,7 +2,6 @@
 
 import { Fragment, createContext, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type MouseEvent } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { estimatedWinProbability, playerLeverage, rootingInterests, whatDoINeed } from "./game-day-model.mjs";
 import { PRE_KICKOFF_VISUALS, PRE_KICKOFF_VISUALS_ENABLED } from "./pre-kickoff-visuals";
 import { disableNativePushNotifications, enableNativePushNotifications, initializeNativeRuntime, isNativeIosApp, nativeManageSubscriptions, nativePurchase, nativeRestorePurchases, nativeStoreProducts } from "./native-runtime";
@@ -365,6 +364,13 @@ function openSleeperLeagueOnMobile(event: MouseEvent<HTMLAnchorElement>, leagueI
 }
 function PlatformLogo({ provider = "Sleeper" }: { provider?: string }) {
   return provider.toLowerCase() === "sleeper" ? <span className="platform-logo" role="img" aria-label="Sleeper" /> : <span className="platform-logo-fallback">{provider}</span>;
+}
+function FHLogo({ label }: { label?: string }) {
+  return <svg className="fh-theme-logo" viewBox="0 0 100 100" role={label ? "img" : undefined} aria-label={label} aria-hidden={label ? undefined : true}>
+    <text className="fh-logo-f" x="5" y="75">F</text>
+    <text className="fh-logo-h" x="40" y="79">H</text>
+    <g className="fh-logo-laces" aria-hidden="true"><path d="M50 44 43 65"/><path d="m45 49 11 4M43 55l11 4M41 61l11 4"/></g>
+  </svg>;
 }
 const rememberDecision = (decision: { id: string; leagueId: string; week: number; category: string; recommendation: string; alternatives: unknown[]; information: Record<string, unknown>; confidence: number; userSelection?: string | null }) => {
   if (!decision.leagueId) return;
@@ -1782,8 +1788,7 @@ export default function FantasyHub({
         </button>
         <div className="brand">
           <span className="brand-logo" aria-hidden="true">
-            <span className="brand-logo-fallback">FH</span>
-            <Image src="/fantasy-hub-logo-cropped.png" alt="" width={46} height={46} priority unoptimized />
+            <FHLogo />
           </span>
           <div>
             <strong>Fantasy Hub</strong>
@@ -2460,7 +2465,7 @@ function EmptyRoster({
 }
 
 function ProGate({ feature, onUpgrade }: { feature: string; onUpgrade: () => void }) {
-  return <div className="page-content pro-gate-page"><section className="pro-gate panel"><span>FANTASY HUB EXCLUSIVE</span><div className="pro-lock"><span className="brand-logo-fallback">FH</span><Image src="/fantasy-hub-logo-cropped.png" alt="Fantasy Hub" width={74} height={74} unoptimized /></div><h2>{feature} is a Pro experience.</h2><p>Your leagues, rosters, live scores, matchups, rankings, waiver pool, and Start/Sit tools remain free. Pro unlocks Fantasy Hub’s proprietary simulations, advanced analysis, decision memory, stories, and trade intelligence.</p><button onClick={onUpgrade}>Explore Fantasy Hub Pro →</button><small>Platform connection is not what you pay for. Pro is built around Fantasy Hub’s original models and experience.</small></section></div>;
+  return <div className="page-content pro-gate-page"><section className="pro-gate panel"><span>FANTASY HUB EXCLUSIVE</span><div className="pro-lock"><FHLogo label="Fantasy Hub" /></div><h2>{feature} is a Pro experience.</h2><p>Your leagues, rosters, live scores, matchups, rankings, waiver pool, and Start/Sit tools remain free. Pro unlocks Fantasy Hub’s proprietary simulations, advanced analysis, decision memory, stories, and trade intelligence.</p><button onClick={onUpgrade}>Explore Fantasy Hub Pro →</button><small>Platform connection is not what you pay for. Pro is built around Fantasy Hub’s original models and experience.</small></section></div>;
 }
 
 function ProPlans({ entitlement }: { entitlement: AccountEntitlement }) {

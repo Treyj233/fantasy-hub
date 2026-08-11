@@ -10,7 +10,7 @@ button { cursor:pointer; }
 .sidebar { position:sticky; top:0; height:100vh; padding:24px 18px 20px; display:flex; flex-direction:column; color:#edf7ef; background:radial-gradient(circle at 10% 0,#1d6544 0,transparent 27%),linear-gradient(175deg,#0d3c29,#071f16 72%); border-right:1px solid #325844; }
 .brand { display:flex; align-items:center; gap:12px; padding:0 8px 24px; }
 .brand-mark { display:grid; place-items:center; width:42px; height:42px; color:#17311f; background:var(--lime); border-radius:12px 4px 12px 4px; font-weight:950; letter-spacing:-1px; box-shadow:0 8px 30px #0004; }
-.brand-logo{position:relative;display:grid;width:46px;height:46px;flex:0 0 46px;place-items:center;overflow:hidden;background:#fff;border:1px solid #ffffffa6;border-radius:12px;box-shadow:0 8px 30px #0004;transform:rotate(-3deg);transition:transform .2s ease,box-shadow .2s ease}.brand-logo img{position:absolute;z-index:1;inset:0;display:block;width:100%;height:100%;object-fit:cover}.brand-logo-fallback{display:grid;width:100%;height:100%;place-items:center;color:#f0b323;background:#073b27;font-size:18px;font-weight:1000;letter-spacing:-.08em}.brand-logo:hover{box-shadow:0 11px 32px #0005;transform:rotate(2deg) scale(1.04)}
+.brand-logo{position:relative;display:grid;width:46px;height:46px;flex:0 0 46px;place-items:center;overflow:hidden;background:#fff;border:1px solid #ffffffa6;border-radius:12px;box-shadow:0 8px 30px #0004;transform:rotate(-3deg);transition:transform .2s ease,box-shadow .2s ease}.fh-theme-logo{display:block;width:100%;height:100%;overflow:visible}.fh-theme-logo text{font-family:Arial Black,Impact,sans-serif;font-size:73px;font-style:italic;font-weight:1000;paint-order:stroke fill;stroke:#fff;stroke-linejoin:round;stroke-width:7px}.fh-theme-logo .fh-logo-f{fill:var(--green)}.fh-theme-logo .fh-logo-h{fill:var(--gold-light)}.fh-logo-laces{fill:none;stroke:#fff;stroke-linecap:round;stroke-width:3.5px}.brand-logo:hover{box-shadow:0 11px 32px #0005;transform:rotate(2deg) scale(1.04)}
 .brand strong,.brand small { display:block; }.brand strong{font-size:17px}.brand small{margin-top:2px;color:#a9c6b4;font-size:10px;letter-spacing:.04em}
 .league-card { padding:14px; margin-bottom:18px; background:#ffffff0a; border:1px solid #ffffff17; border-radius:14px; }
 .league-card span,.league-card strong,.league-card small{display:block}.league-card span{font-size:9px;color:var(--lime);font-weight:900;letter-spacing:.16em}.league-card strong{margin-top:7px;font-size:12px}.league-card small{margin-top:5px;color:#91ae9c;font-size:10px}
@@ -430,7 +430,7 @@ html[data-theme="dark"] .league-pills button.active{color:#fff!important;backgro
 
 /* Shared FH artwork in branded and Pro-gated surfaces. */
 .pro-lock{position:relative;display:grid;width:74px;height:74px;overflow:hidden;padding:0;place-items:center;background:#fff;border:2px solid var(--gold);border-radius:19px;font-size:0}
-.pro-lock img{position:absolute;z-index:1;inset:0;display:block;width:100%;height:100%;object-fit:cover}.pro-lock .brand-logo-fallback{font-size:25px}
+.pro-lock .fh-theme-logo{width:68px;height:68px}
 
 .what-needed article:nth-of-type(5){animation-delay:.28s}
 
