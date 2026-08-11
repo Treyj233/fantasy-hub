@@ -643,10 +643,16 @@ html[data-theme="dark"] .account-theme-customizer{color:var(--gold-light)}
   .rooting-interests article,.sunday-swing article{grid-template-columns:auto minmax(0,1fr) auto;gap:8px}
   .portfolio-scoreboard-grid,.league-scoreboard-page .scoreboard-grid{grid-template-columns:1fr;gap:9px}
   .portfolio-score-game,.league-scoreboard-page .score-game{width:100%;border-radius:12px}
-  .portfolio-score-bug{grid-template-columns:1fr 1fr;gap:6px;padding:7px}
-  .portfolio-score-bug .scorebug-probability{grid-column:1/-1;grid-row:1;padding:5px}
-  .portfolio-score-bug>div{grid-row:2;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px;padding:7px}
-  .portfolio-score-bug>div>p{grid-column:1/-1}.portfolio-score-bug>div>b{grid-column:1/-1;font-size:22px}
+  .portfolio-score-bug{grid-template-columns:minmax(0,1fr) 62px minmax(0,1fr);align-items:stretch;gap:4px;padding:7px}
+  .portfolio-score-bug .scorebug-probability{grid-column:2;grid-row:1;min-width:0;padding:5px 2px}
+  .portfolio-score-bug .scorebug-probability small{font-size:4.5px;letter-spacing:.04em;line-height:1.2}
+  .portfolio-score-bug .scorebug-probability strong{margin:4px 0;font-size:17px}
+  .portfolio-score-bug .scorebug-probability span{max-width:56px;font-size:5px;line-height:1.15}
+  .portfolio-score-bug>div{grid-row:1;display:grid;min-width:0;grid-template-columns:1fr;align-content:center;justify-items:center;gap:3px;padding:7px 4px;text-align:center}
+  .portfolio-score-bug>div:first-of-type{grid-column:1}.portfolio-score-bug>div:last-of-type{grid-column:3}
+  .portfolio-score-bug>div>span{display:none}.portfolio-score-bug>div>p{grid-column:1;width:100%;min-width:0}.portfolio-score-bug>div>p strong,.portfolio-score-bug>div>p small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .portfolio-score-bug>div>p strong{font-size:8px}.portfolio-score-bug>div>p small{font-size:5.5px}
+  .portfolio-score-bug>div>b{grid-column:1;font-size:20px}.portfolio-score-bug>div>i{right:4px;top:4px}
   .portfolio-score-scroll{max-height:180px}
   .need-collapse-toggle{grid-template-columns:minmax(0,1fr) auto;padding:10px}
   .need-collapse-toggle>em{display:none}.need-collapse-toggle>strong{font-size:8px;text-align:right}
@@ -664,6 +670,8 @@ html[data-theme="dark"] .account-theme-customizer{color:var(--gold-light)}
   .game-day-metrics{grid-template-columns:1fr}
   .on-fire-grid{grid-template-columns:1fr}
   .score-game-actions{grid-template-columns:1fr}
+  .portfolio-score-bug{grid-template-columns:minmax(0,1fr) 54px minmax(0,1fr)}
+  .portfolio-score-bug .scorebug-probability span{display:none}
 }
 
 /* Manage Plans uses the bright stadium-night campaign language from the App Store creative. */
