@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, createContext, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties } from "react";
+import { Fragment, createContext, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type MouseEvent } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { estimatedWinProbability, playerLeverage, rootingInterests, whatDoINeed } from "./game-day-model.mjs";
@@ -338,11 +338,30 @@ type ConnectedLeague = {
   starterCount: number;
 };
 const sleeperLeagueUrl = (leagueId: string) =>
-  `https://sleeper.com/leagues/${encodeURIComponent(leagueId)}`;
+  `https://sleeper.com/leagues/${encodeURIComponent(leagueId)}/team`;
+const sleeperLeagueDeepLink = (leagueId: string) =>
+  `sleeper://leagues/${encodeURIComponent(leagueId)}/team`;
 const platformLeagueUrl = (league: ConnectedLeague) =>
   league.provider === "espn"
     ? `https://fantasy.espn.com/football/league?leagueId=${encodeURIComponent(league.sourceId ?? league.id.split(":").at(-1) ?? league.id)}`
     : sleeperLeagueUrl(league.sourceId ?? league.id);
+function openSleeperLeagueOnMobile(event: MouseEvent<HTMLAnchorElement>, leagueId: string, provider?: string) {
+  if (provider?.toLowerCase() === "espn" || typeof window === "undefined") return;
+  const isMobile = window.matchMedia("(pointer: coarse)").matches || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  if (!isMobile) return;
+  event.preventDefault();
+  const fallbackUrl = sleeperLeagueUrl(leagueId);
+  let appOpened = false;
+  const detectAppOpen = () => {
+    if (document.visibilityState === "hidden") appOpened = true;
+  };
+  document.addEventListener("visibilitychange", detectAppOpen, { once: true });
+  window.location.assign(sleeperLeagueDeepLink(leagueId));
+  window.setTimeout(() => {
+    document.removeEventListener("visibilitychange", detectAppOpen);
+    if (!appOpened && document.visibilityState === "visible") window.location.assign(fallbackUrl);
+  }, 1400);
+}
 function PlatformLogo({ provider = "Sleeper" }: { provider?: string }) {
   return provider.toLowerCase() === "sleeper" ? <span className="platform-logo" role="img" aria-label="Sleeper" /> : <span className="platform-logo-fallback">{provider}</span>;
 }
@@ -1863,6 +1882,7 @@ export default function FantasyHub({
               <a
                 className="platform-open"
                 href={selectedConnectedLeague ? platformLeagueUrl(selectedConnectedLeague) : sleeperLeagueUrl(leagueId)}
+                onClick={(event) => openSleeperLeagueOnMobile(event, selectedConnectedLeague?.sourceId ?? selectedConnectedLeague?.id ?? leagueId, leaguePlatform)}
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label={`${platformActionLabel(view, leaguePlatform)} (opens in a new tab)`}
@@ -3681,7 +3701,7 @@ function AllLeagues({
                   <p><span>{priority} · {scan.league.name} · {issue.category}</span><strong>{issue.title}</strong><small>{issue.detail}</small></p>
                   <div className="portfolio-action-buttons">
                     <button onClick={() => void onOpen(scan.league, actionView(issue.category))}>Review in Hub</button>
-                    <a className="platform-link" href={platformLeagueUrl(scan.league)} target="_blank" rel="noopener noreferrer" aria-label={`Open league in ${scan.league.provider === "espn" ? "ESPN" : "Sleeper"} (opens in a new tab)`}><PlatformLogo provider={scan.league.provider === "espn" ? "ESPN" : "Sleeper"} /><span>Open</span><b aria-hidden="true">↗</b></a>
+                    <a className="platform-link" href={platformLeagueUrl(scan.league)} onClick={(event) => openSleeperLeagueOnMobile(event, scan.league.sourceId ?? scan.league.id, scan.league.provider)} target="_blank" rel="noopener noreferrer" aria-label={`Open league in ${scan.league.provider === "espn" ? "ESPN" : "Sleeper"} (opens in a new tab)`}><PlatformLogo provider={scan.league.provider === "espn" ? "ESPN" : "Sleeper"} /><span>Open</span><b aria-hidden="true">↗</b></a>
                   </div>
                 </article>
               ))}
@@ -3807,7 +3827,7 @@ function AllLeagues({
                 </span>
                 <div className="league-scan-actions">
                   <button onClick={() => void onOpen(scan.league)}>Open in Hub</button>
-                  <a className="platform-link" href={platformLeagueUrl(scan.league)} target="_blank" rel="noopener noreferrer" aria-label={`Open league in ${scan.league.provider === "espn" ? "ESPN" : "Sleeper"} (opens in a new tab)`}><PlatformLogo provider={scan.league.provider === "espn" ? "ESPN" : "Sleeper"} /><b aria-hidden="true">↗</b></a>
+                  <a className="platform-link" href={platformLeagueUrl(scan.league)} onClick={(event) => openSleeperLeagueOnMobile(event, scan.league.sourceId ?? scan.league.id, scan.league.provider)} target="_blank" rel="noopener noreferrer" aria-label={`Open league in ${scan.league.provider === "espn" ? "ESPN" : "Sleeper"} (opens in a new tab)`}><PlatformLogo provider={scan.league.provider === "espn" ? "ESPN" : "Sleeper"} /><b aria-hidden="true">↗</b></a>
                 </div>
               </footer>
             </article>

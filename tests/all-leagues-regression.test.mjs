@@ -94,6 +94,15 @@ test("Full Action Queue badges use stable priority colors", async () => {
   }
 });
 
+test("Sleeper mobile actions deep link to the selected league", async () => {
+  const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
+  assert.match(source, /sleeper:\/\/leagues\/\$\{encodeURIComponent\(leagueId\)\}\/team/);
+  assert.match(source, /https:\/\/sleeper\.com\/leagues\/\$\{encodeURIComponent\(leagueId\)\}\/team/);
+  assert.match(source, /openSleeperLeagueOnMobile\(event, selectedConnectedLeague\?\.sourceId/);
+  assert.match(source, /openSleeperLeagueOnMobile\(event, scan\.league\.sourceId/);
+  assert.match(source, /document\.visibilityState === "hidden"/);
+});
+
 test("portfolio Scoreboard keeps matchup status in scope", async () => {
   const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
   const start = source.indexOf("function AllLeagueScoreboard(");
