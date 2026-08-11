@@ -29,6 +29,11 @@ export async function generateMetadata(): Promise<Metadata> {
     title: "Fantasy Hub — Make Every Week Count",
     description:
       "Explainable lineup, waiver, trade, matchup, and playoff intelligence for fantasy football managers.",
+    icons: {
+      icon: [{ url: "/favicon.png", type: "image/png" }],
+      shortcut: "/favicon.png",
+      apple: "/favicon.png",
+    },
     openGraph: {
       title: "Fantasy Hub — Make Every Week Count",
       description:

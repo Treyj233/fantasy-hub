@@ -35,6 +35,40 @@ test("Pro billing navigation lives in Utilities and replaces the simulator short
   assert.doesNotMatch(source, /season-roll" onClick=\{\(\) => setView\("Simulator"\)\}/);
 });
 
+test("League storytelling and reporting finish the Utilities section", async () => {
+  const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
+  assert.match(source, /label: "League Stories"[^\n]+group: "Utilities"/);
+  assert.match(source, /label: "Manager Report"[^\n]+group: "Utilities"/);
+  assert.ok(source.indexOf('label: "League Stories"') < source.indexOf('label: "Manager Report"'));
+});
+
+test("expanded What Do I Need supports five player targets", async () => {
+  const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
+  assert.match(source, /need\.targets\.slice\(0, 5\)/);
+});
+
+test("portfolio Scoreboard exposes a sticky quick-score rail", async () => {
+  const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
+  assert.match(source, /className="portfolio-score-rail"/);
+  assert.match(source, /portfolio-matchup-\$\{leagueId\}/);
+  assert.match(source, /scrollIntoView\(\{ behavior: "smooth", block: "start" \}\)/);
+});
+
+test("portfolio Scoreboard opens both Matchups and league scoreboards", async () => {
+  const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
+  assert.match(source, /onOpenMatchups=\{async \(league, matchupId\)/);
+  assert.match(source, />Open Matchups<\/button>/);
+  assert.match(source, />League scoreboard →<\/button>/);
+});
+
+test("mobile navigation keeps labels and platform handoff copy", async () => {
+  const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
+  assert.match(source, /className="nav-label"/);
+  assert.match(source, /className="platform-open-copy"/);
+  assert.match(source, /Open ESPN/);
+  assert.match(source, /Open Sleeper/);
+});
+
 test("portfolio Scoreboard keeps matchup status in scope", async () => {
   const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
   const start = source.indexOf("function AllLeagueScoreboard(");

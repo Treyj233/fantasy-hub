@@ -2,6 +2,7 @@
 
 import { Fragment, createContext, useContext, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { estimatedWinProbability, playerLeverage, rootingInterests, whatDoINeed } from "./game-day-model.mjs";
 
 type View =
@@ -582,8 +583,6 @@ const nav: { label: View; displayLabel?: string; mark: string; tone: string; gro
   { label: "Waiver Wire", mark: "+", tone: "emerald", group: "Team Management" },
   { label: "Trade Lab", mark: "↔", tone: "pink", group: "Team Management" },
   { label: "Simulator", mark: "✦", tone: "indigo", group: "Team Management" },
-  { label: "League Stories", mark: "✎", tone: "violet", group: "League Insights" },
-  { label: "Manager Report", mark: "✓", tone: "teal", group: "League Insights" },
   { label: "League Analytics", mark: "◈", tone: "purple", group: "League Insights" },
   { label: "Team Rankings", mark: "↥", tone: "teal", group: "League Insights" },
   { label: "Player Rankings", mark: "♛", tone: "gold", group: "League Insights" },
@@ -591,6 +590,8 @@ const nav: { label: View; displayLabel?: string; mark: string; tone: string; gro
   { label: "Scoreboard", displayLabel: "Fantasy Scoreboard", mark: "▣", tone: "red", group: "Live" },
   { label: "NFL Games", mark: "🏈", tone: "football", group: "Live" },
   { label: "Matchups", displayLabel: "Fantasy Matchups", mark: "◎", tone: "sky", group: "Live" },
+  { label: "League Stories", mark: "✎", tone: "violet", group: "Utilities" },
+  { label: "Manager Report", mark: "✓", tone: "teal", group: "Utilities" },
 ];
 
 const normalizeNflTeam = (team: string) =>
@@ -1746,7 +1747,9 @@ export default function FantasyHub({
           <span aria-hidden="true">{sidebarCollapsed ? "›" : "‹"}</span>
         </button>
         <div className="brand">
-          <span className="brand-mark">FH</span>
+          <span className="brand-logo" aria-hidden="true">
+            <Image src="/fantasy-hub-logo-cropped.png" alt="" width={46} height={46} priority />
+          </span>
           <div>
             <strong>Fantasy Hub</strong>
             <small>Make every week count.</small>
@@ -1778,7 +1781,7 @@ export default function FantasyHub({
                   <i className={`nav-badge ${item.tone}`} aria-hidden="true">
                     {item.mark}
                   </i>
-                  {item.displayLabel ?? item.label}
+                  <span className="nav-label">{item.displayLabel ?? item.label}</span>
                   {proViews.has(item.label) && !entitlement.pro && <b className="nav-pro-tag">PRO</b>}
                 </button>
               ))}
@@ -1831,7 +1834,10 @@ export default function FantasyHub({
                 aria-label={`${platformActionLabel(view, leaguePlatform)} (opens in a new tab)`}
               >
                 <PlatformLogo provider={leaguePlatform} />
-                <span>{platformActionLabel(view, leaguePlatform)}</span>
+                <span className="platform-open-copy">
+                  <strong>{leaguePlatform.toLowerCase() === "espn" ? "Open ESPN" : "Open Sleeper"}</strong>
+                  <small>{platformActionLabel(view, leaguePlatform)}</small>
+                </span>
                 <b aria-hidden="true">↗</b>
               </a>
             )}
@@ -2032,6 +2038,11 @@ export default function FantasyHub({
               onOpenLeague={async (league) => {
                 await openConnectedLeague(league);
                 setScoreboardScope("league");
+              }}
+              onOpenMatchups={async (league, matchupId) => {
+                await openConnectedLeague(league);
+                setSelectedMatchupId(matchupId);
+                setView("Matchups");
               }}
             />
           ) : (
@@ -2344,7 +2355,7 @@ function EmptyRoster({
 }
 
 function ProGate({ feature, onUpgrade }: { feature: string; onUpgrade: () => void }) {
-  return <div className="page-content pro-gate-page"><section className="pro-gate panel"><span>FANTASY HUB EXCLUSIVE</span><div className="pro-lock" aria-hidden="true">FH</div><h2>{feature} is a Pro experience.</h2><p>Your leagues, rosters, live scores, matchups, rankings, waiver pool, and Start/Sit tools remain free. Pro unlocks Fantasy Hub’s proprietary simulations, advanced analysis, decision memory, stories, and trade intelligence.</p><button onClick={onUpgrade}>Explore Fantasy Hub Pro →</button><small>Platform connection is not what you pay for. Pro is built around Fantasy Hub’s original models and experience.</small></section></div>;
+  return <div className="page-content pro-gate-page"><section className="pro-gate panel"><span>FANTASY HUB EXCLUSIVE</span><div className="pro-lock"><Image src="/fantasy-hub-logo-cropped.png" alt="Fantasy Hub" width={74} height={74} /></div><h2>{feature} is a Pro experience.</h2><p>Your leagues, rosters, live scores, matchups, rankings, waiver pool, and Start/Sit tools remain free. Pro unlocks Fantasy Hub’s proprietary simulations, advanced analysis, decision memory, stories, and trade intelligence.</p><button onClick={onUpgrade}>Explore Fantasy Hub Pro →</button><small>Platform connection is not what you pay for. Pro is built around Fantasy Hub’s original models and experience.</small></section></div>;
 }
 
 function ProPlans({ entitlement }: { entitlement: AccountEntitlement }) {
@@ -3466,21 +3477,28 @@ function AllLeagues({
       <section className="all-leagues-hero">
         <div>
           <span>MISSION HUB</span>
-          <h2>
-            One checklist.
-            <br />
-            <em>Every league covered.</em>
-          </h2>
+          <div className="mission-title-row">
+            <h2>
+              One checklist.
+              <br />
+              <em>Every league covered.</em>
+            </h2>
+            <button className="personalize-hub" onClick={onPersonalize}>
+              <i className="personalize-artwork" aria-hidden="true">
+                <span />
+                <span />
+                <span />
+              </i>
+              <span>Personalize Your Hub</span>
+              {!isPro && <b>PRO</b>}
+            </button>
+          </div>
           <p>
             Fantasy Hub scans your real rosters and moves the most urgent
             decisions to the top.
           </p>
         </div>
         <div className="mission-hero-actions">
-          <button className="personalize-hub" onClick={onPersonalize}>
-            Personalize Your Hub
-            {!isPro && <b>PRO</b>}
-          </button>
           <button
             onClick={() => setRefreshKey((value) => value + 1)}
             disabled={loading}
@@ -3762,10 +3780,12 @@ function AllLeagueScoreboard({
   leagues,
   defaultWeek,
   onOpenLeague,
+  onOpenMatchups,
 }: {
   leagues: ConnectedLeague[];
   defaultWeek: number;
   onOpenLeague: (league: ConnectedLeague) => Promise<void>;
+  onOpenMatchups: (league: ConnectedLeague, matchupId: number) => Promise<void>;
 }) {
   const openPlayer = useContext(PlayerOpenContext);
   const [week, setWeek] = useState(defaultWeek >= 1 && defaultWeek <= 18 ? defaultWeek : 1);
@@ -4015,6 +4035,9 @@ function AllLeagueScoreboard({
     if (!document.fullscreenElement) void document.documentElement.requestFullscreen?.();
     else void document.exitFullscreen?.();
   };
+  const scrollToLeagueScore = (leagueId: string) => {
+    document.getElementById(`portfolio-matchup-${leagueId}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
   if (!leagues.length)
     return (
       <div className="page-content">
@@ -4041,6 +4064,23 @@ function AllLeagueScoreboard({
         <b><i /> SUNDAY PULSE</b>
         <div><span>{pulseItems.join("  •  ")}</span><span aria-hidden="true">{pulseItems.join("  •  ")}</span></div>
         <button type="button" onClick={enterTvMode}>Full screen</button>
+      </section>
+      <section className="portfolio-score-rail" aria-label="Quick access to fantasy matchup scores">
+        <header><b>YOUR SCORES</b><small>Tap a matchup for the full view</small></header>
+        <div>
+          {orderedLeagues.map((league) => {
+            const matchup = gameDay.matchups.find((item) => item.league.id === league.id);
+            if (!matchup) return <button className="pending" type="button" key={league.id} onClick={() => scrollToLeagueScore(league.id)}><span><i /> {league.name}</span><strong>Matchup pending</strong><small>Open details →</small></button>;
+            const margin = Math.abs(matchup.mine.points - matchup.opponent.points);
+            const urgency = matchup.status === "live" && margin <= 12 ? "urgent" : matchup.status === "live" ? "live" : matchup.status;
+            return <button className={urgency} type="button" key={league.id} onClick={() => scrollToLeagueScore(league.id)}>
+              <span><i /> {matchup.status === "live" ? "LIVE" : matchup.status === "final" ? "FINAL" : `WEEK ${week}`} · {league.name}</span>
+              <p><b>{matchup.mine.teamName}</b><strong>{matchup.mine.points.toFixed(1)}</strong></p>
+              <p><b>{matchup.opponent.teamName}</b><strong>{matchup.opponent.points.toFixed(1)}</strong></p>
+              <small><em>{matchup.winProbability == null ? "—" : `${matchup.winProbability}%`} WIN</em>{margin <= 12 && matchup.status === "live" ? "One-play range" : "Open details →"}</small>
+            </button>;
+          })}
+        </div>
       </section>
       <section className="game-day-command panel">
         <header><div><span>GAME DAY COMMAND CENTER</span><h3>What matters across your portfolio</h3></div><div className="scoreboard-view-toggle"><button className={viewMode === "drama" ? "active" : ""} onClick={() => setViewMode("drama")}>Drama first</button><button className={viewMode === "all" ? "active" : ""} onClick={() => setViewMode("all")}>League order</button></div></header>
@@ -4092,7 +4132,7 @@ function AllLeagueScoreboard({
           const winOutlook = winProbability == null ? "Waiting for projections" : winProbability >= 65 ? "You’re favored" : winProbability >= 45 ? "Too close to call" : "Upset mode";
           const winTone = winProbability == null ? "unavailable" : winProbability >= 65 ? "favored" : winProbability >= 45 ? "toss-up" : "underdog";
           return (
-            <article className={`score-game portfolio-score-game ${matchup ? "my-game" : ""}`} key={league.id}>
+            <article id={`portfolio-matchup-${league.id}`} className={`score-game portfolio-score-game ${matchup ? "my-game" : ""}`} key={league.id}>
               <header>
                 <span className={matchup?.status === "Live" ? "game-live" : ""}>{matchup?.status === "Live" ? "● LIVE" : matchup?.status ?? `WEEK ${week}`}</span>
                 <b>{league.name}</b>
@@ -4120,12 +4160,13 @@ function AllLeagueScoreboard({
               {consequence?.status !== "final" && need && <section className={`what-needed ${expandedNeeds.has(league.id) ? "expanded" : "collapsed"}`}>
                 <button className="need-collapse-toggle" type="button" aria-expanded={expandedNeeds.has(league.id)} onClick={() => setExpandedNeeds((current) => { const next = new Set(current); if (next.has(league.id)) next.delete(league.id); else next.add(league.id); return next; })}><span><i /> LIVE WIN PATH</span><strong>{need.teamNeed ? `${need.teamNeed.toFixed(1)} PTS NEEDED` : "PROJECTED LEAD"}</strong><em aria-hidden="true">⌄</em></button>
                 {expandedNeeds.has(league.id) && <div className="need-expanded-content"><p>{need.message}</p>
-                {need.targets.slice(0, 4).map((target) => <article key={target.id}><PlayerHeadshot id={target.id} position={target.position} /><div><div className="need-player-row"><button className="inline-player-link" onClick={() => openPlayer(playerShell(target))}>{target.name}</button><b>{target.progress}%</b></div><small>Needs about <b>{target.pointsNeeded.toFixed(1)} more points</b> · {target.statLine}</small><span className="need-progress"><i style={{ width: `${target.progress}%` }} /></span><em>{target.points.toFixed(1)} scored toward a {target.targetTotal.toFixed(1)} point target</em></div></article>)}</div>}
+                {need.targets.slice(0, 5).map((target) => <article key={target.id}><PlayerHeadshot id={target.id} position={target.position} /><div><div className="need-player-row"><button className="inline-player-link" onClick={() => openPlayer(playerShell(target))}>{target.name}</button><b>{target.progress}%</b></div><small>Needs about <b>{target.pointsNeeded.toFixed(1)} more points</b> · {target.statLine}</small><span className="need-progress"><i style={{ width: `${target.progress}%` }} /></span><em>{target.points.toFixed(1)} scored toward a {target.targetTotal.toFixed(1)} point target</em></div></article>)}</div>}
               </section>}
               {consequence?.status === "final" && <div className="postgame-review"><b>{consequence.mine.points > consequence.opponent.points ? "WIN" : consequence.mine.points < consequence.opponent.points ? "LOSS" : "TIE"}</b><p><strong>Postgame review</strong><small>{Math.abs(consequence.mine.points - consequence.opponent.points) <= 5 ? "A close final margin decided this matchup." : "The final scoring margin was decisive."} Results describe what happened, not whether the original lineup decision was sound.</small></p></div>}
               </div>
               <footer className="score-game-actions">
-                <button onClick={() => void onOpenLeague(league)}>Open league scoreboard →</button>
+                {matchup && <button className="secondary" onClick={() => void onOpenMatchups(league, matchup.matchupId)}>Open Matchups</button>}
+                <button onClick={() => void onOpenLeague(league)}>League scoreboard →</button>
               </footer>
             </article>
           );
