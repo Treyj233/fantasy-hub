@@ -601,3 +601,67 @@ html[data-theme="dark"] .account-theme-customizer{color:var(--gold-light)}
 .legal-page section p{font-size:1rem;line-height:1.72;margin:10px 0;color:#35594b}
 .legal-page footer{padding-top:30px;color:#688176;font-size:.9rem;text-align:center}
 @media(max-width:600px){.legal-page{padding-top:24px}.legal-page>header{border-radius:22px;padding:28px 24px}.legal-page>section{border-radius:18px}}
+
+/* Fantasy Scoreboard: phone-first vertical presentation for the native app. */
+@media(max-width:700px){
+  .portfolio-scoreboard-page,.league-scoreboard-page{width:100%;max-width:100%;gap:10px;padding-inline:10px;overflow-x:clip}
+  .portfolio-scoreboard-page>* ,.league-scoreboard-page>*{min-width:0;max-width:100%}
+  .portfolio-scoreboard-head,.league-scoreboard-page .scoreboard-head{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:9px;margin-bottom:0;padding:15px 14px;border-radius:13px}
+  .portfolio-scoreboard-head>div:first-child,.league-scoreboard-page .scoreboard-head>div:first-child{grid-column:1/-1}
+  .portfolio-scoreboard-head h2,.league-scoreboard-page .scoreboard-head h2{font-size:21px;line-height:1.08}
+  .portfolio-scoreboard-head p,.league-scoreboard-page .scoreboard-head p{font-size:8px;line-height:1.4}
+  .portfolio-scoreboard-head label,.portfolio-scoreboard-head .live-refresh,.league-scoreboard-page .scoreboard-head label,.league-scoreboard-page .live-refresh{display:block;margin-top:0}
+  .portfolio-scoreboard-head select,.league-scoreboard-page .scoreboard-head select{min-height:38px;margin-top:4px;font-size:11px}
+  .portfolio-scoreboard-head .live-refresh,.league-scoreboard-page .live-refresh{align-self:end;padding:10px 8px;text-align:center}
+  .sunday-pulse{grid-template-columns:auto minmax(0,1fr);min-height:38px;padding:7px 9px}
+  .sunday-pulse button{display:none}
+  .portfolio-score-rail{position:relative;top:auto;padding:8px}
+  .portfolio-score-rail>header{padding:2px 3px 7px}
+  .portfolio-score-rail>div{display:grid;grid-template-columns:1fr 1fr;gap:6px;max-height:212px;overflow-x:hidden;overflow-y:auto;padding:0 2px 2px;scroll-snap-type:none}
+  .portfolio-score-rail button{min-width:0;width:100%;padding:8px;scroll-snap-align:none}
+  .portfolio-score-rail button>p b{font-size:8px}.portfolio-score-rail button>p strong{font-size:13px}
+  .game-day-command,.portfolio-win-path,.on-fire-board,.game-day-insights>section{padding:14px}
+  .game-day-command>header{align-items:flex-start;flex-direction:column;margin-bottom:10px}
+  .game-day-command h3,.portfolio-win-path h3,.on-fire-board>header h3,.game-day-insights h3{font-size:17px;line-height:1.15}
+  .scoreboard-view-toggle{width:100%}.scoreboard-view-toggle button{flex:1;min-height:36px}
+  .game-day-metrics{grid-template-columns:1fr 1fr;gap:7px}
+  .game-day-metrics article{padding:10px}.game-day-metrics strong{font-size:17px}.game-day-metrics small{font-size:7px}
+  .sunday-spotlight{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;padding:14px;text-align:center}
+  .sunday-spotlight .spotlight-kicker,.sunday-spotlight .spotlight-story,.sunday-spotlight>button{grid-column:1/-1}
+  .sunday-spotlight .spotlight-team{min-width:0;text-align:left}.sunday-spotlight .spotlight-team.opponent{text-align:right}
+  .sunday-spotlight .spotlight-team strong{overflow:hidden;font-size:12px;text-overflow:ellipsis;white-space:nowrap}
+  .sunday-spotlight .spotlight-team b{font-size:27px}.sunday-spotlight .spotlight-versus b{font-size:20px}
+  .primary-win-path{grid-template-columns:44px minmax(0,1fr);padding:12px}
+  .win-path-player .player-headshot{width:44px;height:44px}.primary-win-path .inline-player-link{font-size:15px}
+  .league-win-paths{grid-template-columns:1fr}
+  .on-fire-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;overflow:visible;padding:0;scroll-snap-type:none}
+  .on-fire-grid>button{width:auto;min-width:0;padding:10px;scroll-snap-align:none}
+  .fire-player-visual{width:40px;height:40px}.fire-player-visual .nfl-team-logo{width:32px}.fire-player-visual .player-headshot{width:29px;height:29px}
+  .fire-score>strong{font-size:19px}
+  .game-day-insights{grid-template-columns:1fr;gap:9px}
+  .insight-scroll-window{max-height:190px;padding-right:2px}
+  .rooting-interests article,.sunday-swing article{grid-template-columns:auto minmax(0,1fr) auto;gap:8px}
+  .portfolio-scoreboard-grid,.league-scoreboard-page .scoreboard-grid{grid-template-columns:1fr;gap:9px}
+  .portfolio-score-game,.league-scoreboard-page .score-game{width:100%;border-radius:12px}
+  .portfolio-score-bug{grid-template-columns:1fr 1fr;gap:6px;padding:7px}
+  .portfolio-score-bug .scorebug-probability{grid-column:1/-1;grid-row:1;padding:5px}
+  .portfolio-score-bug>div{grid-row:2;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px;padding:7px}
+  .portfolio-score-bug>div>p{grid-column:1/-1}.portfolio-score-bug>div>b{grid-column:1/-1;font-size:22px}
+  .portfolio-score-scroll{max-height:180px}
+  .need-collapse-toggle{grid-template-columns:minmax(0,1fr) auto;padding:10px}
+  .need-collapse-toggle>em{display:none}.need-collapse-toggle>strong{font-size:8px;text-align:right}
+  .score-game-actions{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:8px}
+  .score-game-actions button{width:100%;min-height:38px;padding:8px;font-size:9px}
+  .league-scoreboard-page .game-stats{grid-template-columns:1fr;padding:10px}
+  .league-scoreboard-page .game-stats section+section{padding:10px 0 0;border-top:1px solid var(--line);border-left:0}
+  .league-scoreboard-page .game-stats section>div{grid-template-columns:30px minmax(0,1fr) auto;gap:8px;padding:9px 0}
+  .league-scoreboard-page .game-stats .player-headshot{width:30px;height:30px}
+  .league-scoreboard-page .game-stats p strong{font-size:10px}.league-scoreboard-page .game-stats p small{font-size:8px}
+  .league-scoreboard-page .game-stats section>div>b{font-size:13px}.league-scoreboard-page .game-stats em{font-size:8px}
+}
+@media(max-width:390px){
+  .portfolio-score-rail>div{grid-template-columns:1fr;max-height:230px}
+  .game-day-metrics{grid-template-columns:1fr}
+  .on-fire-grid{grid-template-columns:1fr}
+  .score-game-actions{grid-template-columns:1fr}
+}

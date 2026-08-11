@@ -13,7 +13,14 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-export const viewport: Viewport = { themeColor: "#073b27" };
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  interactiveWidget: "resizes-visual",
+  themeColor: "#073b27",
+};
 
 export async function generateMetadata(): Promise<Metadata> {
   const requestHeaders = await headers();

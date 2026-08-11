@@ -4423,7 +4423,7 @@ function Scoreboard({
       </div>
     );
   return (
-    <div className="page-content">
+    <div className="page-content league-scoreboard-page">
       <section className="scoreboard-head">
         <div>
           <span>FANTASY SCOREBOARD</span>
