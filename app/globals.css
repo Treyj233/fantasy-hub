@@ -433,6 +433,7 @@ html[data-theme="dark"] .league-pills button.active{color:#fff!important;backgro
 .pro-lock .fh-theme-logo{width:68px;height:68px}
 
 .what-needed article:nth-of-type(5){animation-delay:.28s}
+.what-needed article:nth-of-type(6){animation-delay:.35s}
 
 .portfolio-score-game .score-game-actions{gap:7px;flex-wrap:wrap}.portfolio-score-game .score-game-actions button.secondary{color:var(--green);background:transparent;border:1px solid color-mix(in srgb,var(--green) 55%,var(--line))}.portfolio-score-game .score-game-actions button.secondary:hover{color:#fff;background:var(--green)}
 

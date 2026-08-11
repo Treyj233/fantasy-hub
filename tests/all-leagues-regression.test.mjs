@@ -42,9 +42,9 @@ test("League storytelling and reporting finish the Utilities section", async () 
   assert.ok(source.indexOf('label: "League Stories"') < source.indexOf('label: "Manager Report"'));
 });
 
-test("expanded What Do I Need supports five player targets", async () => {
+test("expanded What Do I Need supports six player targets", async () => {
   const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
-  assert.match(source, /need\.targets\.slice\(0, 5\)/);
+  assert.match(source, /need\.targets\.slice\(0, 6\)/);
 });
 
 test("portfolio Scoreboard exposes a sticky quick-score rail", async () => {
