@@ -1891,6 +1891,23 @@ export default function FantasyHub({
           </div>
         </header>
         <nav className="mobile-nav-strip" aria-label="Quick Fantasy Hub navigation">
+          <button
+            className="mobile-rail-theme"
+            type="button"
+            role="switch"
+            aria-checked={theme === "dark"}
+            aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+            title={theme === "dark" ? "Dark mode" : "Light mode"}
+            onClick={() =>
+              setTheme((current) => {
+                const next = current === "light" ? "dark" : "light";
+                void saveAccountPreferences({ colorMode: next });
+                return next;
+              })
+            }
+          >
+            <i className="nav-badge theme-rail-badge" aria-hidden="true">{theme === "dark" ? "☾" : "☀"}</i>
+          </button>
           {visibleNav.map((item) => (
             <button
               key={item.label}

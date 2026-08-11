@@ -71,9 +71,11 @@ test("mobile navigation provides a sticky badge rail and accessible menu drawer"
   assert.match(source, /className="mobile-menu-toggle"/);
   assert.match(source, /aria-controls="primary-sidebar"/);
   assert.match(source, /className="mobile-nav-strip"/);
+  assert.match(source, /className="mobile-rail-theme"/);
   assert.match(source, /className="mobile-drawer-backdrop"/);
   assert.match(styles, /\.mobile-header-stack\{position:sticky/);
   assert.match(styles, /\.mobile-nav-open \.sidebar\{transform:translateX\(0\)\}/);
+  assert.match(styles, /\.sidebar \.sidebar-bottom[^}]*position:static/);
 });
 
 test("portfolio Scoreboard keeps matchup status in scope", async () => {
