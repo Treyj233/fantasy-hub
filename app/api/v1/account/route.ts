@@ -14,6 +14,7 @@ import {
 } from "../../../../db/schema";
 import { getChatGPTUser } from "../../../chatgpt-auth";
 import { entitlementFor } from "../../../entitlements";
+import { getStripe } from "../../../stripe";
 import { apiError, apiJson } from "../_shared/http";
 
 export async function GET() {
@@ -34,6 +35,16 @@ export async function DELETE(request: Request) {
   if (payload?.confirmation !== "DELETE")
     return apiError("CONFIRMATION_REQUIRED", "Enter DELETE to permanently remove the account.", 400);
   const db = await getDb();
+  const [billing] = await db.select().from(subscriptions).where(eq(subscriptions.userId, user.userId)).limit(1);
+  if (billing?.provider === "stripe" && billing.providerSubscriptionId) {
+    try {
+      const { stripe } = await getStripe();
+      await stripe.subscriptions.cancel(billing.providerSubscriptionId);
+    } catch (error) {
+      console.error("Unable to cancel Stripe subscription during account deletion", error);
+      return apiError("BILLING_CANCELLATION_FAILED", "We could not safely cancel billing. Try again or contact support before deleting your account.", 503);
+    }
+  }
   await db.delete(decisionMemory).where(eq(decisionMemory.userId, user.userId));
   await db.delete(seasonNarrativeSnapshots).where(eq(seasonNarrativeSnapshots.userId, user.userId));
   await db.delete(leagueDataSnapshots).where(eq(leagueDataSnapshots.userId, user.userId));
