@@ -1782,7 +1782,8 @@ export default function FantasyHub({
         </button>
         <div className="brand">
           <span className="brand-logo" aria-hidden="true">
-            <Image src="/fantasy-hub-logo-cropped.png" alt="" width={46} height={46} priority />
+            <span className="brand-logo-fallback">FH</span>
+            <Image src="/fantasy-hub-logo-cropped.png" alt="" width={46} height={46} priority unoptimized />
           </span>
           <div>
             <strong>Fantasy Hub</strong>
@@ -2459,7 +2460,7 @@ function EmptyRoster({
 }
 
 function ProGate({ feature, onUpgrade }: { feature: string; onUpgrade: () => void }) {
-  return <div className="page-content pro-gate-page"><section className="pro-gate panel"><span>FANTASY HUB EXCLUSIVE</span><div className="pro-lock"><Image src="/fantasy-hub-logo-cropped.png" alt="Fantasy Hub" width={74} height={74} /></div><h2>{feature} is a Pro experience.</h2><p>Your leagues, rosters, live scores, matchups, rankings, waiver pool, and Start/Sit tools remain free. Pro unlocks Fantasy Hub’s proprietary simulations, advanced analysis, decision memory, stories, and trade intelligence.</p><button onClick={onUpgrade}>Explore Fantasy Hub Pro →</button><small>Platform connection is not what you pay for. Pro is built around Fantasy Hub’s original models and experience.</small></section></div>;
+  return <div className="page-content pro-gate-page"><section className="pro-gate panel"><span>FANTASY HUB EXCLUSIVE</span><div className="pro-lock"><span className="brand-logo-fallback">FH</span><Image src="/fantasy-hub-logo-cropped.png" alt="Fantasy Hub" width={74} height={74} unoptimized /></div><h2>{feature} is a Pro experience.</h2><p>Your leagues, rosters, live scores, matchups, rankings, waiver pool, and Start/Sit tools remain free. Pro unlocks Fantasy Hub’s proprietary simulations, advanced analysis, decision memory, stories, and trade intelligence.</p><button onClick={onUpgrade}>Explore Fantasy Hub Pro →</button><small>Platform connection is not what you pay for. Pro is built around Fantasy Hub’s original models and experience.</small></section></div>;
 }
 
 function ProPlans({ entitlement }: { entitlement: AccountEntitlement }) {
