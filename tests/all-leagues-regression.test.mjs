@@ -80,6 +80,11 @@ test("mobile navigation provides a sticky badge rail and accessible menu drawer"
   assert.match(styles, /\.sidebar \.sidebar-bottom[^}]*position:static/);
 });
 
+test("Start Sit separates position and matchup badges", async () => {
+  const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  assert.match(styles, /\.start-sit-option \.compare-card>\.matchup-team\{margin-top:12px\}/);
+});
+
 test("portfolio Scoreboard keeps matchup status in scope", async () => {
   const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
   const start = source.indexOf("function AllLeagueScoreboard(");
