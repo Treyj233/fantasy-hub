@@ -3711,7 +3711,7 @@ function AllLeagues({
                   <p><span>{priority} · {scan.league.name} · {issue.category}</span><strong>{issue.title}</strong><small>{issue.detail}</small></p>
                   <div className="portfolio-action-buttons">
                     <button onClick={() => void onOpen(scan.league, actionView(issue.category))}>Review in Hub</button>
-                    <a className="platform-link" href={platformLeagueUrl(scan.league)} onClick={(event) => openSleeperLeagueOnMobile(event, scan.league.sourceId ?? scan.league.id, scan.league.provider)} target="_blank" rel="noopener noreferrer" aria-label={`Open league in ${scan.league.provider === "espn" ? "ESPN" : "Sleeper"} (opens in a new tab)`}><PlatformLogo provider={scan.league.provider === "espn" ? "ESPN" : "Sleeper"} /><span>Open</span><b aria-hidden="true">↗</b></a>
+                    <a className="platform-link" href={platformLeagueUrl(scan.league)} onClick={(event) => openSleeperLeagueOnMobile(event, scan.league.sourceId ?? scan.league.id, scan.league.provider)} target="_blank" rel="noopener noreferrer" aria-label={`Open league in ${scan.league.provider === "espn" ? "ESPN" : "Sleeper"} (opens in a new tab)`}><PlatformLogo provider={scan.league.provider === "espn" ? "ESPN" : "Sleeper"} /><span>{scan.league.provider === "espn" ? "Open ESPN" : "Open Sleeper"}</span><b aria-hidden="true">↗</b></a>
                   </div>
                 </article>
               ))}
