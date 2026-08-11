@@ -1916,12 +1916,16 @@ export default function FantasyHub({
               <button
                 className="account-theme-customizer"
                 type="button"
+                aria-label="Open Theme Customizer"
                 onClick={() => {
                   setView("Manage Leagues");
                   window.setTimeout(() => document.getElementById("hub-appearance")?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
                 }}
               >
-                Theme Customizer
+                <i className="theme-customizer-art" aria-hidden="true"><span /><span /><span /></i>
+                <span className="theme-customizer-copy"><strong>Theme Customizer</strong><small>Make the Hub yours</small></span>
+                {!entitlement.pro && <b>PRO</b>}
+                <em aria-hidden="true">›</em>
               </button>
             </div>
           </div>
