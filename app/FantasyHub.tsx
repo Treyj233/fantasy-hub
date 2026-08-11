@@ -2000,8 +2000,13 @@ export default function FantasyHub({
           <AllLeagues
             leagues={availableLeagues}
             cachedScans={portfolioScans}
+            isPro={entitlement.pro}
             onScansChange={setPortfolioScans}
             onManage={() => setView("Manage Leagues")}
+            onPersonalize={() => {
+              setView("Manage Leagues");
+              window.setTimeout(() => document.getElementById("hub-appearance")?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+            }}
             onOpen={async (league, destination = "Command Center") => {
               await openConnectedLeague(league);
               if (destination === "Scoreboard") setScoreboardScope("league");
@@ -2557,7 +2562,7 @@ function ManageLeagues({
           <span>LEAGUES & ACCOUNTS</span>
         </div>
       </section>
-      <section className={`appearance-panel panel ${isPro ? "" : "appearance-pro-locked"}`}>
+      <section id="hub-appearance" className={`appearance-panel panel ${isPro ? "" : "appearance-pro-locked"}`}>
         <div className="panel-header">
           <div>
             <span>PERSONALIZE YOUR HUB</span>
@@ -2973,14 +2978,18 @@ function leagueIssueIcon(category: string, title = "") {
 function AllLeagues({
   leagues,
   cachedScans,
+  isPro,
   onOpen,
   onManage,
+  onPersonalize,
   onScansChange,
 }: {
   leagues: ConnectedLeague[];
   cachedScans: LeagueScan[];
+  isPro: boolean;
   onOpen: (league: ConnectedLeague, destination?: View) => Promise<void>;
   onManage: () => void;
+  onPersonalize: () => void;
   onScansChange: (scans: LeagueScan[]) => void;
 }) {
   const openPlayer = useContext(PlayerOpenContext);
@@ -3467,12 +3476,18 @@ function AllLeagues({
             decisions to the top.
           </p>
         </div>
-        <button
-          onClick={() => setRefreshKey((value) => value + 1)}
-          disabled={loading}
-        >
-          {loading ? "Scanning…" : "Refresh all leagues"}
-        </button>
+        <div className="mission-hero-actions">
+          <button className="personalize-hub" onClick={onPersonalize}>
+            Personalize Your Hub
+            {!isPro && <b>PRO</b>}
+          </button>
+          <button
+            onClick={() => setRefreshKey((value) => value + 1)}
+            disabled={loading}
+          >
+            {loading ? "Scanning…" : "Refresh all leagues"}
+          </button>
+        </div>
       </section>
       <section className="all-league-metrics">
         <article>

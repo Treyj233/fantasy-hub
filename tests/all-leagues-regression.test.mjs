@@ -21,6 +21,10 @@ test("All Leagues is presented as Mission Hub", async () => {
   assert.match(source, /label: "All Leagues", displayLabel: "Mission Hub"/);
   assert.match(source, /<span>MISSION HUB<\/span>/);
   assert.match(source, /<h1>\{viewTitle\}<\/h1>/);
+  assert.match(source, /Personalize Your Hub/);
+  assert.match(source, /!isPro && <b>PRO<\/b>/);
+  assert.match(source, /id="hub-appearance"/);
+  assert.match(source, /scrollIntoView\(\{ behavior: "smooth", block: "start" \}\)/);
 });
 
 test("portfolio Scoreboard keeps matchup status in scope", async () => {
