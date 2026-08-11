@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { getDb } from "../../../../db";
 import { userPreferences } from "../../../../db/schema";
 import { getChatGPTUser } from "../../../chatgpt-auth";
+import { entitlementFor } from "../../../entitlements";
 
 const teamIds = new Set(["ARI","ATL","BAL","BUF","CAR","CHI","CIN","CLE","DAL","DEN","DET","GB","HOU","IND","JAX","KC","LV","LAC","LAR","MIA","MIN","NE","NO","NYG","NYJ","PHI","PIT","SF","SEA","TB","TEN","WSH"]);
 const badgeThemes = new Set(["arcade", "team", "neon", "minimal"]);
@@ -14,14 +15,17 @@ export async function POST(request: Request) {
   if (payload.teamTheme && !teamIds.has(payload.teamTheme)) return Response.json({ error: "Invalid team theme" }, { status: 400 });
   if (payload.badgeTheme && !badgeThemes.has(payload.badgeTheme)) return Response.json({ error: "Invalid badge theme" }, { status: 400 });
   const db = await getDb();
-  const [current] = await db.select().from(userPreferences).where(eq(userPreferences.userId, user.userId)).limit(1);
+  const [[current], entitlement] = await Promise.all([
+    db.select().from(userPreferences).where(eq(userPreferences.userId, user.userId)).limit(1),
+    entitlementFor(user.userId),
+  ]);
   const now = new Date().toISOString();
   const values = {
     userId: user.userId,
     email: user.email,
     colorMode: payload.colorMode ?? current?.colorMode ?? "light",
-    teamTheme: payload.teamTheme ?? current?.teamTheme ?? "GB",
-    badgeTheme: payload.badgeTheme ?? current?.badgeTheme ?? "arcade",
+    teamTheme: entitlement.pro ? payload.teamTheme ?? current?.teamTheme ?? "GB" : "GB",
+    badgeTheme: entitlement.pro ? payload.badgeTheme ?? current?.badgeTheme ?? "arcade" : "arcade",
     leagueOrderJson: payload.leagueOrder ? JSON.stringify(payload.leagueOrder.slice(0, 100)) : current?.leagueOrderJson ?? "[]",
     onboardingCompletedAt: payload.completeOnboarding ? current?.onboardingCompletedAt ?? now : current?.onboardingCompletedAt ?? null,
     updatedAt: now,

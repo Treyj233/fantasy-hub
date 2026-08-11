@@ -1194,6 +1194,8 @@ export default function FantasyHub({
   const [theme, setTheme] = useState<Theme>("light");
   const [teamTheme, setTeamTheme] = useState("GB");
   const [badgeTheme, setBadgeTheme] = useState<BadgeTheme>("arcade");
+  const effectiveTeamTheme = entitlement.pro ? teamTheme : "GB";
+  const effectiveBadgeTheme: BadgeTheme = entitlement.pro ? badgeTheme : "arcade";
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [draggedLeagueId, setDraggedLeagueId] = useState("");
   const [leagueDropTarget, setLeagueDropTarget] = useState<{
@@ -1205,13 +1207,9 @@ export default function FantasyHub({
 
   useEffect(() => {
     const savedTheme = window.localStorage.getItem("fantasy-hub-theme");
-    const savedTeamTheme = window.localStorage.getItem(
-      "fantasy-hub-team-theme",
-    );
     const savedSidebarState = window.localStorage.getItem(
       "fantasy-hub-sidebar-collapsed",
     );
-    const savedBadgeTheme = window.localStorage.getItem("fantasy-hub-badge-theme") as BadgeTheme | null;
     const initialTheme: Theme =
       savedTheme === "light" || savedTheme === "dark"
         ? savedTheme
@@ -1221,12 +1219,6 @@ export default function FantasyHub({
     const timer = window.setTimeout(() => {
       setTheme(initialTheme);
       setSidebarCollapsed(savedSidebarState === "true");
-      if (["arcade", "team", "neon", "minimal"].includes(savedBadgeTheme ?? "")) setBadgeTheme(savedBadgeTheme!);
-      if (
-        savedTeamTheme &&
-        nflThemes.some((team) => team.id === savedTeamTheme)
-      )
-        setTeamTheme(savedTeamTheme);
     }, 0);
     return () => window.clearTimeout(timer);
   }, []);
@@ -1240,7 +1232,7 @@ export default function FantasyHub({
   useEffect(() => {
     const root = document.documentElement;
     const selectedTheme =
-      nflThemes.find((team) => team.id === teamTheme) ??
+      nflThemes.find((team) => team.id === effectiveTeamTheme) ??
       nflThemes.find((team) => team.id === "GB")!;
     const primaryColor = selectedTheme.primary;
     const secondaryBrightness =
@@ -1266,12 +1258,12 @@ export default function FantasyHub({
     window.localStorage.setItem("fantasy-hub-team-theme", selectedTheme.id);
     window.localStorage.removeItem("fantasy-hub-primary");
     window.localStorage.removeItem("fantasy-hub-secondary");
-  }, [teamTheme]);
+  }, [effectiveTeamTheme]);
 
   useEffect(() => {
-    document.documentElement.dataset.badgeTheme = badgeTheme;
-    window.localStorage.setItem("fantasy-hub-badge-theme", badgeTheme);
-  }, [badgeTheme]);
+    document.documentElement.dataset.badgeTheme = effectiveBadgeTheme;
+    window.localStorage.setItem("fantasy-hub-badge-theme", effectiveBadgeTheme);
+  }, [effectiveBadgeTheme]);
 
   useEffect(() => {
     if (!accountUser) return;
@@ -1285,14 +1277,17 @@ export default function FantasyHub({
           entitlement?: AccountEntitlement;
         };
         setConnection(data.connection ?? null);
-        setEntitlement(data.entitlement ?? { plan: "free", status: "inactive", pro: false, currentPeriodEnd: null });
+        const nextEntitlement = data.entitlement ?? { plan: "free" as const, status: "inactive", pro: false, currentPeriodEnd: null };
+        setEntitlement(nextEntitlement);
         if (data.preferences) {
           setTheme(data.preferences.colorMode);
-          setTeamTheme(data.preferences.teamTheme);
-          setBadgeTheme(data.preferences.badgeTheme);
+          const effectiveTeamTheme = nextEntitlement.pro ? data.preferences.teamTheme : "GB";
+          const effectiveBadgeTheme = nextEntitlement.pro ? data.preferences.badgeTheme : "arcade";
+          setTeamTheme(effectiveTeamTheme);
+          setBadgeTheme(effectiveBadgeTheme);
           window.localStorage.setItem("fantasy-hub-theme", data.preferences.colorMode);
-          window.localStorage.setItem("fantasy-hub-team-theme", data.preferences.teamTheme);
-          window.localStorage.setItem("fantasy-hub-badge-theme", data.preferences.badgeTheme);
+          window.localStorage.setItem("fantasy-hub-team-theme", effectiveTeamTheme);
+          window.localStorage.setItem("fantasy-hub-badge-theme", effectiveBadgeTheme);
           window.localStorage.setItem("fantasy-hub-league-order", data.preferences.leagueOrderJson);
           setNeedsOnboarding(!data.preferences.onboardingCompletedAt);
         } else {
@@ -1689,7 +1684,7 @@ export default function FantasyHub({
   if (!accountUser) return <SignInScreen />;
   if (accountLoading) return <AccountLoading />;
   if (needsOnboarding)
-    return <AccountOnboarding displayName={accountUser.displayName} colorMode={theme} teamTheme={teamTheme} badgeTheme={badgeTheme} isPro={entitlement.pro} onColorMode={setTheme} onTeamTheme={setTeamTheme} onBadgeTheme={setBadgeTheme} onComplete={() => void saveAccountPreferences({}, true)} />;
+    return <AccountOnboarding displayName={accountUser.displayName} colorMode={theme} teamTheme={effectiveTeamTheme} badgeTheme={effectiveBadgeTheme} isPro={entitlement.pro} onColorMode={setTheme} onTeamTheme={setTeamTheme} onBadgeTheme={setBadgeTheme} onComplete={() => void saveAccountPreferences({}, true)} />;
   return (
     <ProjectionPlatformContext.Provider value={leaguePlatform}>
     <PlayerOpenContext.Provider value={setSelectedPlayer}>
@@ -2145,9 +2140,9 @@ export default function FantasyHub({
             connectedLeagues={availableLeagues}
             managedLeagues={managedLeagues}
             accountError={accountError}
-            teamTheme={teamTheme}
+            teamTheme={effectiveTeamTheme}
             onTeamThemeChange={(value) => { setTeamTheme(value); void saveAccountPreferences({ teamTheme: value }); }}
-            badgeTheme={badgeTheme}
+            badgeTheme={effectiveBadgeTheme}
             isPro={entitlement.pro}
             onUpgrade={() => setView("Fantasy Hub Pro")}
             onBadgeThemeChange={(value) => { setBadgeTheme(value); void saveAccountPreferences({ badgeTheme: value }); }}

@@ -19,10 +19,15 @@ export async function GET(request: Request) {
     db.select().from(managedLeagues).where(eq(managedLeagues.userId, user.userId)).orderBy(desc(managedLeagues.updatedAt)),
     entitlementFor(user.userId),
   ]);
+  const effectivePreferences = preferences ? {
+    ...preferences,
+    teamTheme: entitlement.pro ? preferences.teamTheme : "GB",
+    badgeTheme: entitlement.pro ? preferences.badgeTheme : "arcade",
+  } : null;
   return apiJson({
     user: { id: user.userId, displayName: user.displayName, email: user.email },
     connection: connection ?? null,
-    preferences: preferences ?? null,
+    preferences: effectivePreferences,
     leagues,
     entitlement,
     serverTime: new Date().toISOString(),

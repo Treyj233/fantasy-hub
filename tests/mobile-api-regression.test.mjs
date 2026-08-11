@@ -65,3 +65,17 @@ test("free tools retain manual utility while proprietary controls require Pro", 
   assert.match(dashboard, /DashboardPreview type="trade"/);
   assert.match(dashboard, /DashboardPreview type="start"/);
 });
+
+test("free accounts are forced to the base green appearance on client and server", async () => {
+  const [dashboard, preferencesRoute, accountRoute, bootstrapRoute] = await Promise.all([
+    readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/account/preferences/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/account/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/v1/bootstrap/route.ts", import.meta.url), "utf8"),
+  ]);
+  assert.match(dashboard, /const effectiveTeamTheme = entitlement\.pro \? teamTheme : "GB"/);
+  assert.match(dashboard, /const effectiveBadgeTheme: BadgeTheme = entitlement\.pro \? badgeTheme : "arcade"/);
+  assert.match(preferencesRoute, /entitlement\.pro \? payload\.teamTheme[\s\S]*: "GB"/);
+  assert.match(accountRoute, /teamTheme: entitlement\.pro \? preferences\.teamTheme : "GB"/);
+  assert.match(bootstrapRoute, /badgeTheme: entitlement\.pro \? preferences\.badgeTheme : "arcade"/);
+});

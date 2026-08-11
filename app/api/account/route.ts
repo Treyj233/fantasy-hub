@@ -13,7 +13,12 @@ export async function GET() {
     db.select().from(userPreferences).where(eq(userPreferences.userId, user.userId)).limit(1),
     entitlementFor(user.userId),
   ]);
-  return Response.json({ user: { displayName: user.displayName, email: user.email }, connection: connection ?? null, preferences: preferences ?? null, entitlement });
+  const effectivePreferences = preferences ? {
+    ...preferences,
+    teamTheme: entitlement.pro ? preferences.teamTheme : "GB",
+    badgeTheme: entitlement.pro ? preferences.badgeTheme : "arcade",
+  } : null;
+  return Response.json({ user: { displayName: user.displayName, email: user.email }, connection: connection ?? null, preferences: effectivePreferences, entitlement });
 }
 
 export async function POST(request: Request) {
