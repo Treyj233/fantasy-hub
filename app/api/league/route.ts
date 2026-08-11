@@ -56,11 +56,11 @@ export async function GET(request: Request) {
   if (!id || !/^\d{6,24}$/.test(id)) return Response.json({ error: "Invalid league ID" }, { status: 400 });
   try {
     const [leagueResponse, rostersResponse, usersResponse, playersResponse, tradedPicksResponse] = await Promise.all([
-      fetchCachedUpstream(`https://api.sleeper.app/v1/league/${id}`, 300),
-      fetchCachedUpstream(`https://api.sleeper.app/v1/league/${id}/rosters`, 300),
-      fetchCachedUpstream(`https://api.sleeper.app/v1/league/${id}/users`, 300),
+      fetch(`https://api.sleeper.app/v1/league/${id}`, { cache: "no-store" }),
+      fetch(`https://api.sleeper.app/v1/league/${id}/rosters`, { cache: "no-store" }),
+      fetch(`https://api.sleeper.app/v1/league/${id}/users`, { cache: "no-store" }),
       fetchCachedUpstream("https://api.sleeper.app/v1/players/nfl", 86400),
-      fetchCachedUpstream(`https://api.sleeper.app/v1/league/${id}/traded_picks`, 300).catch(() => null),
+      fetch(`https://api.sleeper.app/v1/league/${id}/traded_picks`, { cache: "no-store" }).catch(() => null),
     ]);
     if (!leagueResponse.ok || !rostersResponse.ok || !usersResponse.ok || !playersResponse.ok) throw new Error("League unavailable");
     const league = await leagueResponse.json() as { name?: string; status?: string; total_rosters?: number; season?: string; leg?: number; roster_positions?: string[]; scoring_settings?: Record<string, number>; settings?: { type?: number; draft_rounds?: number } };
@@ -75,7 +75,7 @@ export async function GET(request: Request) {
     const isDynasty = league.settings?.type === 2;
     const [projectionResponse, matchupResponse, adpResponse, sleeperAdpResponse] = await Promise.all([
       fetchCachedUpstream(`https://api.sleeper.com/projections/nfl/${league.season ?? new Date().getUTCFullYear()}/${projectionWeek}?season_type=regular`, 3600).catch(() => null),
-      fetchCachedUpstream(`https://api.sleeper.app/v1/league/${id}/matchups/${projectionWeek}`, 60).catch(() => null),
+      fetch(`https://api.sleeper.app/v1/league/${id}/matchups/${projectionWeek}`, { cache: "no-store" }).catch(() => null),
       isDynasty ? Promise.resolve(null) : fetchCachedUpstream(`https://www.fantasypros.com/nfl/adp/${adpPath}.php`, 21600, { headers: { "User-Agent": "Fantasy Hub ADP comparison" } }).catch(() => null),
       fetchCachedUpstream(`https://api.sleeper.com/projections/nfl/${league.season ?? new Date().getUTCFullYear()}?season_type=regular&order_by=adp_ppr`, 21600).catch(() => null),
     ]);

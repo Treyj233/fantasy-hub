@@ -30,6 +30,8 @@ test("launch traffic is bounded and public provider data is edge cached", async 
   assert.match(client, /document\.visibilityState === "visible"/);
   assert.match(scoreboard, /fetchCachedUpstream/);
   assert.match(league, /fetchCachedUpstream/);
+  assert.match(scoreboard, /matchups\/\$\{week\}[^\n]+cache: "no-store"/);
+  assert.match(league, /traded_picks[^\n]+cache: "no-store"/);
   assert.match(cache, /cacheEverything: true/);
   assert.match(cache, /"500-599": 0/);
   assert.match(loadTest, /target: 250/);
