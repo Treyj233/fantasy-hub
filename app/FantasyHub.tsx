@@ -4178,21 +4178,39 @@ function AllLeagueScoreboard({
     return (item.status === "live" ? 100 : item.status === "pre" ? 20 : -40) + Math.max(0, 40 - projectedMargin) + probabilityDrama;
   };
   const featured = [...gameDay.matchups].sort((a, b) => dramaScore(b) - dramaScore(a))[0];
-  const leagueWinPaths = gameDay.matchups.flatMap((item) => {
+  const winPathCandidates = gameDay.matchups.flatMap((item) => {
     if (item.status === "final") return [];
     const need = whatDoINeed({ yourPoints: item.mine.points, opponentPoints: item.opponent.points, opponentRemaining: item.opponentRemaining, players: item.mineStarters, scoring: item.data.league.scoring ?? {} });
-    const activeTarget = need.targets.find((target) => target.points > 0 && target.projection != null && target.projection > target.points);
-    const target = activeTarget ?? need.targets[0];
-    if (!target) return [];
-    const importance = (item.status === "live" ? 35 : 10) + (100 - Math.abs((item.winProbability ?? 50) - 50)) + Math.min(35, target.pointsNeeded * 1.5);
-    return [{ league: item.league, target, need, winProbability: item.winProbability, status: item.status, importance }];
+    const activeTargets = need.targets.filter((target) => target.projection == null || target.projection > target.points);
+    return (activeTargets.length ? activeTargets : need.targets).map((target, targetIndex) => ({
+      league: item.league,
+      target,
+      need,
+      winProbability: item.winProbability,
+      status: item.status,
+      importance: (item.status === "live" ? 35 : 10) + (100 - Math.abs((item.winProbability ?? 50) - 50)) + Math.min(35, target.pointsNeeded * 1.5) - targetIndex * 3,
+    }));
   }).sort((a, b) => b.importance - a.importance);
-  const mostImportantPath = leagueWinPaths[0];
-  const mostImportantLeagues = mostImportantPath ? leagueWinPaths.filter((item) => item.target.id === mostImportantPath.target.id) : [];
-  const secondaryWinPaths = leagueWinPaths
-    .filter((item) => item.target.id !== mostImportantPath?.target.id)
-    .filter((item, index, items) => items.findIndex((candidate) => candidate.target.id === item.target.id) === index)
-    .slice(0, 8);
+  const selectedWinPaths: typeof winPathCandidates = [];
+  const selectedPlayerIds = new Set<string>();
+  const selectedLeagueIds = new Set<string>();
+  for (const candidate of winPathCandidates) {
+    if (selectedLeagueIds.has(candidate.league.id) || selectedPlayerIds.has(candidate.target.id)) continue;
+    selectedWinPaths.push(candidate);
+    selectedLeagueIds.add(candidate.league.id);
+    selectedPlayerIds.add(candidate.target.id);
+    if (selectedWinPaths.length === 5) break;
+  }
+  for (const candidate of winPathCandidates) {
+    if (selectedWinPaths.length === 5) break;
+    if (selectedPlayerIds.has(candidate.target.id) || selectedWinPaths.some((item) => item.league.id === candidate.league.id && item.target.id === candidate.target.id)) continue;
+    selectedWinPaths.push(candidate);
+    selectedPlayerIds.add(candidate.target.id);
+  }
+  selectedWinPaths.sort((a, b) => b.importance - a.importance);
+  const mostImportantPath = selectedWinPaths[0];
+  const mostImportantLeagues = mostImportantPath ? winPathCandidates.filter((item) => item.target.id === mostImportantPath.target.id).filter((item, index, items) => items.findIndex((candidate) => candidate.league.id === item.league.id) === index) : [];
+  const secondaryWinPaths = selectedWinPaths.slice(1, 5);
   const matchupByLeague = new Map(gameDay.matchups.map((item) => [item.league.id, item]));
   const orderedLeagues = viewMode === "drama"
     ? [...leagues].sort((a, b) => dramaScore(matchupByLeague.get(b.id)) - dramaScore(matchupByLeague.get(a.id)))
@@ -4284,7 +4302,7 @@ function AllLeagueScoreboard({
         <button type="button" onClick={() => void onOpenLeague(featured.league)}>Watch matchup →</button>
       </section>}
       <section className="portfolio-win-path panel">
-        <header><div><span>WHAT DO I NEED?</span><h3>Your most important live win paths</h3><small>One consequential remaining starter per league, prioritized by matchup leverage.</small></div><b>{leagueWinPaths.length} ACTIVE PATH{leagueWinPaths.length === 1 ? "" : "S"}</b></header>
+        <header><div><span>WHAT DO I NEED?</span><h3>Your most important live win paths</h3><small>One consequential starter per league first, then the next-highest leverage players until five paths are filled.</small></div><b>{selectedWinPaths.length} ACTIVE PATH{selectedWinPaths.length === 1 ? "" : "S"}</b></header>
         {mostImportantPath ? <><div className="primary-win-path"><div className="win-path-player"><PlayerHeadshot id={mostImportantPath.target.id} position={mostImportantPath.target.position} /><i>★</i></div><p><span>MOST IMPORTANT RIGHT NOW</span><button className="inline-player-link" onClick={() => openPlayer(playerShell(mostImportantPath.target))}>{mostImportantPath.target.name}</button><small>{mostImportantPath.need.message} {mostImportantPath.target.name} carries the largest current share of the path.</small><span className="win-path-leagues">{mostImportantLeagues.map((item) => <b key={`${item.league.id}-${item.target.id}`}>{item.league.name} · {item.target.pointsNeeded.toFixed(1)} needed</b>)}</span></p><div><strong>{mostImportantPath.target.pointsNeeded.toFixed(1)}</strong><small>MORE PTS</small><span><i style={{ width: `${mostImportantPath.target.progress}%` }} /></span><em>{mostImportantPath.target.statLine}</em></div></div><div className="league-win-paths">{secondaryWinPaths.map((item) => <article key={`${item.league.id}-${item.target.id}`}><span className={item.status === "live" ? "live" : "upcoming"}>{item.status === "live" ? "● LIVE" : "UP NEXT"}</span><PlayerHeadshot id={item.target.id} position={item.target.position} /><p><strong>{item.league.name}</strong><button className="inline-player-link" onClick={() => openPlayer(playerShell(item.target))}>{item.target.name}</button><small>{item.target.pointsNeeded.toFixed(1)} more points · {item.winProbability ?? "—"}% win chance</small><span className="mini-win-progress"><i style={{ width: `${item.target.progress}%` }} /></span></p><b>{item.target.progress}%</b></article>)}</div></> : <p className="game-day-empty">A portfolio-wide win path will appear when connected matchups have remaining projected starters.</p>}
       </section>
       <section className="on-fire-board panel" data-visual-source={displayedOnFire === preKickoffOnFire && displayedOnFire.length ? "pre-kickoff" : "observed"}>

@@ -47,6 +47,14 @@ test("expanded What Do I Need supports six player targets", async () => {
   assert.match(source, /need\.targets\.slice\(0, 6\)/);
 });
 
+test("portfolio What Do I Need fills five unique active paths", async () => {
+  const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
+  assert.match(source, /selectedWinPaths\.length === 5/);
+  assert.match(source, /selectedPlayerIds\.has\(candidate\.target\.id\)/);
+  assert.match(source, /secondaryWinPaths = selectedWinPaths\.slice\(1, 5\)/);
+  assert.match(source, /\{selectedWinPaths\.length\} ACTIVE PATH/);
+});
+
 test("portfolio Scoreboard exposes a sticky quick-score rail", async () => {
   const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
   assert.match(source, /className="portfolio-score-rail"/);
