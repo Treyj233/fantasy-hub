@@ -432,3 +432,5 @@ html[data-theme="dark"] .league-pills button.active{color:#fff!important;backgro
 
 /* Mission Hub actions */
 .mission-hero-actions{display:flex;align-items:center;justify-content:flex-end;gap:10px;flex-wrap:wrap}.all-leagues-hero .mission-hero-actions .personalize-hub{display:flex;align-items:center;gap:8px;color:#fff;background:#ffffff14;border-color:#ffffff70;backdrop-filter:blur(8px)}.all-leagues-hero .mission-hero-actions .personalize-hub b{padding:4px 6px;color:var(--deep);background:var(--gold-light);border-radius:6px;font-size:8px;letter-spacing:.09em}@media(max-width:700px){.mission-hero-actions{align-items:stretch;flex-direction:column;margin-top:18px}.all-leagues-hero .mission-hero-actions button{margin-top:0}}
+
+.topbar .pro-top-action{display:flex;align-items:center;gap:8px}.topbar .pro-top-action b{padding:3px 5px;color:#fff;background:var(--deep);border-radius:5px;font-size:7px;letter-spacing:.08em}

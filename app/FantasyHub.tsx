@@ -571,11 +571,11 @@ type LeagueScan = {
   }[];
 };
 
-type NavGroup = "Portfolio" | "Live" | "Team Management" | "League Insights";
+type NavGroup = "Portfolio" | "Live" | "Team Management" | "League Insights" | "Utilities";
 const nav: { label: View; displayLabel?: string; mark: string; tone: string; group: NavGroup }[] = [
   { label: "All Leagues", displayLabel: "Mission Hub", mark: "◆", tone: "violet", group: "Portfolio" },
   { label: "Manage Leagues", mark: "⚙", tone: "slate", group: "Portfolio" },
-  { label: "Fantasy Hub Pro", displayLabel: "Fantasy Hub Pro", mark: "P", tone: "gold", group: "Portfolio" },
+  { label: "Fantasy Hub Pro", displayLabel: "Manage Plans", mark: "P", tone: "gold", group: "Utilities" },
   { label: "Command Center", mark: "★", tone: "amber", group: "Team Management" },
   { label: "My Team", mark: "♟", tone: "blue", group: "Team Management" },
   { label: "Start / Sit", mark: "⚡", tone: "orange", group: "Team Management" },
@@ -1761,7 +1761,7 @@ export default function FantasyHub({
           </small>
         </div>
         <nav aria-label="Fantasy Hub sections">
-          {(["Portfolio", "Live", "Team Management", "League Insights"] as NavGroup[]).map((group) => (
+          {(["Portfolio", "Live", "Team Management", "League Insights", "Utilities"] as NavGroup[]).map((group) => (
             <div className="nav-group" key={group}>
               <span>{group}</span>
               {visibleNav.filter((item) => item.group === group).map((item) => (
@@ -1835,8 +1835,8 @@ export default function FantasyHub({
                 <b aria-hidden="true">↗</b>
               </a>
             )}
-            <button className="ghost season-roll" onClick={() => setView("Simulator")}>
-              Sim the season 🎲
+            <button className="ghost season-roll pro-top-action" onClick={() => setView("Fantasy Hub Pro")}>
+              Fantasy Hub Pro <b>PRO</b>
             </button>
             <a
               className="account-chip"

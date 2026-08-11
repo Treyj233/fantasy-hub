@@ -27,6 +27,14 @@ test("All Leagues is presented as Mission Hub", async () => {
   assert.match(source, /scrollIntoView\(\{ behavior: "smooth", block: "start" \}\)/);
 });
 
+test("Pro billing navigation lives in Utilities and replaces the simulator shortcut", async () => {
+  const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
+  assert.match(source, /displayLabel: "Manage Plans"[^\n]+group: "Utilities"/);
+  assert.match(source, /"League Insights", "Utilities"/);
+  assert.match(source, /pro-top-action[^\n]+setView\("Fantasy Hub Pro"\)/);
+  assert.doesNotMatch(source, /season-roll" onClick=\{\(\) => setView\("Simulator"\)\}/);
+});
+
 test("portfolio Scoreboard keeps matchup status in scope", async () => {
   const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
   const start = source.indexOf("function AllLeagueScoreboard(");
