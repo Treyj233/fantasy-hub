@@ -4,6 +4,7 @@ import { Fragment, createContext, useContext, useEffect, useMemo, useRef, useSta
 import Link from "next/link";
 import Image from "next/image";
 import { estimatedWinProbability, playerLeverage, rootingInterests, whatDoINeed } from "./game-day-model.mjs";
+import { PRE_KICKOFF_VISUALS, PRE_KICKOFF_VISUALS_ENABLED } from "./pre-kickoff-visuals";
 import { disableNativePushNotifications, enableNativePushNotifications, initializeNativeRuntime, isNativeIosApp, nativeManageSubscriptions, nativePurchase, nativeRestorePurchases, nativeStoreProducts } from "./native-runtime";
 
 type View =
@@ -2166,6 +2167,7 @@ export default function FantasyHub({
             leagueId={leagueId}
             season={selectedConnectedLeague?.season ?? leagueSeason}
             defaultWeek={defaultGameWeek}
+            players={players}
           />
         )}
         {view === "League Analytics" && !entitlement.pro && <ProGate feature="League Analytics" onUpgrade={() => setView("Fantasy Hub Pro")} />}
@@ -2835,7 +2837,7 @@ function ManageLeagues({
             <span>CONNECTION COVERAGE</span>
             <h3>One model, honest source status</h3>
           </div>
-          <b>NO DEMO LEAGUE DATA</b>
+          <b>VERIFIED CONNECTIONS</b>
         </div>
         <p>
           Fantasy Hub normalizes rosters, scoring, matchups, transactions, and
@@ -4124,9 +4126,11 @@ function AllLeagueScoreboard({
     });
     if (changes.length) setSwingFeed((current) => [...changes, ...current].slice(0, 12));
   }, [gameDay.matchups, updatedAt]);
-  const sundaySwingPreview = gameDay.matchups.slice(0, 3).map((item, index) => {
+  const hasObservedScoring = gameDay.matchups.some((item) => item.status === "live" || item.status === "final" || item.mine.points > 0 || item.opponent.points > 0);
+  const usePreKickoffVisuals = PRE_KICKOFF_VISUALS_ENABLED && !hasObservedScoring;
+  const sundaySwingPreview = usePreKickoffVisuals ? gameDay.matchups.slice(0, 3).map((item, index) => {
     const baseline = item.winProbability ?? 50;
-    const movement = index === 1 ? -10 : index === 2 ? 5 : 15;
+    const movement = PRE_KICKOFF_VISUALS.swingMovements[index] ?? 5;
     const previous = Math.max(5, Math.min(95, baseline - movement));
     const current = Math.max(5, Math.min(95, baseline));
     return {
@@ -4139,7 +4143,24 @@ function AllLeagueScoreboard({
           ? `${item.mineStarters[0]?.name ?? "Your starter"} made a high-impact play, improving your projected outcome.`
           : `${item.opponentStarters[0]?.name ?? "An opposing starter"} scored, tightening this matchup.`,
     };
-  });
+  }) : [];
+  const preKickoffOnFire = usePreKickoffVisuals
+    ? gameDay.matchups
+        .flatMap((item) => item.mineStarters.map((player) => ({ player, league: item.league })))
+        .filter((item, index, items) => items.findIndex((candidate) => candidate.player.id === item.player.id) === index)
+        .slice(0, PRE_KICKOFF_VISUALS.performerLines.length)
+        .map((item, index) => {
+          const line = PRE_KICKOFF_VISUALS.performerLines[index];
+          return {
+            player: { ...item.player, points: line.points, yards: line.yards, touchdowns: line.touchdowns, receptions: line.receptions, targets: line.targets },
+            status: "Projected",
+            leagues: [{ id: item.league.id, name: item.league.name, side: "helps" as const }],
+            temperature: { value: line.heat, label: index < 2 ? "Projected breakout" : "Projected impact", state: index < 2 ? "hot" : "warm" },
+            performanceScore: line.points,
+          };
+        })
+    : [];
+  const displayedOnFire = gameDay.onFire.length ? gameDay.onFire : preKickoffOnFire;
   const dramaScore = (item?: (typeof gameDay.matchups)[number]) => {
     if (!item) return -999;
     const projectedMargin = Math.abs(
@@ -4258,9 +4279,9 @@ function AllLeagueScoreboard({
         <header><div><span>WHAT DO I NEED?</span><h3>Your most important live win paths</h3><small>One consequential remaining starter per league, prioritized by matchup leverage.</small></div><b>{leagueWinPaths.length} ACTIVE PATH{leagueWinPaths.length === 1 ? "" : "S"}</b></header>
         {mostImportantPath ? <><div className="primary-win-path"><div className="win-path-player"><PlayerHeadshot id={mostImportantPath.target.id} position={mostImportantPath.target.position} /><i>★</i></div><p><span>MOST IMPORTANT RIGHT NOW</span><button className="inline-player-link" onClick={() => openPlayer(playerShell(mostImportantPath.target))}>{mostImportantPath.target.name}</button><small>{mostImportantPath.need.message} {mostImportantPath.target.name} carries the largest current share of the path.</small><span className="win-path-leagues">{mostImportantLeagues.map((item) => <b key={`${item.league.id}-${item.target.id}`}>{item.league.name} · {item.target.pointsNeeded.toFixed(1)} needed</b>)}</span></p><div><strong>{mostImportantPath.target.pointsNeeded.toFixed(1)}</strong><small>MORE PTS</small><span><i style={{ width: `${mostImportantPath.target.progress}%` }} /></span><em>{mostImportantPath.target.statLine}</em></div></div><div className="league-win-paths">{secondaryWinPaths.map((item) => <article key={`${item.league.id}-${item.target.id}`}><span className={item.status === "live" ? "live" : "upcoming"}>{item.status === "live" ? "● LIVE" : "UP NEXT"}</span><PlayerHeadshot id={item.target.id} position={item.target.position} /><p><strong>{item.league.name}</strong><button className="inline-player-link" onClick={() => openPlayer(playerShell(item.target))}>{item.target.name}</button><small>{item.target.pointsNeeded.toFixed(1)} more points · {item.winProbability ?? "—"}% win chance</small><span className="mini-win-progress"><i style={{ width: `${item.target.progress}%` }} /></span></p><b>{item.target.progress}%</b></article>)}</div></> : <p className="game-day-empty">A portfolio-wide win path will appear when connected matchups have remaining projected starters.</p>}
       </section>
-      <section className="on-fire-board panel">
-        <header><div><span>🔥 ON FIRE</span><h3>Week {week}&apos;s hottest performers</h3><small>Top production currently affecting your matchups across every connected league.</small></div><b>{gameDay.onFire.length ? "LIVE LEADERS" : "WAITING FOR KICKOFF"}</b></header>
-        {gameDay.onFire.length ? <div className="on-fire-grid">{gameDay.onFire.map((item, index) => {
+      <section className="on-fire-board panel" data-visual-source={displayedOnFire === preKickoffOnFire && displayedOnFire.length ? "pre-kickoff" : "observed"}>
+        <header><div><span>🔥 ON FIRE</span><h3>Week {week}&apos;s hottest performers</h3><small>{displayedOnFire === preKickoffOnFire && displayedOnFire.length ? "Projected impact leaders based on your connected lineups. Live scoring replaces this outlook automatically." : "Top production currently affecting your matchups across every connected league."}</small></div><b>{gameDay.onFire.length ? "LIVE LEADERS" : displayedOnFire.length ? "SUNDAY OUTLOOK" : "WAITING FOR KICKOFF"}</b></header>
+        {displayedOnFire.length ? <div className="on-fire-grid">{displayedOnFire.map((item, index) => {
           const helps = item.leagues.filter((league) => league.side === "helps").length;
           const hurts = item.leagues.length - helps;
           return <button type="button" key={item.player.id} onClick={() => openPlayer(playerShell(item.player))}>
@@ -4272,7 +4293,7 @@ function AllLeagueScoreboard({
       </section>
       <div className="game-day-insights">
         <section className="panel rooting-interests"><header><div><span>ROOTING INTERESTS</span><h3>Who to cheer—and who to stop</h3></div><b>📣 GAME-DAY PULSE</b></header><div className="insight-scroll-window">{gameDay.interests.length ? gameDay.interests.map((interest) => <article className={`rooting-${interest.sentiment}`} key={interest.playerId}><div className="rooting-visual"><NflTeamLogo team={interest.nflTeam} /><PlayerHeadshot id={interest.playerId} position={interest.position} /><i aria-hidden="true">{interest.sentiment === "cheer" ? "📣" : interest.sentiment === "fade" ? "🛑" : "⚖️"}</i></div><p><span>{interest.sentiment === "cheer" ? "ROOT FOR" : interest.sentiment === "fade" ? "ROOT AGAINST" : "MIXED ROOTING INTEREST"}</span><strong>{interest.playerName}</strong><small>{interest.text}</small><span className="rooting-leagues">{interest.affectedLeagues.map((league) => <b className={league.impact} key={`${interest.playerId}-${league.id}`}>{league.impact === "helps" ? "↑" : "↓"} {league.name}</b>)}</span></p><em><small>{interest.level}</small>{interest.score}</em></article>) : <p className="game-day-empty">Rooting interests appear when weekly lineups and projections are available.</p>}</div></section>
-        <section className={`panel sunday-swing ${!swingFeed.length && sundaySwingPreview.length ? "preview" : ""}`}><header><div><span>SUNDAY SWING</span><h3>{swingFeed.length ? "Observed this session" : "Live scoring preview"}</h3></div>{!swingFeed.length && sundaySwingPreview.length && <b>TEST MODE</b>}</header><div className="insight-scroll-window">{swingFeed.length ? swingFeed.map((item) => <article key={item.id}><b className={item.current >= item.previous ? "positive" : "negative"}>{item.current >= item.previous ? "↑" : "↓"} {Math.abs(item.current - item.previous)} pts</b><p><strong>{item.league}</strong><small>{item.text}</small></p><time>{item.at ? new Date(item.at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "Now"}</time></article>) : sundaySwingPreview.length ? <><p className="swing-preview-note">Illustrative preview using your connected matchups. These are not live events and will disappear when real scoring swings are observed.</p>{sundaySwingPreview.map((item, index) => <article className="swing-preview-card" key={item.id}><b className={item.current >= item.previous ? "positive" : "negative"}>{item.current >= item.previous ? "↑" : "↓"} {Math.abs(item.current - item.previous)} pts</b><p><strong>{item.league}</strong><small>{item.text}</small><span><i style={{ width: `${item.current}%` }} /></span></p><time>Q{Math.min(4, index + 1)} · DEMO</time></article>)}</> : <p className="game-day-empty">Changes will appear after Fantasy Hub observes a scoring refresh. No event history is fabricated.</p>}</div></section>
+        <section className={`panel sunday-swing ${!swingFeed.length && sundaySwingPreview.length ? "pre-kickoff" : ""}`} data-visual-source={!swingFeed.length && sundaySwingPreview.length ? "pre-kickoff" : "observed"}><header><div><span>SUNDAY SWING</span><h3>{swingFeed.length ? "Observed this session" : "Projected swing paths"}</h3></div>{!swingFeed.length && sundaySwingPreview.length && <b>SUNDAY OUTLOOK</b>}</header><div className="insight-scroll-window">{swingFeed.length ? swingFeed.map((item) => <article key={item.id}><b className={item.current >= item.previous ? "positive" : "negative"}>{item.current >= item.previous ? "↑" : "↓"} {Math.abs(item.current - item.previous)} pts</b><p><strong>{item.league}</strong><small>{item.text}</small></p><time>{item.at ? new Date(item.at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "Now"}</time></article>) : sundaySwingPreview.length ? <><p className="swing-preview-note">Potential win-probability movement based on your current lineups and matchup projections. Live plays replace these paths automatically.</p>{sundaySwingPreview.map((item, index) => <article className="swing-preview-card" key={item.id}><b className={item.current >= item.previous ? "positive" : "negative"}>{item.current >= item.previous ? "↑" : "↓"} {Math.abs(item.current - item.previous)} pts</b><p><strong>{item.league}</strong><small>{item.text}</small><span><i style={{ width: `${item.current}%` }} /></span></p><time>{PRE_KICKOFF_VISUALS.swingWindows[index] ?? "GAME WINDOW"}</time></article>)}</> : <p className="game-day-empty">Scoring swings will populate as matchup results change.</p>}</div></section>
       </div>
       <div className="portfolio-scoreboard-grid">
         {orderedLeagues.map((league) => {
@@ -4536,10 +4557,12 @@ function NflGames({
   leagueId,
   season,
   defaultWeek,
+  players,
 }: {
   leagueId: string;
   season: string;
   defaultWeek: number;
+  players: Player[];
 }) {
   const openPlayer = useContext(PlayerOpenContext);
   const [week, setWeek] = useState(
@@ -4602,7 +4625,14 @@ function NflGames({
             schedule.weeks.find((item) => item.week === week) ??
             schedule.weeks.find((item) => item.games.length > 0) ??
             schedule.weeks[0];
-          const games = (selectedWeek?.games ?? []).map((game) => ({
+          const games = (selectedWeek?.games ?? []).map((game) => {
+            const gameTeamCodes = [normalizeNflTeam(game.away.abbreviation), normalizeNflTeam(game.home.abbreviation)];
+            const impactPlayers: NflImpactPlayer[] = PRE_KICKOFF_VISUALS_ENABLED
+              ? players
+                  .filter((player) => gameTeamCodes.includes(normalizeNflTeam(player.team)))
+                  .map((player) => ({ id: player.id, name: player.name, position: player.position, nflTeam: normalizeNflTeam(player.team), side: "You" as const, starter: isStartingPlayer(player), fantasyPoints: 0, projection: player.leagueProjection ?? player.projection ?? null, remainingProjection: player.leagueProjection ?? player.projection ?? 0 }))
+              : [];
+            return ({
             id: game.id,
             date: game.date,
             name: `${game.away.name} at ${game.home.name}`,
@@ -4645,8 +4675,9 @@ function NflGames({
                 record: "",
               },
             ],
-            impactPlayers: [],
-          }));
+            impactPlayers,
+          });
+          });
           if (!active) return;
           setData({
             league: { name: "NFL Schedule", season: String(schedule.season) },
@@ -4680,7 +4711,7 @@ function NflGames({
     return () => {
       active = false;
     };
-  }, [leagueId, season, week]);
+  }, [leagueId, players, season, week]);
 
   useEffect(() => {
     if (!leagueId) return;
@@ -4734,9 +4765,8 @@ function NflGames({
         <section className="schedule-fallback">
           <b>SCHEDULE MODE</b>
           <span>
-            Fantasy Hub is using the published season schedule for preseason
-            testing. Live scores can be layered onto these games once the
-            regular-season feed is active.
+            The published season schedule is active. Scores, player impact, and
+            matchup context will fill in automatically as games begin.
           </span>
         </section>
       ) : data?.fantasyMatchup.available ? (

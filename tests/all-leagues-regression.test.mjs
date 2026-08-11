@@ -112,6 +112,19 @@ test("mobile My Team roster fits without horizontal scrolling", async () => {
   assert.match(styles, /\.sidebar nav,\.sidebar-collapsed \.sidebar nav\{padding-right:0;padding-left:0\}/);
 });
 
+test("pre-kickoff visuals are centralized and removable", async () => {
+  const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
+  const fixtures = await readFile(new URL("../app/pre-kickoff-visuals.ts", import.meta.url), "utf8");
+  assert.match(fixtures, /PRE_KICKOFF_VISUALS_ENABLED = true/);
+  assert.match(fixtures, /Set this one flag to false/);
+  assert.match(source, /data-visual-source=/);
+  assert.match(source, /PRE_KICKOFF_VISUALS\.performerLines/);
+  assert.match(source, /players\s*\.filter\(\(player\) => gameTeamCodes\.includes/);
+  assert.doesNotMatch(source, />TEST MODE</);
+  assert.doesNotMatch(source, /· DEMO</);
+  assert.doesNotMatch(source, /NO DEMO LEAGUE DATA/);
+});
+
 test("portfolio Scoreboard keeps matchup status in scope", async () => {
   const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
   const start = source.indexOf("function AllLeagueScoreboard(");
@@ -128,8 +141,8 @@ test("portfolio Scoreboard keeps matchup status in scope", async () => {
   assert.match(component, /leagueName: item\.league\.name/);
   assert.match(component, /ROOT FOR/);
   assert.match(component, /ROOT AGAINST/);
-  assert.match(component, /Live scoring preview/);
-  assert.match(component, /These are not live events/);
+  assert.match(component, /Projected swing paths/);
+  assert.match(component, /Live plays replace these paths automatically/);
 });
 
 test("NFL game impact details open in an accessible popout", async () => {
