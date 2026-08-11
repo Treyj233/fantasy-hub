@@ -46,6 +46,28 @@ export const subscriptions = sqliteTable("subscriptions", {
   updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });
 
+export const appStoreTransactions = sqliteTable("app_store_transactions", {
+  originalTransactionId: text("original_transaction_id").primaryKey(),
+  transactionId: text("transaction_id").notNull(),
+  userId: text("user_id").notNull(),
+  productId: text("product_id").notNull(),
+  environment: text("environment").notNull(),
+  expiresAt: text("expires_at"),
+  revokedAt: text("revoked_at"),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [
+  uniqueIndex("app_store_transactions_transaction_id").on(table.transactionId),
+]);
+
+export const pushDevices = sqliteTable("push_devices", {
+  token: text("token").primaryKey(),
+  userId: text("user_id").notNull(),
+  platform: text("platform").notNull().default("ios"),
+  enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
+  lastSeenAt: text("last_seen_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
 export const managedLeagues = sqliteTable("managed_leagues", {
   id: text("id").primaryKey(),
   userId: text("user_id").notNull(),

@@ -11,6 +11,8 @@ import {
   userPreferences,
   subscriptions,
   accountIdentities,
+  appStoreTransactions,
+  pushDevices,
 } from "../../../../db/schema";
 import { getChatGPTUser } from "../../../chatgpt-auth";
 import { entitlementFor } from "../../../entitlements";
@@ -54,6 +56,8 @@ export async function DELETE(request: Request) {
   await db.delete(sleeperConnections).where(eq(sleeperConnections.userId, user.userId));
   await db.delete(userPreferences).where(eq(userPreferences.userId, user.userId));
   await db.delete(subscriptions).where(eq(subscriptions.userId, user.userId));
+  await db.delete(appStoreTransactions).where(eq(appStoreTransactions.userId, user.userId));
+  await db.delete(pushDevices).where(eq(pushDevices.userId, user.userId));
   await db.delete(accountIdentities).where(eq(accountIdentities.canonicalUserId, user.userId));
   return apiJson({ deleted: true, deletedAt: new Date().toISOString() });
 }

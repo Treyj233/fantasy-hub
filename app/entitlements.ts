@@ -31,7 +31,9 @@ export async function entitlementFor(userId: string, verifiedEmail?: string): Pr
   const [record] = await db.select().from(subscriptions).where(eq(subscriptions.userId, userId)).limit(1);
   const status = (record?.status ?? "inactive") as AccountEntitlement["status"];
   const plan = record?.plan === "pro" ? "pro" : "free";
-  return { plan, status, pro: plan === "pro" && (status === "active" || status === "trialing"), currentPeriodEnd: record?.currentPeriodEnd ?? null };
+  const currentPeriodEnd = record?.currentPeriodEnd ?? null;
+  const unexpired = !currentPeriodEnd || new Date(currentPeriodEnd).getTime() > Date.now();
+  return { plan, status, pro: plan === "pro" && unexpired && (status === "active" || status === "trialing"), currentPeriodEnd };
 }
 
 export async function requirePro(userId: string, verifiedEmail?: string) {

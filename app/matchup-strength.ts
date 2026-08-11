@@ -36,6 +36,9 @@ const csvRow = (line: string) => {
 const fantasyPosition = (position: string) =>
   position === "FB" ? "RB" : ["QB", "RB", "WR", "TE"].includes(position) ? position : null;
 
+const normalizeTeam = (team: string) =>
+  ({ JAC: "JAX", WSH: "WAS", LA: "LAR" })[team] ?? team;
+
 async function calculateSeason(season: number) {
   const response = await fetch(
     `https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_${season}.csv`,
@@ -49,7 +52,7 @@ async function calculateSeason(season: number) {
   for (const line of lines) {
     const cells = csvRow(line);
     if (Number(cells[column("season")]) !== season || cells[column("season_type")] !== "REG") continue;
-    const team = cells[column("opponent_team")];
+    const team = normalizeTeam(cells[column("opponent_team")]);
     const position = fantasyPosition(cells[column("position_group")] || cells[column("position")]);
     const week = Number(cells[column("week")]);
     if (!team || !position || !Number.isFinite(week)) continue;

@@ -1,9 +1,10 @@
 "use client";
 
-import { Fragment, createContext, useContext, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { Fragment, createContext, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { estimatedWinProbability, playerLeverage, rootingInterests, whatDoINeed } from "./game-day-model.mjs";
+import { disableNativePushNotifications, enableNativePushNotifications, initializeNativeRuntime, isNativeIosApp, nativeManageSubscriptions, nativePurchase, nativeRestorePurchases, nativeStoreProducts } from "./native-runtime";
 
 type View =
   | "Command Center"
@@ -595,7 +596,7 @@ const nav: { label: View; displayLabel?: string; mark: string; tone: string; gro
 ];
 
 const normalizeNflTeam = (team: string) =>
-  (({ JAC: "JAX", WSH: "WAS" }) as Record<string, string>)[team] ?? team;
+  (({ JAC: "JAX", WSH: "WAS", LA: "LAR" }) as Record<string, string>)[team] ?? team;
 const isStartingPlayer = (player: Player) =>
   !["Bench", "IR", "TAXI"].includes(player.role);
 const formatRosterSlot = (slot: string) => slot.replace(/_/g, " ");
@@ -840,7 +841,8 @@ function applyOpponent(
   return { ...player, opponent: `${isAway ? "@" : "vs"} ${opponent}` };
 }
 
-const opponentCode = (opponent: string) => opponent.replace(/^(vs|@)\s+/, "").trim();
+const opponentCode = (opponent: string) =>
+  normalizeNflTeam(opponent.replace(/^(vs|@)\s+/, "").trim());
 const matchupPosition = (position: string) => position === "FB" ? "RB" : position;
 function applyMatchupStrength(player: Player, data: MatchupStrengthData | null) {
   const opponent = opponentCode(player.opponent);
@@ -1238,6 +1240,8 @@ export default function FantasyHub({
   } | null>(null);
   const importRequest = useRef(0);
   const leagueDragOccurred = useRef(false);
+
+  useEffect(() => initializeNativeRuntime(), []);
 
   useEffect(() => {
     const savedTheme = window.localStorage.getItem("fantasy-hub-theme");
@@ -1998,6 +2002,8 @@ export default function FantasyHub({
               setStarterChoice={setStarterChoice}
               periodLabel={periodLabel}
               context={rankingContext}
+              leagueTeams={leagueTeams}
+              selectedTeamId={selectedTeamId}
             />
           ) : (
             rosterEmptyState
@@ -2359,9 +2365,37 @@ function ProGate({ feature, onUpgrade }: { feature: string; onUpgrade: () => voi
 }
 
 function ProPlans({ entitlement }: { entitlement: AccountEntitlement }) {
+  const nativeIos = useSyncExternalStore(
+    () => () => undefined,
+    isNativeIosApp,
+    () => false,
+  );
   const [billingBusy, setBillingBusy] = useState<"monthly" | "season" | "annual" | "portal" | "">("");
   const [billingError, setBillingError] = useState("");
+  const [nativePrices, setNativePrices] = useState<Record<string, string>>({});
+  useEffect(() => {
+    if (!nativeIos) return;
+    void nativeStoreProducts().then((products) => setNativePrices(Object.fromEntries(products.map((product) => [product.id, product.displayPrice])))).catch(() => undefined);
+  }, [nativeIos]);
   async function openBilling(path: "/api/billing/checkout" | "/api/billing/portal", plan?: "monthly" | "season" | "annual") {
+    if (nativeIos) {
+      setBillingBusy(plan ?? "portal");
+      setBillingError("");
+      try {
+        if (!plan) await nativeManageSubscriptions();
+        else {
+          const productId = `com.fantasyhubapp.pro.${plan}`;
+          const status = await nativePurchase(productId);
+          if (status === "active") window.location.reload();
+          else if (status === "pending") setBillingError("Your purchase is pending App Store approval.");
+        }
+      } catch (error) {
+        setBillingError(error instanceof Error ? error.message : "App Store billing is temporarily unavailable");
+      } finally {
+        setBillingBusy("");
+      }
+      return;
+    }
     setBillingBusy(plan ?? "portal");
     setBillingError("");
     try {
@@ -2383,6 +2417,7 @@ function ProPlans({ entitlement }: { entitlement: AccountEntitlement }) {
       <article className="pro-feature-card"><div><span>DECISION ADVANTAGE</span><h3>Make the call your matchup needs.</h3><p>Unlock the Start/Sit floor-to-ceiling slider, decision memory, and your season-long manager report card.</p></div><DashboardPreview type="start" /></article>
     </section>
     <section className="pro-theme-gallery panel"><header><div><span>PRO THEME LOCKER</span><h3>Your leagues. Your Sunday look.</h3></div><p>Choose any NFL-inspired palette and four sidebar badge packs.</p></header><div>{[{name:"Midway Night",colors:["#0b162a","#c83803"]},{name:"South Beach",colors:["#008e97","#fc4c02"]},{name:"Purple Reign",colors:["#241773","#9e7c0c"]},{name:"Gold Rush",colors:["#aa0000","#b3995d"]}].map((theme) => <article key={theme.name} style={{"--preview-primary":theme.colors[0],"--preview-secondary":theme.colors[1]} as CSSProperties}><i/><b>{theme.name}</b><small>Dashboard + badge pack</small></article>)}</div></section>
+    {nativeIos && <p className="native-billing-note">APP STORE BILLING · Purchases are securely handled by Apple. {nativePrices["com.fantasyhubapp.pro.monthly"] ? `Monthly pricing: ${nativePrices["com.fantasyhubapp.pro.monthly"]}.` : "Pricing loads from your App Store region."} <button disabled={Boolean(billingBusy)} onClick={() => { setBillingBusy("portal"); setBillingError(""); void nativeRestorePurchases().then((active) => active ? window.location.reload() : setBillingError("No active Fantasy Hub Pro purchase was found for this Apple ID.")).catch((error) => setBillingError(error instanceof Error ? error.message : "Restore failed")).finally(() => setBillingBusy("")); }}>Restore Purchases</button></p>}
     {billingError && <p className="billing-error" role="alert">{billingError}</p>}
     <section className="plan-grid"><article className="panel"><span>FREE</span><h3>$0</h3><p>Connect and manage your fantasy world.</p><ul><li>Unlimited Sleeper and ESPN league connections</li><li>All Leagues portfolio view</li><li>My Team, live scores, and matchups</li><li>Player rankings and ADP</li><li>Manual trade calculator</li><li>Core Start/Sit and waiver-wire access</li></ul><strong>CURRENT PLAN</strong></article><article className="panel featured"><span>FANTASY HUB PRO · MONTHLY</span><h3 className="plan-price">$4.99 <small>/ month</small></h3><p>Proprietary intelligence built by Fantasy Hub.</p><div className="trial-callout"><b>7-day free trial</b><small>No charge today. On day 8, your subscription automatically begins at $4.99/month and renews monthly until canceled.</small></div><ul>{proFeatures.map((feature) => <li key={feature}>{feature}</li>)}<li>All NFL themes and badge customization</li><li>Start/Sit aggressiveness strategy</li></ul>{entitlement.pro ? <strong>PRO IS ACTIVE</strong> : <button disabled={Boolean(billingBusy)} onClick={() => void openBilling("/api/billing/checkout", "monthly")}>{billingBusy === "monthly" ? "Opening secure checkout…" : "Start 7-day trial →"}</button>}</article><article className="panel season"><span>FANTASY HUB PRO · SEASON</span><h3 className="plan-price">$29.99 <small>/ 6 months</small></h3><p>Built to cover the full fantasy season in one purchase.</p><div className="annual-savings"><b>Six months of Pro access</b><small>Stay supported from draft preparation through the fantasy playoffs.</small></div><ul>{proFeatures.slice(0,4).map((feature) => <li key={feature}>{feature}</li>)}<li>All Pro themes and customization</li></ul>{entitlement.pro ? <strong>PRO IS ACTIVE</strong> : <button disabled={Boolean(billingBusy)} onClick={() => void openBilling("/api/billing/checkout", "season")}>{billingBusy === "season" ? "Opening secure checkout…" : "Choose season access →"}</button>}<small className="plan-renewal">$29.99 billed every six months until canceled.</small></article><article className="panel annual"><span>FANTASY HUB PRO · YEAR</span><h3 className="plan-price">$39.99 <small>/ year</small></h3><p>Year-round support for dynasty, offseason, draft, and game-day management.</p><div className="annual-savings"><b>Save $19.89 per year</b><small>About 33% less than paying monthly for 12 months.</small></div><ul>{proFeatures.slice(0,4).map((feature) => <li key={feature}>{feature}</li>)}<li>All Pro themes and customization</li></ul>{entitlement.pro ? <strong>PRO IS ACTIVE</strong> : <button disabled={Boolean(billingBusy)} onClick={() => void openBilling("/api/billing/checkout", "annual")}>{billingBusy === "annual" ? "Opening secure checkout…" : "Choose year-round access →"}</button>}<small className="plan-renewal">$39.99 billed annually until canceled. The monthly seven-day trial is a separate offer.</small></article></section>
     <section className="pro-principle panel"><b>OUR FREEMIUM PROMISE</b><p>Fantasy Hub will not charge merely to display a connected league. Paid access is reserved for original Fantasy Hub analysis and experiences. Payments and subscription management are securely handled by Stripe.</p></section>
@@ -2454,6 +2489,9 @@ function ManageLeagues({
   const [success, setSuccess] = useState("");
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
   const [deletingAccount, setDeletingAccount] = useState(false);
+  const nativeIos = useSyncExternalStore(() => () => undefined, isNativeIosApp, () => false);
+  const [pushEnabled, setPushEnabled] = useState(false);
+  const [pushBusy, setPushBusy] = useState(false);
   const [pairing, setPairing] = useState<{ code: string; expiresAt: string } | null>(null);
   const [espnSelection, setEspnSelection] = useState<{ id: string; name: string; season: string; teams: { id: string; name: string; managerName: string }[] } | null>(null);
   const providers: {
@@ -2548,6 +2586,26 @@ function ManageLeagues({
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Unable to delete account");
       setDeletingAccount(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!nativeIos) return;
+    void fetch("/api/account/push").then((response) => response.ok ? response.json() : null).then((data: { enabled?: boolean } | null) => setPushEnabled(Boolean(data?.enabled))).catch(() => undefined);
+  }, [nativeIos]);
+
+  async function togglePush() {
+    setPushBusy(true);
+    setError("");
+    try {
+      if (pushEnabled) await disableNativePushNotifications();
+      else await enableNativePushNotifications();
+      setPushEnabled(!pushEnabled);
+      setSuccess(pushEnabled ? "Fantasy Hub notifications are off on this device." : "Fantasy Hub notifications are ready on this device.");
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Unable to update notifications");
+    } finally {
+      setPushBusy(false);
     }
   }
 
@@ -2951,6 +3009,7 @@ function ManageLeagues({
           </div>
         )}
       </section>
+      {nativeIos && <section className="native-notifications panel"><div><span>GAME-DAY NOTIFICATIONS</span><h3>Know when your leagues need you</h3><p>Receive lineup, injury, scoring-swing, waiver, and matchup alerts tied only to leagues saved on this account.</p></div><button type="button" disabled={pushBusy} aria-pressed={pushEnabled} onClick={() => void togglePush()}>{pushBusy ? "Updating…" : pushEnabled ? "Turn notifications off" : "Enable notifications"}</button></section>}
       <section className="account-danger-zone panel">
         <div>
           <span>ACCOUNT &amp; PRIVACY</span>
@@ -5402,6 +5461,8 @@ function CommandCenter({
   setStarterChoice,
   periodLabel,
   context,
+  leagueTeams,
+  selectedTeamId,
 }: {
   players: Player[];
   waiverPlayers: WaiverPlayer[];
@@ -5412,6 +5473,8 @@ function CommandCenter({
   setStarterChoice: (v: string) => void;
   periodLabel: string;
   context: RankingContext | null;
+  leagueTeams: LeagueTeam[];
+  selectedTeamId: string;
 }) {
   const projectionPlatform = useContext(ProjectionPlatformContext);
   const concern = players.find((p) => p.status !== "Healthy");
@@ -5433,6 +5496,45 @@ function CommandCenter({
     .map((add) => ({ add, plan: waiverAddDropPlan(add, players, context) }))
     .filter((item) => item.plan.worthIt && item.plan.drop)
     .slice(0, 2);
+  const starters = players.filter(isStartingPlayer);
+  const bench = players.filter((player) => !isStartingPlayer(player));
+  const lineupFloor = starters.reduce((sum, player) => sum + player.floor, 0);
+  const selectedTeam = leagueTeams.find((team) => team.id === selectedTeamId);
+  const opponentTeam = selectedTeam?.matchupId == null
+    ? null
+    : leagueTeams.find((team) => team.id !== selectedTeam.id && team.matchupId === selectedTeam.matchupId) ?? null;
+  const teamProjection = (team: LeagueTeam) => team.roster.filter(isStartingPlayer).reduce((sum, player) => sum + player.projection, 0);
+  const opponentProjection = opponentTeam ? teamProjection(opponentTeam) : null;
+  const projectedRank = leagueTeams.length
+    ? [...leagueTeams].sort((a, b) => teamProjection(b) - teamProjection(a)).findIndex((team) => team.id === selectedTeamId) + 1
+    : 0;
+  const projectedMargin = opponentProjection == null ? null : totals.projection - opponentProjection;
+  const winProbability = projectedMargin == null
+    ? null
+    : Math.round(Math.max(8, Math.min(92, 50 + projectedMargin * 2.15)));
+  const requiredStarters = context?.rosterSlots.filter((slot) => !["BN", "BE", "Bench", "IR", "TAXI"].includes(slot)).length ?? starters.length;
+  const emptySlots = Math.max(0, requiredStarters - starters.length);
+  const unavailable = players.filter((player) => /out|ir|suspend|doubt/i.test(player.status));
+  const monitored = players.filter((player) => /question/i.test(player.status));
+  const healthScore = Math.max(0, 100 - unavailable.length * 18 - monitored.length * 6 - emptySlots * 15);
+  const positionOrder = ["QB", "RB", "WR", "TE", "FLEX"];
+  const positionTotal = (roster: Player[], position: string) => roster
+    .filter(isStartingPlayer)
+    .filter((player) => position === "FLEX" ? ["RB", "WR", "TE"].includes(player.position) && /flex/i.test(player.role) : player.position === position)
+    .reduce((sum, player) => sum + player.projection, 0);
+  const positionEdges = positionOrder.map((position) => {
+    const mine = positionTotal(players, position);
+    const theirs = opponentTeam ? positionTotal(opponentTeam.roster, position) : 0;
+    return { position, mine, theirs, edge: mine - theirs };
+  }).filter((item) => item.mine > 0 || item.theirs > 0);
+  const bestBench = [...bench].filter((player) => !/out|ir|suspend/i.test(player.status)).sort((a, b) => b.projection - a.projection)[0];
+  const trendWatch = [...players].filter((player) => player.trend !== 0).sort((a, b) => Math.abs(b.trend) - Math.abs(a.trend)).slice(0, 4);
+  const actions = [
+    ...(emptySlots ? [{ level: "ACT NOW", title: `Fill ${emptySlots} empty starter slot${emptySlots === 1 ? "" : "s"}`, detail: "An incomplete lineup creates an avoidable zero.", view: "My Team" as View }] : []),
+    ...(unavailable[0] ? [{ level: "ACT NOW", title: `Replace or monitor ${unavailable[0].name}`, detail: `${unavailable[0].status} status threatens the current roster plan.`, view: "Start / Sit" as View }] : []),
+    ...(decision ? [{ level: "BEFORE KICKOFF", title: `Resolve ${primaryDecision!.name} vs ${secondaryDecision!.name}`, detail: `${Math.abs(primaryDecision!.projection - secondaryDecision!.projection).toFixed(1)} points separate the current options.`, view: "Start / Sit" as View }] : []),
+    ...(waiverPlans[0] ? [{ level: "THIS WEEK", title: `Consider ${waiverPlans[0].add.name}`, detail: `Add for ${waiverPlans[0].plan.drop!.name} if the role remains available.`, view: "Waiver Wire" as View }] : []),
+  ].slice(0, 3);
   return (
     <div className="page-content">
       <section className="hero">
@@ -5466,28 +5568,36 @@ function CommandCenter({
       <div className="metric-grid">
         <Metric
           label="Win probability"
-          value="64%"
-          detail="+7% after lineup optimization"
-          tone="good"
+          value={winProbability == null ? "—" : `${winProbability}%`}
+          detail={opponentTeam ? `vs ${opponentTeam.teamName}` : "Opponent matchup pending"}
+          tone={winProbability != null && winProbability >= 55 ? "good" : winProbability != null && winProbability < 45 ? "warn" : ""}
         />
         <Metric
           label="Projected rank"
-          value="3rd"
-          detail="of 12 teams this week"
+          value={projectedRank > 0 ? `#${projectedRank}` : "—"}
+          detail={`of ${leagueTeams.length || context?.teams || "—"} teams this week`}
         />
         <Metric
-          label="Playoff odds"
-          value="72%"
-          detail="+4.2% over last week"
-          tone="good"
+          label="Lineup range"
+          value={`${lineupFloor.toFixed(0)}–${totals.ceiling.toFixed(0)}`}
+          detail={`${totals.projection.toFixed(1)} median projection`}
         />
         <Metric
-          label="Roster health"
-          value="86"
-          detail={concern ? `Monitor ${concern.name}` : "No active concerns"}
-          tone="warn"
+          label="Lineup health"
+          value={String(healthScore)}
+          detail={concern ? `Monitor ${concern.name}` : emptySlots ? `${emptySlots} empty starter slot` : "No active concerns"}
+          tone={healthScore >= 90 ? "good" : "warn"}
         />
       </div>
+      <section className="panel command-matchup-strip">
+        <div><span>THIS WEEK</span><strong>{selectedTeam?.teamName ?? "Your team"}</strong><b>{totals.projection.toFixed(1)}</b></div>
+        <i><small>{projectedMargin == null ? "MATCHUP PENDING" : `${projectedMargin >= 0 ? "+" : ""}${projectedMargin.toFixed(1)} PROJECTED`}</small><em style={{ left: `${winProbability ?? 50}%` }} /></i>
+        <div className="opponent"><span>OPPONENT</span><strong>{opponentTeam?.teamName ?? "Awaiting opponent"}</strong><b>{opponentProjection?.toFixed(1) ?? "—"}</b></div>
+      </section>
+      <section className="panel command-action-queue">
+        <Header eyebrow="NEXT BEST ACTIONS" title="Your league-specific game plan" action="Open team" onClick={() => setView("My Team")} />
+        <div>{actions.length ? actions.map((action, index) => <button key={action.title} onClick={() => setView(action.view)}><b>0{index + 1}</b><span><em>{action.level}</em><strong>{action.title}</strong><small>{action.detail}</small></span><i>→</i></button>) : <p><b>✓</b><span><strong>No urgent action required</strong><small>Your active lineup passes the current availability and replacement scan.</small></span></p>}</div>
+      </section>
       <div className="main-grid">
         <section className="panel decision-panel">
           <Header
@@ -5614,6 +5724,26 @@ function CommandCenter({
           )}
         </section>
       </div>
+      <div className="command-intelligence-grid">
+        <section className="panel command-position-edges">
+          <Header eyebrow="POSITION ADVANTAGE" title="Where this matchup tilts" action="Open matchup" onClick={() => setView("Matchups")} />
+          <div>{positionEdges.map((item) => <article key={item.position}><b>{item.position}</b><span><i style={{ left: `${Math.max(7, Math.min(93, 50 + item.edge * 3))}%` }} /></span><small>{item.mine.toFixed(1)}</small><em className={item.edge >= 0 ? "positive" : "negative"}>{item.edge >= 0 ? "+" : ""}{item.edge.toFixed(1)}</em><small>{opponentTeam ? item.theirs.toFixed(1) : "—"}</small></article>)}</div>
+        </section>
+        <section className="panel command-availability">
+          <Header eyebrow="AVAILABILITY WATCH" title="Status before lineup lock" action="Review lineup" onClick={() => setView("Start / Sit")} />
+          <div>{[...unavailable, ...monitored].slice(0, 4).map((player) => <button key={player.id} onClick={() => setSelectedPlayer(player)}><span className={`pos pos-${player.position.toLowerCase()}`}>{player.position}</span><p><strong>{player.name}</strong><small>{player.team} · {player.opponent}</small></p><Status value={player.status} /></button>)}{!unavailable.length && !monitored.length && <p className="command-clear"><b>✓</b><span><strong>All clear</strong><small>No active availability flags on this roster.</small></span></p>}</div>
+        </section>
+        <section className="panel command-bench-cost">
+          <Header eyebrow="BENCH OPPORTUNITY" title="Points outside the lineup" action="View team" onClick={() => setView("My Team")} />
+          {bestBench ? <button onClick={() => setSelectedPlayer(bestBench)}><span className={`pos pos-${bestBench.position.toLowerCase()}`}>{bestBench.position}</span><p><strong>{bestBench.name}</strong><small>{formatRosterSlot(bestBench.role)} · {bestBench.opponent}</small></p><b>{bestBench.projection.toFixed(1)}<small>PTS</small></b></button> : <p className="command-clear">No active bench projection is available.</p>}
+          <small>Highest projected reserve. This is context—not an automatic recommendation to change the lineup.</small>
+        </section>
+        <section className="panel command-trends">
+          <Header eyebrow="ROLE & MOMENTUM" title="Players moving fastest" action="Player ranks" onClick={() => setView("Player Rankings")} />
+          <div>{trendWatch.map((player) => <button key={player.id} onClick={() => setSelectedPlayer(player)}><span className={`pos pos-${player.position.toLowerCase()}`}>{player.position}</span><p><strong>{player.name}</strong><small>{player.team} · {player.snapPct == null ? "role trend" : `${player.snapPct.toFixed(0)}% snaps`}</small></p><b className={player.trend >= 0 ? "positive" : "negative"}>{player.trend >= 0 ? "+" : ""}{player.trend.toFixed(1)}</b></button>)}{!trendWatch.length && <p className="command-clear">Role movement will appear as weekly usage changes.</p>}</div>
+        </section>
+      </div>
+      <section className="command-quick-actions"><span>QUICK ACTIONS</span><button onClick={() => setView("Start / Sit")}>⚡ Fix lineup</button><button onClick={() => setView("Waiver Wire")}>＋ Review waivers</button><button onClick={() => setView("Matchups")}>◎ Open matchup</button><button onClick={() => setView("Scoreboard")}>▣ Fantasy scoreboard</button></section>
     </div>
   );
 }
@@ -5737,12 +5867,14 @@ function RosterSection({
               const temperature = live ? playerTemperature(live.player, live.status) : { value: 50, label: "Waiting for kickoff", state: "steady" };
               return (
               <tr key={player.id} onClick={() => setSelectedPlayer(player)}>
-                <td>
+                <td className="roster-player-cell">
                   <span className={`pos pos-${player.position.toLowerCase()}`}>
                     {player.position}
                   </span>
-                  <strong>{player.name}</strong>
-                  <small>{player.team}</small>
+                  <span className="roster-player-copy">
+                    <strong>{player.name}</strong>
+                    <small>{player.team}</small>
+                  </span>
                 </td>
                 <td>
                   <span
@@ -5780,10 +5912,12 @@ function RosterSection({
             })}
             {emptySlots.map((slot, index) => (
               <tr className="empty-starter-row" key={`empty-${slot}-${index}`}>
-                <td>
+                <td className="roster-player-cell">
                   <span className="empty-player-mark">+</span>
-                  <strong>Empty starter slot</strong>
-                  <small>Set your lineup before lock</small>
+                  <span className="roster-player-copy">
+                    <strong>Empty starter slot</strong>
+                    <small>Set your lineup before lock</small>
+                  </span>
                 </td>
                 <td><span className="roster-slot empty">{formatRosterSlot(slot)}</span></td>
                 <td>—</td>
@@ -8832,6 +8966,12 @@ function PlayerPanel({
   portfolioScans: LeagueScan[];
 }) {
   const projectionPlatform = useContext(ProjectionPlatformContext);
+  const platformProjection =
+    typeof player.leagueProjection === "number"
+      ? player.leagueProjection
+      : Number.isFinite(player.projection)
+        ? player.projection
+        : null;
   const [history, setHistory] = useState<PlayerHistory | null>(null);
   const [historyState, setHistoryState] = useState<
     "loading" | "ready" | "unavailable"
@@ -8954,8 +9094,8 @@ function PlayerPanel({
           <div>
             <span>{projectionPlatform.toUpperCase()} PROJECTION</span>
             <strong>
-              {typeof player.leagueProjection === "number"
-                ? player.leagueProjection.toFixed(1)
+              {platformProjection !== null
+                ? platformProjection.toFixed(1)
                 : "—"}
             </strong>
             <small>Weekly estimate from {projectionPlatform}</small>
@@ -9164,7 +9304,7 @@ function PlayerPanel({
               <table>
                 <thead>
                   <tr>
-                    <th>WK</th>
+                    <th className="game-log-week" scope="col">WK</th>
                     <th>FPTS</th>
                     {gameLogColumns.map((column) => <th key={column.label}>{column.label}</th>)}
                   </tr>
@@ -9172,7 +9312,7 @@ function PlayerPanel({
                 <tbody>
                   {seasonWeeks.map((week) => (
                     <tr key={`${week.season}-${week.week}`}>
-                      <td>
+                      <td className="game-log-week">
                         <b>W{week.week}</b>
                       </td>
                       <td>

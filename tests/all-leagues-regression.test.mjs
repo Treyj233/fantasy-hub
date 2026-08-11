@@ -101,3 +101,63 @@ test("NFL game impact details open in an accessible popout", async () => {
   assert.match(source, /role="dialog"/);
   assert.match(source, /aria-modal="true"/);
 });
+
+test("player popouts retain connected-platform projections across page models", async () => {
+  const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
+  const start = source.indexOf("function PlayerPanel(");
+  const component = source.slice(start);
+
+  assert.ok(start >= 0, "PlayerPanel component should be present");
+  assert.match(
+    component,
+    /typeof player\.leagueProjection === "number"[\s\S]*?Number\.isFinite\(player\.projection\)/,
+  );
+  assert.match(component, /platformProjection\.toFixed\(1\)/);
+});
+
+test("player game logs pin the Week column while stats scroll", async () => {
+  const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
+  const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+
+  assert.match(source, /<th className="game-log-week" scope="col">WK<\/th>/);
+  assert.match(source, /<td className="game-log-week">/);
+  assert.match(styles, /\.game-log-scroll \.game-log-week\{position:sticky;left:0/);
+});
+
+test("My Team player identities align as a badge and stacked copy block", async () => {
+  const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
+  const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+
+  assert.match(source, /<td className="roster-player-cell">/);
+  assert.match(source, /<span className="roster-player-copy">/);
+  assert.match(styles, /\.roster-section td\.roster-player-cell\{display:grid;grid-template-columns:35px minmax\(0,1fr\)/);
+});
+
+test("Rams matchup strength uses the shared LAR code", async () => {
+  const dashboard = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
+  const matchupModel = await readFile(new URL("../app/matchup-strength.ts", import.meta.url), "utf8");
+
+  assert.match(dashboard, /JAC: "JAX", WSH: "WAS", LA: "LAR"/);
+  assert.match(dashboard, /normalizeNflTeam\(opponent\.replace/);
+  assert.match(matchupModel, /JAC: "JAX", WSH: "WAS", LA: "LAR"/);
+  assert.match(matchupModel, /const team = normalizeTeam\(cells\[column\("opponent_team"\)\]\)/);
+});
+
+test("Command Center uses live league context instead of placeholder metrics", async () => {
+  const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
+  const start = source.indexOf("function CommandCenter(");
+  const end = source.indexOf("function MyTeam(", start);
+  const component = source.slice(start, end);
+
+  assert.ok(start >= 0 && end > start, "CommandCenter component should be present");
+  assert.doesNotMatch(component, /value="64%"|value="3rd"|value="72%"|value="86"/);
+  assert.match(component, /opponentTeam/);
+  assert.match(component, /winProbability/);
+  assert.match(component, /healthScore/);
+  assert.match(component, /command-action-queue/);
+  assert.match(component, /command-position-edges/);
+  assert.match(component, /command-availability/);
+  assert.match(component, /command-bench-cost/);
+  assert.match(component, /command-trends/);
+  assert.match(component, /command-quick-actions/);
+});
