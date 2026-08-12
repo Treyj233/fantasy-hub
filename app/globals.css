@@ -982,6 +982,61 @@ html[data-theme="dark"] .account-theme-customizer{color:#fff;background:radial-g
   .action-queue-groups>section{min-width:92%}
 }
 
+/* League Stories: a playful league-magazine treatment with disciplined text
+   alignment so long team and manager names do not shift surrounding content. */
+.league-stories-page{--story-blue:#2977c9;--story-pink:#d94f87;--story-orange:#e67b2e}
+.league-stories-hero{position:relative;overflow:hidden;isolation:isolate;box-shadow:0 18px 42px rgb(var(--brand-primary-rgb,11 134 80) / .22)}
+.league-stories-hero:before,.league-stories-hero:after{position:absolute;z-index:-1;content:"";pointer-events:none}
+.league-stories-hero:before{right:9%;top:-54px;width:180px;height:180px;border:18px solid #ffffff12;border-radius:50%}
+.league-stories-hero:after{right:28%;bottom:-65px;width:150px;height:100px;background:repeating-linear-gradient(115deg,#ffffff12 0,#ffffff12 7px,transparent 7px,transparent 15px);transform:rotate(-8deg)}
+.league-stories-hero>div{min-width:0}.league-stories-hero h2{overflow-wrap:anywhere;line-height:1.05}.league-stories-hero button{flex:0 0 auto;box-shadow:0 7px 18px #0003;transition:transform .18s ease}.league-stories-hero button:hover{transform:rotate(-1deg) translateY(-2px)}
+.story-ticker{overflow:hidden;border-left:5px solid var(--story-blue)}.story-ticker strong{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.story-ticker small{text-align:right;white-space:nowrap}
+.story-feature-grid>section,.story-dashboard-grid>section,.season-narrative,.narrative-trends{position:relative;overflow:hidden;border-top:4px solid var(--story-blue)}
+.story-feature-grid>section:nth-child(2){border-top-color:var(--story-orange)}.story-dashboard-grid>section:nth-child(2){border-top-color:var(--story-pink)}.story-dashboard-grid>section:nth-child(3){border-top-color:var(--story-orange)}.story-dashboard-grid>section:nth-child(4){border-top-color:#7758c7}
+.story-feature-grid header,.story-dashboard-grid header{align-items:flex-start}.story-feature-grid header>div,.story-dashboard-grid header>div{min-width:0}.story-feature-grid h3,.story-dashboard-grid h3{line-height:1.15}
+.story-lead{grid-template-columns:minmax(90px,auto) minmax(0,1fr) auto}.story-lead strong{min-width:0;overflow-wrap:anywhere}.story-lead em{text-align:right;white-space:nowrap}
+.story-awards article{position:relative;overflow:hidden;padding-left:17px}.story-awards article:before{position:absolute;inset:0 auto 0 0;width:5px;background:var(--story-blue);content:""}.story-awards article:nth-child(2):before{background:var(--story-orange)}.story-awards article:nth-child(3):before{background:var(--story-pink)}
+.story-awards strong,.story-awards small{line-height:1.3}.matchup-preview article>span{min-width:0;overflow-wrap:anywhere;line-height:1.2}.matchup-preview article>span:last-of-type{justify-self:stretch}.matchup-preview article>b{align-self:center;text-align:center}
+.power-story article,.manager-moments article{min-width:0}.power-story p,.manager-moments p{min-width:0}.power-story strong,.manager-moments strong{overflow-wrap:anywhere;line-height:1.25}.power-story em,.manager-moments article>em{min-width:42px;text-align:right}
+.rivalry-card{background:radial-gradient(circle at 90% 15%,color-mix(in srgb,var(--story-pink) 18%,transparent),transparent 34%),color-mix(in srgb,var(--gold-light) 8%,var(--chalk))}.rivalry-card span{letter-spacing:-.06em}.playoff-story{border-left:4px solid var(--story-blue)}
+.trade-reactions article>div{min-width:0}.trade-reactions article strong,.trade-reactions article small{overflow-wrap:anywhere;line-height:1.3}.trade-reactions article button{flex:0 0 auto}
+.fantasy-wrapped{box-shadow:0 20px 45px rgb(0 0 0 / .18)}
+
+/* Manager Report: clearer scorekeeping, aligned ledger metadata, and more
+   personality while keeping process and outcome explicitly separate. */
+.manager-report-page{--report-blue:#2b78c5;--report-green:#27a36a;--report-coral:#df665b}
+.manager-report-hero{position:relative;overflow:hidden;isolation:isolate;box-shadow:0 18px 42px rgb(var(--brand-primary-rgb,11 134 80) / .2)}
+.manager-report-hero:after{position:absolute;z-index:-1;right:-35px;bottom:-72px;width:230px;height:170px;border:20px solid #ffffff10;border-radius:50%;content:""}
+.manager-report-hero>div{min-width:0}.manager-report-hero h2{line-height:1.08}.manager-report-hero>b{display:grid;width:112px;height:112px;flex:0 0 112px;place-content:center;background:#ffffff12;border:2px solid #ffffff35;border-radius:50%;box-shadow:inset 0 0 0 7px #ffffff0a,0 10px 25px #0003;line-height:1}.manager-report-hero>b small{margin-top:7px;line-height:1.2}
+.decision-scorecards article{position:relative;overflow:hidden;min-width:0;border-top-color:var(--report-blue)}.decision-scorecards article:nth-child(2){border-top-color:var(--report-green)}.decision-scorecards article:nth-child(3){border-top-color:var(--report-coral)}.decision-scorecards article:after{position:absolute;right:-18px;top:-18px;width:55px;height:55px;background:color-mix(in srgb,var(--gold-light) 13%,transparent);border-radius:50%;content:""}.decision-scorecards small,.decision-scorecards em{line-height:1.3}
+.manager-accountability,.win-path-report,.decision-ledger,.report-coming{border-top:4px solid var(--report-blue)}.win-path-report{border-top-color:var(--report-green)}.decision-ledger{border-top-color:var(--report-coral)}.report-coming{border-top-color:var(--gold)}
+.manager-accountability>header,.decision-ledger>header,.win-path-report>header{align-items:flex-start}.manager-accountability>header>div,.decision-ledger>header>div,.win-path-report>header>div{min-width:0}.manager-accountability h3,.decision-ledger h3,.win-path-report h3{line-height:1.15}
+.manager-accountability article{position:relative;padding-top:38px;text-align:left}.manager-accountability article:before{position:absolute;left:13px;top:11px;font-size:17px;content:"◎"}.manager-accountability article:nth-child(2):before{content:"↔"}.manager-accountability article:nth-child(3):before{content:"🏁"}.manager-accountability article strong,.manager-accountability article small{line-height:1.35}
+.decision-ledger>article{position:relative}.decision-ledger-top{display:grid;grid-template-columns:auto auto minmax(0,1fr);align-items:center}.decision-ledger-top>em{min-width:0;text-align:right;white-space:nowrap}.decision-ledger h4,.decision-ledger>article>p{overflow-wrap:anywhere;line-height:1.35}.decision-ledger>article>div:not(.decision-ledger-top) small{overflow-wrap:anywhere;line-height:1.45}.decision-ledger footer{align-items:center}.decision-ledger footer>b{text-align:right}
+.report-coming{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:12px}.report-coming:before{display:grid;width:38px;height:38px;place-items:center;color:var(--deep);background:var(--gold-light);border-radius:11px;font-size:18px;content:"🚀"}.report-coming>span,.report-coming>p{grid-column:2}.report-coming>p{margin-top:-7px!important;line-height:1.4}
+
+@media(max-width:600px){
+  .league-stories-page,.manager-report-page{gap:9px;padding-inline:10px}
+  .league-stories-hero,.manager-report-hero{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:10px;padding:18px}
+  .league-stories-hero h2,.manager-report-hero h2{margin:4px 0;font-size:24px}
+  .league-stories-hero p,.manager-report-hero p{font-size:10px!important;line-height:1.35}
+  .league-stories-hero button{grid-column:1/-1;width:100%;padding:9px}
+  .manager-report-hero>b{width:78px;height:78px;flex-basis:78px;font-size:27px;text-align:center}
+  .story-ticker{grid-template-columns:auto minmax(0,1fr);gap:8px;padding:9px 10px}.story-ticker small{grid-column:2;text-align:left}
+  .story-feature-grid,.story-dashboard-grid{gap:9px}.story-feature-grid>section,.story-dashboard-grid>section{padding:13px}
+  .story-feature-grid header,.story-dashboard-grid header{gap:7px;margin-bottom:9px}.story-feature-grid h3,.story-dashboard-grid h3{font-size:16px}
+  .story-lead{grid-template-columns:minmax(0,1fr) auto;gap:5px 8px;padding:11px}.story-lead b{grid-column:1/-1}.story-lead strong{font-size:13px}.story-lead em{font-size:14px}
+  .story-awards{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin-top:6px}.story-awards article{padding:9px 8px 9px 12px}.story-awards article:last-child:nth-child(odd){grid-column:1/-1}
+  .matchup-preview article{gap:6px;padding:10px 3px}.matchup-preview article.mine{margin-inline:-4px;padding-inline:5px}.matchup-preview article>em{position:static;grid-column:1/-1;text-align:center}
+  .power-story article,.manager-moments article{gap:7px;padding:8px 0}.trade-reactions article{align-items:flex-start;padding:9px 0}
+  .decision-scorecards{display:flex;gap:7px;overflow-x:auto;padding-bottom:3px;scroll-snap-type:x proximity}.decision-scorecards article{min-width:68%;padding:12px;scroll-snap-align:start}.decision-scorecards strong{margin:4px 0 2px;font-size:23px}
+  .manager-accountability,.decision-ledger,.win-path-report,.report-coming{padding:13px}.manager-accountability>header,.decision-ledger>header,.win-path-report>header{gap:7px;margin-bottom:9px}.manager-accountability h3,.decision-ledger h3,.win-path-report h3{font-size:16px}
+  .manager-accountability>div{grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}.manager-accountability article{min-width:0;padding:34px 8px 9px}.manager-accountability article:before{left:8px}.manager-accountability article strong{font-size:9px}.manager-accountability article small{font-size:8px!important}
+  .win-path-report>article{gap:6px;padding:9px 0}.win-path-report>article>div{grid-template-columns:1fr}.win-path-report p{padding:8px}
+  .decision-ledger>article{padding:11px 0}.decision-ledger-top{grid-template-columns:auto auto}.decision-ledger-top>em{grid-column:1/-1;margin:5px 0 0;text-align:left}.decision-ledger footer{display:grid;grid-template-columns:1fr auto;gap:6px}.decision-ledger footer>b{text-align:right}
+  .report-coming{grid-template-columns:34px minmax(0,1fr);gap:9px}.report-coming:before{width:34px;height:34px}.report-coming>p{margin-top:-4px!important}
+}
+
 /* Pricing stays immediately actionable; campaign artwork enhances the existing feature rows. */
 .pro-plans-page>.pro-plans-hero{order:0}.pro-plans-page>.native-billing-note,.pro-plans-page>.billing-error{order:1}.pro-plans-page>.plan-grid{order:2}.pro-plans-page>.pro-showcase{order:3}.pro-plans-page>.pro-theme-gallery{order:4}.pro-plans-page>.pro-principle{order:5}
 .pro-feature-art{min-height:270px;background-color:#071a35;background-position:center;background-size:cover;border:1px solid #ffffff42;border-radius:15px;box-shadow:0 18px 45px rgb(0 0 0 / .3);transform:perspective(900px) rotateY(-2deg)}.pro-feature-card.reverse>.pro-feature-art{grid-column:1;grid-row:1;transform:perspective(900px) rotateY(2deg)}
