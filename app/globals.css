@@ -4,6 +4,7 @@
 * { box-sizing:border-box; }
 html { background:var(--cream); }
 body { margin:0; color:var(--ink); background:var(--cream); font-family:var(--font-geist-sans),Arial,sans-serif; }
+@media(max-width:700px){html,body{min-height:100%;background-color:#f4f7f5}html[data-theme="dark"],html[data-theme="dark"] body{background-color:#181b22}body{overscroll-behavior-y:none}}
 button,input,select { font:inherit; }
 button { cursor:pointer; }
 .app-shell { min-height:100vh; display:grid; grid-template-columns:248px minmax(0,1fr); }

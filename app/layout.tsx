@@ -20,10 +20,7 @@ export const viewport: Viewport = {
   userScalable: false,
   interactiveWidget: "resizes-visual",
   viewportFit: "cover",
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f4f7f5" },
-    { media: "(prefers-color-scheme: dark)", color: "#181b22" },
-  ],
+  themeColor: "#f4f7f5",
 };
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -40,6 +37,11 @@ export async function generateMetadata(): Promise<Metadata> {
     title: "Fantasy Hub — Make Every Week Count",
     description:
       "Explainable lineup, waiver, trade, matchup, and playoff intelligence for fantasy football managers.",
+    appleWebApp: {
+      capable: true,
+      statusBarStyle: "default",
+      title: "Fantasy Hub",
+    },
     icons: {
       icon: [{ url: "/favicon.png", type: "image/png" }],
       shortcut: "/favicon.png",

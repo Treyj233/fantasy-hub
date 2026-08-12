@@ -1347,14 +1347,13 @@ export default function FantasyHub({
     const systemBackground = theme === "dark" ? "#181b22" : "#f4f7f5";
     document.documentElement.style.backgroundColor = systemBackground;
     document.body.style.backgroundColor = systemBackground;
-    let themeColor = document.querySelector<HTMLMetaElement>('meta[name="theme-color"][data-fantasy-hub]');
-    if (!themeColor) {
-      themeColor = document.createElement("meta");
-      themeColor.name = "theme-color";
-      themeColor.dataset.fantasyHub = "true";
-      document.head.appendChild(themeColor);
-    }
+    const themeColors = Array.from(document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]'));
+    const themeColor = themeColors[0] ?? document.createElement("meta");
+    themeColor.name = "theme-color";
     themeColor.content = systemBackground;
+    themeColor.removeAttribute("media");
+    if (!themeColor.isConnected) document.head.appendChild(themeColor);
+    themeColors.slice(1).forEach((entry) => entry.remove());
     window.localStorage.setItem("fantasy-hub-theme", theme);
   }, [theme]);
 
