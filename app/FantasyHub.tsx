@@ -2018,23 +2018,6 @@ export default function FantasyHub({
           </div>
         </header>
         <nav className="mobile-nav-strip" aria-label="Quick Fantasy Hub navigation" draggable={false} onDragStart={(event) => event.preventDefault()}>
-          <button
-            className="mobile-rail-theme"
-            type="button"
-            role="switch"
-            aria-checked={theme === "dark"}
-            aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
-            title={theme === "dark" ? "Dark mode" : "Light mode"}
-            onClick={() =>
-              setTheme((current) => {
-                const next = current === "light" ? "dark" : "light";
-                void saveAccountPreferences({ colorMode: next });
-                return next;
-              })
-            }
-          >
-            <i className="nav-badge theme-rail-badge" aria-hidden="true">{theme === "dark" ? "☾" : "☀"}</i>
-          </button>
           {orderedMobileNav.map((item) => (
             <button
               key={item.label}
@@ -2053,6 +2036,23 @@ export default function FantasyHub({
               <i className={`nav-badge ${item.tone}`} aria-hidden="true">{item.mark}</i>
             </button>
           ))}
+          <button
+            className="mobile-rail-theme"
+            type="button"
+            role="switch"
+            aria-checked={theme === "dark"}
+            aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+            title={theme === "dark" ? "Dark mode" : "Light mode"}
+            onClick={() =>
+              setTheme((current) => {
+                const next = current === "light" ? "dark" : "light";
+                void saveAccountPreferences({ colorMode: next });
+                return next;
+              })
+            }
+          >
+            <i className="nav-badge theme-rail-badge" aria-hidden="true">{theme === "dark" ? "☾" : "☀"}</i>
+          </button>
         </nav>
         </div>
 
