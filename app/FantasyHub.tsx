@@ -25,6 +25,7 @@ type View =
   | "Simulator"
   | "Glossary"
   | "Fantasy Hub Pro"
+  | "Access Account"
   | "Manage Leagues";
 type Player = {
   id: string;
@@ -605,6 +606,7 @@ const nav: { label: View; displayLabel?: string; mark: string; tone: string; gro
   { label: "All Leagues", displayLabel: "Mission Hub", mark: "◆", tone: "violet", group: "Portfolio" },
   { label: "Manage Leagues", mark: "⚙", tone: "slate", group: "Portfolio" },
   { label: "Fantasy Hub Pro", displayLabel: "Manage Plans", mark: "P", tone: "gold", group: "Utilities" },
+  { label: "Access Account", mark: "J", tone: "blue", group: "Utilities" },
   { label: "Command Center", mark: "★", tone: "amber", group: "Team Management" },
   { label: "My Team", mark: "♟", tone: "blue", group: "Team Management" },
   { label: "Start / Sit", mark: "⚡", tone: "orange", group: "Team Management" },
@@ -627,6 +629,7 @@ const glossaryDetails: Record<View, { summary: string; use: string }> = {
   "All Leagues": { summary: "Your portfolio-wide Mission Hub, combining urgent lineup, waiver, weather, injury, and trade actions across every connected league.", use: "Open first to see the three most important actions across your portfolio." },
   "Manage Leagues": { summary: "Connect, remove, refresh, and reorder Sleeper or ESPN leagues while managing account and appearance preferences.", use: "Use when adding a league, changing league order, or updating your Hub setup." },
   "Fantasy Hub Pro": { summary: "Compare Free and Pro access, start a subscription, restore an App Store purchase, or manage active billing.", use: "Use to review plans and unlock Fantasy Hub’s proprietary tools." },
+  "Access Account": { summary: "Review account details, subscription status, billing management, notification access, and sign-in controls.", use: "Use to manage your Fantasy Hub account or safely end a subscription." },
   "Command Center": { summary: "A league-specific briefing that combines roster readiness, matchup edges, priorities, and recommended next moves.", use: "Open before making weekly decisions for one team." },
   "My Team": { summary: "Your complete roster in platform lineup order, separated into starters, bench, IR, and other reserve slots.", use: "Use to review lineup status, player trends, projections, weather, and opponent strength." },
   "Start / Sit": { summary: "Compares realistic lineup decisions using platform projections, floor, median, ceiling, matchup strength, and game-script needs.", use: "Use when two or more eligible players are competing for the same lineup or flex spot." },
@@ -1930,13 +1933,13 @@ export default function FantasyHub({
           </div>
           <div className="top-actions">
             <div className="account-actions">
-              <a className="account-chip" href={accountUser.signOutPath}>
+              <button className="account-chip account-chip-button" type="button" onClick={() => setView("Access Account")}>
                 <span>{accountUser.displayName.slice(0, 1).toUpperCase()}</span>
                 <small>
                   {connection?.displayName ?? accountUser.displayName}
-                  <b>Sign out</b>
+                  <b>Access account</b>
                 </small>
-              </a>
+              </button>
               <div className="account-utility-row">
                 {leagueId && (
                   <a
@@ -2371,6 +2374,7 @@ export default function FantasyHub({
           />
         )}
         {view === "Fantasy Hub Pro" && <ProPlans entitlement={entitlement} />}
+        {view === "Access Account" && <AccessAccount accountUser={accountUser} entitlement={entitlement} onPlans={() => setView("Fantasy Hub Pro")} />}
       </section>
 
       {selectedPlayer && (
@@ -2554,6 +2558,49 @@ function EmptyRoster({
 
 function ProGate({ feature, onUpgrade }: { feature: string; onUpgrade: () => void }) {
   return <div className="page-content pro-gate-page"><section className="pro-gate panel"><span>FANTASY HUB EXCLUSIVE</span><div className="pro-lock"><FHLogo label="Fantasy Hub" /></div><h2>{feature} is a Pro experience.</h2><p>Your leagues, rosters, live scores, matchups, rankings, waiver pool, and Start/Sit tools remain free. Pro unlocks Fantasy Hub’s proprietary simulations, advanced analysis, decision memory, stories, and trade intelligence.</p><button onClick={onUpgrade}>Explore Fantasy Hub Pro →</button><small>Platform connection is not what you pay for. Pro is built around Fantasy Hub’s original models and experience.</small></section></div>;
+}
+
+function AccessAccount({ accountUser, entitlement, onPlans }: { accountUser: AccountUser; entitlement: AccountEntitlement; onPlans: () => void }) {
+  const nativeIos = useSyncExternalStore(() => () => undefined, isNativeIosApp, () => false);
+  const [billingBusy, setBillingBusy] = useState(false);
+  const [billingError, setBillingError] = useState("");
+  const [confirmCancel, setConfirmCancel] = useState(false);
+  const billingProvider = entitlement.provider;
+  const recurringBilling = billingProvider === "stripe" || billingProvider === "apple" || billingProvider === "app_store";
+
+  async function openSubscriptionManagement() {
+    setBillingBusy(true);
+    setBillingError("");
+    try {
+      if (nativeIos && (billingProvider === "apple" || billingProvider === "app_store")) {
+        await nativeManageSubscriptions();
+        return;
+      }
+      if (billingProvider === "apple" || billingProvider === "app_store") {
+        throw new Error("Apple subscriptions must be managed from Settings → Apple Account → Subscriptions on an Apple device.");
+      }
+      const response = await fetch("/api/billing/portal", { method: "POST" });
+      const data = await response.json() as { url?: string; error?: string };
+      if (!response.ok || !data.url) throw new Error(data.error ?? "Billing management is temporarily unavailable");
+      window.location.assign(data.url);
+    } catch (error) {
+      setBillingError(error instanceof Error ? error.message : "Billing management is temporarily unavailable");
+    } finally {
+      setBillingBusy(false);
+    }
+  }
+
+  return <div className="page-content access-account-page">
+    <section className="access-account-hero">
+      <span>ACCESS ACCOUNT</span><h2>Your Fantasy Hub identity.</h2><p>Account information, membership, billing, and secure access controls in one place.</p>
+    </section>
+    <section className="account-settings-grid">
+      <article className="panel account-profile-card"><header><span>{accountUser.displayName.slice(0,1).toUpperCase()}</span><div><small>ACCOUNT PROFILE</small><h3>{accountUser.displayName}</h3><p>{accountUser.email}</p></div></header><dl><div><dt>Sign-in provider</dt><dd>{accountUser.provider === "clerk" ? "Fantasy Hub account" : "ChatGPT"}</dd></div><div><dt>Membership</dt><dd>{entitlement.pro ? "Fantasy Hub Pro" : "Fantasy Hub Free"}</dd></div></dl><p className="account-edit-note">Name, email, password, and connected sign-in methods are securely managed by your authentication provider.</p></article>
+      <article className="panel account-plan-card"><header><div><small>MEMBERSHIP & BILLING</small><h3>{entitlement.pro ? "Pro is active" : "Free plan"}</h3></div><b className={entitlement.pro ? "active" : "free"}>{entitlement.pro ? "PRO" : "FREE"}</b></header><p>{entitlement.pro ? recurringBilling ? `Your membership is billed through ${billingProvider === "stripe" ? "Fantasy Hub billing" : "the App Store"}.` : "Your account has Pro access without a recurring subscription." : "Upgrade for advanced intelligence, simulations, stories, and customization."}</p><div className="account-plan-actions"><button onClick={onPlans}>{entitlement.pro ? "View Pro benefits" : "Explore Pro plans"}</button>{entitlement.pro && recurringBilling && <button disabled={billingBusy} onClick={() => void openSubscriptionManagement()}>{billingBusy ? "Opening…" : "Manage billing"}</button>}</div>{billingError && <p className="billing-error" role="alert">{billingError}</p>}</article>
+    </section>
+    {entitlement.pro && recurringBilling && <section className="panel account-cancel-card"><div><span>SUBSCRIPTION CONTROL</span><h3>Cancel subscription</h3><p>Cancellation stops automatic renewal. Pro access normally remains available through the end of the paid or trial period shown by your billing provider.</p></div>{!confirmCancel ? <button onClick={() => setConfirmCancel(true)}>Review cancellation</button> : <div className="cancel-confirm"><strong>Are you sure you want to continue to subscription cancellation?</strong><small>You will leave Fantasy Hub to confirm the cancellation with {billingProvider === "stripe" ? "our secure billing portal" : "Apple"}. Your subscription is not canceled until you finish there.</small><div><button onClick={() => setConfirmCancel(false)}>Keep subscription</button><button className="danger" disabled={billingBusy} onClick={() => void openSubscriptionManagement()}>{billingBusy ? "Opening…" : "Continue to cancel"}</button></div></div>}</section>}
+    <section className="panel account-security-card"><div><span>SECURE ACCESS</span><h3>Sign out of Fantasy Hub</h3><p>End this session on the current device. Your connected leagues and saved account preferences remain available the next time you sign in.</p></div><a href={accountUser.signOutPath}>Sign out</a></section>
+  </div>;
 }
 
 function ProPlans({ entitlement }: { entitlement: AccountEntitlement }) {
