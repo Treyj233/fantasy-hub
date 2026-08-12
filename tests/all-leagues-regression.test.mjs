@@ -62,6 +62,20 @@ test("portfolio Scoreboard exposes a sticky quick-score rail", async () => {
   assert.match(source, /scrollIntoView\(\{ behavior: "smooth", block: "start" \}\)/);
 });
 
+test("League Analytics priorities route into actionable tools", async () => {
+  const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
+  const start = source.indexOf("function RedraftAnalytics(");
+  const end = source.indexOf("function eligibleForSlot(", start);
+  const analytics = source.slice(start, end);
+
+  assert.match(analytics, /className="analytics-route-card"/);
+  assert.match(analytics, /onNavigate\("Start \/ Sit"\)/);
+  assert.match(analytics, /onNavigate\("Waiver Wire"\)/);
+  assert.match(analytics, /onNavigate\(priority\.view\)/);
+  assert.match(analytics, /view: "Trade Lab" as View/);
+  assert.match(analytics, /view: "Player Rankings" as View/);
+});
+
 test("portfolio Scoreboard opens both Matchups and league scoreboards", async () => {
   const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
   assert.match(source, /onOpenMatchups=\{async \(league, matchupId\)/);

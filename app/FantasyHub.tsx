@@ -2190,6 +2190,7 @@ export default function FantasyHub({
               rankings={leagueRankings}
               context={rankingContext}
               setSelectedPlayer={setSelectedPlayer}
+              onNavigate={setView}
             />
           ) : (
             rosterEmptyState
@@ -5006,7 +5007,7 @@ const dynastyCurves: Record<
   DEF: { peakEnd: 99, annualDecline: 0 },
 };
 
-function RedraftAnalytics({ players, rankings, context, setSelectedPlayer }: { players: Player[]; rankings: LeagueRanking[]; context: RankingContext | null; setSelectedPlayer: (player: Player) => void }) {
+function RedraftAnalytics({ players, rankings, context, setSelectedPlayer, onNavigate }: { players: Player[]; rankings: LeagueRanking[]; context: RankingContext | null; setSelectedPlayer: (player: Player) => void; onNavigate: (view: View) => void }) {
   const starters = players.filter(isStartingPlayer);
   const bench = players.filter((player) => !isStartingPlayer(player));
   const ranges = starters.map((player) => ({ player, range: matchupAdjustedRange(player) }));
@@ -5033,7 +5034,7 @@ function RedraftAnalytics({ players, rankings, context, setSelectedPlayer }: { p
     <div className="dynasty-metrics"><Metric label="Starting projection" value={projection.toFixed(1)} detail={`${starters.length} active lineup players`} tone="good"/><Metric label="Playable depth" value={String(usableDepth.length)} detail="Bench players projected for 5+ points" tone={usableDepth.length >= 3 ? "good" : "warn"}/><Metric label="Availability flags" value={String(injuryRisks.length)} detail="Injury or suspension designations" tone={injuryRisks.length ? "warn" : "good"}/><Metric label="Empty starters" value={String(emptySlots)} detail="Unfilled required lineup slots" tone={emptySlots ? "warn" : "good"}/></div>
     <div className="dynasty-main"><section className="panel dynasty-trajectory"><Header eyebrow="WEEKLY OUTCOME RANGE" title="How wide is this lineup’s path?"/><div className="redraft-range"><span style={{ width: `${Math.min(100, (floor / Math.max(ceiling, 1)) * 100)}%` }}/><i style={{ left: `${Math.min(96, (projection / Math.max(ceiling, 1)) * 100)}%` }}/></div><div className="redraft-range-labels"><b>Floor {floor.toFixed(1)}</b><b>Median {projection.toFixed(1)}</b><b>Ceiling {ceiling.toFixed(1)}</b></div><p>A wider range creates comeback upside but increases the chance of a low weekly result. Start/Sit aggressiveness decides which part of this distribution matters most.</p></section><section className="panel dynasty-allocation"><Header eyebrow="POSITION ROOMS" title="Where this roster’s points live"/><div className="allocation-grid">{roomAnalytics.map((room) => <article key={room.position}><strong>{room.position}</strong><span>{room.room.length} players · {room.bestRank < 9999 ? `best asset #${room.bestRank}` : "rank pending"}</span><div><i className="prime" style={{ width: `${Math.min(100, room.projected * 2)}%` }}/></div><small>{room.projected.toFixed(1)} combined projected points</small></article>)}</div></section></div>
     <div className="dynasty-lists"><section className="panel"><Header eyebrow="WEEKLY FOUNDATIONS" title="Players carrying the median"/><p className="model-caveat">These are the largest current contributors to the connected platform’s weekly lineup projection.</p><div className="dynasty-player-list">{strengths.map((player) => <button key={player.id} onClick={() => setSelectedPlayer(player)}><span className={`pos pos-${player.position.toLowerCase()}`}>{player.position}</span><p><strong>{player.name}</strong><small>{player.team} · {formatRosterSlot(player.role)}</small></p><b>{player.projection.toFixed(1)}<small>Projected points</small></b><em className="core">Foundation</em></button>)}</div></section><section className="panel"><Header eyebrow="VOLATILITY WATCH" title="Players who can swing the week"/><p className="model-caveat">Large floor-to-ceiling ranges can help an underdog and hurt a favorite. This is role variance, not a recommendation to bench the player.</p><div className="dynasty-player-list">{volatilityWatch.map(({ player, range }) => <button key={player.id} onClick={() => setSelectedPlayer(player)}><span className={`pos pos-${player.position.toLowerCase()}`}>{player.position}</span><p><strong>{player.name}</strong><small>{range.floor.toFixed(1)} floor · {range.ceiling.toFixed(1)} ceiling</small></p><b>{(range.ceiling - range.floor).toFixed(1)}<small>Point range</small></b><em className="watch">Monitor</em></button>)}</div></section></div>
-    <section className="panel dynasty-plan"><Header eyebrow="SEASON PLAYBOOK" title="Three redraft management priorities"/><div><article><b>01</b><span><strong>{emptySlots ? "Fill every active lineup slot" : "Keep the weekly lineup optimized"}</strong><p>{emptySlots ? `${emptySlots} required starter slot${emptySlots === 1 ? " is" : "s are"} currently empty.` : "Revisit close calls as projections, injuries, weather, and matchup strength update."}</p></span><em>Before kickoff</em></article><article><b>02</b><span><strong>{injuryRisks.length ? "Build an availability contingency" : "Preserve healthy depth"}</strong><p>{injuryRisks.length ? `${injuryRisks.length} roster players carry a current availability flag. Avoid waiting until kickoff windows close.` : "No current availability flags require an emergency move; maintain flexible bench coverage."}</p></span><em>This week</em></article><article><b>03</b><span><strong>{usableDepth.length < 3 ? "Upgrade playable depth" : "Use depth to attack weaknesses"}</strong><p>{usableDepth.length < 3 ? "The bench has limited credible weekly replacements. Prioritize waivers with immediate roles." : "Your bench can absorb normal volatility. Explore trades that consolidate depth into stronger starters."}</p></span><em>Ongoing</em></article></div></section>
+    <section className="panel dynasty-plan"><Header eyebrow="SEASON PLAYBOOK" title="Three redraft management priorities"/><div><button className="analytics-route-card" type="button" onClick={() => onNavigate("Start / Sit")}><b>01</b><span><strong>{emptySlots ? "Fill every active lineup slot" : "Keep the weekly lineup optimized"}</strong><p>{emptySlots ? `${emptySlots} required starter slot${emptySlots === 1 ? " is" : "s are"} currently empty.` : "Revisit close calls as projections, injuries, weather, and matchup strength update."}</p></span><em>Before kickoff · Open Start/Sit →</em></button><button className="analytics-route-card" type="button" onClick={() => onNavigate("Waiver Wire")}><b>02</b><span><strong>{injuryRisks.length ? "Build an availability contingency" : "Preserve healthy depth"}</strong><p>{injuryRisks.length ? `${injuryRisks.length} roster players carry a current availability flag. Avoid waiting until kickoff windows close.` : "No current availability flags require an emergency move; maintain flexible bench coverage."}</p></span><em>This week · Open Waivers →</em></button><button className="analytics-route-card" type="button" onClick={() => onNavigate(usableDepth.length < 3 ? "Waiver Wire" : "Trade Lab")}><b>03</b><span><strong>{usableDepth.length < 3 ? "Upgrade playable depth" : "Use depth to attack weaknesses"}</strong><p>{usableDepth.length < 3 ? "The bench has limited credible weekly replacements. Prioritize waivers with immediate roles." : "Your bench can absorb normal volatility. Explore trades that consolidate depth into stronger starters."}</p></span><em>Ongoing · Open {usableDepth.length < 3 ? "Waivers" : "Trade Lab"} →</em></button></div></section>
   </div>;
 }
 
@@ -5044,6 +5045,7 @@ function LeagueAnalytics({
   rankings,
   context,
   setSelectedPlayer,
+  onNavigate,
 }: {
   players: Player[];
   teams: LeagueTeam[];
@@ -5051,9 +5053,10 @@ function LeagueAnalytics({
   rankings: LeagueRanking[];
   context: RankingContext | null;
   setSelectedPlayer: (player: Player) => void;
+  onNavigate: (view: View) => void;
 }) {
   const isDynasty = context?.format === "Dynasty";
-  if (!isDynasty) return <RedraftAnalytics players={players} rankings={rankings} context={context} setSelectedPlayer={setSelectedPlayer} />;
+  if (!isDynasty) return <RedraftAnalytics players={players} rankings={rankings} context={context} setSelectedPlayer={setSelectedPlayer} onNavigate={onNavigate} />;
   const rosterIds = new Set(players.map((player) => player.id));
   const rankingById = new Map(rankings.map((player) => [player.id, player]));
   const positionRanks = new Map<string, number>();
@@ -5472,14 +5475,14 @@ function LeagueAnalytics({
             trajectory,
             positionCounts,
           }).map((priority, index) => (
-            <article key={priority.title}>
+            <button className="analytics-route-card" type="button" key={priority.title} onClick={() => onNavigate(priority.view)}>
               <b>0{index + 1}</b>
               <span>
                 <strong>{priority.title}</strong>
                 <p>{priority.detail}</p>
               </span>
-              <em>{priority.horizon}</em>
-            </article>
+              <em>{priority.horizon} · Open {priority.view} →</em>
+            </button>
           ))}
         </div>
       </section>
@@ -5506,35 +5509,41 @@ function buildDynastyPriorities({
           title: `Create optionality behind ${firstCliff.name}`,
           detail: `${firstCliff.position} decline risk typically accelerates after this modeled window. Add a developmental alternative or test the market without forcing a sale below value.`,
           horizon: firstCliff.yearsToCliff < 0 ? "Now" : "This season",
+          view: "Trade Lab" as View,
         }
       : {
           title: "Preserve the clean age curve",
           detail:
             "No immediate cliff concentration is present. Avoid replacing useful prime production simply to become younger.",
           horizon: "Ongoing",
+          view: "Player Rankings" as View,
         },
     firstCore
       ? {
           title: `Build the next window around ${firstCore.name}`,
           detail: `The roster’s strongest combination of league-adjusted value and runway should anchor multi-year trade decisions. Avoid exchanging that runway for marginal weekly gains.`,
           horizon: "2–3 years",
+          view: "Player Rankings" as View,
         }
       : {
           title: "Acquire one foundational young asset",
           detail:
             "The roster lacks a clear high-value player with three or more seasons of modeled runway. Prioritize quality over collecting low-upside youth.",
           horizon: "Next market",
+          view: "Trade Lab" as View,
         },
     trajectory < -5
       ? {
           title: "Reduce synchronized decline risk",
           detail: `The starter window falls ${Math.abs(trajectory)} points over three years. Stagger veteran exits so several positions do not lose value in the same offseason.`,
           horizon: "Before decline",
+          view: "Trade Lab" as View,
         }
       : {
           title: "Use depth to extend the competitive window",
           detail: `The three-year window is stable. Convert excess concentration${(positionCounts.WR ?? 0) >= 6 ? " at wide receiver" : " in deep rooms"} into scarcer starting value or future flexibility.`,
           horizon: "Trade window",
+          view: "Trade Lab" as View,
         },
   ];
 }
