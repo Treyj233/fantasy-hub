@@ -4492,9 +4492,9 @@ function AllLeagueScoreboard({
                       <span>{winOutlook}</span>
                     </div>
                     <i className="scorebug-probability-track" role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={winProbability ?? undefined}>
-                      {winProbability != null && <b style={{ left: `${winProbability}%` }} />}
+                      {winProbability != null && <b style={{ left: `${100 - winProbability}%` }} />}
                     </i>
-                    <footer><small>{opponent.teamName}</small><small>{mine.teamName}</small></footer>
+                    <footer><small>{mine.teamName}</small><small>{opponent.teamName}</small></footer>
                   </aside>
                   {[mine, opponent].map((team) => (
                     <div className={team.isMine ? "mine" : ""} key={team.rosterId}>

@@ -729,6 +729,7 @@ html[data-theme="dark"] .account-theme-customizer{color:#fff;background:radial-g
 
 /* Readability floor: preserve the existing type hierarchy while preventing
    supporting copy, badges, controls, and data labels from becoming illegible. */
+.scorebug-probability-track{background:linear-gradient(90deg,#25a968 0%,#e9b94c 50%,#df5b63 100%)}
 .page-content :is(span,small,em,label,th){font-size:max(10px,1em)!important}
 .page-content :is(p,td,button,input,select,textarea){font-size:max(11px,1em)!important}
 .topbar p,.sidebar-bottom div,.sidebar-bottom small{font-size:max(10px,1em)!important}
