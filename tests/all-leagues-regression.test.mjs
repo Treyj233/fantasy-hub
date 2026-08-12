@@ -172,13 +172,14 @@ test("Full Action Queue badges use stable priority colors", async () => {
   assert.match(styles, /button>em\{color:var\(--queue-ink/);
 });
 
-test("Sleeper mobile actions deep link to the selected league", async () => {
+test("mobile platform actions use prompt-free verified web links", async () => {
   const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
-  assert.match(source, /sleeper:\/\/leagues\/\$\{encodeURIComponent\(leagueId\)\}\/team/);
   assert.match(source, /https:\/\/sleeper\.com\/leagues\/\$\{encodeURIComponent\(leagueId\)\}\/team/);
-  assert.match(source, /openSleeperLeagueOnMobile\(event, selectedConnectedLeague\?\.sourceId/);
-  assert.match(source, /openSleeperLeagueOnMobile\(event, scan\.league\.sourceId/);
-  assert.match(source, /document\.visibilityState === "hidden"/);
+  assert.match(source, /https:\/\/fantasy\.espn\.com\/football\/league\?leagueId=/);
+  assert.match(source, /openPlatformLeagueOnMobile\(event, selectedConnectedLeague/);
+  assert.match(source, /openPlatformLeagueOnMobile\(event, scan\.league\)/);
+  assert.doesNotMatch(source, /sleeper:\/\//);
+  assert.doesNotMatch(source, /setTimeout\([\s\S]{0,300}fallbackUrl/);
 });
 
 test("mobile My Team roster fits without horizontal scrolling", async () => {
