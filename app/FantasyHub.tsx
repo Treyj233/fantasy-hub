@@ -2446,7 +2446,7 @@ function SignInScreen() {
         <Link className="auth-primary" href="/sign-in">
           Continue with Google, Apple, or email
         </Link>
-        <a className="auth-secondary" href="/signin-with-chatgpt?return_to=/">
+        <a className="auth-secondary chatgpt-web-only" href="/signin-with-chatgpt?return_to=/">
           Continue with ChatGPT
         </a>
         <small className="auth-safety">
