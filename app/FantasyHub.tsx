@@ -5055,6 +5055,7 @@ function LeagueAnalytics({
   setSelectedPlayer: (player: Player) => void;
   onNavigate: (view: View) => void;
 }) {
+  const [expandedAssetPosition, setExpandedAssetPosition] = useState<string | null>(null);
   const isDynasty = context?.format === "Dynasty";
   if (!isDynasty) return <RedraftAnalytics players={players} rankings={rankings} context={context} setSelectedPlayer={setSelectedPlayer} onNavigate={onNavigate} />;
   const rosterIds = new Set(players.map((player) => player.id));
@@ -5350,7 +5351,7 @@ function LeagueAnalytics({
             {["QB", "RB", "WR", "TE"].map((position) => {
               const room = assets.filter(
                 (player) => player.position === position,
-              );
+              ).sort((a, b) => a.overallRank - b.overallRank);
               const prime = room.filter(
                 (player) => player.phase === "Prime",
               ).length;
@@ -5360,8 +5361,10 @@ function LeagueAnalytics({
               const cliff = room.filter(
                 (player) => player.phase === "Cliff watch",
               ).length;
+              const expanded = expandedAssetPosition === position;
               return (
-                <article key={position}>
+                <Fragment key={position}>
+                <button className="asset-allocation-toggle" type="button" aria-expanded={expanded} aria-controls={`asset-room-${position.toLowerCase()}`} onClick={() => setExpandedAssetPosition(expanded ? null : position)}>
                   <strong>{position}</strong>
                   <span>{positionCounts[position] ?? 0} assets</span>
                   <div>
@@ -5387,7 +5390,17 @@ function LeagueAnalytics({
                   <small>
                     {development} developing · {prime} prime · {cliff} cliff
                   </small>
-                </article>
+                  <em aria-hidden="true">{expanded ? "−" : "+"}</em>
+                </button>
+                {expanded && <div className="asset-position-roster" id={`asset-room-${position.toLowerCase()}`}>
+                  <header><span>{position} ASSETS</span><b>{room.length} PLAYERS</b></header>
+                  {room.map((player) => {
+                    const rosterPlayer = players.find((candidate) => candidate.id === player.id);
+                    return <button type="button" key={`allocation-${player.id}`} onClick={() => setSelectedPlayer(player)}><span className={`pos pos-${position.toLowerCase()}`}>{position}</span><p><strong>{player.name}</strong><small>Age {player.age ?? "—"} · {player.phase} · {rosterPlayer ? formatRosterSlot(rosterPlayer.role) : "Roster"}</small></p><b>#{player.positionRank ?? "—"}<small>{position} rank · Overall #{player.overallRank}</small></b><em>View player →</em></button>;
+                  })}
+                  {!room.length && <p>No {position} assets are currently rostered.</p>}
+                </div>}
+                </Fragment>
               );
             })}
           </div>

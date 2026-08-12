@@ -90,6 +90,17 @@ test("Dynasty window score explains its 100-point scale and weighted inputs", as
   assert.match(source, /Title 78\+/);
 });
 
+test("Dynasty asset allocation expands into position-specific assets", async () => {
+  const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
+
+  assert.match(source, /expandedAssetPosition/);
+  assert.match(source, /className="asset-allocation-toggle"/);
+  assert.match(source, /aria-controls=\{`asset-room-\$\{position\.toLowerCase\(\)\}`\}/);
+  assert.match(source, /className="asset-position-roster"/);
+  assert.match(source, /player\.positionRank/);
+  assert.match(source, /setSelectedPlayer\(player\)/);
+});
+
 test("portfolio Scoreboard opens both Matchups and league scoreboards", async () => {
   const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
   assert.match(source, /onOpenMatchups=\{async \(league, matchupId\)/);
