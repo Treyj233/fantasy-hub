@@ -535,6 +535,15 @@ html[data-theme="dark"] .command-action-queue>div>button,html[data-theme="dark"]
   .command-center-page .recommendation b{font-size:8px!important;letter-spacing:.06em}
 }
 
+@media(max-width:600px){
+  .command-center-page .waiver-preview p{min-width:0}
+  .command-center-page .waiver-preview p small{display:block;overflow:hidden;max-width:100%;margin-top:1px;font-size:8px!important;line-height:1.15;text-overflow:ellipsis;white-space:nowrap}
+  .command-center-page .matchup-card>strong{overflow:hidden;margin-top:10px;font-size:12px;line-height:1.15;text-overflow:ellipsis;white-space:nowrap}
+  .command-center-page .matchup-card>p{display:block;overflow:hidden;margin:5px 0;font-size:8px!important;line-height:1.2;text-overflow:ellipsis;white-space:nowrap}
+  .command-center-page .matchup-card>div{gap:5px}
+  .command-center-page .matchup-card>div span{padding:7px;font-size:8px!important}
+}
+
 /* Keep Start/Sit strategy available while scrolling. Mobile has both a native
    top header and a navigation rail, so the sticky offset must clear both. */
 @media(max-width:700px){
