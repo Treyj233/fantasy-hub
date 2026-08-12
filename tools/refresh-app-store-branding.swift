@@ -2,7 +2,7 @@ import AppKit
 import Foundation
 
 let root = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-let logoURL = root.appendingPathComponent("public/fantasy-hub-logo.png")
+let logoURL = root.appendingPathComponent("public/marketing/app-store/fh-blue-app-mark.png")
 let screenshots = root.appendingPathComponent("public/marketing/app-store/iphone-6.5")
 let masters = root.appendingPathComponent("public/marketing/app-store/generated-masters")
 
@@ -29,13 +29,9 @@ func refresh(_ url: URL) throws {
   NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: bitmap)
   source.draw(in: NSRect(x: 0, y: 0, width: 1242, height: 2688))
 
-  // The committed raster is the exact product mark. Its white background
-  // cleanly replaces the older baked logo while keeping the ad art unchanged.
-  let logoFrame = NSRect(x: 418, y: 2298, width: 406, height: 320)
-  let plate = NSBezierPath(roundedRect: NSRect(x: 338, y: 2238, width: 566, height: 432), xRadius: 54, yRadius: 54)
-  NSColor.white.setFill()
-  plate.fill()
-  logo.draw(in: logoFrame, from: .zero, operation: .sourceOver, fraction: 1)
+  // The blue app mark is composited directly into the existing scene. It owns
+  // its internal white tile; no extra white brand plate is added around it.
+  logo.draw(in: NSRect(x: 421, y: 2294, width: 400, height: 400), from: .zero, operation: .sourceOver, fraction: 1)
   NSGraphicsContext.restoreGraphicsState()
 
   guard let data = bitmap.representation(using: .png, properties: [:]) else { return }

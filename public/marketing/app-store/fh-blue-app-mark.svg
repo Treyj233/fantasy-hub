@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="92" fill="#0b3b91"/>
+  <g transform="translate(82 52) rotate(-3 174 174)">
+    <rect width="348" height="348" rx="82" fill="#fff"/>
+    <svg x="42" y="46" width="270" height="270" viewBox="0 0 100 100">
+      <style>text{font-family:Arial Black,Impact,sans-serif;font-size:73px;font-style:italic;font-weight:1000;paint-order:stroke fill;stroke:#fff;stroke-linejoin:round;stroke-width:3px}</style>
+      <text x="5" y="75" fill="#103d94">F</text>
+      <text x="40" y="79" fill="#f5ae2b">H</text>
+      <g fill="none" stroke="#fff" stroke-linecap="round" stroke-width="3.5">
+        <path d="M50 44 43 65"/>
+        <path d="m45 49 11 4M43 55l11 4M41 61l11 4"/>
+      </g>
+    </svg>
+  </g>
+  <path d="M0 408 512 258M0 450 512 300" stroke="#174ba2" stroke-width="3" opacity=".32"/>
+</svg>
