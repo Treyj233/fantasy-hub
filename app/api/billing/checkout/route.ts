@@ -29,10 +29,13 @@ export async function POST(request: Request) {
         return Response.json({ error: "Season billing is temporarily unavailable" }, { status: 503 });
       }
     }
-    const checkout = await stripe.checkout.sessions.create({
+    const storedStripeCustomerId = existing?.provider === "stripe" && existing.providerCustomerId?.startsWith("cus_")
+      ? existing.providerCustomerId
+      : undefined;
+    const createCheckout = (customerId?: string) => stripe.checkout.sessions.create({
       mode: "subscription",
-      customer: existing?.providerCustomerId || undefined,
-      customer_email: existing?.providerCustomerId ? undefined : user.email,
+      customer: customerId,
+      customer_email: customerId ? undefined : user.email,
       client_reference_id: user.userId,
       line_items: [{ price, quantity: 1 }],
       allow_promotion_codes: true,
@@ -45,9 +48,19 @@ export async function POST(request: Request) {
         ...(payload.plan === "monthly" ? { trial_period_days: 7 } : {}),
       },
     });
+    let checkout;
+    try {
+      checkout = await createCheckout(storedStripeCustomerId);
+    } catch (error) {
+      const stripeError = error as { code?: string; param?: string };
+      if (!storedStripeCustomerId || stripeError.code !== "resource_missing" || stripeError.param !== "customer") throw error;
+      console.warn("Stored Stripe customer no longer exists; creating checkout with the verified account email", { userId: user.userId });
+      checkout = await createCheckout();
+    }
     return Response.json({ url: checkout.url }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
-    console.error("Stripe checkout failed", error);
+    const stripeError = error as { type?: string; code?: string; param?: string; message?: string };
+    console.error("Stripe checkout failed", { type: stripeError.type, code: stripeError.code, param: stripeError.param, message: stripeError.message });
     return Response.json({ error: "Checkout is temporarily unavailable" }, { status: 503 });
   }
 }

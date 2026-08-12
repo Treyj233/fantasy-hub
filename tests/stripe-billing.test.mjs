@@ -10,6 +10,10 @@ test("Stripe Checkout only accepts server-mapped Fantasy Hub plans", async () =>
   assert.doesNotMatch(source, /payload\.priceId/);
   assert.match(source, /unit_amount !== 2499/);
   assert.match(source, /recurring\.interval_count !== 6/);
+  assert.match(source, /existing\?\.provider === "stripe"/);
+  assert.match(source, /providerCustomerId\?\.startsWith\("cus_"\)/);
+  assert.match(source, /stripeError\.code !== "resource_missing"/);
+  assert.match(source, /createCheckout\(\)/);
 });
 
 test("Apple StoreKit guards the $24.99 six-month season subscription", async () => {
