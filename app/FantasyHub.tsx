@@ -1963,8 +1963,8 @@ export default function FantasyHub({
             <span aria-hidden="true" />
           </button>
           <div>
-            <p>
-              {periodLabel} · {leagueSeason} SEASON
+            <p className="season-context">
+              {periodLabel} · {leagueSeason}
             </p>
             <h1>{viewTitle}</h1>
           </div>
