@@ -4485,6 +4485,17 @@ function AllLeagueScoreboard({
               </header>
               {mine && opponent ? (
                 <div className={`score-bug portfolio-score-bug ${winTone}`}>
+                  <aside className="scorebug-probability" aria-label={winProbability == null ? "Estimated win probability unavailable" : `Estimated win probability ${winProbability}%`}>
+                    <div>
+                      <small>WIN PROBABILITY</small>
+                      <strong>{winProbability == null ? "—" : `${winProbability}%`}</strong>
+                      <span>{winOutlook}</span>
+                    </div>
+                    <i className="scorebug-probability-track" role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={winProbability ?? undefined}>
+                      {winProbability != null && <b style={{ left: `${winProbability}%` }} />}
+                    </i>
+                    <footer><small>{opponent.teamName}</small><small>{mine.teamName}</small></footer>
+                  </aside>
                   {[mine, opponent].map((team) => (
                     <div className={team.isMine ? "mine" : ""} key={team.rosterId}>
                       <span>{team.teamName.slice(0, 3).toUpperCase()}</span>
@@ -4493,11 +4504,6 @@ function AllLeagueScoreboard({
                       {leader === team.rosterId && <i>▲</i>}
                     </div>
                   ))}
-                  <aside className="scorebug-probability" aria-label="Estimated win probability">
-                    <small>EXPECTED WIN</small>
-                    <strong>{winProbability == null ? "—" : `${winProbability}%`}</strong>
-                    <span>{winOutlook}</span>
-                  </aside>
                 </div>
               ) : (
                 <p className="portfolio-score-pending">{data ? `Your Week ${week} matchup has not been posted.` : loading ? "Loading your matchup…" : "This league’s scoreboard is unavailable."}</p>
