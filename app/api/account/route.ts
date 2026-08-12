@@ -15,7 +15,7 @@ export async function GET() {
   ]);
   const effectivePreferences = preferences ? {
     ...preferences,
-    teamTheme: entitlement.pro ? preferences.teamTheme : "GB",
+    teamTheme: entitlement.pro ? preferences.teamTheme : "LAC",
     badgeTheme: entitlement.pro ? preferences.badgeTheme : "arcade",
   } : null;
   return Response.json({ user: { displayName: user.displayName, email: user.email }, connection: connection ?? null, preferences: effectivePreferences, entitlement });

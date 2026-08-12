@@ -1287,9 +1287,9 @@ export default function FantasyHub({
   const [entitlement, setEntitlement] = useState<AccountEntitlement>({ plan: "free", status: "inactive", pro: false, currentPeriodEnd: null, provider: null });
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
   const [theme, setTheme] = useState<Theme>("light");
-  const [teamTheme, setTeamTheme] = useState("GB");
+  const [teamTheme, setTeamTheme] = useState("LAC");
   const [badgeTheme, setBadgeTheme] = useState<BadgeTheme>("arcade");
-  const effectiveTeamTheme = entitlement.pro ? teamTheme : "GB";
+  const effectiveTeamTheme = entitlement.pro ? teamTheme : "LAC";
   const effectiveBadgeTheme: BadgeTheme = entitlement.pro ? badgeTheme : "arcade";
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -1340,7 +1340,7 @@ export default function FantasyHub({
     const root = document.documentElement;
     const selectedTheme =
       nflThemes.find((team) => team.id === effectiveTeamTheme) ??
-      nflThemes.find((team) => team.id === "GB")!;
+      nflThemes.find((team) => team.id === "LAC")!;
     const primaryColor = selectedTheme.primary;
     const secondaryBrightness =
       colorChannels(selectedTheme.secondary).reduce(
@@ -1388,7 +1388,7 @@ export default function FantasyHub({
         setEntitlement(nextEntitlement);
         if (data.preferences) {
           setTheme(data.preferences.colorMode);
-          const effectiveTeamTheme = nextEntitlement.pro ? data.preferences.teamTheme : "GB";
+          const effectiveTeamTheme = nextEntitlement.pro ? data.preferences.teamTheme : "LAC";
           const effectiveBadgeTheme = nextEntitlement.pro ? data.preferences.badgeTheme : "arcade";
           setTeamTheme(effectiveTeamTheme);
           setBadgeTheme(effectiveBadgeTheme);

@@ -24,7 +24,7 @@ export async function POST(request: Request) {
     userId: user.userId,
     email: user.email,
     colorMode: payload.colorMode ?? current?.colorMode ?? "light",
-    teamTheme: entitlement.pro ? payload.teamTheme ?? current?.teamTheme ?? "GB" : "GB",
+    teamTheme: entitlement.pro ? payload.teamTheme ?? current?.teamTheme ?? "LAC" : "LAC",
     badgeTheme: entitlement.pro ? payload.badgeTheme ?? current?.badgeTheme ?? "arcade" : "arcade",
     leagueOrderJson: payload.leagueOrder ? JSON.stringify(payload.leagueOrder.slice(0, 100)) : current?.leagueOrderJson ?? "[]",
     onboardingCompletedAt: payload.completeOnboarding ? current?.onboardingCompletedAt ?? now : current?.onboardingCompletedAt ?? null,
