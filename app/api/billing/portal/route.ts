@@ -10,7 +10,7 @@ export async function POST() {
   const db = await getDb();
   const [record] = await db.select().from(subscriptions).where(eq(subscriptions.userId, user.userId)).limit(1);
   if (record?.provider && record.provider !== "stripe") {
-    return Response.json({ error: record.provider === "apple" ? "Manage this subscription through Apple" : "This Pro access has no recurring billing account" }, { status: 409 });
+    return Response.json({ error: record.provider === "apple" || record.provider === "app_store" ? "Manage this subscription through Apple" : "This Pro access has no recurring billing account" }, { status: 409 });
   }
   try {
     const { stripe, config } = await getStripe();

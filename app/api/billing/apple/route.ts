@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { getDb } from "../../../../db";
 import { appStoreTransactions, subscriptions } from "../../../../db/schema";
 import { verifyAppleTransaction } from "../../../app-store";
@@ -30,7 +30,7 @@ export async function POST(request: Request) {
       email: user.email,
       plan: active ? "pro" : "free",
       status: active ? "active" : "canceled",
-      provider: "app_store",
+      provider: "apple",
       providerCustomerId: null,
       providerSubscriptionId: verified.originalTransactionId,
       currentPeriodEnd: verified.expiresAt,
@@ -52,7 +52,7 @@ export async function DELETE() {
   if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
   const db = await getDb();
   const [subscription] = await db.select().from(subscriptions).where(and(
-    eq(subscriptions.userId, user.userId), eq(subscriptions.provider, "app_store"),
+    eq(subscriptions.userId, user.userId), inArray(subscriptions.provider, ["apple", "app_store"]),
   )).limit(1);
   return Response.json({ appStoreManaged: Boolean(subscription), manageInApp: true });
 }

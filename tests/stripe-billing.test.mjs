@@ -23,3 +23,16 @@ test("account deletion cancels active Stripe billing before deleting user data",
   assert.match(source, /stripe\.subscriptions\.cancel\(billing\.providerSubscriptionId\)/);
   assert.match(source, /BILLING_CANCELLATION_FAILED/);
 });
+
+test("Apple billing uses one canonical provider and supports legacy records", async () => {
+  const [appleRoute, portalRoute, entitlements] = await Promise.all([
+    readFile(new URL("../app/api/billing/apple/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/billing/portal/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/entitlements.ts", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(appleRoute, /provider: "apple"/);
+  assert.match(appleRoute, /\["apple", "app_store"\]/);
+  assert.match(portalRoute, /record\.provider === "app_store"/);
+  assert.match(entitlements, /record\?\.provider === "app_store" \? "apple"/);
+});

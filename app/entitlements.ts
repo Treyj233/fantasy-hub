@@ -34,7 +34,7 @@ export async function entitlementFor(userId: string, verifiedEmail?: string): Pr
   const plan = record?.plan === "pro" ? "pro" : "free";
   const currentPeriodEnd = record?.currentPeriodEnd ?? null;
   const unexpired = !currentPeriodEnd || new Date(currentPeriodEnd).getTime() > Date.now();
-  const provider = record?.provider === "stripe" || record?.provider === "apple" || record?.provider === "manual" ? record.provider : null;
+  const provider = record?.provider === "app_store" ? "apple" : record?.provider === "stripe" || record?.provider === "apple" || record?.provider === "manual" ? record.provider : null;
   return { plan, status, pro: plan === "pro" && unexpired && (status === "active" || status === "trialing"), currentPeriodEnd, provider };
 }
 
