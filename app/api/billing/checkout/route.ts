@@ -61,6 +61,12 @@ export async function POST(request: Request) {
   } catch (error) {
     const stripeError = error as { type?: string; code?: string; param?: string; message?: string };
     console.error("Stripe checkout failed", { type: stripeError.type, code: stripeError.code, param: stripeError.param, message: stripeError.message });
-    return Response.json({ error: "Checkout is temporarily unavailable" }, { status: 503 });
+    if (stripeError.code === "resource_missing" && stripeError.param === "price") {
+      return Response.json({ error: "Stripe subscription pricing is missing or not available." }, { status: 503 });
+    }
+    if (stripeError.code === "resource_missing" && stripeError.param === "customer") {
+      return Response.json({ error: "Stripe customer record could not be verified. Please try again." }, { status: 503 });
+    }
+    return Response.json({ error: stripeError.message ?? "Checkout is temporarily unavailable" }, { status: 503 });
   }
 }

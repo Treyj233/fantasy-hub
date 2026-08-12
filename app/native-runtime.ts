@@ -33,15 +33,44 @@ async function verifyNativeTransaction(transaction: NativeTransaction) {
   return Boolean(result.active);
 }
 
+const duplicateSubscriptionHints = [
+  "already owned",
+  "already exists",
+  "already subscribed",
+  "already active",
+  "already have an active subscription",
+  "already purchased",
+  "already owns",
+  "already have this subscription",
+];
+
+function isAlreadySubscribedError(message: string) {
+  const normalized = message.toLowerCase();
+  return duplicateSubscriptionHints.some((hint) => normalized.includes(hint));
+}
+
 export async function nativePurchase(productId: string) {
   if (!isNativeIosApp()) throw new Error("App Store purchasing requires the iOS app");
-  const transaction = await StoreKit.purchase({ productId });
-  if (transaction.status !== "verified" && transaction.status !== "pending" && transaction.status !== "cancelled") {
-    return "inactive";
+  try {
+    const transaction = await StoreKit.purchase({ productId });
+    if (
+      transaction.status !== "verified" &&
+      transaction.status !== "pending" &&
+      transaction.status !== "cancelled"
+    ) {
+      return "inactive";
+    }
+    if (transaction.status === "cancelled") return "cancelled";
+    if (transaction.status === "pending") return "pending";
+    return await verifyNativeTransaction(transaction) ? "active" : "inactive";
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error ?? "");
+    if (isAlreadySubscribedError(message)) {
+      const hasActivePurchase = await nativeRefreshPurchases().catch(() => false);
+      if (hasActivePurchase) return "active";
+    }
+    throw error;
   }
-  if (transaction.status === "cancelled") return "cancelled";
-  if (transaction.status === "pending") return "pending";
-  return await verifyNativeTransaction(transaction) ? "active" : "inactive";
 }
 
 export async function nativeRestorePurchases() {
@@ -54,7 +83,8 @@ export async function nativeRestorePurchases() {
 
 export async function nativeRefreshPurchases() {
   if (!isNativeIosApp()) return false;
-  const { transactions } = await StoreKit.entitlements();
+  // A fresh sync is more reliable right after a user-reported purchase state change.
+  const { transactions } = await StoreKit.restore();
   let active = false;
   for (const transaction of transactions) active = (await verifyNativeTransaction(transaction)) || active;
   return active;

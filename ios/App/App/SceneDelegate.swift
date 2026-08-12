@@ -35,7 +35,7 @@ class FantasyHubStoreKitPlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     @objc func products(_ call: CAPPluginCall) {
-        Task {
+        Task { @MainActor in
             do {
                 let products = try await Product.products(for: productIds)
                 call.resolve(["products": products.map { product in
@@ -62,7 +62,7 @@ class FantasyHubStoreKitPlugin: CAPPlugin, CAPBridgedPlugin {
             call.reject("Unknown Fantasy Hub product")
             return
         }
-        Task {
+        Task { @MainActor in
             do {
                 guard let product = try await Product.products(for: [productId]).first else {
                     call.reject("Product is not available in the App Store")
@@ -88,14 +88,12 @@ class FantasyHubStoreKitPlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     @objc func restore(_ call: CAPPluginCall) {
-        Task {
+        Task { @MainActor in
             do {
                 try await AppStore.sync()
                 var transactions: [[String: Any]] = []
                 for await result in Transaction.currentEntitlements {
-                    if case .verified(let transaction) = result, productIds.contains(transaction.productID) {
-                        transactions.append(transactionPayload(transaction))
-                    }
+                    collectTransaction(result, into: &transactions)
                 }
                 call.resolve(["transactions": transactions])
             } catch {
@@ -108,9 +106,7 @@ class FantasyHubStoreKitPlugin: CAPPlugin, CAPBridgedPlugin {
         Task {
             var transactions: [[String: Any]] = []
             for await result in Transaction.currentEntitlements {
-                if case .verified(let transaction) = result, productIds.contains(transaction.productID) {
-                    transactions.append(transactionPayload(transaction))
-                }
+                collectTransaction(result, into: &transactions)
             }
             call.resolve(["transactions": transactions])
         }
@@ -123,7 +119,16 @@ class FantasyHubStoreKitPlugin: CAPPlugin, CAPBridgedPlugin {
         }
         Task {
             for await result in Transaction.all {
-                if case .verified(let transaction) = result, String(transaction.id) == transactionId {
+                let transaction: Transaction?
+                switch result {
+                case .verified(let verifiedTransaction):
+                    transaction = verifiedTransaction
+                case .unverified(let unverifiedTransaction, _):
+                    transaction = unverifiedTransaction
+                @unknown default:
+                    transaction = nil
+                }
+                if let transaction, String(transaction.id) == transactionId {
                     await transaction.finish()
                     call.resolve(["finished": true])
                     return
@@ -131,6 +136,24 @@ class FantasyHubStoreKitPlugin: CAPPlugin, CAPBridgedPlugin {
             }
             call.resolve(["finished": false])
         }
+    }
+
+    private func collectTransaction(_ result: VerificationResult<Transaction>, into list: inout [[String: Any]]) {
+        let transaction: Transaction?
+        var status: String
+        switch result {
+        case .verified(let verifiedTransaction):
+            transaction = verifiedTransaction
+            status = "verified"
+        case .unverified(let unverifiedTransaction, _):
+            transaction = unverifiedTransaction
+            status = "unverified"
+        @unknown default:
+            transaction = nil
+            status = "unverified"
+        }
+        guard let transaction, productIds.contains(transaction.productID) else { return }
+        list.append(transactionPayload(transaction, status: status))
     }
 
     @objc func manageSubscriptions(_ call: CAPPluginCall) {
@@ -148,9 +171,9 @@ class FantasyHubStoreKitPlugin: CAPPlugin, CAPBridgedPlugin {
         }
     }
 
-    private func transactionPayload(_ transaction: Transaction) -> [String: Any] {
+    private func transactionPayload(_ transaction: Transaction, status: String = "verified") -> [String: Any] {
         var payload: [String: Any] = [
-            "status": "verified",
+            "status": status,
             "transactionId": String(transaction.id),
             "originalTransactionId": String(transaction.originalID),
             "productId": transaction.productID,

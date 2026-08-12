@@ -2769,7 +2769,24 @@ function ProPlans({ entitlement }: { entitlement: AccountEntitlement }) {
           }
         }
       } catch (error) {
-        setBillingError(error instanceof Error ? error.message : "App Store billing is temporarily unavailable");
+        const message = error instanceof Error ? error.message : "App Store billing is temporarily unavailable";
+        if (
+          /already (?:have|have.*an active|hold).*subscription|already subscribed|already active|already purchased/i.test(message)
+        ) {
+          try {
+            const isActive = await nativeRefreshPurchases();
+            if (isActive) {
+              setBillingError("This Apple ID already has an active subscription. Reloading your membership.");
+              window.location.reload();
+            } else {
+              setBillingError("This Apple ID already has a subscription record, but we could not confirm it yet.");
+            }
+          } catch {
+            setBillingError("This Apple ID already has an active subscription. Reload the app to refresh your membership.");
+          }
+        } else {
+          setBillingError(message);
+        }
       } finally {
         setBillingBusy("");
       }
@@ -2801,7 +2818,6 @@ function ProPlans({ entitlement }: { entitlement: AccountEntitlement }) {
       <article className="pro-feature-card"><div><span>DECISION ADVANTAGE</span><h3>Make the call your matchup needs.</h3><p>Unlock the Start/Sit floor-to-ceiling slider, decision memory, and your season-long manager report card.</p></div><ProFeatureArtwork type="start" /></article>
     </section>
     <section className="pro-theme-gallery panel"><header><div><span>PRO THEME LOCKER</span><h3>Your leagues. Your Sunday look.</h3></div><p>Choose any NFL-inspired palette and four sidebar badge packs.</p></header><div>{[{name:"Midway Night",colors:["#0b162a","#c83803"]},{name:"South Beach",colors:["#008e97","#fc4c02"]},{name:"Purple Reign",colors:["#241773","#9e7c0c"]},{name:"Gold Rush",colors:["#aa0000","#b3995d"]}].map((theme) => <article key={theme.name} style={{"--preview-primary":theme.colors[0],"--preview-secondary":theme.colors[1]} as CSSProperties}><i/><b>{theme.name}</b><small>Dashboard + badge pack</small></article>)}</div></section>
-    {nativeIos && <p className="native-billing-note">APP STORE BILLING · Purchases are securely handled by Apple. {nativePrices["com.fantasyhubapp.pro.season"] ? `Season pricing: ${nativePrices["com.fantasyhubapp.pro.season"]} every six months.` : "Pricing loads from your App Store region."}</p>}
     {billingError && <p className="billing-error" role="alert">{billingError}</p>}
     <section className="plan-grid"><article className="panel"><span>FREE</span><h3>$0</h3><p>Connect and manage your fantasy world.</p><ul><li>Unlimited Sleeper and ESPN league connections</li><li>All Leagues portfolio view</li><li>My Team, live scores, and matchups</li><li>Player rankings and ADP</li><li>Manual trade calculator</li><li>Core Start/Sit and waiver-wire access</li></ul><strong>CURRENT PLAN</strong></article><article className="panel featured"><span>FANTASY HUB PRO · MONTHLY</span><h3 className="plan-price">$4.99 <small>/ month</small></h3><p>Proprietary intelligence built by Fantasy Hub.</p><div className="trial-callout"><b>7-day free trial</b><small>No charge today. On day 8, your subscription automatically begins at $4.99/month and renews monthly until canceled.</small></div><ul>{proFeatures.map((feature) => <li key={feature}>{feature}</li>)}<li>All NFL themes and badge customization</li><li>Start/Sit aggressiveness strategy</li></ul>{purchaseButton("monthly", "Start 7-day trial →")}</article><article className="panel season"><span>FANTASY HUB PRO · SEASON</span><h3 className="plan-price">$24.99 <small>/ 6 months</small></h3><p>Built to cover the full fantasy season in one purchase.</p><div className="annual-savings"><b>Six months of Pro access</b><small>Stay supported from draft preparation through the fantasy playoffs.</small></div><ul>{proFeatures.slice(0,4).map((feature) => <li key={feature}>{feature}</li>)}<li>All Pro themes and customization</li></ul>{purchaseButton("season", "Choose season access →")}<small className="plan-renewal">$24.99 billed every six months until canceled.</small></article><article className="panel annual"><span>FANTASY HUB PRO · YEAR</span><h3 className="plan-price">$39.99 <small>/ year</small></h3><p>Year-round support for dynasty, offseason, draft, and game-day management.</p><div className="annual-savings"><b>Save $19.89 per year</b><small>About 33% less than paying monthly for 12 months.</small></div><ul>{proFeatures.slice(0,4).map((feature) => <li key={feature}>{feature}</li>)}<li>All Pro themes and customization</li></ul>{purchaseButton("annual", "Choose year-round access →")}<small className="plan-renewal">$39.99 billed annually until canceled. The monthly seven-day trial is a separate offer.</small></article></section>
     <section className="pro-principle panel"><b>OUR FREEMIUM PROMISE</b><p>Fantasy Hub will not charge merely to display a connected league. Paid access is reserved for original Fantasy Hub analysis and experiences. Payments and subscription management are securely handled by {nativeIos ? "Apple" : "Stripe"}.</p></section>

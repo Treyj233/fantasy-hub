@@ -4,6 +4,9 @@ import { appStoreTransactions, subscriptions } from "../../../../db/schema";
 import { verifyAppleTransaction } from "../../../app-store";
 import { getChatGPTUser } from "../../../chatgpt-auth";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 export async function POST(request: Request) {
   const user = await getChatGPTUser();
   if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
