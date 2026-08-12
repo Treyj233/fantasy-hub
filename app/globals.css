@@ -918,6 +918,70 @@ html[data-theme="dark"] .account-theme-customizer{color:#fff;background:radial-g
   .trade-lab-page .trade-suggestions-paywall>button{width:100%;padding:9px}
 }
 
+/* Shared mobile density pass. Features remain present; controls that previously
+   wrapped into tall stacks become compact rails or paired cards. */
+@media(max-width:700px){
+  .page-content:not(.portfolio-scoreboard-page):not(.league-scoreboard-page){padding-top:13px}
+  .page-content>.section-intro{padding:5px 0 15px}
+  .page-content>.section-intro h2{margin:5px 0;font-size:26px;line-height:1.08}
+  .page-content>.section-intro p{font-size:11px!important;line-height:1.45}
+  .panel{padding:15px;border-radius:13px}
+  .panel-header{align-items:center;gap:8px;padding-bottom:10px}
+  .panel-header h3{margin-top:3px;font-size:17px}
+  .panel-header button{flex:0 0 auto;padding:6px 8px;font-size:10px!important}
+  .metric-grid{gap:7px;margin-top:9px}
+  .metric{min-height:0;padding:11px 12px;border-radius:11px}
+  .metric strong{margin:4px 0 2px;font-size:23px}
+  .main-grid,.lower-grid{gap:9px;margin-top:9px}
+
+  .rank-controls,.waiver-controls{gap:8px;margin-bottom:9px;padding:10px}
+  .rank-controls{display:grid;grid-template-columns:minmax(0,1fr) auto}
+  .rank-controls .position-filters,.waiver-controls .position-filters{display:flex;grid-column:1/-1;gap:5px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none}
+  .rank-controls .position-filters::-webkit-scrollbar,.waiver-controls .position-filters::-webkit-scrollbar{display:none}
+  .rank-controls .position-filters button,.waiver-controls .position-filters button{min-height:31px;flex:0 0 auto;padding:6px 9px}
+  .rank-controls input,.rank-controls select{min-height:36px;padding:7px 9px}
+  .waiver-controls{align-items:center}
+  .waiver-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+  .waiver-card{min-width:0;padding:11px;border-radius:12px}
+  .waiver-card>.pos{margin-top:10px}
+  .waiver-card h3{overflow:hidden;margin:6px 0 2px;font-size:14px;text-overflow:ellipsis;white-space:nowrap}
+  .waiver-card>p{display:-webkit-box;min-height:0;overflow:hidden;margin:8px 0;font-size:9px!important;line-height:1.35;-webkit-box-orient:vertical;-webkit-line-clamp:2}
+  .waiver-card dl{gap:4px;padding:7px}.waiver-card dl div+div{padding-left:7px}
+  .waiver-card>button{margin-top:7px;padding:8px 5px}
+
+  .portfolio-heading{padding:13px 14px}
+  .portfolio-heading h3{font-size:17px}
+  .portfolio-heading>b{padding:5px 7px}
+  .portfolio-action-list article,.portfolio-clear{grid-template-columns:30px minmax(0,1fr);gap:8px;padding:10px 13px}
+  .portfolio-action-list article>i,.portfolio-clear>i{width:29px;height:29px;border-radius:8px;font-size:11px}
+  .portfolio-action-list strong{margin-top:2px;font-size:12px}
+  .portfolio-action-list small{margin-top:2px;font-size:9px!important;line-height:1.3}
+  .portfolio-action-list button{grid-column:2;justify-self:start;padding:6px 8px}
+  .action-queue-groups{display:flex;gap:8px;overflow-x:auto;padding:8px;scroll-snap-type:x proximity}
+  .action-queue-groups>section{min-width:86%;scroll-snap-align:start}
+  .action-queue-groups>section>header{padding:9px 10px}
+  .action-queue-groups button{grid-template-columns:29px minmax(0,1fr) auto;gap:7px;padding:9px 10px}
+  .action-queue-groups button>i{width:29px;height:29px}
+  .action-queue-groups button strong{font-size:11px}
+  .action-queue-groups button small{margin-top:2px;font-size:9px!important;line-height:1.3}
+
+  .projection-source{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;margin-bottom:9px;padding:10px 11px}
+  .projection-source>div:first-child small{display:-webkit-box;overflow:hidden;-webkit-box-orient:vertical;-webkit-line-clamp:1}
+  .projection-source>div:last-child{margin-top:0;padding:3px}
+  .projection-source button{min-height:31px;padding:6px 8px;font-size:9px!important}
+  .snap-usage-card>header{padding:12px 13px}.snap-usage-card article{padding:10px 11px}.snap-usage-card article strong{margin:3px 0 1px;font-size:17px}.snap-usage-card>p{padding:12px 13px;font-size:9px!important;line-height:1.4}
+  .integration-status>p{padding:0 13px 10px;font-size:9px!important;line-height:1.4}
+  .integration-matrix{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .integration-matrix article,.integration-matrix article:nth-child(2n){grid-template-columns:26px minmax(0,1fr);gap:6px;padding:9px;border-right:1px solid var(--line)}
+  .integration-matrix article:nth-child(2n){border-right:0}
+  .integration-matrix article>i{width:25px;height:25px}
+  .integration-matrix article>b{grid-column:2;justify-self:start;padding:3px 5px}
+}
+@media(max-width:390px){
+  .waiver-grid{grid-template-columns:1fr}
+  .action-queue-groups>section{min-width:92%}
+}
+
 /* Pricing stays immediately actionable; campaign artwork enhances the existing feature rows. */
 .pro-plans-page>.pro-plans-hero{order:0}.pro-plans-page>.native-billing-note,.pro-plans-page>.billing-error{order:1}.pro-plans-page>.plan-grid{order:2}.pro-plans-page>.pro-showcase{order:3}.pro-plans-page>.pro-theme-gallery{order:4}.pro-plans-page>.pro-principle{order:5}
 .pro-feature-art{min-height:270px;background-color:#071a35;background-position:center;background-size:cover;border:1px solid #ffffff42;border-radius:15px;box-shadow:0 18px 45px rgb(0 0 0 / .3);transform:perspective(900px) rotateY(-2deg)}.pro-feature-card.reverse>.pro-feature-art{grid-column:1;grid-row:1;transform:perspective(900px) rotateY(2deg)}
