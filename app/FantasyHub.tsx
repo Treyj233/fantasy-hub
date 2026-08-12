@@ -302,6 +302,35 @@ async function mapWithConcurrency<T, R>(
   return results;
 }
 
+async function fetchWithTimeout(
+  input: RequestInfo | URL,
+  init: RequestInit = {},
+  timeoutMs = 15_000,
+) {
+  const timeoutController = new AbortController();
+  const parentSignal = init.signal;
+  const abortFromParent = () => timeoutController.abort(parentSignal?.reason);
+  if (parentSignal?.aborted) abortFromParent();
+  else parentSignal?.addEventListener("abort", abortFromParent, { once: true });
+  const timer = window.setTimeout(
+    () => timeoutController.abort(new DOMException("Request timed out", "TimeoutError")),
+    timeoutMs,
+  );
+  try {
+    return await fetch(input, { ...init, signal: timeoutController.signal });
+  } finally {
+    window.clearTimeout(timer);
+    parentSignal?.removeEventListener("abort", abortFromParent);
+  }
+}
+
+async function settleWithin<T>(promise: Promise<T>, timeoutMs: number, fallback: T) {
+  return Promise.race([
+    promise,
+    new Promise<T>((resolve) => window.setTimeout(() => resolve(fallback), timeoutMs)),
+  ]);
+}
+
 function startVisiblePolling(refresh: () => Promise<void>, intervalMs = 30_000) {
   const runWhenVisible = () => {
     if (document.visibilityState === "visible") void refresh();
@@ -3320,7 +3349,7 @@ function AllLeagues({
   const [refreshKey, setRefreshKey] = useState(0);
   const [scanCompleted, setScanCompleted] = useState(0);
   const lastAutomaticScan = useRef("");
-  const scanIsActive = loading || (leagues.length > 0 && !scans.length);
+  const scanIsActive = loading || (leagues.length > 0 && scans.length < leagues.length);
   const estimatedScanProgress = useEstimatedLoadingProgress(scanIsActive);
   const completedScanProgress =
     (scanCompleted / Math.max(1, leagues.length)) * 100;
@@ -3359,9 +3388,10 @@ function AllLeagues({
           let leagueResponse: Response | null = null;
           for (let attempt = 0; attempt < 3; attempt += 1) {
             try {
-              leagueResponse = await fetch(
+              leagueResponse = await fetchWithTimeout(
                 `/api/league?id=${encodeURIComponent(league.id)}`,
                 { signal: controller.signal },
+                15_000,
               );
               if (leagueResponse.ok) break;
             } catch (error) {
@@ -3390,9 +3420,13 @@ function AllLeagues({
               payload.league.projectionWeek ?? payload.league.currentWeek ?? 1,
             ),
           );
-          const weather = await loadWeatherData(
-            league.season ?? String(new Date().getUTCFullYear()),
-            week,
+          const weather = await settleWithin(
+            loadWeatherData(
+              league.season ?? String(new Date().getUTCFullYear()),
+              week,
+            ),
+            8_000,
+            null,
           );
           const team = payload.teams.find(
             (item) => item.id === league.rosterId,
