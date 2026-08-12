@@ -637,7 +637,7 @@ html[data-theme="dark"] .account-theme-customizer{color:#fff;background:radial-g
 
 /* Fantasy Scoreboard: phone-first vertical presentation for the native app. */
 @media(max-width:700px){
-  .portfolio-scoreboard-page,.league-scoreboard-page{width:100%;max-width:100%;gap:10px;padding-inline:10px;overflow-x:clip}
+  .portfolio-scoreboard-page,.league-scoreboard-page{width:100%;max-width:100%;gap:10px;padding-inline:10px;overflow:visible}
   .portfolio-scoreboard-page>* ,.league-scoreboard-page>*{min-width:0;max-width:100%}
   .portfolio-scoreboard-head,.league-scoreboard-page .scoreboard-head{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:9px;margin-bottom:0;padding:15px 14px;border-radius:13px}
   .portfolio-scoreboard-head>div:first-child,.league-scoreboard-page .scoreboard-head>div:first-child{grid-column:1/-1}
@@ -646,7 +646,7 @@ html[data-theme="dark"] .account-theme-customizer{color:#fff;background:radial-g
   .portfolio-scoreboard-head label,.portfolio-scoreboard-head .live-refresh,.league-scoreboard-page .scoreboard-head label,.league-scoreboard-page .live-refresh{display:block;margin-top:0}
   .portfolio-scoreboard-head select,.league-scoreboard-page .scoreboard-head select{min-height:38px;margin-top:4px;font-size:11px}
   .portfolio-scoreboard-head .live-refresh,.league-scoreboard-page .live-refresh{align-self:end;padding:10px 8px;text-align:center}
-  .sunday-pulse{position:sticky;z-index:34;top:100px;grid-template-columns:auto minmax(0,1fr);min-height:38px;padding:7px 9px;box-shadow:0 9px 24px rgb(0 0 0 / .24)}
+  .sunday-pulse{position:sticky;z-index:34;top:100px;align-self:start;width:100%;grid-template-columns:auto minmax(0,1fr);min-height:38px;padding:7px 9px;box-shadow:0 9px 24px rgb(0 0 0 / .24)}
   html[data-native-platform="ios"] .sunday-pulse{top:calc(100px + max(54px,env(safe-area-inset-top)))}
   .sunday-pulse button{display:none}
   .portfolio-score-rail{position:relative;top:auto;padding:8px}
