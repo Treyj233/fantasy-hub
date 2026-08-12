@@ -5970,7 +5970,7 @@ function CommandCenter({
       </div>
       <section className="panel command-matchup-strip">
         <div><span>THIS WEEK</span><strong>{selectedTeam?.teamName ?? "Your team"}</strong><b>{totals.projection.toFixed(1)}</b></div>
-        <i><small>{projectedMargin == null ? "MATCHUP PENDING" : `${projectedMargin >= 0 ? "+" : ""}${projectedMargin.toFixed(1)} PROJECTED`}</small><em style={{ left: `${winProbability ?? 50}%` }} /></i>
+        <i><small>{projectedMargin == null ? "MATCHUP PENDING" : `${projectedMargin >= 0 ? "+" : ""}${projectedMargin.toFixed(1)} PROJECTED`}</small><em style={{ left: `${100 - (winProbability ?? 50)}%` }} /></i>
         <div className="opponent"><span>OPPONENT</span><strong>{opponentTeam?.teamName ?? "Awaiting opponent"}</strong><b>{opponentProjection?.toFixed(1) ?? "—"}</b></div>
       </section>
       <section className="panel command-action-queue">
