@@ -5881,7 +5881,7 @@ function CommandCenter({
     ...(waiverPlans[0] ? [{ level: "THIS WEEK", title: `Consider ${waiverPlans[0].add.name}`, detail: `Add for ${waiverPlans[0].plan.drop!.name} if the role remains available.`, view: "Waiver Wire" as View }] : []),
   ].slice(0, 3);
   return (
-    <div className="page-content">
+    <div className="page-content command-center-page">
       <section className="hero">
         <div>
           <p>LINEUP LOCK · GAME DAY HQ</p>
