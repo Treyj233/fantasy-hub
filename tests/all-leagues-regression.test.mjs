@@ -76,6 +76,20 @@ test("League Analytics priorities route into actionable tools", async () => {
   assert.match(analytics, /view: "Player Rankings" as View/);
 });
 
+test("Dynasty window score explains its 100-point scale and weighted inputs", async () => {
+  const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
+
+  assert.match(source, /DYNASTY WINDOW SCORE/);
+  assert.match(source, /Math\.round\(baseStrength\).*<i>\/100<\/i>/);
+  assert.match(source, /WHY YOUR SCORE IS \{Math\.round\(baseStrength\)\} \/ 100/);
+  assert.match(source, /Starters<\/span><small>58% of score/);
+  assert.match(source, /Depth<\/span><small>16% of score/);
+  assert.match(source, /Core runway<\/span><small>18% of score/);
+  assert.match(source, /Draft capital<\/span><small>8% of score/);
+  assert.match(source, /Build &lt;58/);
+  assert.match(source, /Title 78\+/);
+});
+
 test("portfolio Scoreboard opens both Matchups and league scoreboards", async () => {
   const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
   assert.match(source, /onOpenMatchups=\{async \(league, matchupId\)/);

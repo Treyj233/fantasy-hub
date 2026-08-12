@@ -5163,6 +5163,9 @@ function LeagueAnalytics({
     return {
       score: Math.round(Math.max(20, Math.min(99, starterScore * .58 + depthScore * .16 + futureScore * .18 + draftScore * .08))),
       starterScore,
+      depthScore,
+      futureScore,
+      draftScore,
     };
   };
   const leagueWindowScores = teams
@@ -5248,19 +5251,24 @@ function LeagueAnalytics({
           </p>
         </div>
         <div className="window-score">
-          <small>WINDOW SCORE</small>
-          <strong>{Math.round(baseStrength)}</strong>
+          <small>DYNASTY WINDOW SCORE</small>
+          <strong>{Math.round(baseStrength)}<i>/100</i></strong>
           <b>{windowLabel}</b>
           <span>#{leagueWindowRank} of {teams.length || 1} · League avg. {leagueAverage.toFixed(0)}</span>
         </div>
       </section>
       <section className="window-context panel">
         <div className="window-context-summary">
-          <span>HOW TO READ IT</span>
-          <strong>{baseStrength >= leagueAverage ? `${(baseStrength - leagueAverage).toFixed(0)} points above league average` : `${(leagueAverage - baseStrength).toFixed(0)} points below league average`}</strong>
-          <small>58% starters · 16% depth · 18% age-adjusted core · 8% draft capital</small>
-          <i><b style={{ width: `${baseStrength}%` }} /></i>
-          <em><span>Build</span><span>Fringe</span><span>Contend</span><span>Title window</span></em>
+          <span>WHY YOUR SCORE IS {Math.round(baseStrength)} / 100</span>
+          <strong>{windowLabel} · #{leagueWindowRank} in this league</strong>
+          <small>{baseStrength >= leagueAverage ? `${(baseStrength - leagueAverage).toFixed(0)} points above the ${leagueAverage.toFixed(0)} league average.` : `${(leagueAverage - baseStrength).toFixed(0)} points below the ${leagueAverage.toFixed(0)} league average.`} Higher scores indicate a stronger combination of current contention and future roster runway.</small>
+          <div className="window-score-breakdown">
+            <article><b>{Math.round(selectedWindow?.starterScore ?? 45)}<i>/100</i></b><span>Starters</span><small>58% of score</small></article>
+            <article><b>{Math.round(selectedWindow?.depthScore ?? 42)}<i>/100</i></b><span>Depth</span><small>16% of score</small></article>
+            <article><b>{Math.round(selectedWindow?.futureScore ?? 45)}<i>/100</i></b><span>Core runway</span><small>18% of score</small></article>
+            <article><b>{Math.round(selectedWindow?.draftScore ?? 50)}<i>/100</i></b><span>Draft capital</span><small>8% of score</small></article>
+          </div>
+          <div className="window-scale"><i style={{ left: `${baseStrength}%` }} /><span>Build &lt;58</span><span>Fringe 58–67</span><span>Contend 68–77</span><span>Title 78+</span></div>
         </div>
         <div className="window-driver-list positive">
           <span>WINDOW LIFTERS</span>
