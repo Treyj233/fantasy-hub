@@ -10,7 +10,7 @@ const badgeThemes = new Set(["arcade", "team", "neon", "minimal"]);
 export async function POST(request: Request) {
   const user = await getChatGPTUser();
   if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
-  const payload = await request.json() as { colorMode?: string; teamTheme?: string; badgeTheme?: string; leagueOrder?: string[]; completeOnboarding?: boolean };
+  const payload = await request.json() as { colorMode?: string; teamTheme?: string; badgeTheme?: string; leagueOrder?: string[]; hiddenLeagueIds?: string[]; completeOnboarding?: boolean };
   if (payload.colorMode && !["light", "dark"].includes(payload.colorMode)) return Response.json({ error: "Invalid color mode" }, { status: 400 });
   if (payload.teamTheme && !teamIds.has(payload.teamTheme)) return Response.json({ error: "Invalid team theme" }, { status: 400 });
   if (payload.badgeTheme && !badgeThemes.has(payload.badgeTheme)) return Response.json({ error: "Invalid badge theme" }, { status: 400 });
@@ -27,6 +27,7 @@ export async function POST(request: Request) {
     teamTheme: entitlement.pro ? payload.teamTheme ?? current?.teamTheme ?? "LAC" : "LAC",
     badgeTheme: entitlement.pro ? payload.badgeTheme ?? current?.badgeTheme ?? "arcade" : "arcade",
     leagueOrderJson: payload.leagueOrder ? JSON.stringify(payload.leagueOrder.slice(0, 100)) : current?.leagueOrderJson ?? "[]",
+    hiddenLeagueIdsJson: payload.hiddenLeagueIds ? JSON.stringify(payload.hiddenLeagueIds.slice(0, 100)) : current?.hiddenLeagueIdsJson ?? "[]",
     onboardingCompletedAt: payload.completeOnboarding ? current?.onboardingCompletedAt ?? now : current?.onboardingCompletedAt ?? null,
     updatedAt: now,
   };

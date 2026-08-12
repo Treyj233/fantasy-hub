@@ -348,6 +348,7 @@ type AccountPreferences = {
   teamTheme: string;
   badgeTheme: BadgeTheme;
   leagueOrderJson: string;
+  hiddenLeagueIdsJson: string;
   onboardingCompletedAt: string | null;
 };
 type SleeperConnection = {
@@ -1304,6 +1305,7 @@ export default function FantasyHub({
   const [availableLeagues, setAvailableLeagues] = useState<ConnectedLeague[]>(
     [],
   );
+  const [hiddenLeagueIds, setHiddenLeagueIds] = useState<string[]>([]);
   const [managedLeagues, setManagedLeagues] = useState<ManagedLeague[]>([]);
   const [portfolioScans, setPortfolioScans] = useState<LeagueScan[]>([]);
   const [selectedMatchupId, setSelectedMatchupId] = useState<number | null>(
@@ -1443,6 +1445,13 @@ export default function FantasyHub({
           window.localStorage.setItem("fantasy-hub-team-theme", effectiveTeamTheme);
           window.localStorage.setItem("fantasy-hub-badge-theme", effectiveBadgeTheme);
           window.localStorage.setItem("fantasy-hub-league-order", data.preferences.leagueOrderJson);
+          const savedHiddenLeagueIds = data.preferences.hiddenLeagueIdsJson ?? "[]";
+          window.localStorage.setItem("fantasy-hub-hidden-leagues", savedHiddenLeagueIds);
+          try {
+            setHiddenLeagueIds(JSON.parse(savedHiddenLeagueIds) as string[]);
+          } catch {
+            setHiddenLeagueIds([]);
+          }
           setNeedsOnboarding(!data.preferences.onboardingCompletedAt);
         } else {
           setNeedsOnboarding(true);
@@ -1468,7 +1477,7 @@ export default function FantasyHub({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accountUser]);
 
-  async function saveAccountPreferences(overrides: Partial<{ colorMode: Theme; teamTheme: string; badgeTheme: BadgeTheme; leagueOrder: string[] }>, completeOnboarding = false) {
+  async function saveAccountPreferences(overrides: Partial<{ colorMode: Theme; teamTheme: string; badgeTheme: BadgeTheme; leagueOrder: string[]; hiddenLeagueIds: string[] }>, completeOnboarding = false) {
     try {
       await fetch("/api/account/preferences", {
         method: "POST",
@@ -1479,6 +1488,36 @@ export default function FantasyHub({
     } catch {
       setAccountError("Your appearance is applied on this device, but account sync will retry later.");
     }
+  }
+
+  function toggleLeagueVisibility(id: string) {
+    setHiddenLeagueIds((current) => {
+      const hiding = !current.includes(id);
+      const next = current.includes(id)
+        ? current.filter((leagueId) => leagueId !== id)
+        : [...current, id];
+      window.localStorage.setItem("fantasy-hub-hidden-leagues", JSON.stringify(next));
+      void saveAccountPreferences({ hiddenLeagueIds: next });
+      if (hiding && id === leagueId) {
+        const nextVisibleLeague = availableLeagues.find(
+          (league) => league.id !== id && !next.includes(league.id),
+        );
+        if (nextVisibleLeague) {
+          void openConnectedLeague(nextVisibleLeague);
+        } else {
+          setLeagueId("");
+          setLeagueName("No league selected");
+          setPlayers([]);
+          setLeagueTeams([]);
+          setSelectedTeamId("");
+          setLeagueRankings([]);
+          setRankingContext(null);
+          setWaiverPlayers([]);
+          setImportState("idle");
+        }
+      }
+      return next;
+    });
   }
 
   useEffect(() => {
@@ -1627,6 +1666,18 @@ export default function FantasyHub({
       if (bIndex == null) return -1;
       return aIndex - bIndex;
     });
+    const savedHiddenLeagueIds = (() => {
+      try {
+        return JSON.parse(
+          window.localStorage.getItem("fantasy-hub-hidden-leagues") ?? "[]",
+        ) as string[];
+      } catch {
+        return [];
+      }
+    })();
+    const selectableLeagues = orderedLeagues.filter(
+      (league) => !savedHiddenLeagueIds.includes(league.id),
+    );
     try {
       const cached = JSON.parse(
         window.localStorage.getItem(
@@ -1649,9 +1700,9 @@ export default function FantasyHub({
     }
     if (data.connection) setConnection(data.connection);
     setAvailableLeagues(orderedLeagues);
-    const activeLeague = orderedLeagues.find((league) => league.id === leagueId);
-    if ((activateFirst || !activeLeague) && orderedLeagues.length) {
-      const defaultLeague = activeLeague ?? orderedLeagues[0];
+    const activeLeague = selectableLeagues.find((league) => league.id === leagueId);
+    if ((activateFirst || !activeLeague) && selectableLeagues.length) {
+      const defaultLeague = activeLeague ?? selectableLeagues[0];
       setLeagueId(defaultLeague.id);
       setLeagueName(defaultLeague.name);
       await importLeague(defaultLeague.id, data.connection?.sleeperUserId, defaultLeague.rosterId);
@@ -1813,6 +1864,9 @@ export default function FantasyHub({
   );
   const selectedConnectedLeague = availableLeagues.find(
     (league) => league.id === leagueId,
+  );
+  const visibleLeagues = availableLeagues.filter(
+    (league) => !hiddenLeagueIds.includes(league.id),
   );
   const visibleNav = nav;
   const orderedMobileNav = navGroupOrder.flatMap((group) =>
@@ -2056,11 +2110,11 @@ export default function FantasyHub({
         </nav>
         </div>
 
-        {view !== "Manage Leagues" && availableLeagues.length > 0 && (
+        {view !== "Manage Leagues" && visibleLeagues.length > 0 && (
           <section className="league-switcher">
             <div>
               <span>MY LEAGUES</span>
-              <strong>{availableLeagues.length} leagues connected</strong>
+              <strong>{visibleLeagues.length} leagues shown</strong>
               <small>
                 Choose a league and Fantasy Hub will open your roster
                 automatically.
@@ -2073,7 +2127,7 @@ export default function FantasyHub({
                   setLeagueDropTarget(null);
               }}
             >
-              {availableLeagues.map((league) => (
+              {visibleLeagues.map((league) => (
                 <button
                   key={league.id}
                   className={`${leagueId === league.id ? "active" : ""} ${draggedLeagueId === league.id ? "dragging" : ""} ${leagueDropTarget?.id === league.id && draggedLeagueId !== league.id ? `drop-${leagueDropTarget.position}` : ""}`}
@@ -2205,7 +2259,7 @@ export default function FantasyHub({
           ))}
         {view === "All Leagues" && (
           <AllLeagues
-            leagues={availableLeagues}
+            leagues={visibleLeagues}
             cachedScans={portfolioScans}
             isPro={entitlement.pro}
             onScansChange={setPortfolioScans}
@@ -2234,7 +2288,7 @@ export default function FantasyHub({
         {view === "Scoreboard" && (
           scoreboardScope === "all" ? (
             <AllLeagueScoreboard
-              leagues={availableLeagues}
+              leagues={visibleLeagues}
               defaultWeek={defaultGameWeek}
               onOpenLeague={async (league) => {
                 await openConnectedLeague(league);
@@ -2391,6 +2445,7 @@ export default function FantasyHub({
           <ManageLeagues
             signOutPath={accountUser.signOutPath}
             connectedLeagues={availableLeagues}
+            hiddenLeagueIds={hiddenLeagueIds}
             managedLeagues={managedLeagues}
             accountError={accountError}
             teamTheme={effectiveTeamTheme}
@@ -2410,6 +2465,7 @@ export default function FantasyHub({
             }}
             onMove={moveConnectedLeague}
             onReorder={reorderConnectedLeague}
+            onToggleVisibility={toggleLeagueVisibility}
           />
         )}
         {view === "Fantasy Hub Pro" && <ProPlans entitlement={entitlement} />}
@@ -2713,6 +2769,7 @@ function ProFeatureArtwork({ type }: { type: "sim" | "trade" | "start" }) {
 function ManageLeagues({
   signOutPath,
   connectedLeagues,
+  hiddenLeagueIds,
   managedLeagues,
   accountError,
   teamTheme,
@@ -2727,9 +2784,11 @@ function ManageLeagues({
   onRefresh,
   onMove,
   onReorder,
+  onToggleVisibility,
 }: {
   signOutPath: string;
   connectedLeagues: ConnectedLeague[];
+  hiddenLeagueIds: string[];
   managedLeagues: ManagedLeague[];
   accountError: string;
   teamTheme: string;
@@ -2753,6 +2812,7 @@ function ManageLeagues({
     targetId: string,
     position: "before" | "after",
   ) => void;
+  onToggleVisibility: (id: string) => void;
 }) {
   const [provider, setProvider] = useState<LeagueProvider>("sleeper");
   const [identifierType, setIdentifierType] = useState<
@@ -3179,7 +3239,7 @@ function ManageLeagues({
         {connectedLeagues.map((league, index) => (
           <article
             key={`live-${league.id}`}
-            className={`connected-league-row ${draggedLeagueId === league.id ? "dragging" : ""} ${dropTarget?.id === league.id && draggedLeagueId !== league.id ? `drop-${dropTarget.position}` : ""}`}
+            className={`connected-league-row ${hiddenLeagueIds.includes(league.id) ? "hidden-league" : ""} ${draggedLeagueId === league.id ? "dragging" : ""} ${dropTarget?.id === league.id && draggedLeagueId !== league.id ? `drop-${dropTarget.position}` : ""}`}
             draggable
             onDragStart={(event) => {
               setDraggedLeagueId(league.id);
@@ -3229,7 +3289,9 @@ function ManageLeagues({
                 {league.format} · {league.scoring}
               </small>
             </p>
-            <span className="connection-status live">● LIVE</span>
+            <span className={`connection-status ${hiddenLeagueIds.includes(league.id) ? "saved" : "live"}`}>
+              {hiddenLeagueIds.includes(league.id) ? "HIDDEN" : "● LIVE"}
+            </span>
             <div className="league-order-actions">
               <button
                 onClick={() => onMove(league.id, -1)}
@@ -3245,6 +3307,14 @@ function ManageLeagues({
               >↓</button>
               <button className="open-league" onClick={() => void onOpen(league)}>
                 Open
+              </button>
+              <button
+                className="visibility-league"
+                onClick={() => onToggleVisibility(league.id)}
+                aria-pressed={hiddenLeagueIds.includes(league.id)}
+                aria-label={`${hiddenLeagueIds.includes(league.id) ? "Show" : "Hide"} ${league.name} in Fantasy Hub`}
+              >
+                {hiddenLeagueIds.includes(league.id) ? "Show" : "Hide"}
               </button>
             </div>
           </article>

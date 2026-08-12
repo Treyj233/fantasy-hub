@@ -1,0 +1,1 @@
+ALTER TABLE `user_preferences` ADD `hidden_league_ids_json` text DEFAULT '[]' NOT NULL;

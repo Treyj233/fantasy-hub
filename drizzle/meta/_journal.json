@@ -71,6 +71,13 @@
       "when": 1786423134346,
       "tag": "0009_glamorous_doomsday",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1786566908966,
+      "tag": "0010_warm_magus",
+      "breakpoints": true
     }
   ]
 }
