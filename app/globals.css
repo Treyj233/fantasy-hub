@@ -523,8 +523,9 @@ html[data-native-platform="ios"][data-network="offline"] .topbar:after{position:
   .topbar .pro-top-action{min-height:32px;gap:0;padding:5px 6px;font-size:0;border-radius:9px}
   .topbar .pro-top-action>span{display:none}.topbar .pro-top-action b{padding:4px 5px;font-size:7px}
   .account-chip{display:none}
-  .mobile-nav-strip{display:flex;height:48px;align-items:center;gap:5px;overflow-x:auto;padding:5px 8px 7px;border-top:1px solid color-mix(in srgb,var(--green) 17%,var(--line));scroll-snap-type:x proximity;scrollbar-width:none}
-  .mobile-nav-strip::-webkit-scrollbar{display:none}.mobile-nav-strip button{display:grid;min-width:42px;height:36px;place-items:center;padding:2px;background:transparent;border:1px solid transparent;border-radius:9px;scroll-snap-align:center}
+  .mobile-nav-strip{display:flex;height:48px;align-items:center;gap:5px;overflow-x:auto;overflow-y:hidden;padding:5px 8px 7px;border-top:1px solid color-mix(in srgb,var(--green) 17%,var(--line));overscroll-behavior-x:contain;scroll-snap-type:x proximity;scrollbar-width:none;touch-action:pan-x;-webkit-user-select:none;user-select:none;-webkit-user-drag:none}
+  .mobile-nav-strip::-webkit-scrollbar{display:none}.mobile-nav-strip button{display:grid;min-width:42px;height:36px;flex:0 0 42px;place-items:center;padding:2px;background:transparent;border:1px solid transparent;border-radius:9px;scroll-snap-align:center;-webkit-user-drag:none}
+  .mobile-nav-strip *{-webkit-user-drag:none}
   .mobile-nav-strip .mobile-rail-theme{position:sticky;z-index:2;left:0;flex:0 0 42px;background:color-mix(in srgb,var(--chalk) 96%,transparent);border-color:color-mix(in srgb,var(--green) 24%,var(--line));box-shadow:7px 0 10px -10px rgb(0 0 0 / .8)}
   .mobile-nav-strip .theme-rail-badge{color:var(--deep);background:linear-gradient(145deg,var(--gold-light),var(--gold));text-shadow:none}
   .mobile-nav-strip button.active{background:color-mix(in srgb,var(--gold-light) 35%,var(--chalk));border-color:color-mix(in srgb,var(--gold) 55%,var(--line));box-shadow:inset 0 -2px var(--gold)}

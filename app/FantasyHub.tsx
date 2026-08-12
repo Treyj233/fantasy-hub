@@ -609,6 +609,7 @@ type LeagueScan = {
 };
 
 type NavGroup = "Portfolio" | "Live" | "Team Management" | "League Insights" | "Utilities";
+const navGroupOrder: NavGroup[] = ["Portfolio", "Live", "Team Management", "League Insights", "Utilities"];
 const nav: { label: View; displayLabel?: string; mark: string; tone: string; group: NavGroup }[] = [
   { label: "All Leagues", displayLabel: "Mission Hub", mark: "◆", tone: "violet", group: "Portfolio" },
   { label: "Manage Leagues", mark: "⚙", tone: "slate", group: "Portfolio" },
@@ -1789,6 +1790,9 @@ export default function FantasyHub({
     (league) => league.id === leagueId,
   );
   const visibleNav = nav;
+  const orderedMobileNav = navGroupOrder.flatMap((group) =>
+    visibleNav.filter((item) => item.group === group),
+  );
   const proViews = new Set<View>(["Command Center", "League Stories", "Manager Report", "League Analytics", "Trade Lab", "Simulator"]);
   const rosterReady = players.length > 0;
   const periodLabel =
@@ -1858,7 +1862,7 @@ export default function FantasyHub({
           </small>
         </div>
         <nav aria-label="Fantasy Hub sections">
-          {(["Portfolio", "Live", "Team Management", "League Insights", "Utilities"] as NavGroup[]).map((group) => (
+          {navGroupOrder.map((group) => (
             <div className="nav-group" key={group}>
               <span>{group}</span>
               {visibleNav.filter((item) => item.group === group).map((item) => (
@@ -1986,7 +1990,7 @@ export default function FantasyHub({
             </div>
           </div>
         </header>
-        <nav className="mobile-nav-strip" aria-label="Quick Fantasy Hub navigation">
+        <nav className="mobile-nav-strip" aria-label="Quick Fantasy Hub navigation" draggable={false} onDragStart={(event) => event.preventDefault()}>
           <button
             className="mobile-rail-theme"
             type="button"
@@ -2004,7 +2008,7 @@ export default function FantasyHub({
           >
             <i className="nav-badge theme-rail-badge" aria-hidden="true">{theme === "dark" ? "☾" : "☀"}</i>
           </button>
-          {visibleNav.map((item) => (
+          {orderedMobileNav.map((item) => (
             <button
               key={item.label}
               type="button"
