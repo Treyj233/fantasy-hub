@@ -5198,23 +5198,30 @@ function LeagueAnalytics({
     ? leagueWindowScores.reduce((sum, team) => sum + team.score, 0) / leagueWindowScores.length
     : baseStrength;
   const leagueWindowRank = Math.max(1, leagueWindowScores.findIndex(({ team }) => team.id === selectedTeamId) + 1);
-  const currentStarterScore = selectedWindow?.starterScore ?? baseStrength;
+  const starterScoreMean = windowStarterScores.length
+    ? windowStarterScores.reduce((sum, value) => sum + value, 0) / windowStarterScores.length
+    : 0;
+  const starterScoreSpread = Math.sqrt(
+    windowStarterScores.reduce((sum, value) => sum + (value - starterScoreMean) ** 2, 0) /
+      Math.max(1, windowStarterScores.length),
+  );
+  const projectedStarterValue = (year: number) => starters.length
+    ? starters.reduce((sum, player) => {
+        const futureAge = (player.age ?? player.curve.peakEnd) + year;
+        const decline = Math.max(0, futureAge - player.curve.peakEnd) * player.curve.annualDecline;
+        const development = futureAge <= player.curve.peakEnd - 3 ? Math.min(5, year * 1.3) : 0;
+        return sum + Math.max(15, assetValue(player.overallRank) - decline + development);
+      }, 0) / starters.length
+    : 0;
+  const currentProjectedStarterValue = projectedStarterValue(0);
   const outlook = [0, 1, 2, 3].map((year) => {
-    const futureStarterScore = starters.length
-      ? starters.reduce((sum, player) => {
-          const futureAge = (player.age ?? player.curve.peakEnd) + year;
-          const decline =
-            Math.max(0, futureAge - player.curve.peakEnd) *
-            player.curve.annualDecline;
-          const development =
-            futureAge <= player.curve.peakEnd - 3 ? Math.min(5, year * 1.3) : 0;
-          return (
-            sum +
-            Math.max(15, assetValue(player.overallRank) - decline + development)
-          );
-        }, 0) / starters.length
-      : currentStarterScore;
-    const score = baseStrength + (futureStarterScore - currentStarterScore) * .58;
+    const futureStarterValue = projectedStarterValue(year);
+    const starterGradeMovement = starters.length
+      ? ((futureStarterValue - currentProjectedStarterValue) / Math.max(6, starterScoreSpread)) * 12
+      : 0;
+    // The first bar is the current window score. Future bars only apply the
+    // league-scaled change from aging and development to that same baseline.
+    const score = year === 0 ? baseStrength : baseStrength + starterGradeMovement * .58;
     return {
       year: new Date().getUTCFullYear() + year,
       score: Math.round(Math.min(99, Math.max(20, score))),
