@@ -6211,17 +6211,40 @@ function TeamRankings({
   const medianDraftScore = orderedDraftScores.length
     ? orderedDraftScores[Math.floor((orderedDraftScores.length - 1) / 2)]
     : 1;
+  // These are league-strength grades, not raw averages of player values. Center an
+  // average roster in the low 70s and use standard deviation to preserve meaningful
+  // separation without making an ordinary lineup look like a failing grade.
+  const relativeGrade = (value: number, values: number[]) => {
+    if (values.length < 2) return 72;
+    const mean = values.reduce((sum, item) => sum + item, 0) / values.length;
+    const variance = values.reduce((sum, item) => sum + (item - mean) ** 2, 0) / values.length;
+    const deviation = Math.sqrt(variance);
+    if (deviation < .01) return 72;
+    return Math.max(42, Math.min(97, 72 + ((value - mean) / deviation) * 12));
+  };
+  const starterScores = rawTeams.map((team) => team.starterScore);
+  const depthScores = rawTeams.map((team) => team.depthScore);
+  const balanceScores = rawTeams.map((team) => team.balanceScore);
+  const runwayScores = rawTeams.map((team) => team.runwayScore);
   const calibratedDraftScore = (draftScore: number) => Math.max(30, Math.min(95,
     medianDraftScore > 0 ? 50 + Math.log2(Math.max(1, draftScore) / medianDraftScore) * 24 : 50));
   const scoredTeams = rawTeams
     .map((team) => {
       const draftValue = calibratedDraftScore(team.draftScore);
+      const starterScore = relativeGrade(team.starterScore, starterScores);
+      const depthScore = relativeGrade(team.depthScore, depthScores);
+      const balanceScore = relativeGrade(team.balanceScore, balanceScores);
+      const runwayScore = relativeGrade(team.runwayScore, runwayScores);
       return {
         ...team,
+        starterScore,
+        depthScore,
+        balanceScore,
+        runwayScore,
         draftValue,
         overallScore: Number((isDynasty
-          ? team.starterScore * .52 + team.depthScore * .14 + team.balanceScore * .16 + team.runwayScore * .10 + draftValue * .08
-          : team.starterScore * .72 + team.depthScore * .18 + team.balanceScore * .10
+          ? starterScore * .52 + depthScore * .14 + balanceScore * .16 + runwayScore * .10 + draftValue * .08
+          : starterScore * .72 + depthScore * .18 + balanceScore * .10
         ).toFixed(1)),
       };
     })

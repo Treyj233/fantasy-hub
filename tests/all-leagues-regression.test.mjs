@@ -111,10 +111,12 @@ test("Team Rankings calibrate roster strength without draft-hoard distortion", a
   assert.match(rankings, /balanceScore/);
   assert.match(rankings, /runwayScore/);
   assert.match(rankings, /medianDraftScore/);
-  assert.match(rankings, /team\.starterScore \* \.52/);
-  assert.match(rankings, /team\.depthScore \* \.14/);
-  assert.match(rankings, /team\.balanceScore \* \.16/);
-  assert.match(rankings, /team\.runwayScore \* \.10/);
+  assert.match(rankings, /const relativeGrade/);
+  assert.match(rankings, /72 \+ \(\(value - mean\) \/ deviation\) \* 12/);
+  assert.match(rankings, /starterScore \* \.52/);
+  assert.match(rankings, /depthScore \* \.14/);
+  assert.match(rankings, /balanceScore \* \.16/);
+  assert.match(rankings, /runwayScore \* \.10/);
   assert.match(rankings, /draftValue \* \.08/);
   assert.match(rankings, /className="team-rating-breakdown"/);
   assert.doesNotMatch(rankings, /draftScore \/ maxDraftScore/);
