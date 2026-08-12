@@ -4474,8 +4474,8 @@ function AllLeagueScoreboard({
         </div>
       </section>
       {featured && <section className="sunday-spotlight panel">
-        <div className="spotlight-kicker"><span>{featured.status === "live" ? "● LIVE" : featured.status === "final" ? "FINAL" : "UP NEXT"}</span><small>MOST IMPORTANT MATCHUP</small></div>
-        <div className="spotlight-team"><small>YOU · {featured.league.name}</small><strong>{featured.mine.teamName}</strong><b>{featured.mine.points.toFixed(2)}</b></div>
+        <div className="spotlight-kicker"><span>{featured.status === "live" ? "● LIVE" : featured.status === "final" ? "FINAL" : "UP NEXT"}</span><small>MOST IMPORTANT MATCHUP</small><b title={featured.league.name}>{featured.league.name}</b></div>
+        <div className="spotlight-team"><small>YOU</small><strong>{featured.mine.teamName}</strong><b>{featured.mine.points.toFixed(2)}</b></div>
         <div className="spotlight-versus spotlight-win-scale" aria-label={featured.winProbability == null ? "Estimated win probability unavailable" : `Estimated win probability ${featured.winProbability}%`}>
           <span>WIN PROBABILITY</span>
           <i role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={featured.winProbability ?? undefined}>
