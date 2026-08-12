@@ -1075,3 +1075,12 @@ html[data-theme="dark"] .account-theme-customizer{color:#fff;background:radial-g
   .page-content>.section-intro>span,.page-content>.section-intro h2{grid-column:1}
   .page-content>.section-intro h2{font-size:18px}
 }
+
+/* Mission Hub action links need an explicit destination label. Keep the tiny
+   header utility icon-only, but never collapse prioritized-inbox links to a logo. */
+@media(max-width:700px){
+  .priority-inbox .portfolio-action-buttons>.platform-link{gap:5px;padding-inline:6px}
+  .priority-inbox .portfolio-action-buttons .platform-link>span{display:block!important;overflow:hidden;color:#fff!important;font-size:9px!important;font-weight:950;text-overflow:ellipsis;white-space:nowrap}
+  .priority-inbox .portfolio-action-buttons .platform-link>b{display:none}
+  .priority-inbox .portfolio-action-buttons .platform-logo{width:22px;min-width:22px;height:13px;object-fit:contain}
+}
