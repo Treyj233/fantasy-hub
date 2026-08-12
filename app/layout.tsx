@@ -65,8 +65,15 @@ export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   const clerkKeys = await getClerkRuntimeKeys();
+  const nativeIos = ((await headers()).get("user-agent") ?? "").includes(
+    "FantasyHub-iOS/",
+  );
   return (
-    <html lang="en" className="h-full antialiased">
+    <html
+      lang="en"
+      className="h-full antialiased"
+      data-native-platform={nativeIos ? "ios" : undefined}
+    >
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
         {clerkKeys ? <ClerkProvider publishableKey={clerkKeys.publishableKey}>{children}</ClerkProvider> : children}
       </body>

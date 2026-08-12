@@ -489,6 +489,12 @@ html[data-theme="dark"] .command-action-queue>div>button,html[data-theme="dark"]
 
 /* Native iOS shell: keep controls clear of the Dynamic Island, home indicator, and rounded corners. */
 html[data-native-platform="ios"] body{overscroll-behavior-y:none}
+html[data-native-platform="ios"] body,html[data-native-platform="ios"] body *{-webkit-tap-highlight-color:transparent}
+html[data-native-platform="ios"] body :not(input):not(textarea):not([contenteditable="true"]){-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+html[data-native-platform="ios"] :is(input,textarea,[contenteditable="true"]){-webkit-touch-callout:default;-webkit-user-select:text;user-select:text}
+html[data-native-platform="ios"] :is(button,a,[role="button"],label,select){touch-action:manipulation}
+html[data-native-platform="ios"] :is(button,a,[role="button"]):active{filter:brightness(.94);transform:scale(.985)}
+html[data-native-platform="ios"] img{-webkit-user-drag:none;user-drag:none}
 html[data-native-platform="ios"],html[data-native-platform="ios"] body{min-height:100%;background:#f4f7f5}
 html[data-native-platform="ios"][data-theme="dark"],html[data-native-platform="ios"][data-theme="dark"] body{background:#181b22}
 html[data-native-platform="ios"] .topbar{padding-top:max(14px,env(safe-area-inset-top))}
