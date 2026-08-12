@@ -368,10 +368,17 @@ function PlatformLogo({ provider = "Sleeper" }: { provider?: string }) {
   return provider.toLowerCase() === "sleeper" ? <span className="platform-logo" role="img" aria-label="Sleeper" /> : <span className="platform-logo-fallback">{provider}</span>;
 }
 function FHLogo({ label }: { label?: string }) {
-  return <svg className="fh-theme-logo" viewBox="0 0 100 100" role={label ? "img" : undefined} aria-label={label} aria-hidden={label ? undefined : true}>
-    <text className="fh-logo-f" x="5" y="75">F</text>
-    <text className="fh-logo-h" x="40" y="79">H</text>
-    <g className="fh-logo-laces" aria-hidden="true"><path d="M50 44 43 65"/><path d="m45 49 11 4M43 55l11 4M41 61l11 4"/></g>
+  return <svg className="fh-theme-logo" viewBox="0 0 512 512" role={label ? "img" : undefined} aria-label={label} aria-hidden={label ? undefined : true}>
+    <rect className="fh-logo-tile" width="512" height="512" rx="92" />
+    <g transform="translate(82 52) rotate(-3 174 174)">
+      <rect className="fh-logo-plate" width="348" height="348" rx="82" />
+      <g transform="translate(42 46) scale(2.7)">
+        <text className="fh-logo-f" x="5" y="75">F</text>
+        <text className="fh-logo-h" x="40" y="79">H</text>
+        <g className="fh-logo-laces" aria-hidden="true"><path d="M50 44 43 65"/><path d="m45 49 11 4M43 55l11 4M41 61l11 4"/></g>
+      </g>
+    </g>
+    <path className="fh-logo-stripe" d="M0 408 512 258M0 450 512 300" />
   </svg>;
 }
 const rememberDecision = (decision: { id: string; leagueId: string; week: number; category: string; recommendation: string; alternatives: unknown[]; information: Record<string, unknown>; confidence: number; userSelection?: string | null }) => {
