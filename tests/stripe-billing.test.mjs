@@ -32,6 +32,8 @@ test("Apple StoreKit guards the $24.99 six-month season subscription", async () 
   assert.match(runtime, /nativeRefreshPurchases/);
   assert.match(plans, /Another purchase is pending/);
   assert.match(plans, /setInterval\(.*5_000/);
+  assert.match(plans, /restore-purchases-link/);
+  assert.doesNotMatch(plans, /native-billing-note[^\n]*Restore Purchases/);
 });
 
 test("Stripe webhooks verify the raw signed body before granting Pro", async () => {
