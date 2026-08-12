@@ -588,6 +588,7 @@ html[data-native-platform="ios"][data-network="offline"] .topbar:after{position:
 
 /* Mobile navigation: sticky badge rail with a full left-side navigation drawer. */
 .mobile-header-stack{display:contents}.mobile-menu-toggle,.mobile-nav-strip,.mobile-drawer-backdrop{display:none}
+.season-context-mobile{display:none}
 @media(max-width:700px){
   .mobile-header-stack{position:sticky;z-index:35;top:0;display:block;background:color-mix(in srgb,var(--chalk) 96%,transparent);box-shadow:0 7px 22px rgb(0 0 0 / .15);backdrop-filter:blur(16px)}
   html[data-native-platform="ios"] .mobile-header-stack{padding-top:env(safe-area-inset-top);background:var(--chalk)}
@@ -596,7 +597,7 @@ html[data-native-platform="ios"][data-network="offline"] .topbar:after{position:
   html[data-native-platform="ios"] .topbar{padding-top:7px}
   .mobile-menu-toggle{display:grid;width:34px;height:34px;align-self:center;place-content:center;gap:4px;padding:0;color:var(--ink);background:color-mix(in srgb,var(--green) 9%,var(--chalk));border:1px solid color-mix(in srgb,var(--green) 36%,var(--line));border-radius:9px}
   .mobile-menu-toggle span{display:block;width:16px;height:2px;background:currentColor;border-radius:99px}
-  .topbar>div:nth-child(2){min-width:0}.topbar>div:nth-child(2) p.season-context{overflow:hidden;margin-bottom:1px;font-size:8px!important;line-height:1.1;text-overflow:ellipsis;white-space:nowrap}.topbar>div:nth-child(2) h1{max-width:none;font-size:16px}
+  .topbar>div:nth-child(2){min-width:0}.topbar>div:nth-child(2) p.season-context{overflow:visible;margin-bottom:1px;font-size:8px!important;line-height:1.1;white-space:nowrap}.topbar>div:nth-child(2) h1{max-width:none;font-size:16px}
   .top-actions{gap:4px}
   .topbar .platform-open{display:flex;min-height:32px;gap:5px;padding:5px 6px;border-width:1px;border-radius:9px;box-shadow:0 4px 11px #4f46e538}
   .topbar .platform-open .platform-logo{width:31px;height:14px}
@@ -637,7 +638,7 @@ html[data-native-platform="ios"][data-network="offline"] .topbar:after{position:
 }
 @media(max-width:430px){
   .topbar{grid-template-columns:32px minmax(0,1fr) auto;gap:6px;padding-inline:8px}
-  .mobile-menu-toggle{width:32px;height:32px}.topbar>div:nth-child(2) p.season-context{display:block;font-size:7px!important;letter-spacing:.08em}.topbar>div:nth-child(2) h1{font-size:15px}
+  .mobile-menu-toggle{width:32px;height:32px}.topbar>div:nth-child(2) p.season-context{display:block;font-size:7px!important;letter-spacing:.02em}.season-context-full{display:none}.season-context-mobile{display:inline}.topbar>div:nth-child(2) h1{font-size:15px}
   .topbar .platform-open-copy{display:none!important}.topbar .platform-open{width:39px;justify-content:center;padding-inline:4px}.topbar .platform-open .platform-logo{width:29px}
 }
 @media(prefers-reduced-motion:reduce){.sidebar,.mobile-drawer-backdrop{transition:none}}
@@ -843,7 +844,28 @@ html[data-theme="dark"] .account-theme-customizer{color:#fff;background:radial-g
 .page-content :is(.scorebug-probability small,.scorebug-probability span,.scorebug-probability footer small,.portfolio-score-bug>div>p small,.need-collapse-toggle strong,.portfolio-score-rail button small,.portfolio-score-rail button span,.game-impact-level,.sunday-pulse span,.sunday-pulse small){font-size:8px!important;line-height:1.2}
 .page-content :is(.scorebug-probability strong,.portfolio-score-bug>div>p strong,.league-scoreboard-page .game-stats .inline-player-link,.waiver-list-player strong,.rank-player strong){font-size:10px!important;line-height:1.2}
 .topbar :is(.platform-open-copy strong,.platform-open-copy small,.pro-top-action b,.theme-customizer-copy strong,.theme-customizer-copy small,.account-theme-customizer>b){font-size:8px!important;line-height:1.15}
+.manage-leagues .integration-matrix article>b.live,
+.manage-leagues .connection-status.live{display:inline-flex;align-items:center;justify-content:center;min-width:48px;padding:6px 9px;color:#075a34!important;background:#c9f3d9!important;border:1px solid #78d59e;border-radius:999px;font-size:9px!important;font-weight:950;line-height:1!important;letter-spacing:.08em;text-shadow:none;white-space:nowrap}
+html[data-theme="dark"] .manage-leagues .integration-matrix article>b.live,
+html[data-theme="dark"] .manage-leagues .connection-status.live{color:#dfffee!important;background:#135a39!important;border-color:#42bd79;box-shadow:inset 0 1px rgb(255 255 255 / .12)}
+/* Keep the Fantasy Matchups score centered directly over its matching team column. */
+.head-to-head-score{position:relative;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.head-to-head-score>div{min-width:0;text-align:center!important}
+.head-to-head-score>div:first-child{grid-column:1}.head-to-head-score>div:last-child{grid-column:2}
+.head-to-head-score div small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.head-to-head-score>span{position:absolute;z-index:1;left:50%;top:50%;padding:5px 9px;background:var(--chalk);border:1px solid var(--line);border-radius:10px;transform:translate(-50%,-50%)}
+.portfolio-scoreboard-page .sunday-spotlight{grid-template-columns:minmax(0,1fr) 66px minmax(0,1fr);gap:10px}
+.portfolio-scoreboard-page .spotlight-team{min-width:0;gap:3px}
+.portfolio-scoreboard-page .spotlight-team strong{display:block;overflow:hidden;max-width:100%;font-size:14px;line-height:1.15;text-overflow:ellipsis;white-space:nowrap}
+.portfolio-scoreboard-page .spotlight-team>b{font-size:28px}
+.portfolio-scoreboard-page .spotlight-versus{min-width:66px}
 @media(max-width:700px){
+  .head-to-head-score{grid-template-columns:repeat(2,minmax(0,1fr));gap:34px;padding-inline:10px}
+  .head-to-head-score>span{padding:4px 6px}
+  .portfolio-scoreboard-page .sunday-spotlight{grid-template-columns:minmax(0,1fr) 48px minmax(0,1fr);gap:6px}
+  .portfolio-scoreboard-page .spotlight-team strong{font-size:10px;line-height:1.1}
+  .portfolio-scoreboard-page .spotlight-team>b{font-size:23px}
+  .portfolio-scoreboard-page .spotlight-versus{min-width:48px}
   .page-content :is(.pos,.status,.claim-level b,.claim-level small,.waiver-plan,.waiver-list>header span,.rank-head span,.tier-section>header span,.tier-section>header small,.game-stats h4,.game-stats p small,.game-stats em,.score-game>header span,.score-game>header b,.score-game-actions button,.matchup-team>span,.matchup-team>span b,.roster-weather,.team-rating-breakdown span,.team-rating-breakdown small,.asset-position-roster>header span,.asset-position-roster>header b,.asset-position-roster>button em,.pro-status-badge,.plan-badge,.badge-theme-builder small){font-size:9px!important;line-height:1.2}
   .page-content :is(.scorebug-probability small,.scorebug-probability span,.scorebug-probability footer small,.portfolio-score-bug>div>p small,.need-collapse-toggle strong,.portfolio-score-rail button small,.portfolio-score-rail button span,.game-impact-level,.sunday-pulse span,.sunday-pulse small){font-size:8px!important;line-height:1.15}
   .page-content :is(.portfolio-score-bug>div>p strong,.league-scoreboard-page .score-bug>div>p strong,.league-scoreboard-page .game-stats .inline-player-link,.waiver-list-player strong,.rank-player strong){font-size:10px!important;line-height:1.15}

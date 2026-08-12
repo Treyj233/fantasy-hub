@@ -1964,7 +1964,8 @@ export default function FantasyHub({
           </button>
           <div>
             <p className="season-context">
-              {periodLabel} · {leagueSeason}
+              <span className="season-context-full">{periodLabel} · {leagueSeason}</span>
+              <span className="season-context-mobile">{periodLabel} &apos;{leagueSeason.slice(-2)}</span>
             </p>
             <h1>{viewTitle}</h1>
           </div>
