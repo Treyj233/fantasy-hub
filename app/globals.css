@@ -498,7 +498,7 @@ html[data-native-platform="ios"] :is(button,a,[role="button"]):active{filter:bri
 html[data-native-platform="ios"] img{-webkit-user-drag:none;user-drag:none}
 html[data-native-platform="ios"],html[data-native-platform="ios"] body{min-height:100%;background:#f4f7f5}
 html[data-native-platform="ios"][data-theme="dark"],html[data-native-platform="ios"][data-theme="dark"] body{background:#181b22}
-html[data-native-platform="ios"] .topbar{padding-top:max(14px,env(safe-area-inset-top))}
+html[data-native-platform="ios"] .topbar{padding-top:14px}
 html[data-native-platform="ios"] .page-content{padding-bottom:calc(108px + env(safe-area-inset-bottom))}
 html[data-native-platform="ios"] .sidebar{height:100dvh;padding-bottom:max(14px,env(safe-area-inset-bottom))}
 html[data-native-platform="ios"][data-network="offline"] .topbar:after{position:absolute;right:12px;bottom:-25px;z-index:50;padding:5px 8px;color:#fff;background:#b4232d;border-radius:0 0 7px 7px;box-shadow:0 5px 12px #0003;font-size:7px;font-weight:950;letter-spacing:.08em;content:"OFFLINE · SHOWING SAVED DATA"}
@@ -511,7 +511,10 @@ html[data-native-platform="ios"][data-network="offline"] .topbar:after{position:
 .mobile-header-stack{display:contents}.mobile-menu-toggle,.mobile-nav-strip,.mobile-drawer-backdrop{display:none}
 @media(max-width:700px){
   .mobile-header-stack{position:sticky;z-index:35;top:0;display:block;background:color-mix(in srgb,var(--chalk) 96%,transparent);box-shadow:0 7px 22px rgb(0 0 0 / .15);backdrop-filter:blur(16px)}
+  html[data-native-platform="ios"] .mobile-header-stack{padding-top:env(safe-area-inset-top);background:var(--chalk)}
+  @media(orientation:portrait){html[data-native-platform="ios"] .mobile-header-stack{padding-top:max(54px,env(safe-area-inset-top))}}
   .topbar{position:relative;top:auto;z-index:auto;display:grid;grid-template-columns:34px minmax(0,1fr) auto;gap:8px;min-height:52px;padding:7px 10px;background:transparent;box-shadow:none;backdrop-filter:none}
+  html[data-native-platform="ios"] .topbar{padding-top:7px}
   .mobile-menu-toggle{display:grid;width:34px;height:34px;align-self:center;place-content:center;gap:4px;padding:0;color:var(--ink);background:color-mix(in srgb,var(--green) 9%,var(--chalk));border:1px solid color-mix(in srgb,var(--green) 36%,var(--line));border-radius:9px}
   .mobile-menu-toggle span{display:block;width:16px;height:2px;background:currentColor;border-radius:99px}
   .topbar>div:nth-child(2){min-width:0}.topbar>div:nth-child(2) p{margin-bottom:1px;font-size:6px}.topbar>div:nth-child(2) h1{max-width:none;font-size:16px}
@@ -644,7 +647,7 @@ html[data-theme="dark"] .account-theme-customizer{color:#fff;background:radial-g
   .portfolio-scoreboard-head select,.league-scoreboard-page .scoreboard-head select{min-height:38px;margin-top:4px;font-size:11px}
   .portfolio-scoreboard-head .live-refresh,.league-scoreboard-page .live-refresh{align-self:end;padding:10px 8px;text-align:center}
   .sunday-pulse{position:sticky;z-index:34;top:100px;grid-template-columns:auto minmax(0,1fr);min-height:38px;padding:7px 9px;box-shadow:0 9px 24px rgb(0 0 0 / .24)}
-  html[data-native-platform="ios"] .sunday-pulse{top:calc(100px + env(safe-area-inset-top))}
+  html[data-native-platform="ios"] .sunday-pulse{top:calc(100px + max(54px,env(safe-area-inset-top)))}
   .sunday-pulse button{display:none}
   .portfolio-score-rail{position:relative;top:auto;padding:8px}
   .portfolio-score-rail>header{padding:2px 3px 7px}
