@@ -12,6 +12,12 @@ type SourceProjection = { player_id?: string; stats?: Record<string, number> };
 type MatchupRow = { roster_id?: number; matchup_id?: number | null };
 type AdpRow = { player?: { name?: string }; avg?: number; src_79?: number; src_4350?: number; src_80?: number; src_439?: number; src_624?: number };
 
+const LEAGUE_PAYLOAD_VERSION = 2;
+const isCurrentFantasyPlayer = (player: SourcePlayer) => {
+  const status = (player.status ?? "").trim().toLowerCase();
+  return Boolean(player.team) && !/(retired|inactive|deceased)/.test(status);
+};
+
 const normalizePlayerName = (name: string) => name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "").replace(/(jr|sr|ii|iii|iv)$/, "");
 
 function parsePlatformAdp(html: string) {
@@ -36,7 +42,11 @@ export async function GET(request: Request) {
   if (!forceRefresh) {
     const [snapshot] = await db.select().from(leagueDataSnapshots).where(and(eq(leagueDataSnapshots.userId, user.userId), eq(leagueDataSnapshots.leagueKey, id))).limit(1);
     if (snapshot && Date.now() - new Date(snapshot.refreshedAt).getTime() < 5 * 60 * 1000) {
-      try { return Response.json({ ...JSON.parse(snapshot.payloadJson), cache: { status: "fresh", refreshedAt: snapshot.refreshedAt } }); } catch { /* Refresh malformed snapshots. */ }
+      try {
+        const cached = JSON.parse(snapshot.payloadJson) as { payloadVersion?: number };
+        if (cached.payloadVersion === LEAGUE_PAYLOAD_VERSION)
+          return Response.json({ ...cached, cache: { status: "fresh", refreshedAt: snapshot.refreshedAt } });
+      } catch { /* Refresh malformed or outdated snapshots. */ }
     }
   }
   if (id?.startsWith("espn:")) {
@@ -44,7 +54,7 @@ export async function GET(request: Request) {
     if (!leagueId || !/^\d{4,24}$/.test(leagueId))
       return Response.json({ error: "Invalid ESPN league ID" }, { status: 400 });
     try {
-      const result = await normalizeEspnLeague(await fetchEspnLeagueForUser(user.userId, leagueId, Number(season)));
+      const result = { ...(await normalizeEspnLeague(await fetchEspnLeagueForUser(user.userId, leagueId, Number(season)))), payloadVersion: LEAGUE_PAYLOAD_VERSION };
       const refreshedAt = new Date().toISOString();
       const snapshot = { id: crypto.randomUUID(), userId: user.userId, leagueKey: id, payloadJson: JSON.stringify(result), refreshedAt };
       await db.insert(leagueDataSnapshots).values(snapshot).onConflictDoUpdate({ target: [leagueDataSnapshots.userId, leagueDataSnapshots.leagueKey], set: { payloadJson: snapshot.payloadJson, refreshedAt } });
@@ -166,7 +176,7 @@ export async function GET(request: Request) {
       supportedPlayerPositions.add("DEF");
     const rankingPool = Object.entries(sourcePlayers).flatMap(([playerId, player]) => {
       const position = player.position ?? "";
-      if (!supportedPlayerPositions.has(position) || !player.team) return [];
+      if (!supportedPlayerPositions.has(position) || !isCurrentFantasyPlayer(player)) return [];
       const sourceRank = player.search_rank && player.search_rank > 0 ? player.search_rank : 9999;
       const projectedPoints = internalProjection(playerId, player);
       const lineupAdjustment = Math.min(11, Math.max(-4, ((positionDemand[position] ?? 0) - 1) * (position === "QB" ? 6.5 : 3.2)));
@@ -187,6 +197,13 @@ export async function GET(request: Request) {
       const fantasyPoints2025 = seasonProfile ? seasonProfile.fantasyPoints + receptionBonus : null;
       const marketAdp = platformAdp.get(normalizePlayerName(name)) ?? { Consensus: null, Sleeper: null, ESPN: null, CBS: null, RTSports: null, Fantrax: null };
       const directSleeperAdp = sleeperAdp.get(playerId) ?? marketAdp.Sleeper ?? null;
+      const hasCurrentRoleSignal =
+        player.depth_chart_order != null ||
+        leagueProjections.has(playerId) ||
+        directSleeperAdp != null ||
+        Boolean(snapProfile?.games) ||
+        Boolean(seasonProfile?.games);
+      if (!hasCurrentRoleSignal) return [];
       const availableAdp = Object.values({ ...marketAdp, Sleeper: directSleeperAdp }).filter((item): item is number => typeof item === "number");
       const adpBySite = { ...marketAdp, Sleeper: directSleeperAdp, Consensus: marketAdp.Consensus ?? (availableAdp.length ? Number((availableAdp.reduce((sum, item) => sum + item, 0) / availableAdp.length).toFixed(1)) : null) };
       return [{ id: player.player_id ?? playerId, name, position, team: player.team, opponent: "Matchup pending", projection: platformProjection, leagueProjection: leagueProjections.get(playerId) ?? null, floor: Number((platformProjection * .68).toFixed(1)), ceiling: Number((platformProjection * 1.38).toFixed(1)), trend: 0, status: player.injury_status ?? "Healthy", role: "Player pool", age: player.age ?? null, rankingValue: Number(value.toFixed(2)), ageAdjustment: Number(ageAdjustment.toFixed(1)), lineupAdjustment: Number(lineupAdjustment.toFixed(1)), snapPct: snapProfile?.latestPct ?? null, snapAverage: snapProfile?.averagePct ?? null, snapWeek: snapProfile?.latestWeek ?? null, snapSeason: snapProfile?.season ?? null, fantasyPpg2025: seasonProfile?.games ? Number((fantasyPoints2025! / seasonProfile.games).toFixed(1)) : null, gamesPlayed2025: seasonProfile?.games ?? null, team2025: seasonProfile?.team ?? null, teamOffenseRank2025: seasonTeamOffense?.rank ?? null, teamPointsPerGame2025: seasonTeamOffense?.pointsPerGame ?? null, adpBySite }];
@@ -232,7 +249,7 @@ export async function GET(request: Request) {
       return { id: String(rosterId), ownerId: roster.owner_id, managerName, teamName: owner?.metadata?.team_name ?? `${managerName}'s Team`, matchupId: matchupByRoster.get(rosterId) ?? null, roster: normalized, draftCapital: { score: Number(ownedPicks.reduce((sum, pick) => sum + pick.value, 0).toFixed(1)), picks: ownedPicks } };
     });
     const managers = users.flatMap((user, index) => user.user_id ? [{ id: user.user_id, name: user.display_name ?? `Manager ${index + 1}`, teamName: user.metadata?.team_name ?? `${user.display_name ?? `Manager ${index + 1}`}'s Team`, style: "Neutral" as const }] : []);
-    const result = { league: { name: league.name ?? "Imported League", platform: "Sleeper", status: league.status ?? "unknown", teams: league.total_rosters, season: league.season, currentWeek: Math.max(0, league.leg ?? 0), projectionWeek, managers: users.length }, teams, managers, rankingContext: { format, scoring: receptionLabel, teams: league.total_rosters ?? rosters.length, rosterSlots, positionDemand, tePremium: tePremiumValue, passTouchdown: scoring.pass_td ?? 4, interception: scoring.pass_int ?? -2, bonusRuleCount, scoringRuleCount: Object.values(scoring).filter((value) => value !== 0).length }, rankings: rankingPool, waiverPlayers };
+    const result = { payloadVersion: LEAGUE_PAYLOAD_VERSION, league: { name: league.name ?? "Imported League", platform: "Sleeper", status: league.status ?? "unknown", teams: league.total_rosters, season: league.season, currentWeek: Math.max(0, league.leg ?? 0), projectionWeek, managers: users.length }, teams, managers, rankingContext: { format, scoring: receptionLabel, teams: league.total_rosters ?? rosters.length, rosterSlots, positionDemand, tePremium: tePremiumValue, passTouchdown: scoring.pass_td ?? 4, interception: scoring.pass_int ?? -2, bonusRuleCount, scoringRuleCount: Object.values(scoring).filter((value) => value !== 0).length }, rankings: rankingPool, waiverPlayers };
     const refreshedAt = new Date().toISOString();
     const snapshot = { id: crypto.randomUUID(), userId: user.userId, leagueKey: id, payloadJson: JSON.stringify(result), refreshedAt };
     await db.insert(leagueDataSnapshots).values(snapshot).onConflictDoUpdate({ target: [leagueDataSnapshots.userId, leagueDataSnapshots.leagueKey], set: { payloadJson: snapshot.payloadJson, refreshedAt } });
