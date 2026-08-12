@@ -43,15 +43,17 @@ The archive is written to `build/FantasyHub.xcarchive` and can then be validated
 - The app builds successfully for the iPhone 17 Pro simulator.
 - The production site loads inside the native web view without handing off to Safari.
 - Native app icon, launch screen, safe areas, offline handling, privacy manifest, lifecycle hooks, and custom URL scheme are configured.
-- This Mac currently has no valid Apple code-signing identity. Open Xcode → Settings → Accounts, add the Apple Developer account, select the Fantasy Hub team under Signing & Capabilities, and let Xcode create/download the development and distribution certificates before archiving.
+- Seven upload-ready 6.5-inch App Store screenshots are stored in `public/marketing/app-store/iphone-6.5` at 1242 × 2688. Their branding is refreshed from the same FH logo used by the product, with matching masters in `public/marketing/app-store/generated-masters`.
+- The App Store screenshot branding can be refreshed deterministically with `swift tools/refresh-app-store-branding.swift`; the tool changes only the FH brand plate and preserves the approved feature artwork.
+- Valid Apple Development and Apple Distribution identities are installed for team `PSFU9Q2JRK`.
+- Release build 3 archives successfully at `build/FantasyHub.xcarchive` with the registered `com.fantasyhubapp.ios` provisioning profile.
 
 ## Release blockers
 
-1. Install/select the Apple Developer signing team and register `com.fantasyhubapp.ios`.
-2. Enable Sign in with Apple in the App ID and Clerk, then test the complete native sign-in flow.
-3. Create the three App Store subscription products and connect StoreKit purchase, restore, and server-side entitlement verification.
-4. Configure APNs and test notifications on a physical device if launch notifications are desired.
-5. Archive, upload to TestFlight, complete App Store metadata, and run external beta review.
+1. Confirm Sign in with Apple is enabled in the App ID and Clerk, then test the complete native sign-in flow on a physical device.
+2. Confirm the three App Store subscription products are approved for testing and exercise purchase and restore in Apple’s sandbox.
+3. Configure APNs production credentials and test notifications on a physical device if launch notifications are desired.
+4. Upload `build/FantasyHub.xcarchive` through Xcode Organizer, attach the seven refreshed screenshots, complete App Store metadata, and run TestFlight/external beta review.
 
 The current native shell loads the production application so authentication and saved league data remain unified with the web product. Before App Store submission, native StoreKit purchasing and Restore Purchases must replace the disabled Stripe purchase controls in the iOS shell.
 

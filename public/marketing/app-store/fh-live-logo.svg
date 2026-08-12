@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <style>
+    text{font-family:Arial Black,Impact,sans-serif;font-size:73px;font-style:italic;font-weight:1000;paint-order:stroke fill;stroke:#fff;stroke-linejoin:round;stroke-width:7px}
+  </style>
+  <text x="5" y="75" fill="#0b8650">F</text>
+  <text x="40" y="79" fill="#f1b432">H</text>
+  <g fill="none" stroke="#fff" stroke-linecap="round" stroke-width="3.5">
+    <path d="M50 44 43 65"/>
+    <path d="m45 49 11 4M43 55l11 4M41 61l11 4"/>
+  </g>
+</svg>
