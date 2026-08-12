@@ -747,6 +747,20 @@ html[data-theme="dark"] .account-theme-customizer{color:#fff;background:radial-g
   .topbar p,.sidebar-bottom div,.sidebar-bottom small{font-size:max(11px,1em)!important}
 }
 
+/* Fixed-footprint typography: these dense controls and data cells are audited
+   independently so the readability floor cannot force wrapping or clipping. */
+.page-content :is(.pos,.status,.nav-pro-tag,.claim-level b,.claim-level small,.waiver-plan,.waiver-list>header span,.rank-head span,.tier-section>header span,.tier-section>header small,.game-stats h4,.game-stats p small,.game-stats em,.score-game>header span,.score-game>header b,.score-game-actions button,.matchup-team>span,.matchup-team>span b,.roster-weather,.team-rating-breakdown span,.team-rating-breakdown small,.asset-position-roster>header span,.asset-position-roster>header b,.asset-position-roster>button em,.pro-status-badge,.plan-badge,.badge-theme-builder small){font-size:9px!important;line-height:1.25}
+.page-content :is(.scorebug-probability small,.scorebug-probability span,.scorebug-probability footer small,.portfolio-score-bug>div>p small,.need-collapse-toggle strong,.portfolio-score-rail button small,.portfolio-score-rail button span,.game-impact-level,.sunday-pulse span,.sunday-pulse small){font-size:8px!important;line-height:1.2}
+.page-content :is(.scorebug-probability strong,.portfolio-score-bug>div>p strong,.league-scoreboard-page .game-stats .inline-player-link,.waiver-list-player strong,.rank-player strong){font-size:10px!important;line-height:1.2}
+.topbar :is(.platform-open-copy strong,.platform-open-copy small,.pro-top-action b,.theme-customizer-copy strong,.theme-customizer-copy small,.account-theme-customizer>b){font-size:8px!important;line-height:1.15}
+@media(max-width:700px){
+  .page-content :is(.pos,.status,.claim-level b,.claim-level small,.waiver-plan,.waiver-list>header span,.rank-head span,.tier-section>header span,.tier-section>header small,.game-stats h4,.game-stats p small,.game-stats em,.score-game>header span,.score-game>header b,.score-game-actions button,.matchup-team>span,.matchup-team>span b,.roster-weather,.team-rating-breakdown span,.team-rating-breakdown small,.asset-position-roster>header span,.asset-position-roster>header b,.asset-position-roster>button em,.pro-status-badge,.plan-badge,.badge-theme-builder small){font-size:9px!important;line-height:1.2}
+  .page-content :is(.scorebug-probability small,.scorebug-probability span,.scorebug-probability footer small,.portfolio-score-bug>div>p small,.need-collapse-toggle strong,.portfolio-score-rail button small,.portfolio-score-rail button span,.game-impact-level,.sunday-pulse span,.sunday-pulse small){font-size:8px!important;line-height:1.15}
+  .page-content :is(.portfolio-score-bug>div>p strong,.league-scoreboard-page .score-bug>div>p strong,.league-scoreboard-page .game-stats .inline-player-link,.waiver-list-player strong,.rank-player strong){font-size:10px!important;line-height:1.15}
+  .page-content :is(.position-filters button,.rank-controls button,.trade-controls button,.suggestion-tabs button,.week-tabs button){font-size:10px!important;white-space:nowrap}
+  .page-content :is(.metric span,.metric small,.game-day-metrics span,.game-day-metrics small,.decision-scorecards span,.decision-scorecards small,.decision-scorecards em){font-size:10px!important;line-height:1.3}
+}
+
 /* Pricing stays immediately actionable; campaign artwork enhances the existing feature rows. */
 .pro-plans-page>.pro-plans-hero{order:0}.pro-plans-page>.native-billing-note,.pro-plans-page>.billing-error{order:1}.pro-plans-page>.plan-grid{order:2}.pro-plans-page>.pro-showcase{order:3}.pro-plans-page>.pro-theme-gallery{order:4}.pro-plans-page>.pro-principle{order:5}
 .pro-feature-art{min-height:270px;background-color:#071a35;background-position:center;background-size:cover;border:1px solid #ffffff42;border-radius:15px;box-shadow:0 18px 45px rgb(0 0 0 / .3);transform:perspective(900px) rotateY(-2deg)}.pro-feature-card.reverse>.pro-feature-art{grid-column:1;grid-row:1;transform:perspective(900px) rotateY(2deg)}
