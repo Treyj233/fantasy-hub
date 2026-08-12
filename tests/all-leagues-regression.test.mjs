@@ -101,6 +101,25 @@ test("Dynasty asset allocation expands into position-specific assets", async () 
   assert.match(source, /setSelectedPlayer\(player\)/);
 });
 
+test("Team Rankings calibrate roster strength without draft-hoard distortion", async () => {
+  const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
+  const start = source.indexOf("function TeamRankings(");
+  const end = source.indexOf("function PlayerRanks(", start);
+  const rankings = source.slice(start, end);
+
+  assert.match(rankings, /position === "QB" \? superflexSlots : 0/);
+  assert.match(rankings, /balanceScore/);
+  assert.match(rankings, /runwayScore/);
+  assert.match(rankings, /medianDraftScore/);
+  assert.match(rankings, /team\.starterScore \* \.52/);
+  assert.match(rankings, /team\.depthScore \* \.14/);
+  assert.match(rankings, /team\.balanceScore \* \.16/);
+  assert.match(rankings, /team\.runwayScore \* \.10/);
+  assert.match(rankings, /draftValue \* \.08/);
+  assert.match(rankings, /className="team-rating-breakdown"/);
+  assert.doesNotMatch(rankings, /draftScore \/ maxDraftScore/);
+});
+
 test("portfolio Scoreboard opens both Matchups and league scoreboards", async () => {
   const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
   assert.match(source, /onOpenMatchups=\{async \(league, matchupId\)/);

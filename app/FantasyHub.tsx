@@ -6143,17 +6143,16 @@ function TeamRankings({
   const slotCounts = (context?.rosterSlots ?? []).reduce<
     Record<string, number>
   >((counts, slot) => ({ ...counts, [slot]: (counts[slot] ?? 0) + 1 }), {});
+  const superflexSlots = (slotCounts.SUPER_FLEX ?? 0) + (slotCounts.QB_FLEX ?? 0);
   const playerValue = (player: Player) => {
     const rank = rankingById.get(player.id)?.overallRank;
     return rank
       ? Math.max(24, 106 - Math.log2(rank + 1) * 10.5)
       : Math.min(88, player.projection * 3.3);
   };
-  const roomNeed = (position: string) =>
-    Math.max(
-      1,
-      slotCounts[position] ?? (position === "RB" || position === "WR" ? 2 : 1),
-    );
+  const roomNeed = (position: string) => Math.max(1,
+    (slotCounts[position] ?? (position === "RB" || position === "WR" ? 2 : 1)) +
+    (position === "QB" ? superflexSlots : 0));
   const rawTeams = teams.map((team) => {
     const roomScores = Object.fromEntries(
       positions.map((position) => {
@@ -6184,26 +6183,46 @@ function TeamRankings({
     const depthScore =
       depthValues.reduce((sum, value) => sum + value, 0) /
       Math.max(1, depthValues.length);
+    const roomValues = positions.map((position) => roomScores[position]);
+    const roomAverage = roomValues.reduce((sum, value) => sum + value, 0) / roomValues.length;
+    const balanceScore = roomAverage * .72 + Math.min(...roomValues) * .28;
+    const runwayValues = team.roster.flatMap((player) => {
+      const ranking = rankingById.get(player.id);
+      if (!ranking?.age || player.position === "K" || player.position === "DEF") return [];
+      const curve = dynastyCurves[player.position] ?? { peakEnd: 29, annualDecline: 2.5 };
+      const yearsToCliff = curve.peakEnd - ranking.age;
+      const runway = Math.max(28, Math.min(96, 64 + yearsToCliff * 6));
+      return [{ value: playerValue(player) * .72 + runway * .28, rank: ranking.overallRank }];
+    }).sort((a, b) => a.rank - b.rank).slice(0, 12).map((item) => item.value);
+    const runwayScore = runwayValues.reduce((sum, value) => sum + value, 0) / Math.max(1, runwayValues.length);
     return {
       ...team,
       roomScores,
       starterScore,
       depthScore,
+      balanceScore,
+      runwayScore,
       draftScore: team.draftCapital?.score ?? 0,
     };
   });
-  const maxDraftScore = Math.max(1, ...rawTeams.map((team) => team.draftScore));
+  const orderedDraftScores = rawTeams.map((team) => team.draftScore).sort((a, b) => a - b);
+  const medianDraftScore = orderedDraftScores.length
+    ? orderedDraftScores[Math.floor((orderedDraftScores.length - 1) / 2)]
+    : 1;
+  const calibratedDraftScore = (draftScore: number) => Math.max(30, Math.min(95,
+    medianDraftScore > 0 ? 50 + Math.log2(Math.max(1, draftScore) / medianDraftScore) * 24 : 50));
   const scoredTeams = rawTeams
-    .map((team) => ({
-      ...team,
-      overallScore: Number(
-        (
-          team.starterScore * (isDynasty ? 0.62 : 0.76) +
-          team.depthScore * (isDynasty ? 0.18 : 0.24) +
-          (isDynasty ? (team.draftScore / maxDraftScore) * 100 * 0.2 : 0)
-        ).toFixed(1),
-      ),
-    }))
+    .map((team) => {
+      const draftValue = calibratedDraftScore(team.draftScore);
+      return {
+        ...team,
+        draftValue,
+        overallScore: Number((isDynasty
+          ? team.starterScore * .52 + team.depthScore * .14 + team.balanceScore * .16 + team.runwayScore * .10 + draftValue * .08
+          : team.starterScore * .72 + team.depthScore * .18 + team.balanceScore * .10
+        ).toFixed(1)),
+      };
+    })
     .sort((a, b) => b.overallScore - a.overallScore);
   const overallRanks = new Map(
     scoredTeams.map((team, index) => [team.id, index + 1]),
@@ -6257,7 +6276,7 @@ function TeamRankings({
       <SectionIntro
         kicker="LEAGUE POWER RANKINGS"
         title="See where every roster has an edge"
-        text={`Overall rank blends league-adjusted starter value and depth${isDynasty ? ", with 20% allocated to discounted three-year rookie draft capital" : " using this league’s lineup and scoring settings"}. Position ranks compare the usable core and immediate depth in each room.`}
+        text={`Overall rank blends league-adjusted starters, usable depth, and positional balance${isDynasty ? ", plus roster runway and calibrated three-year draft capital" : " using this league’s lineup and scoring settings"}. Superflex leagues count the second quarterback as a required starter, while pick hoards are compressed so one outlier cannot distort the league.`}
       />
       <div className="team-rank-summary">
         <Metric
@@ -6370,6 +6389,7 @@ function TeamRankings({
             </article>
             {expanded && <section className="team-assets-drawer">
               <header><div><span>COMPLETE TEAM ASSETS</span><strong>{team.teamName}</strong></div><small>{allAssets.length} rostered players{isDynasty ? ` · ${team.draftCapital?.picks.length ?? 0} draft picks` : ""}</small></header>
+              <div className="team-rating-breakdown"><article><span>STARTERS</span><b>{team.starterScore.toFixed(0)}</b><small>{isDynasty ? "52%" : "72%"}</small></article><article><span>DEPTH</span><b>{team.depthScore.toFixed(0)}</b><small>{isDynasty ? "14%" : "18%"}</small></article><article><span>BALANCE</span><b>{team.balanceScore.toFixed(0)}</b><small>{isDynasty ? "16%" : "10%"}</small></article>{isDynasty && <><article><span>RUNWAY</span><b>{team.runwayScore.toFixed(0)}</b><small>10%</small></article><article><span>DRAFT</span><b>{team.draftValue.toFixed(0)}</b><small>8%</small></article></>}</div>
               <div className="team-assets-grid">{allAssets.map((player) => {
                 const ranking = rankingById.get(player.id);
                 return <button type="button" key={player.id} onClick={() => setSelectedPlayer(player)}><span className={`pos pos-${player.position.toLowerCase()}`}>{player.position}</span><p><strong>{player.name}</strong><small>{player.team} · {formatRosterSlot(player.role)}</small></p><b>{ranking ? `#${ranking.overallRank}` : `${player.projection.toFixed(1)} PTS`}</b></button>;
