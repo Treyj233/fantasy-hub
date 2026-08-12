@@ -22,6 +22,13 @@ export async function POST(request: Request) {
     const { stripe, config } = await getStripe();
     const price = priceForPlan(config, payload.plan);
     if (!price) return Response.json({ error: "This billing plan is not available yet" }, { status: 503 });
+    if (payload.plan === "season") {
+      const configuredPrice = await stripe.prices.retrieve(price);
+      if (configuredPrice.currency !== "usd" || configuredPrice.unit_amount !== 2499 || configuredPrice.recurring?.interval !== "month" || configuredPrice.recurring.interval_count !== 6) {
+        console.error("Stripe season price does not match the advertised $24.99 six-month plan");
+        return Response.json({ error: "Season billing is temporarily unavailable" }, { status: 503 });
+      }
+    }
     const checkout = await stripe.checkout.sessions.create({
       mode: "subscription",
       customer: existing?.providerCustomerId || undefined,

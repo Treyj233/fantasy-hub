@@ -17,6 +17,7 @@
    - `com.fantasyhubapp.pro.monthly`
    - `com.fantasyhubapp.pro.season`
    - `com.fantasyhubapp.pro.annual`
+   Configure `com.fantasyhubapp.pro.season` as a six-month auto-renewable subscription at $24.99 USD. The iOS client refuses to start this purchase if StoreKit returns a different US price or renewal period.
 5. Add the In-App Purchase capability in Xcode after the Apple team is selected.
 6. Create an App Store Connect API key for server-side transaction verification. Store its issuer ID, key ID, and private key only in server environment variables.
 7. Complete the App Privacy questionnaire, age rating, support URL, privacy-policy URL, screenshots, description, and review notes.
@@ -69,7 +70,7 @@ The archive is written to `build/FantasyHub.xcarchive` and can then be validated
 ## Release blockers
 
 1. Confirm Sign in with Apple is enabled in the App ID and Clerk, then test the complete native sign-in flow on a physical device.
-2. Confirm the three App Store subscription products are approved for testing and exercise purchase and restore in Apple’s sandbox.
+2. Confirm the three App Store subscription products are approved for testing, verify the season product is $24.99 USD for six months, and exercise purchase and restore in Apple’s sandbox.
 3. Configure APNs production credentials and test notifications on a physical device if launch notifications are desired.
 4. Upload `build/FantasyHub.xcarchive` through Xcode Organizer, attach the seven refreshed screenshots, complete App Store metadata, and run TestFlight/external beta review.
 

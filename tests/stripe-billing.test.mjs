@@ -8,6 +8,18 @@ test("Stripe Checkout only accepts server-mapped Fantasy Hub plans", async () =>
   assert.match(source, /priceForPlan\(config, payload\.plan\)/);
   assert.match(source, /trial_period_days: 7/);
   assert.doesNotMatch(source, /payload\.priceId/);
+  assert.match(source, /unit_amount !== 2499/);
+  assert.match(source, /recurring\.interval_count !== 6/);
+});
+
+test("Apple StoreKit guards the $24.99 six-month season subscription", async () => {
+  const source = await readFile(new URL("../ios/App/App/SceneDelegate.swift", import.meta.url), "utf8");
+  assert.match(source, /seasonProductId = "com\.fantasyhubapp\.pro\.season"/);
+  assert.match(source, /product\.price == Decimal\(string: "24\.99"\)/);
+  assert.match(source, /product\.priceFormatStyle\.currencyCode == "USD"/);
+  assert.match(source, /period\.unit == \.month/);
+  assert.match(source, /period\.value == 6/);
+  assert.match(source, /try validateProduct\(product\)/);
 });
 
 test("Stripe webhooks verify the raw signed body before granting Pro", async () => {
