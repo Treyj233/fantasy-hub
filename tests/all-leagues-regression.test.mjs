@@ -62,16 +62,18 @@ test("portfolio Scoreboard exposes a sticky quick-score rail", async () => {
   assert.match(source, /scrollIntoView\(\{ behavior: "smooth", block: "start" \}\)/);
 });
 
-test("League Analytics priorities route into actionable tools", async () => {
+test("League Analytics priorities are informational and do not imply broken navigation", async () => {
   const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
   const start = source.indexOf("function RedraftAnalytics(");
   const end = source.indexOf("function eligibleForSlot(", start);
   const analytics = source.slice(start, end);
 
   assert.match(analytics, /className="analytics-route-card"/);
-  assert.match(analytics, /onNavigate\("Start \/ Sit"\)/);
-  assert.match(analytics, /onNavigate\("Waiver Wire"\)/);
-  assert.match(analytics, /onNavigate\(priority\.view\)/);
+  assert.doesNotMatch(analytics, /onNavigate\("Start \/ Sit"\)/);
+  assert.doesNotMatch(analytics, /onNavigate\("Waiver Wire"\)/);
+  assert.doesNotMatch(analytics, /onNavigate\(priority\.view\)/);
+  assert.doesNotMatch(analytics, /Open Start\/Sit →/);
+  assert.doesNotMatch(analytics, /Open \{priority\.view\} →/);
   assert.match(analytics, /view: "Trade Lab" as View/);
   assert.match(analytics, /view: "Player Rankings" as View/);
 });
