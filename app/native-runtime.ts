@@ -36,7 +36,11 @@ async function verifyNativeTransaction(transaction: NativeTransaction) {
 export async function nativePurchase(productId: string) {
   if (!isNativeIosApp()) throw new Error("App Store purchasing requires the iOS app");
   const transaction = await StoreKit.purchase({ productId });
-  if (transaction.status !== "verified") return transaction.status;
+  if (transaction.status !== "verified" && transaction.status !== "pending" && transaction.status !== "cancelled") {
+    return "inactive";
+  }
+  if (transaction.status === "cancelled") return "cancelled";
+  if (transaction.status === "pending") return "pending";
   return await verifyNativeTransaction(transaction) ? "active" : "inactive";
 }
 

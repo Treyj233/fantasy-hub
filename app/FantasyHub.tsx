@@ -2762,6 +2762,10 @@ function ProPlans({ entitlement }: { entitlement: AccountEntitlement }) {
           else if (status === "pending") {
             setPendingPlan(plan);
             setBillingError("Your purchase is pending App Store approval. Other plans are locked while Apple finishes processing.");
+          } else if (status === "cancelled") {
+            setBillingError("App Store purchase was cancelled.");
+          } else if (status === "inactive") {
+            setBillingError("No active subscription was created yet. Complete the Apple confirmation to continue.");
           }
         }
       } catch (error) {

@@ -81,7 +81,8 @@ class FantasyHubStoreKitPlugin: CAPPlugin, CAPBridgedPlugin {
                 @unknown default: call.reject("Unknown App Store purchase result")
                 }
             } catch {
-                call.reject("Purchase could not be completed", nil, error)
+                let fallbackMessage = String(describing: error.localizedDescription)
+                call.reject(fallbackMessage, nil, error)
             }
         }
     }
