@@ -17,7 +17,7 @@ function InitialLoadingShell() {
 
   const roundedProgress = Math.round(progress);
   return (
-    <main className="auth-shell account-loading-shell">
+    <main className="auth-shell account-loading-shell chargers-entry-shell">
       <section className="auth-card auth-loading">
         <span>FANTASY HUB</span>
         <h1>Opening your Command Center…</h1>

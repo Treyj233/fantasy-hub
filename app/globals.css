@@ -103,6 +103,11 @@ html[data-theme="dark"] .portfolio-section,html[data-theme="dark"] .portfolio-re
 
 /* Theme-driven brand surfaces. Semantic success/health states intentionally keep green. */
 .auth-shell{background:radial-gradient(circle at 80% 20%,rgb(var(--brand-secondary-rgb) / .28),transparent 33%),linear-gradient(135deg,var(--green),var(--deep) 62%,color-mix(in srgb,var(--deep) 82%,#111))}.auth-card{background:rgb(var(--brand-primary-rgb) / .1);border-color:rgb(var(--brand-secondary-rgb) / .22)}
+.chargers-entry-shell{--green:#0080c6;--green-2:#0072ae;--deep:#001f47;--gold:#ffc20e;--gold-light:#ffd85a;--brand-primary-rgb:0 128 198;--brand-secondary-rgb:255 194 14;background:radial-gradient(circle at 84% 15%,rgb(255 194 14 / .3),transparent 26%),radial-gradient(circle at 13% 82%,rgb(0 128 198 / .58),transparent 35%),linear-gradient(145deg,#001f47 0,#004f91 48%,#0080c6 100%)}
+.chargers-entry-shell .auth-card{background:rgb(0 31 71 / .68);border-color:rgb(255 194 14 / .38);box-shadow:0 25px 80px rgb(0 17 43 / .48)}
+.chargers-entry-shell .auth-card>span,.chargers-entry-shell .auth-card h1 em{color:#ffd85a}.chargers-entry-shell .auth-card>p,.chargers-entry-shell .load-progress-label{color:#d9effb!important}.chargers-entry-shell .auth-loading i{background:rgb(255 255 255 / .15)}
+.chargers-entry-shell .load-progress{background:rgb(0 31 71 / .52);border-color:rgb(255 255 255 / .22)}.chargers-entry-shell .load-progress>span{background:linear-gradient(90deg,#0080c6,#ffc20e,#ffd85a);background-size:200% 100%}
+.chargers-entry-shell .clerk-auth-brand{color:#001f47;background:#ffc20e;box-shadow:0 10px 28px rgb(0 17 43 / .38)}
 .hero-score,.manage-count{background:color-mix(in srgb,var(--deep) 76%,transparent);border-color:rgb(var(--brand-secondary-rgb) / .28)}
 .fantasy-score-ribbon{background:color-mix(in srgb,var(--deep) 88%,var(--green));border-top-color:rgb(var(--brand-secondary-rgb) / .14)}
 .score-game>header,.nfl-game-card>header,.rank-head{background:color-mix(in srgb,var(--green) 5%,var(--chalk))}
