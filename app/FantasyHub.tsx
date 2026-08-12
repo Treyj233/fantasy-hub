@@ -4484,8 +4484,10 @@ function AllLeagueScoreboard({
           <small><em>YOU</em><strong>{featured.winProbability == null ? "—" : `${featured.winProbability}%`}</strong><em>OPP</em></small>
         </div>
         <div className="spotlight-team opponent"><small>OPPONENT</small><strong>{featured.opponent.teamName}</strong><b>{featured.opponent.points.toFixed(2)}</b></div>
-        <div className="spotlight-story"><strong>{Math.abs((featured.winProbability ?? 50) - 50) <= 10 ? "One play can swing this matchup." : (featured.winProbability ?? 0) >= 50 ? "Protect the lead as the late window develops." : "Your comeback path is still alive."}</strong><small>{featured.mineRemaining.toFixed(1)} of your projected points and {featured.opponentRemaining.toFixed(1)} opponent points remain.</small></div>
-        <button type="button" onClick={() => void onOpenLeague(featured.league)}>Watch matchup →</button>
+        <div className="spotlight-footer">
+          <div className="spotlight-story"><strong>{Math.abs((featured.winProbability ?? 50) - 50) <= 10 ? "One play can swing this matchup." : (featured.winProbability ?? 0) >= 50 ? "Protect the lead as the late window develops." : "Your comeback path is still alive."}</strong><small>{featured.mineRemaining.toFixed(1)} of your projected points and {featured.opponentRemaining.toFixed(1)} opponent points remain.</small></div>
+          <button type="button" onClick={() => void onOpenLeague(featured.league)}>Watch matchup →</button>
+        </div>
       </section>}
       <section className="portfolio-win-path panel">
         <header><div><span>WHAT DO I NEED?</span><h3>Your most important live win paths</h3><small>One consequential starter per league first, then the next-highest leverage players until five paths are filled.</small></div><b>{selectedWinPaths.length} ACTIVE PATH{selectedWinPaths.length === 1 ? "" : "S"}</b></header>
