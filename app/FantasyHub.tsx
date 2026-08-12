@@ -4,7 +4,7 @@ import { Fragment, createContext, useContext, useEffect, useMemo, useRef, useSta
 import Link from "next/link";
 import { estimatedWinProbability, playerLeverage, rootingInterests, whatDoINeed } from "./game-day-model.mjs";
 import { PRE_KICKOFF_VISUALS, PRE_KICKOFF_VISUALS_ENABLED } from "./pre-kickoff-visuals";
-import { disableNativePushNotifications, enableNativePushNotifications, initializeNativeRuntime, isNativeIosApp, nativeManageSubscriptions, nativePurchase, nativeRestorePurchases, nativeStoreProducts } from "./native-runtime";
+import { disableNativePushNotifications, enableNativePushNotifications, initializeNativeRuntime, isNativeIosApp, nativeManageSubscriptions, nativePurchase, nativeRefreshPurchases, nativeRestorePurchases, nativeStoreProducts } from "./native-runtime";
 
 type View =
   | "Command Center"
@@ -2706,11 +2706,36 @@ function ProPlans({ entitlement }: { entitlement: AccountEntitlement }) {
   );
   const [billingBusy, setBillingBusy] = useState<"monthly" | "season" | "annual" | "portal" | "">("");
   const [billingError, setBillingError] = useState("");
+  const [pendingPlan, setPendingPlan] = useState<"monthly" | "season" | "annual" | "">("");
   const [nativePrices, setNativePrices] = useState<Record<string, string>>({});
   useEffect(() => {
     if (!nativeIos) return;
     void nativeStoreProducts().then((products) => setNativePrices(Object.fromEntries(products.map((product) => [product.id, product.displayPrice])))).catch(() => undefined);
   }, [nativeIos]);
+  useEffect(() => {
+    if (!nativeIos || !pendingPlan) return;
+    let checking = false;
+    const checkPendingPurchase = async () => {
+      if (checking) return;
+      checking = true;
+      try {
+        if (await nativeRefreshPurchases()) window.location.reload();
+      } catch {
+        // Keep the pending state visible while StoreKit finishes processing.
+      } finally {
+        checking = false;
+      }
+    };
+    const timer = window.setInterval(() => void checkPendingPurchase(), 5_000);
+    const refreshOnFocus = () => {
+      if (document.visibilityState === "visible") void checkPendingPurchase();
+    };
+    document.addEventListener("visibilitychange", refreshOnFocus);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", refreshOnFocus);
+    };
+  }, [nativeIos, pendingPlan]);
   async function openBilling(path: "/api/billing/checkout" | "/api/billing/portal", plan?: "monthly" | "season" | "annual") {
     if (nativeIos) {
       setBillingBusy(plan ?? "portal");
@@ -2721,7 +2746,10 @@ function ProPlans({ entitlement }: { entitlement: AccountEntitlement }) {
           const productId = `com.fantasyhubapp.pro.${plan}`;
           const status = await nativePurchase(productId);
           if (status === "active") window.location.reload();
-          else if (status === "pending") setBillingError("Your purchase is pending App Store approval.");
+          else if (status === "pending") {
+            setPendingPlan(plan);
+            setBillingError("Your purchase is pending App Store approval. Other plans are locked while Apple finishes processing.");
+          }
         }
       } catch (error) {
         setBillingError(error instanceof Error ? error.message : "App Store billing is temporarily unavailable");
@@ -2745,6 +2773,9 @@ function ProPlans({ entitlement }: { entitlement: AccountEntitlement }) {
   const proFeatures = ["Season Simulator and scenario drivers", "Advanced Trade Lab and roster-impact modeling", "League Analytics and dynasty-window intelligence", "Manager Report Card and decision memory", "Automated league stories and season narrative", "Mission Hub prioritization"];
   const billingProvider = entitlement.provider;
   const canManageBilling = entitlement.pro && (nativeIos ? billingProvider === "apple" : billingProvider === "stripe");
+  const purchaseButton = (plan: "monthly" | "season" | "annual", label: string) => entitlement.pro
+    ? <strong>PRO IS ACTIVE</strong>
+    : <button disabled={Boolean(billingBusy || pendingPlan)} onClick={() => void openBilling("/api/billing/checkout", plan)}>{pendingPlan ? (pendingPlan === plan ? "Purchase pending…" : "Another purchase is pending") : billingBusy === plan ? "Opening secure checkout…" : label}</button>;
   return <div className="page-content pro-plans-page">
     <section className="pro-plans-hero"><div className="pro-hero-copy"><span>FANTASY HUB PRO</span><h2>Turn every league into<br/><em>a better Sunday.</em></h2><p>Live game-day energy meets original strategy tools, simulations, storytelling, and accountability—built around every team you manage.</p><div className="pro-hero-pills"><b>∞ LEAGUES</b><b>LIVE GAME DAY</b><b>32 TEAM THEMES</b></div></div><div className="pro-hero-mark"><FHLogo label="Fantasy Hub Pro"/><strong>PRO</strong></div><b className="pro-status-badge">{entitlement.pro ? "PRO ACTIVE" : "7 DAYS FREE · THEN $4.99/MO"}</b>{canManageBilling && <button className="billing-manage" disabled={billingBusy === "portal"} onClick={() => void openBilling("/api/billing/portal")}>{billingBusy === "portal" ? "Opening billing…" : nativeIos ? "Manage in App Store" : "Manage billing"}</button>}{entitlement.pro && billingProvider === "manual" && <p className="billing-access-note">Owner access is active. There is no recurring subscription or billing account to manage.</p>}{entitlement.pro && billingProvider === "apple" && !nativeIos && <p className="billing-access-note">This membership is billed through Apple. Manage it from Subscriptions on your Apple device.</p>}</section>
     <section className="pro-showcase">
@@ -2755,7 +2786,7 @@ function ProPlans({ entitlement }: { entitlement: AccountEntitlement }) {
     <section className="pro-theme-gallery panel"><header><div><span>PRO THEME LOCKER</span><h3>Your leagues. Your Sunday look.</h3></div><p>Choose any NFL-inspired palette and four sidebar badge packs.</p></header><div>{[{name:"Midway Night",colors:["#0b162a","#c83803"]},{name:"South Beach",colors:["#008e97","#fc4c02"]},{name:"Purple Reign",colors:["#241773","#9e7c0c"]},{name:"Gold Rush",colors:["#aa0000","#b3995d"]}].map((theme) => <article key={theme.name} style={{"--preview-primary":theme.colors[0],"--preview-secondary":theme.colors[1]} as CSSProperties}><i/><b>{theme.name}</b><small>Dashboard + badge pack</small></article>)}</div></section>
     {nativeIos && <p className="native-billing-note">APP STORE BILLING · Purchases are securely handled by Apple. {nativePrices["com.fantasyhubapp.pro.season"] ? `Season pricing: ${nativePrices["com.fantasyhubapp.pro.season"]} every six months.` : "Pricing loads from your App Store region."} <button disabled={Boolean(billingBusy)} onClick={() => { setBillingBusy("portal"); setBillingError(""); void nativeRestorePurchases().then((active) => active ? window.location.reload() : setBillingError("No active Fantasy Hub Pro purchase was found for this Apple ID.")).catch((error) => setBillingError(error instanceof Error ? error.message : "Restore failed")).finally(() => setBillingBusy("")); }}>Restore Purchases</button></p>}
     {billingError && <p className="billing-error" role="alert">{billingError}</p>}
-    <section className="plan-grid"><article className="panel"><span>FREE</span><h3>$0</h3><p>Connect and manage your fantasy world.</p><ul><li>Unlimited Sleeper and ESPN league connections</li><li>All Leagues portfolio view</li><li>My Team, live scores, and matchups</li><li>Player rankings and ADP</li><li>Manual trade calculator</li><li>Core Start/Sit and waiver-wire access</li></ul><strong>CURRENT PLAN</strong></article><article className="panel featured"><span>FANTASY HUB PRO · MONTHLY</span><h3 className="plan-price">$4.99 <small>/ month</small></h3><p>Proprietary intelligence built by Fantasy Hub.</p><div className="trial-callout"><b>7-day free trial</b><small>No charge today. On day 8, your subscription automatically begins at $4.99/month and renews monthly until canceled.</small></div><ul>{proFeatures.map((feature) => <li key={feature}>{feature}</li>)}<li>All NFL themes and badge customization</li><li>Start/Sit aggressiveness strategy</li></ul>{entitlement.pro ? <strong>PRO IS ACTIVE</strong> : <button disabled={Boolean(billingBusy)} onClick={() => void openBilling("/api/billing/checkout", "monthly")}>{billingBusy === "monthly" ? "Opening secure checkout…" : "Start 7-day trial →"}</button>}</article><article className="panel season"><span>FANTASY HUB PRO · SEASON</span><h3 className="plan-price">$24.99 <small>/ 6 months</small></h3><p>Built to cover the full fantasy season in one purchase.</p><div className="annual-savings"><b>Six months of Pro access</b><small>Stay supported from draft preparation through the fantasy playoffs.</small></div><ul>{proFeatures.slice(0,4).map((feature) => <li key={feature}>{feature}</li>)}<li>All Pro themes and customization</li></ul>{entitlement.pro ? <strong>PRO IS ACTIVE</strong> : <button disabled={Boolean(billingBusy)} onClick={() => void openBilling("/api/billing/checkout", "season")}>{billingBusy === "season" ? "Opening secure checkout…" : "Choose season access →"}</button>}<small className="plan-renewal">$24.99 billed every six months until canceled.</small></article><article className="panel annual"><span>FANTASY HUB PRO · YEAR</span><h3 className="plan-price">$39.99 <small>/ year</small></h3><p>Year-round support for dynasty, offseason, draft, and game-day management.</p><div className="annual-savings"><b>Save $19.89 per year</b><small>About 33% less than paying monthly for 12 months.</small></div><ul>{proFeatures.slice(0,4).map((feature) => <li key={feature}>{feature}</li>)}<li>All Pro themes and customization</li></ul>{entitlement.pro ? <strong>PRO IS ACTIVE</strong> : <button disabled={Boolean(billingBusy)} onClick={() => void openBilling("/api/billing/checkout", "annual")}>{billingBusy === "annual" ? "Opening secure checkout…" : "Choose year-round access →"}</button>}<small className="plan-renewal">$39.99 billed annually until canceled. The monthly seven-day trial is a separate offer.</small></article></section>
+    <section className="plan-grid"><article className="panel"><span>FREE</span><h3>$0</h3><p>Connect and manage your fantasy world.</p><ul><li>Unlimited Sleeper and ESPN league connections</li><li>All Leagues portfolio view</li><li>My Team, live scores, and matchups</li><li>Player rankings and ADP</li><li>Manual trade calculator</li><li>Core Start/Sit and waiver-wire access</li></ul><strong>CURRENT PLAN</strong></article><article className="panel featured"><span>FANTASY HUB PRO · MONTHLY</span><h3 className="plan-price">$4.99 <small>/ month</small></h3><p>Proprietary intelligence built by Fantasy Hub.</p><div className="trial-callout"><b>7-day free trial</b><small>No charge today. On day 8, your subscription automatically begins at $4.99/month and renews monthly until canceled.</small></div><ul>{proFeatures.map((feature) => <li key={feature}>{feature}</li>)}<li>All NFL themes and badge customization</li><li>Start/Sit aggressiveness strategy</li></ul>{purchaseButton("monthly", "Start 7-day trial →")}</article><article className="panel season"><span>FANTASY HUB PRO · SEASON</span><h3 className="plan-price">$24.99 <small>/ 6 months</small></h3><p>Built to cover the full fantasy season in one purchase.</p><div className="annual-savings"><b>Six months of Pro access</b><small>Stay supported from draft preparation through the fantasy playoffs.</small></div><ul>{proFeatures.slice(0,4).map((feature) => <li key={feature}>{feature}</li>)}<li>All Pro themes and customization</li></ul>{purchaseButton("season", "Choose season access →")}<small className="plan-renewal">$24.99 billed every six months until canceled.</small></article><article className="panel annual"><span>FANTASY HUB PRO · YEAR</span><h3 className="plan-price">$39.99 <small>/ year</small></h3><p>Year-round support for dynasty, offseason, draft, and game-day management.</p><div className="annual-savings"><b>Save $19.89 per year</b><small>About 33% less than paying monthly for 12 months.</small></div><ul>{proFeatures.slice(0,4).map((feature) => <li key={feature}>{feature}</li>)}<li>All Pro themes and customization</li></ul>{purchaseButton("annual", "Choose year-round access →")}<small className="plan-renewal">$39.99 billed annually until canceled. The monthly seven-day trial is a separate offer.</small></article></section>
     <section className="pro-principle panel"><b>OUR FREEMIUM PROMISE</b><p>Fantasy Hub will not charge merely to display a connected league. Paid access is reserved for original Fantasy Hub analysis and experiences. Payments and subscription management are securely handled by {nativeIos ? "Apple" : "Stripe"}.</p></section>
   </div>;
 }

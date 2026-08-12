@@ -9,6 +9,7 @@ class FantasyHubStoreKitPlugin: CAPPlugin, CAPBridgedPlugin {
     let pluginMethods: [CAPPluginMethod] = [
         CAPPluginMethod(name: "products", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "purchase", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "entitlements", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "restore", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "finish", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "manageSubscriptions", returnType: CAPPluginReturnPromise),
@@ -99,6 +100,18 @@ class FantasyHubStoreKitPlugin: CAPPlugin, CAPBridgedPlugin {
             } catch {
                 call.reject("Purchases could not be restored", nil, error)
             }
+        }
+    }
+
+    @objc func entitlements(_ call: CAPPluginCall) {
+        Task {
+            var transactions: [[String: Any]] = []
+            for await result in Transaction.currentEntitlements {
+                if case .verified(let transaction) = result, productIds.contains(transaction.productID) {
+                    transactions.append(transactionPayload(transaction))
+                }
+            }
+            call.resolve(["transactions": transactions])
         }
     }
 

@@ -17,13 +17,21 @@ test("Stripe Checkout only accepts server-mapped Fantasy Hub plans", async () =>
 });
 
 test("Apple StoreKit guards the $24.99 six-month season subscription", async () => {
-  const source = await readFile(new URL("../ios/App/App/SceneDelegate.swift", import.meta.url), "utf8");
+  const [source, runtime, plans] = await Promise.all([
+    readFile(new URL("../ios/App/App/SceneDelegate.swift", import.meta.url), "utf8"),
+    readFile(new URL("../app/native-runtime.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8"),
+  ]);
   assert.match(source, /seasonProductId = "com\.fantasyhubapp\.pro\.season"/);
   assert.match(source, /product\.price == Decimal\(string: "24\.99"\)/);
   assert.match(source, /product\.priceFormatStyle\.currencyCode == "USD"/);
   assert.match(source, /period\.unit == \.month/);
   assert.match(source, /period\.value == 6/);
   assert.match(source, /try validateProduct\(product\)/);
+  assert.match(source, /CAPPluginMethod\(name: "entitlements"/);
+  assert.match(runtime, /nativeRefreshPurchases/);
+  assert.match(plans, /Another purchase is pending/);
+  assert.match(plans, /setInterval\(.*5_000/);
 });
 
 test("Stripe webhooks verify the raw signed body before granting Pro", async () => {

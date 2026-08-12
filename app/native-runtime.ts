@@ -10,6 +10,7 @@ type NativeProduct = { id: string; name: string; description: string; displayPri
 const StoreKit = registerPlugin<{
   products(): Promise<{ products: NativeProduct[] }>;
   purchase(options: { productId: string }): Promise<NativeTransaction>;
+  entitlements(): Promise<{ transactions: NativeTransaction[] }>;
   restore(): Promise<{ transactions: NativeTransaction[] }>;
   finish(options: { transactionId: string }): Promise<{ finished: boolean }>;
   manageSubscriptions(): Promise<void>;
@@ -42,6 +43,14 @@ export async function nativePurchase(productId: string) {
 export async function nativeRestorePurchases() {
   if (!isNativeIosApp()) return false;
   const { transactions } = await StoreKit.restore();
+  let active = false;
+  for (const transaction of transactions) active = (await verifyNativeTransaction(transaction)) || active;
+  return active;
+}
+
+export async function nativeRefreshPurchases() {
+  if (!isNativeIosApp()) return false;
+  const { transactions } = await StoreKit.entitlements();
   let active = false;
   for (const transaction of transactions) active = (await verifyNativeTransaction(transaction)) || active;
   return active;
