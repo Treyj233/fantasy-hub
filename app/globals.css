@@ -517,6 +517,24 @@ html[data-theme="dark"] .command-action-queue>div>button,html[data-theme="dark"]
   .command-center-page .command-intelligence-grid{gap:9px;margin-top:9px}.command-center-page .command-intelligence-grid>section{padding:13px}.command-center-page .command-position-edges>div,.command-center-page .command-availability>div,.command-center-page .command-trends>div{gap:3px;margin-top:9px}.command-center-page .command-availability>div>button,.command-center-page .command-trends>div>button,.command-center-page .command-bench-cost>button{padding:6px}.command-center-page .command-clear{margin-top:8px!important;padding:9px!important}
 }
 
+@media(max-width:600px){
+  .command-center-page .decision-panel{padding:11px!important}
+  .command-center-page .decision-panel .panel-header{padding-bottom:7px;margin-bottom:0}
+  .command-center-page .decision-panel .panel-header h3{font-size:14px;line-height:1.05}
+  .command-center-page .decision-panel .panel-header button{padding:5px 7px;font-size:8px!important}
+  .command-center-page .player-versus{grid-template-columns:minmax(0,1fr) 18px minmax(0,1fr);gap:4px;margin-top:6px}
+  .command-center-page .player-choice{display:grid;min-width:0;grid-template-columns:25px minmax(0,1fr);gap:3px 6px;padding:6px;border-radius:9px}
+  .command-center-page .player-choice>.pos{grid-row:1/3;width:25px;min-width:25px;height:23px;padding:0;font-size:7px!important}
+  .command-center-page .player-choice>small{grid-column:2;overflow:hidden;margin:0;font-size:7px!important;line-height:1.1;text-overflow:ellipsis;white-space:nowrap}
+  .command-center-page .player-choice>strong{grid-column:2;overflow:hidden;margin:0;font-size:11px;line-height:1.1;text-overflow:ellipsis;white-space:nowrap}
+  .command-center-page .player-choice>div{grid-column:1/-1;display:grid;grid-template-columns:auto 1fr;align-items:center;gap:4px;margin-top:3px;padding-top:4px;border-top:1px solid var(--line)}
+  .command-center-page .player-choice>div b{font-size:17px;line-height:1}
+  .command-center-page .player-choice>div span{align-self:center;padding:0;font-size:6px!important;line-height:1}
+  .command-center-page .versus{font-size:7px}
+  .command-center-page .recommendation{display:flex;align-items:center;justify-content:space-between;gap:7px;margin-top:5px;padding:6px 8px;border-left-width:3px;border-radius:8px}
+  .command-center-page .recommendation b{font-size:8px!important;letter-spacing:.06em}
+}
+
 /* Native iOS shell: keep controls clear of the Dynamic Island, home indicator, and rounded corners. */
 html[data-native-platform="ios"] body{overscroll-behavior-y:none}
 html[data-native-platform="ios"] body,html[data-native-platform="ios"] body *{-webkit-tap-highlight-color:transparent}
