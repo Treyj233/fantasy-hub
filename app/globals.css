@@ -535,6 +535,22 @@ html[data-theme="dark"] .command-action-queue>div>button,html[data-theme="dark"]
   .command-center-page .recommendation b{font-size:8px!important;letter-spacing:.06em}
 }
 
+/* Keep Start/Sit strategy available while scrolling. Mobile has both a native
+   top header and a navigation rail, so the sticky offset must clear both. */
+@media(max-width:700px){
+  .start-sit-page{overflow:visible}
+  .start-sit-page .aggression-panel{position:sticky;z-index:34;top:62px;margin-bottom:9px;padding:9px 11px;border-color:color-mix(in srgb,var(--gold) 42%,var(--line));box-shadow:0 9px 22px rgb(0 0 0 / .2);backdrop-filter:blur(14px)}
+  .start-sit-page .aggression-panel>div:first-child{align-items:center}
+  .start-sit-page .aggression-panel>div:first-child strong{font-size:19px}
+  .start-sit-page .aggression-panel>div:first-child small{font-size:8px!important}
+  .start-sit-page .aggression-panel>input{height:6px;margin:8px 0 5px}
+  .start-sit-page .aggression-panel>input::-webkit-slider-thumb{width:17px;height:17px}
+  .start-sit-page .aggression-labels span{font-size:7px!important}
+  .start-sit-page .aggression-panel .inline-pro-unlock{margin-top:5px;padding:6px 8px;font-size:7px!important}
+  html[data-theme="dark"] .start-sit-page .aggression-panel{background:color-mix(in srgb,#20242c 88%,transparent)}
+  html[data-native-platform="ios"] .start-sit-page .aggression-panel{top:calc(62px + env(safe-area-inset-top))}
+}
+
 /* Native iOS shell: keep controls clear of the Dynamic Island, home indicator, and rounded corners. */
 html[data-native-platform="ios"] body{overscroll-behavior-y:none}
 html[data-native-platform="ios"] body,html[data-native-platform="ios"] body *{-webkit-tap-highlight-color:transparent}

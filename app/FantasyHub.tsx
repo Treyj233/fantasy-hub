@@ -7219,7 +7219,7 @@ function StartSit({
       </div>
     );
   return (
-    <div className="page-content">
+    <div className="page-content start-sit-page">
       <SectionIntro
         kicker="WEEKLY DECISIONS"
         title="Choose the outcome your matchup requires"
