@@ -1303,6 +1303,15 @@ export default function FantasyHub({
   useEffect(() => initializeNativeRuntime(), []);
 
   useEffect(() => {
+    if (view !== "Waiver Wire") return;
+    window.requestAnimationFrame(() => {
+      window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+    });
+  }, [view]);
+
+  useEffect(() => {
     if (!mobileNavOpen) return;
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") setMobileNavOpen(false);
@@ -1859,6 +1868,7 @@ export default function FantasyHub({
                   onClick={() => {
                     if (item.label === "Matchups") setSelectedMatchupId(null);
                     if (item.label === "Scoreboard") setScoreboardScope("all");
+                    if (item.label === "Waiver Wire") window.scrollTo({ top: 0, left: 0, behavior: "auto" });
                     setView(item.label);
                     setMobileNavOpen(false);
                   }}
@@ -2006,6 +2016,7 @@ export default function FantasyHub({
               onClick={() => {
                 if (item.label === "Matchups") setSelectedMatchupId(null);
                 if (item.label === "Scoreboard") setScoreboardScope("all");
+                if (item.label === "Waiver Wire") window.scrollTo({ top: 0, left: 0, behavior: "auto" });
                 setView(item.label);
               }}
             >
