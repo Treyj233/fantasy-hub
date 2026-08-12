@@ -21,6 +21,24 @@
 6. Create an App Store Connect API key for server-side transaction verification. Store its issuer ID, key ID, and private key only in server environment variables.
 7. Complete the App Privacy questionnaire, age rating, support URL, privacy-policy URL, screenshots, description, and review notes.
 
+## App Review submission notes
+
+Provide Apple with a working reviewer account that has Pro access and connected sample leagues. In **Notes for Review**, explain:
+
+- Fantasy Hub aggregates a user’s Sleeper and ESPN fantasy-football leagues and adds original lineup, waiver, trade, simulation, matchup, and league-story tools.
+- Native iOS functionality includes StoreKit subscriptions and restoration, push notifications with deep links, haptics, offline handling, safe-area integration, and platform-app deep links.
+- Pro digital features are purchasable in the iOS app through Apple In-App Purchase. The website may also sell access, and existing subscribers can sign in, consistent with a multiplatform service.
+- Account deletion is available under **Manage Leagues → Account & Privacy** and deletes saved Fantasy Hub data plus the Fantasy Hub sign-in identity.
+- The privacy policy is available in **Access Account**, **Manage Leagues**, and at `https://fantasyhubapp.com/privacy`.
+
+Before submission, confirm all three subscription products are attached to the app version and available to the reviewer. App Store Connect’s App Privacy answers must match `ios/App/App/PrivacyInfo.xcprivacy`: name, email, user ID, other user content, product interaction, purchase history, and device ID are linked to the account, used for app functionality, and not used for tracking.
+
+Use these metadata URLs:
+
+- Privacy policy: `https://fantasyhubapp.com/privacy`
+- Support URL: `https://fantasyhubapp.com/`
+- Marketing URL: `https://fantasyhubapp.com/`
+
 ## Local commands
 
 ```bash
