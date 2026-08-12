@@ -1114,3 +1114,32 @@ html[data-theme="dark"] .all-leagues-page .exposure-list>b,html[data-theme="dark
   .all-leagues-page .all-league-metrics strong{grid-row:3;margin:2px 0 0;font-size:20px;line-height:1}
   .all-leagues-page .all-league-metrics small{display:none}
 }
+
+/* The waiver market becomes a native-width list on phones. Every desktop
+   column is retained as labeled row metadata, eliminating sideways scrolling. */
+@media(max-width:700px){
+  .waiver-wire-page .waiver-list{width:100%;overflow-x:hidden}
+  .waiver-wire-page .waiver-list>header{display:none}
+  .waiver-wire-page .waiver-list>div{width:100%}
+  .waiver-wire-page .waiver-list article{display:grid;width:100%;min-width:0;min-height:0;grid-template-columns:38px minmax(0,1fr) auto;grid-template-areas:"rank player projection" "rank meta action";align-items:center;gap:6px 8px;padding:10px;border-bottom:1px solid var(--line)}
+  .waiver-wire-page .waiver-list article>.waiver-rank{position:static;grid-area:rank;align-self:stretch;display:grid;width:38px;margin:0;padding:0;place-items:center;color:var(--green);background:color-mix(in srgb,var(--green) 8%,var(--chalk));border-radius:8px;box-shadow:none;font-size:12px}
+  .waiver-wire-page .waiver-list-player{grid-area:player;gap:7px;min-width:0}
+  .waiver-wire-page .waiver-list-player>.pos{width:29px;min-width:29px;height:27px;padding:0}
+  .waiver-wire-page .waiver-list-player p{min-width:0}
+  .waiver-wire-page .waiver-list-player strong{overflow:hidden;font-size:12px!important;text-overflow:ellipsis;white-space:nowrap}
+  .waiver-wire-page .waiver-list-player small{display:-webkit-box;overflow:hidden;margin-top:2px;font-size:8px!important;line-height:1.25;white-space:normal;-webkit-box-orient:vertical;-webkit-line-clamp:2}
+  .waiver-wire-page .waiver-projection{grid-area:projection;align-self:start;padding:5px 7px;color:var(--deep);background:var(--gold-light);border-radius:7px;font-size:11px}
+  .waiver-wire-page .waiver-projection:before{display:block;margin-bottom:1px;font-size:6px;line-height:1;letter-spacing:.06em;content:"PROJ"}
+  .waiver-wire-page .waiver-list article>.status{grid-area:meta;justify-self:start;margin-left:36px}
+  .waiver-wire-page .claim-level{grid-area:meta;justify-self:start;margin-left:92px;padding-left:8px;border-left:1px solid var(--line)}
+  .waiver-wire-page .claim-level b,.waiver-wire-page .claim-level small{font-size:8px!important;line-height:1.15}
+  .waiver-wire-page .waiver-plan{grid-area:action;min-width:66px;padding:7px 6px;font-size:8px!important}
+  html[data-theme="dark"] .waiver-wire-page .waiver-list article>.waiver-rank{color:var(--gold-light);background:#292e37}
+  html[data-theme="dark"] .waiver-wire-page .waiver-projection{color:#15191e}
+}
+@media(max-width:390px){
+  .waiver-wire-page .waiver-list article{grid-template-columns:35px minmax(0,1fr) auto;gap:5px 6px;padding:9px 7px}
+  .waiver-wire-page .waiver-list article>.waiver-rank{width:35px}
+  .waiver-wire-page .waiver-list article>.status{margin-left:0}
+  .waiver-wire-page .claim-level{margin-left:54px}
+}

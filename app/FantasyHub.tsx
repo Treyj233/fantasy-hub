@@ -7563,7 +7563,7 @@ function WaiverWire({
       </div>
     );
   return (
-    <div className="page-content">
+    <div className="page-content waiver-wire-page">
       <SectionIntro
         kicker="LIVE LEAGUE AVAILABILITY"
         title="Turn available players into weekly leverage"
