@@ -23,6 +23,7 @@ type View =
   | "Trade Lab"
   | "Matchups"
   | "Simulator"
+  | "Glossary"
   | "Fantasy Hub Pro"
   | "Manage Leagues";
 type Player = {
@@ -619,7 +620,30 @@ const nav: { label: View; displayLabel?: string; mark: string; tone: string; gro
   { label: "Matchups", displayLabel: "Fantasy Matchups", mark: "◎", tone: "sky", group: "Live" },
   { label: "League Stories", mark: "✎", tone: "violet", group: "Utilities" },
   { label: "Manager Report", mark: "✓", tone: "teal", group: "Utilities" },
+  { label: "Glossary", mark: "?", tone: "blue", group: "Utilities" },
 ];
+
+const glossaryDetails: Record<View, { summary: string; use: string }> = {
+  "All Leagues": { summary: "Your portfolio-wide Mission Hub, combining urgent lineup, waiver, weather, injury, and trade actions across every connected league.", use: "Open first to see the three most important actions across your portfolio." },
+  "Manage Leagues": { summary: "Connect, remove, refresh, and reorder Sleeper or ESPN leagues while managing account and appearance preferences.", use: "Use when adding a league, changing league order, or updating your Hub setup." },
+  "Fantasy Hub Pro": { summary: "Compare Free and Pro access, start a subscription, restore an App Store purchase, or manage active billing.", use: "Use to review plans and unlock Fantasy Hub’s proprietary tools." },
+  "Command Center": { summary: "A league-specific briefing that combines roster readiness, matchup edges, priorities, and recommended next moves.", use: "Open before making weekly decisions for one team." },
+  "My Team": { summary: "Your complete roster in platform lineup order, separated into starters, bench, IR, and other reserve slots.", use: "Use to review lineup status, player trends, projections, weather, and opponent strength." },
+  "Start / Sit": { summary: "Compares realistic lineup decisions using platform projections, floor, median, ceiling, matchup strength, and game-script needs.", use: "Use when two or more eligible players are competing for the same lineup or flex spot." },
+  "Waiver Wire": { summary: "Ranks players actually available in the selected league and pairs worthwhile additions with sensible drop candidates.", use: "Use before waivers process or when replacing an injured or inactive player." },
+  "Trade Lab": { summary: "Evaluates manual trades for free and adds Pro roster-aware suggestions, team-need analysis, and negotiation profiles.", use: "Use to test a package or find mutually beneficial roster upgrades." },
+  "Simulator": { summary: "Runs an analytical season simulation using the league’s rosters, schedule, scoring, lineup rules, and player ranges.", use: "Use to understand likely outcomes, upside paths, and the factors limiting a team." },
+  "League Analytics": { summary: "Adapts to dynasty or redraft and explains roster strength, depth, positional allocation, competitive window, and future trajectory.", use: "Use for a deeper strategic view beyond this week’s lineup." },
+  "Team Rankings": { summary: "Ranks every team using league-relative starters, depth, balance, scoring settings, and—when applicable—runway and draft capital.", use: "Use to identify genuine league strengths, weaknesses, and trade partners." },
+  "Player Rankings": { summary: "Tier-based player rankings tailored to league format, scoring, lineup demand, and positional importance.", use: "Use for rest-of-season player comparison and roster-value context." },
+  "ADP": { summary: "Shows market draft position by available source, separated from Fantasy Hub’s internal player rankings.", use: "Use for draft preparation and to compare market cost with your player evaluation." },
+  "Scoreboard": { summary: "The all-day Fantasy Scoreboard with live fantasy scores, win odds, What Do I Need paths, rooting interests, swings, and the Sunday Pulse ticker.", use: "Leave open on game day to follow every matchup that matters." },
+  "NFL Games": { summary: "Tracks the NFL schedule, scores, weather, and the fantasy players from your matchup involved in each game.", use: "Use to follow real games and understand why each one matters to your leagues." },
+  "Matchups": { summary: "A detailed side-by-side view of your lineup and opponent in platform order with scoring, projections, weather, and NFL matchup quality.", use: "Use to inspect one fantasy matchup in detail." },
+  "League Stories": { summary: "Turns weekly league activity into recaps, previews, rivalries, awards, power movement, upsets, and season narratives.", use: "Use for the social story of the league, not just optimization." },
+  "Manager Report": { summary: "Tracks saved recommendations, choices, outcomes, waiver and trade efficiency, bench points, and decision quality based on information available at the time.", use: "Use to understand where your process is helping or hurting you." },
+  "Glossary": { summary: "A plain-language guide to every Fantasy Hub page and the best time to use it.", use: "Use whenever you want to understand a tool or jump directly to it." },
+};
 
 const normalizeNflTeam = (team: string) =>
   (({ JAC: "JAX", WSH: "WAS", LA: "LAR" }) as Record<string, string>)[team] ?? team;
@@ -2310,6 +2334,7 @@ export default function FantasyHub({
           ) : (
             rosterEmptyState
           ))}
+        {view === "Glossary" && <Glossary onNavigate={setView} />}
         {view === "Manage Leagues" && (
           <ManageLeagues
             signOutPath={accountUser.signOutPath}
@@ -2349,6 +2374,43 @@ export default function FantasyHub({
     </main>
     </PlayerOpenContext.Provider>
     </ProjectionPlatformContext.Provider>
+  );
+}
+
+function Glossary({ onNavigate }: { onNavigate: (view: View) => void }) {
+  const groups: NavGroup[] = ["Portfolio", "Team Management", "League Insights", "Live", "Utilities"];
+  return (
+    <div className="page-content glossary-page">
+      <SectionIntro
+        kicker="FANTASY HUB GUIDE"
+        title="Know where to go—and why"
+        text="Every page has a distinct job. Browse by purpose, then jump directly into the tool you need."
+      />
+      <nav className="glossary-jump" aria-label="Glossary sections">
+        {groups.map((group) => <a key={group} href={`#glossary-${group.toLowerCase().replaceAll(" ", "-")}`}>{group}</a>)}
+      </nav>
+      <div className="glossary-groups">
+        {groups.map((group) => (
+          <section className="panel glossary-group" id={`glossary-${group.toLowerCase().replaceAll(" ", "-")}`} key={group}>
+            <header><span>{group.toUpperCase()}</span><small>{nav.filter((item) => item.group === group).length} pages</small></header>
+            <div className="glossary-grid">
+              {nav.filter((item) => item.group === group).map((item) => {
+                const details = glossaryDetails[item.label];
+                return (
+                  <button type="button" className="glossary-card" key={item.label} onClick={() => onNavigate(item.label)}>
+                    <i className={`nav-badge ${item.tone}`} aria-hidden="true">{item.mark}</i>
+                    <span><strong>{item.displayLabel ?? item.label}</strong><small>{item.displayLabel ? `Fantasy Hub page: ${item.label}` : "Fantasy Hub page"}</small></span>
+                    <p>{details.summary}</p>
+                    <em><b>BEST TIME TO USE IT</b>{details.use}</em>
+                    <u>Open page →</u>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        ))}
+      </div>
+    </div>
   );
 }
 
