@@ -761,6 +761,30 @@ html[data-theme="dark"] .account-theme-customizer{color:#fff;background:radial-g
   .page-content :is(.metric span,.metric small,.game-day-metrics span,.game-day-metrics small,.decision-scorecards span,.decision-scorecards small,.decision-scorecards em){font-size:10px!important;line-height:1.3}
 }
 
+/* Keep mobile header utilities equally compact so the season context remains visible. */
+@media(max-width:700px){
+  .account-utility-row>.platform-open,
+  .account-utility-row>.pro-top-action,
+  .account-utility-row>.account-theme-customizer{
+    width:34px;
+    min-width:34px;
+    max-width:34px;
+    height:32px;
+    min-height:32px;
+    flex:0 0 34px;
+    justify-content:center;
+    padding:4px;
+  }
+  .topbar .platform-open .platform-logo{width:25px;height:13px}
+  .topbar .platform-open-copy,
+  .account-theme-customizer .theme-customizer-copy,
+  .account-theme-customizer>b,
+  .account-theme-customizer>em{display:none!important}
+  .account-theme-customizer{display:grid;grid-template-columns:1fr;place-items:center}
+  .account-theme-customizer .theme-customizer-art{width:23px;height:23px}
+  .topbar>div:nth-child(2) p{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+}
+
 /* Pricing stays immediately actionable; campaign artwork enhances the existing feature rows. */
 .pro-plans-page>.pro-plans-hero{order:0}.pro-plans-page>.native-billing-note,.pro-plans-page>.billing-error{order:1}.pro-plans-page>.plan-grid{order:2}.pro-plans-page>.pro-showcase{order:3}.pro-plans-page>.pro-theme-gallery{order:4}.pro-plans-page>.pro-principle{order:5}
 .pro-feature-art{min-height:270px;background-color:#071a35;background-position:center;background-size:cover;border:1px solid #ffffff42;border-radius:15px;box-shadow:0 18px 45px rgb(0 0 0 / .3);transform:perspective(900px) rotateY(-2deg)}.pro-feature-card.reverse>.pro-feature-art{grid-column:1;grid-row:1;transform:perspective(900px) rotateY(2deg)}
