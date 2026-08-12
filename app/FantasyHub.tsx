@@ -1885,26 +1885,6 @@ export default function FantasyHub({
             <h1>{viewTitle}</h1>
           </div>
           <div className="top-actions">
-            {leagueId && (
-              <a
-                className="platform-open"
-                href={selectedConnectedLeague ? platformLeagueUrl(selectedConnectedLeague) : sleeperLeagueUrl(leagueId)}
-                onClick={(event) => openSleeperLeagueOnMobile(event, selectedConnectedLeague?.sourceId ?? selectedConnectedLeague?.id ?? leagueId, leaguePlatform)}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label={`${platformActionLabel(view, leaguePlatform)} (opens in a new tab)`}
-              >
-                <PlatformLogo provider={leaguePlatform} />
-                <span className="platform-open-copy">
-                  <strong>{leaguePlatform.toLowerCase() === "espn" ? "Open ESPN" : "Open Sleeper"}</strong>
-                  <small>{platformActionLabel(view, leaguePlatform)}</small>
-                </span>
-                <b aria-hidden="true">↗</b>
-              </a>
-            )}
-            <button className="ghost season-roll pro-top-action" onClick={() => setView("Fantasy Hub Pro")}>
-              <span>Fantasy Hub Pro</span> <b>PRO</b>
-            </button>
             <div className="account-actions">
               <a className="account-chip" href={accountUser.signOutPath}>
                 <span>{accountUser.displayName.slice(0, 1).toUpperCase()}</span>
@@ -1913,20 +1893,42 @@ export default function FantasyHub({
                   <b>Sign out</b>
                 </small>
               </a>
-              <button
-                className="account-theme-customizer"
-                type="button"
-                aria-label="Open Theme Customizer"
-                onClick={() => {
-                  setView("Manage Leagues");
-                  window.setTimeout(() => document.getElementById("hub-appearance")?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
-                }}
-              >
-                <i className="theme-customizer-art" aria-hidden="true"><span /><span /><span /></i>
-                <span className="theme-customizer-copy"><strong>Theme Customizer</strong><small>Make the Hub yours</small></span>
-                {!entitlement.pro && <b>PRO</b>}
-                <em aria-hidden="true">›</em>
-              </button>
+              <div className="account-utility-row">
+                {leagueId && (
+                  <a
+                    className="platform-open"
+                    href={selectedConnectedLeague ? platformLeagueUrl(selectedConnectedLeague) : sleeperLeagueUrl(leagueId)}
+                    onClick={(event) => openSleeperLeagueOnMobile(event, selectedConnectedLeague?.sourceId ?? selectedConnectedLeague?.id ?? leagueId, leaguePlatform)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={`${platformActionLabel(view, leaguePlatform)} (opens in a new tab)`}
+                  >
+                    <PlatformLogo provider={leaguePlatform} />
+                    <span className="platform-open-copy">
+                      <strong>{leaguePlatform.toLowerCase() === "espn" ? "Open ESPN" : "Open Sleeper"}</strong>
+                      <small>{platformActionLabel(view, leaguePlatform)}</small>
+                    </span>
+                    <b aria-hidden="true">↗</b>
+                  </a>
+                )}
+                <button className="ghost season-roll pro-top-action" onClick={() => setView("Fantasy Hub Pro")}>
+                  <span>Fantasy Hub Pro</span> <b>PRO</b>
+                </button>
+                <button
+                  className="account-theme-customizer"
+                  type="button"
+                  aria-label="Open Theme Customizer"
+                  onClick={() => {
+                    setView("Manage Leagues");
+                    window.setTimeout(() => document.getElementById("hub-appearance")?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+                  }}
+                >
+                  <i className="theme-customizer-art" aria-hidden="true"><span /><span /><span /></i>
+                  <span className="theme-customizer-copy"><strong>Theme Customizer</strong><small>Make the Hub yours</small></span>
+                  {!entitlement.pro && <b>PRO</b>}
+                  <em aria-hidden="true">›</em>
+                </button>
+              </div>
             </div>
           </div>
         </header>
