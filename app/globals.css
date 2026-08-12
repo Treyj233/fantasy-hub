@@ -497,6 +497,13 @@ html[data-theme="dark"] .command-action-queue>div>button,html[data-theme="dark"]
 @media(max-width:900px){.command-action-queue>div{grid-template-columns:1fr}.command-intelligence-grid{grid-template-columns:1fr}.command-matchup-strip{grid-template-columns:1fr 130px 1fr}}
 @media(max-width:600px){.command-matchup-strip{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;padding:14px 12px}.command-matchup-strip>div{grid-template-columns:minmax(0,1fr) auto;gap:2px 6px}.command-matchup-strip>div span{font-size:8px!important;line-height:1.15}.command-matchup-strip>div strong{min-width:0;font-size:12px;line-height:1.15}.command-matchup-strip>div b{font-size:18px;line-height:1}.command-matchup-strip>i{grid-column:1/-1;grid-row:2;margin-top:5px}.command-matchup-strip>i small{font-size:7px!important;line-height:1.1}.command-action-queue{padding:16px}.command-intelligence-grid>section{padding:16px}.command-quick-actions{justify-content:flex-start;width:100%;overflow-x:auto}.command-quick-actions>span{display:none}.command-quick-actions button{flex:0 0 auto}.command-position-edges article{grid-template-columns:31px 1fr 34px 40px 34px}}
 
+@media(max-width:600px){
+  .command-center-page .command-quick-actions{bottom:calc(10px + env(safe-area-inset-bottom));width:calc(100% - 12px);max-width:calc(100vw - 32px);margin:14px 6px 0;padding:6px;overflow-x:auto;overflow-y:hidden;border-radius:11px;box-shadow:0 8px 22px rgb(0 0 0 / .32);scroll-padding-inline:6px;scrollbar-width:none}
+  .command-center-page .command-quick-actions::-webkit-scrollbar{display:none}
+  .command-center-page .command-quick-actions button{min-height:34px;padding:7px 9px}
+  html[data-native-platform="ios"] .command-center-page .command-quick-actions{bottom:calc(12px + max(18px,env(safe-area-inset-bottom)));max-width:calc(100vw - 36px);margin-inline:8px}
+}
+
 /* A denser phone command center keeps the full game plan useful without a marathon scroll. */
 @media(max-width:600px){
   .command-center-page{padding-top:12px}
