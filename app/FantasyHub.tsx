@@ -8336,7 +8336,7 @@ function TradeLab({
               ? "Fair value, weak fit"
               : "Low viability";
   return (
-    <div className="page-content">
+    <div className="page-content trade-lab-page">
       <SectionIntro
         kicker="LIVE LEAGUE TRADE INTELLIGENCE"
         title="Evaluate any deal, then let Pro find the best ones"
