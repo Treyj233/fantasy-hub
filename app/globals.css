@@ -13,8 +13,8 @@ button { cursor:pointer; }
 .brand-mark { display:grid; place-items:center; width:42px; height:42px; color:#17311f; background:var(--lime); border-radius:12px 4px 12px 4px; font-weight:950; letter-spacing:-1px; box-shadow:0 8px 30px #0004; }
 .brand-logo{position:relative;display:grid;width:46px;height:46px;flex:0 0 46px;place-items:center;overflow:hidden;background:transparent;border:0;border-radius:12px;box-shadow:0 8px 30px #0004;transform:rotate(-3deg);transition:transform .2s ease,box-shadow .2s ease}.fh-theme-logo{display:block;width:100%;height:100%;overflow:visible}.fh-theme-logo text{font-family:Arial Black,Impact,sans-serif;font-size:73px;font-style:italic;font-weight:1000;paint-order:stroke fill;stroke:#fff;stroke-linejoin:round;stroke-width:3px}.fh-logo-tile{fill:var(--deep)}.fh-logo-plate{fill:#fff}.fh-theme-logo .fh-logo-f{fill:var(--green)}.fh-theme-logo .fh-logo-h{fill:var(--gold-light)}.fh-logo-laces{fill:none;stroke:#fff;stroke-linecap:round;stroke-width:3.5px}.fh-logo-stripe{fill:none;stroke:var(--green);stroke-width:3;opacity:.32}.brand-logo:hover{box-shadow:0 11px 32px #0005;transform:rotate(2deg) scale(1.04)}
 .brand strong,.brand small { display:block; }.brand strong{font-size:17px}.brand small{margin-top:2px;color:#a9c6b4;font-size:10px;letter-spacing:.04em}
-.league-card { padding:14px; margin-bottom:18px; background:#ffffff0a; border:1px solid #ffffff17; border-radius:14px; }
-.league-card span,.league-card strong,.league-card small{display:block}.league-card span{font-size:9px;color:var(--lime);font-weight:900;letter-spacing:.16em}.league-card strong{margin-top:7px;font-size:12px}.league-card small{margin-top:5px;color:#91ae9c;font-size:10px}
+.league-card { padding:10px 12px; margin-bottom:12px; background:#ffffff0a; border:1px solid #ffffff17; border-radius:12px; }
+.league-card span,.league-card strong,.league-card small{display:block}.league-card span{font-size:8px;color:var(--lime);font-weight:900;letter-spacing:.14em}.league-card strong{overflow:hidden;margin-top:4px;font-size:12px;text-overflow:ellipsis;white-space:nowrap}.league-card small{overflow:hidden;margin-top:3px;color:#91ae9c;font-size:9px;line-height:1.25;text-overflow:ellipsis;white-space:nowrap}
 .sidebar nav { display:flex; flex-direction:column; gap:5px; }
 .sidebar nav .nav-group{display:flex;flex-direction:column;gap:4px}.sidebar nav .nav-group+ .nav-group{margin-top:10px;padding-top:10px;border-top:1px solid #ffffff12}.sidebar nav .nav-group>span{padding:0 11px 4px;color:#d9e7de99;font-size:8px;font-weight:950;letter-spacing:.16em;text-transform:uppercase}
 .sidebar nav button { display:flex; align-items:center; gap:11px; width:100%; padding:10px 11px; border:0; border-radius:10px; color:#a8c0b1; background:transparent; text-align:left; font-size:12px; font-weight:650; transition:.18s ease; }
@@ -543,7 +543,7 @@ html[data-native-platform="ios"][data-network="offline"] .topbar:after{position:
   }
   .mobile-nav-open .sidebar{transform:translateX(0)}
   .sidebar .sidebar-collapse{display:none}.sidebar .brand,.sidebar-collapsed .brand{display:flex;padding:0 5px 16px}.sidebar .brand>div,.sidebar-collapsed .brand>div{display:block}
-  .sidebar .league-card,.sidebar-collapsed .league-card{display:block;margin-bottom:12px}
+  .sidebar .league-card,.sidebar-collapsed .league-card{display:block;margin-bottom:8px;padding:9px 11px}
   .sidebar nav,.sidebar-collapsed .sidebar nav{display:flex;height:auto;min-height:0;flex:1 1 auto;flex-direction:column;gap:5px;overflow-x:hidden;overflow-y:auto;padding:0 4px 8px;scroll-snap-type:none}
   .sidebar nav .nav-group,.sidebar-collapsed .sidebar nav .nav-group{display:flex;flex-direction:column;gap:4px}.sidebar nav .nav-group+.nav-group{margin-top:8px;padding-top:8px;border-top:1px solid #ffffff1c}
   .sidebar nav .nav-group>span,.sidebar-collapsed .sidebar nav .nav-group>span{display:block;padding:0 10px 3px;color:#d9e7dec4;font-size:8px}
