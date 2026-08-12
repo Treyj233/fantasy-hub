@@ -138,8 +138,11 @@ test("Full Action Queue badges use stable priority colors", async () => {
   const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
   assert.match(source, /action-priority-\$\{priority\.toLowerCase\(\)\.replaceAll\(" ", "-"\)\}/);
   for (const priority of ["act-now", "before-kickoff", "tonight", "this-week", "monitor"]) {
-    assert.match(styles, new RegExp(`action-priority-${priority}>header b`));
+    assert.match(styles, new RegExp(`action-priority-${priority}\\{--queue-accent:`));
   }
+  assert.match(styles, /header b\{color:#fff!important;background:var\(--queue-accent/);
+  assert.match(styles, /button>i\{color:var\(--queue-ink/);
+  assert.match(styles, /button>em\{color:var\(--queue-ink/);
 });
 
 test("Sleeper mobile actions deep link to the selected league", async () => {

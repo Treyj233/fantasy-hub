@@ -550,13 +550,13 @@ html[data-theme="dark"] .account-theme-customizer{color:#fff;background:radial-g
 @media(max-width:700px){.account-actions{justify-items:end}.account-theme-customizer{grid-template-columns:27px auto auto;min-width:0;padding:6px 8px}.theme-customizer-art{width:27px;height:27px}.theme-customizer-copy small,.account-theme-customizer>em{display:none}.theme-customizer-copy strong{max-width:72px;overflow:hidden;font-size:8px;text-overflow:ellipsis}.account-theme-customizer>b{font-size:5px}}
 @media(max-width:700px){.account-actions{display:none}}
 .start-sit-option .compare-card>.matchup-team{margin-top:12px}
-.action-queue-groups>section:first-child>header b{background:var(--green)}
-.action-queue-groups>.action-priority-act-now>header b{background:#c93642}
-.action-queue-groups>.action-priority-before-kickoff>header b{background:#d97706}
-.action-queue-groups>.action-priority-tonight>header b{background:#7c3aed}
-.action-queue-groups>.action-priority-this-week>header b{background:#2878c8}
-.action-queue-groups>.action-priority-monitor>header b{color:#352300;background:#f0bd38}
-.action-queue-groups>.no-action-group>header b{color:#fff;background:#27875a}
+.action-queue-groups>.action-priority-act-now{--queue-accent:#c93642;--queue-soft:#fff0f1;--queue-ink:#9f202c}
+.action-queue-groups>.action-priority-before-kickoff{--queue-accent:#d97706;--queue-soft:#fff4df;--queue-ink:#9a5204}
+.action-queue-groups>.action-priority-tonight{--queue-accent:#7c3aed;--queue-soft:#f3edff;--queue-ink:#6425c7}
+.action-queue-groups>.action-priority-this-week{--queue-accent:#2878c8;--queue-soft:#eaf4ff;--queue-ink:#1c5e9f}
+.action-queue-groups>.action-priority-monitor{--queue-accent:#e6ae20;--queue-soft:#fff7d8;--queue-ink:#77540a}
+.action-queue-groups>.no-action-group{--queue-accent:#27875a;--queue-soft:#e8f7ef;--queue-ink:#176a43}
+.action-queue-groups>section{border-top:3px solid var(--queue-accent,var(--green))}.action-queue-groups>section>header b{color:#fff!important;background:var(--queue-accent,var(--green))!important;box-shadow:0 4px 10px color-mix(in srgb,var(--queue-accent,var(--green)) 28%,transparent)}.action-queue-groups>.action-priority-monitor>header b{color:#352300!important}.action-queue-groups>section button>i{color:var(--queue-ink,var(--green));background:var(--queue-soft,var(--cream));border:1px solid color-mix(in srgb,var(--queue-accent,var(--green)) 28%,transparent)}.action-queue-groups>section button>em{color:var(--queue-ink,var(--green))}.action-queue-groups>section button:hover{background:color-mix(in srgb,var(--queue-soft,var(--cream)) 74%,var(--chalk))}html[data-theme="dark"] .action-queue-groups>section button>i{color:color-mix(in srgb,var(--queue-accent,var(--gold-light)) 52%,#fff);background:color-mix(in srgb,var(--queue-accent,var(--green)) 18%,#22262e);border-color:color-mix(in srgb,var(--queue-accent,var(--green)) 42%,#424956)}html[data-theme="dark"] .action-queue-groups>section button>em{color:color-mix(in srgb,var(--queue-accent,var(--gold-light)) 55%,#fff)}html[data-theme="dark"] .action-queue-groups>section button:hover{background:color-mix(in srgb,var(--queue-accent,var(--green)) 11%,#282d36)}
 
 /* Keep the complete My Team roster readable within a phone viewport. */
 @media(max-width:700px){
