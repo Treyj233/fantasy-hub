@@ -700,12 +700,16 @@ html[data-theme="dark"] .account-theme-customizer{color:#fff;background:radial-g
   .need-collapse-toggle>em{display:none}.need-collapse-toggle>strong{font-size:8px;text-align:right}
   .score-game-actions{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:8px}
   .score-game-actions button{width:100%;min-height:38px;padding:8px;font-size:9px}
-  .league-scoreboard-page .game-stats{grid-template-columns:1fr;padding:10px}
-  .league-scoreboard-page .game-stats section+section{padding:10px 0 0;border-top:1px solid var(--line);border-left:0}
-  .league-scoreboard-page .game-stats section>div{grid-template-columns:30px minmax(0,1fr) auto;gap:8px;padding:9px 0}
-  .league-scoreboard-page .game-stats .player-headshot{width:30px;height:30px}
-  .league-scoreboard-page .game-stats p strong{font-size:10px}.league-scoreboard-page .game-stats p small{font-size:8px}
-  .league-scoreboard-page .game-stats section>div>b{font-size:13px}.league-scoreboard-page .game-stats em{font-size:8px}
+  .league-scoreboard-page .game-stats{grid-template-columns:repeat(2,minmax(0,1fr));gap:0;padding:9px}
+  .league-scoreboard-page .game-stats section{min-width:0;padding:0 7px}
+  .league-scoreboard-page .game-stats section+section{padding:0 7px;border-top:0;border-left:1px solid var(--line)}
+  .league-scoreboard-page .game-stats h4{overflow:hidden;min-height:30px;margin-bottom:4px;font-size:8px;line-height:1.25;text-overflow:ellipsis}
+  .league-scoreboard-page .game-stats section>div{grid-template-columns:27px minmax(0,1fr) auto;gap:5px;padding:8px 0}
+  .league-scoreboard-page .game-stats .player-headshot{width:27px;height:27px}
+  .league-scoreboard-page .game-stats p{min-width:0}.league-scoreboard-page .game-stats p .inline-player-link{display:block;max-width:100%;overflow:hidden;font-size:9px;text-overflow:ellipsis;white-space:nowrap}
+  .league-scoreboard-page .game-stats p small{overflow:hidden;font-size:7px;text-overflow:ellipsis;white-space:nowrap}
+  .league-scoreboard-page .game-stats section>div>b{font-size:12px}.league-scoreboard-page .game-stats section>div>b small{font-size:6px!important}
+  .league-scoreboard-page .game-stats em{grid-column:1/-1;overflow:hidden;font-size:7px;line-height:1.25;text-overflow:ellipsis;white-space:nowrap}
 }
 @media(max-width:390px){
   .portfolio-score-rail>div{grid-template-columns:1fr;max-height:230px}
