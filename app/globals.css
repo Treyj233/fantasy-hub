@@ -1084,3 +1084,22 @@ html[data-theme="dark"] .account-theme-customizer{color:#fff;background:radial-g
   .priority-inbox .portfolio-action-buttons .platform-link>b{display:none}
   .priority-inbox .portfolio-action-buttons .platform-logo{width:22px;min-width:22px;height:13px;object-fit:contain}
 }
+
+/* Mission Hub player-first hierarchy: league names remain useful context but
+   should never compete visually with the actionable player. */
+.all-leagues-page .exposure-list p,.all-leagues-page .waiver-opportunity-list p{min-width:0}
+.all-leagues-page .exposure-list .inline-player-link,.all-leagues-page .waiver-opportunity-list strong{display:block;max-width:100%;overflow:hidden;color:var(--ink);font-size:15px!important;font-weight:1000;line-height:1.12;letter-spacing:-.025em;text-overflow:ellipsis;white-space:nowrap}
+.all-leagues-page .exposure-list .inline-player-link{padding:1px 0;text-align:left}
+.all-leagues-page .exposure-list small,.all-leagues-page .waiver-opportunity-list small{overflow:hidden;margin-top:5px;color:color-mix(in srgb,var(--muted) 84%,transparent);font-size:9px!important;font-weight:650;line-height:1.25;text-overflow:ellipsis;white-space:nowrap}
+.all-leagues-page .exposure-list>div,.all-leagues-page .waiver-opportunity-list button{grid-template-columns:40px minmax(0,1fr) auto}
+.all-leagues-page .exposure-list i,.all-leagues-page .waiver-opportunity-list i{width:38px;height:38px}
+.all-leagues-page .exposure-list>b,.all-leagues-page .waiver-opportunity-list>b{padding:5px 7px;color:var(--green);background:color-mix(in srgb,var(--green) 8%,var(--chalk));border-radius:8px;font-weight:950}
+html[data-theme="dark"] .all-leagues-page .exposure-list .inline-player-link,html[data-theme="dark"] .all-leagues-page .waiver-opportunity-list strong{color:#fff}
+html[data-theme="dark"] .all-leagues-page .exposure-list small,html[data-theme="dark"] .all-leagues-page .waiver-opportunity-list small{color:#aab2bf}
+html[data-theme="dark"] .all-leagues-page .exposure-list>b,html[data-theme="dark"] .all-leagues-page .waiver-opportunity-list>b{color:var(--gold-light);background:#292e37}
+@media(max-width:700px){
+  .all-leagues-page .exposure-list>div,.all-leagues-page .waiver-opportunity-list button{min-height:55px;grid-template-columns:34px minmax(0,1fr) auto;gap:8px;padding:9px 12px}
+  .all-leagues-page .exposure-list i,.all-leagues-page .waiver-opportunity-list i{width:33px;height:33px}
+  .all-leagues-page .exposure-list .inline-player-link,.all-leagues-page .waiver-opportunity-list strong{font-size:14px!important}
+  .all-leagues-page .exposure-list small,.all-leagues-page .waiver-opportunity-list small{margin-top:3px;font-size:8px!important}
+}
