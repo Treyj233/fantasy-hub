@@ -1103,3 +1103,14 @@ html[data-theme="dark"] .all-leagues-page .exposure-list>b,html[data-theme="dark
   .all-leagues-page .exposure-list .inline-player-link,.all-leagues-page .waiver-opportunity-list strong{font-size:14px!important}
   .all-leagues-page .exposure-list small,.all-leagues-page .waiver-opportunity-list small{margin-top:3px;font-size:8px!important}
 }
+
+/* Mission Hub summary should read like a compact score strip on phones, not
+   four desktop KPI cards squeezed into two rows. */
+@media(max-width:700px){
+  .all-leagues-page .all-league-metrics{grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}
+  .all-leagues-page .all-league-metrics article{display:grid;min-width:0;min-height:68px;align-content:center;padding:8px 6px;border-top-width:3px;border-radius:9px;box-shadow:0 5px 13px rgb(8 47 31 / .07);text-align:center}
+  .all-leagues-page .all-league-metrics article:after{position:static;grid-row:1;width:21px;height:21px;justify-self:center;margin-bottom:3px;border-radius:6px;font-size:10px;box-shadow:inset 0 1px #fff7,0 3px 7px #0002}
+  .all-leagues-page .all-league-metrics span{grid-row:2;overflow:hidden;font-size:7px!important;line-height:1.1;letter-spacing:.04em;text-overflow:ellipsis;white-space:nowrap}
+  .all-leagues-page .all-league-metrics strong{grid-row:3;margin:2px 0 0;font-size:20px;line-height:1}
+  .all-leagues-page .all-league-metrics small{display:none}
+}
