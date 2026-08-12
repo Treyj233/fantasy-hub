@@ -625,6 +625,15 @@ const normalizeNflTeam = (team: string) =>
   (({ JAC: "JAX", WSH: "WAS", LA: "LAR" }) as Record<string, string>)[team] ?? team;
 const isStartingPlayer = (player: Player) =>
   !["Bench", "IR", "TAXI"].includes(player.role);
+
+const leagueRelativeGrade = (value: number, values: number[]) => {
+  if (values.length < 2) return 72;
+  const mean = values.reduce((sum, item) => sum + item, 0) / values.length;
+  const variance = values.reduce((sum, item) => sum + (item - mean) ** 2, 0) / values.length;
+  const deviation = Math.sqrt(variance);
+  if (deviation < .01) return 72;
+  return Math.max(42, Math.min(97, 72 + ((value - mean) / deviation) * 12));
+};
 const formatRosterSlot = (slot: string) => slot.replace(/_/g, " ");
 const nflThemes = [
   {
@@ -5163,16 +5172,25 @@ function LeagueAnalytics({
     const draftScore = maxDraftScore > 0
       ? 35 + ((team.draftCapital?.score ?? 0) / maxDraftScore) * 65
       : 50;
-    return {
-      score: Math.round(Math.max(20, Math.min(99, starterScore * .58 + depthScore * .16 + futureScore * .18 + draftScore * .08))),
-      starterScore,
-      depthScore,
-      futureScore,
-      draftScore,
-    };
+    return { starterScore, depthScore, futureScore, draftScore };
   };
-  const leagueWindowScores = teams
-    .map((team) => ({ team, ...scoreTeamWindow(team) }))
+  const rawLeagueWindowScores = teams.map((team) => ({ team, ...scoreTeamWindow(team) }));
+  const windowStarterScores = rawLeagueWindowScores.map((team) => team.starterScore);
+  const windowDepthScores = rawLeagueWindowScores.map((team) => team.depthScore);
+  const windowFutureScores = rawLeagueWindowScores.map((team) => team.futureScore);
+  const leagueWindowScores = rawLeagueWindowScores
+    .map((team) => {
+      const starterScore = leagueRelativeGrade(team.starterScore, windowStarterScores);
+      const depthScore = leagueRelativeGrade(team.depthScore, windowDepthScores);
+      const futureScore = leagueRelativeGrade(team.futureScore, windowFutureScores);
+      return {
+        ...team,
+        starterScore,
+        depthScore,
+        futureScore,
+        score: Math.round(Math.max(20, Math.min(99, starterScore * .58 + depthScore * .16 + futureScore * .18 + team.draftScore * .08))),
+      };
+    })
     .sort((a, b) => b.score - a.score);
   const selectedWindow = leagueWindowScores.find(({ team }) => team.id === selectedTeamId);
   const baseStrength = selectedWindow?.score ?? 50;
@@ -6214,14 +6232,6 @@ function TeamRankings({
   // These are league-strength grades, not raw averages of player values. Center an
   // average roster in the low 70s and use standard deviation to preserve meaningful
   // separation without making an ordinary lineup look like a failing grade.
-  const relativeGrade = (value: number, values: number[]) => {
-    if (values.length < 2) return 72;
-    const mean = values.reduce((sum, item) => sum + item, 0) / values.length;
-    const variance = values.reduce((sum, item) => sum + (item - mean) ** 2, 0) / values.length;
-    const deviation = Math.sqrt(variance);
-    if (deviation < .01) return 72;
-    return Math.max(42, Math.min(97, 72 + ((value - mean) / deviation) * 12));
-  };
   const starterScores = rawTeams.map((team) => team.starterScore);
   const depthScores = rawTeams.map((team) => team.depthScore);
   const balanceScores = rawTeams.map((team) => team.balanceScore);
@@ -6231,10 +6241,10 @@ function TeamRankings({
   const scoredTeams = rawTeams
     .map((team) => {
       const draftValue = calibratedDraftScore(team.draftScore);
-      const starterScore = relativeGrade(team.starterScore, starterScores);
-      const depthScore = relativeGrade(team.depthScore, depthScores);
-      const balanceScore = relativeGrade(team.balanceScore, balanceScores);
-      const runwayScore = relativeGrade(team.runwayScore, runwayScores);
+      const starterScore = leagueRelativeGrade(team.starterScore, starterScores);
+      const depthScore = leagueRelativeGrade(team.depthScore, depthScores);
+      const balanceScore = leagueRelativeGrade(team.balanceScore, balanceScores);
+      const runwayScore = leagueRelativeGrade(team.runwayScore, runwayScores);
       return {
         ...team,
         starterScore,
