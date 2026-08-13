@@ -8352,7 +8352,6 @@ function TradeLab({
     suggestions[0] ??
     null;
   const tradeMemoryFor = (item: TradeSuggestion) => ({ id: `trade:${week}:${partner?.id ?? "partner"}:${item.id}`, leagueId, week, category: "trade", recommendation: item.title, alternatives: suggestions.map((option) => ({ id: option.id, title: option.title, send: option.send.map((asset) => asset.name), receive: option.receive.map((asset) => asset.name), acceptance: option.acceptance })), information: { partner: partner?.teamName, negotiationProfile: partnerStyle, format: context?.format ?? "Redraft", send: item.send.map((asset) => ({ id: asset.id, name: asset.name, value: asset.value })), receive: item.receive.map((asset) => ({ id: asset.id, name: asset.name, value: asset.value })), yourBenefit: item.yourBenefit, partnerBenefit: item.partnerBenefit }, confidence: item.confidence });
-  const tradeMemory = suggestion ? tradeMemoryFor(suggestion) : null;
   function selectPartner(id: string) {
     setSelectedId(id);
     setActiveSuggestionId("");
@@ -8692,16 +8691,6 @@ function TradeLab({
               </p>
             </article>
           </div>
-          <section className="trade-note">
-            <strong>Actual rosters, modeled acceptance</strong>
-            <p>
-              Player ownership and team needs are live for this league.
-              Negotiation profiles alter package eligibility, value tolerance,
-              need requirements, recommendation order, and estimated acceptance.
-              Acceptance remains an estimate—not a claim about another manager’s decision.
-            </p>
-            <button onClick={() => tradeMemory && rememberDecision({ ...tradeMemory, userSelection: `Proposed: ${tradeMemory.recommendation}` })}>Mark as proposed</button>
-          </section>
         </>
       ) : (
         <section className="panel trade-no-suggestions">
