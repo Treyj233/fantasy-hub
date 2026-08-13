@@ -8344,6 +8344,7 @@ function TradeLab({
   const [activeSuggestionId, setActiveSuggestionId] = useState("");
   const [calculatorSendIds, setCalculatorSendIds] = useState<string[]>([]);
   const [calculatorReceiveIds, setCalculatorReceiveIds] = useState<string[]>([]);
+  const [assetSelectorSide, setAssetSelectorSide] = useState<"send" | "receive" | null>(null);
   const partner =
     opponents.find((team) => team.id === selectedId) ?? opponents[0];
   const partnerStyle = partner ? (styles[partner.id] ?? "Neutral") : "Neutral";
@@ -8586,7 +8587,8 @@ function TradeLab({
         <div className="calculator-grid">
           <fieldset className="calculator-assets">
             <legend>You send</legend>
-            <div>{yourTradeAssets.map((asset) => <button type="button" className={effectiveSendIds.includes(asset.id) ? "selected" : ""} aria-pressed={effectiveSendIds.includes(asset.id)} key={asset.id} onClick={() => toggleCalculatorAsset("send", asset.id)}><span><b>{asset.name}</b><small>{asset.position === "PICK" ? asset.meta : `${asset.position} · ${asset.team}`}</small></span><em>{asset.value}</em></button>)}</div>
+            <button className="asset-selector-trigger" type="button" onClick={() => setAssetSelectorSide("send")}><span><b>{yourTeam.teamName}</b><small>{calculatorSendAssets.length} asset{calculatorSendAssets.length === 1 ? "" : "s"} selected</small></span><em>Choose assets</em></button>
+            <div className="calculator-package-summary">{calculatorSendAssets.length ? calculatorSendAssets.map((asset) => <span key={asset.id}><b>{asset.name}</b><small>{asset.position}</small></span>) : <p>No assets selected</p>}</div>
           </fieldset>
           <div className="calculator-score">
             <span>{calculatorSendAssets.length ? calculatorSendValue : "—"}</span>
@@ -8600,9 +8602,16 @@ function TradeLab({
           </div>
           <fieldset className="calculator-assets">
             <legend>You receive</legend>
-            <div>{partnerTradeAssets.map((asset) => <button type="button" className={effectiveReceiveIds.includes(asset.id) ? "selected" : ""} aria-pressed={effectiveReceiveIds.includes(asset.id)} key={asset.id} onClick={() => toggleCalculatorAsset("receive", asset.id)}><span><b>{asset.name}</b><small>{asset.position === "PICK" ? asset.meta : `${asset.position} · ${asset.team}`}</small></span><em>{asset.value}</em></button>)}</div>
+            <button className="asset-selector-trigger" type="button" onClick={() => setAssetSelectorSide("receive")}><span><b>{partner.teamName}</b><small>{calculatorReceiveAssets.length} asset{calculatorReceiveAssets.length === 1 ? "" : "s"} selected</small></span><em>Choose assets</em></button>
+            <div className="calculator-package-summary">{calculatorReceiveAssets.length ? calculatorReceiveAssets.map((asset) => <span key={asset.id}><b>{asset.name}</b><small>{asset.position}</small></span>) : <p>No assets selected</p>}</div>
           </fieldset>
         </div>
+        {assetSelectorSide && (() => {
+          const selectorAssets = assetSelectorSide === "send" ? yourTradeAssets : partnerTradeAssets;
+          const selectorIds = assetSelectorSide === "send" ? effectiveSendIds : effectiveReceiveIds;
+          const selectorTeam = assetSelectorSide === "send" ? yourTeam : partner;
+          return <div className="asset-selector-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setAssetSelectorSide(null); }}><section className="asset-selector-dialog" role="dialog" aria-modal="true" aria-label={`Select assets from ${selectorTeam.teamName}`}><header><div><span>{assetSelectorSide === "send" ? "YOU SEND" : "YOU RECEIVE"}</span><h3>{selectorTeam.teamName}</h3><small>Select or deselect up to six players and picks.</small></div><button type="button" aria-label="Close asset selector" onClick={() => setAssetSelectorSide(null)}>×</button></header><div className="asset-selector-list">{selectorAssets.map((asset) => <button type="button" className={selectorIds.includes(asset.id) ? "selected" : ""} aria-pressed={selectorIds.includes(asset.id)} key={asset.id} onClick={() => toggleCalculatorAsset(assetSelectorSide, asset.id)}><i>{selectorIds.includes(asset.id) ? "✓" : "+"}</i><span><b>{asset.name}</b><small>{asset.position === "PICK" ? asset.meta : `${asset.position} · ${asset.team}`}</small></span><em>{asset.value}</em></button>)}</div><footer><small>{selectorIds.length}/6 selected</small><button type="button" onClick={() => setAssetSelectorSide(null)}>Done</button></footer></section></div>;
+        })()}
         <div className="calculator-impact">
           <span>
             Your roster{" "}
