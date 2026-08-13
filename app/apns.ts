@@ -31,7 +31,7 @@ async function bearerToken(value: ApnsConfig) {
   return `${message}.${base64url(new Uint8Array(signature))}`;
 }
 
-export type ApplePushCategory = "KICKOFF_SOON" | "SLATE_STARTED" | "BIG_PLAY" | "MATCHUP_RESULT" | "LINEUP_URGENCY" | "INJURY_STATUS" | "GENERAL";
+export type ApplePushCategory = "KICKOFF_SOON" | "SLATE_STARTED" | "BIG_PLAY" | "MATCHUP_RESULT" | "CLOSE_GAME" | "PATH_TO_VICTORY" | "WEATHER_RISK" | "LINEUP_URGENCY" | "INJURY_STATUS" | "GENERAL";
 
 export async function sendApplePush(token: string, notification: { title: string; body: string; path?: string; category?: ApplePushCategory; threadId?: string; interruptionLevel?: "active" | "time-sensitive" }) {
   const value = await config();

@@ -3,6 +3,9 @@ export const PUSH_ALERT_KEYS = [
   "slateStarted",
   "bigPlays",
   "matchupResults",
+  "closeGame",
+  "pathToVictory",
+  "weatherRisk",
   "lineupUrgency",
   "injuryStatus",
 ] as const;
@@ -15,6 +18,9 @@ export const DEFAULT_PUSH_PREFERENCES: PushPreferences = {
   slateStarted: true,
   bigPlays: true,
   matchupResults: true,
+  closeGame: true,
+  pathToVictory: true,
+  weatherRisk: true,
   lineupUrgency: true,
   injuryStatus: true,
 };

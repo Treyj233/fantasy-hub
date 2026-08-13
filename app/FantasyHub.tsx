@@ -3481,6 +3481,9 @@ function ManageLeagues({
           ["slateStarted", "NFL slate started", "One concise alert when a game window containing relevant players begins."],
           ["bigPlays", "Big plays · 5+ points", "Real play context, fantasy points, league, and estimated matchup impact."],
           ["matchupResults", "Matchup won or lost", "A final result once the fantasy matchup outcome is confirmed."],
+          ["closeGame", "Close matchup", "Your matchup is within 5 points or its live win probability enters the 40–60% range late in the slate."],
+          ["pathToVictory", "Path to victory", "A late-game update showing the player, points, or stat line you still need to win."],
+          ["weatherRisk", "Inclement weather", "Actionable wind, precipitation, temperature, or delay risk before a relevant player’s kickoff."],
           ["lineupUrgency", "Lineup needs attention", "Empty slots, inactive starters, or a relevant game nearing lock."],
           ["injuryStatus", "Important injury changes", "New inactive or major status changes affecting starters."],
         ] as [PushAlertKey, string, string][]).map(([key, title, detail]) => <button type="button" key={key} className={pushPreferences[key] ? "enabled" : ""} aria-pressed={pushPreferences[key]} disabled={pushBusy} onClick={() => void updatePushPreference(key)}><i aria-hidden="true">{pushPreferences[key] ? "✓" : ""}</i><span><strong>{title}</strong><small>{detail}</small></span></button>)}</div>}
