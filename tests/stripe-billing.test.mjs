@@ -8,8 +8,11 @@ test("Stripe Checkout only accepts server-mapped Fantasy Hub plans", async () =>
   assert.match(source, /priceForPlan\(config, payload\.plan\)/);
   assert.match(source, /trial_period_days: 7/);
   assert.doesNotMatch(source, /payload\.priceId/);
-  assert.match(source, /unit_amount !== 2499/);
-  assert.match(source, /recurring\.interval_count !== 6/);
+  assert.match(source, /unit_amount === 2499/);
+  assert.match(source, /recurring\.interval_count === 6/);
+  assert.match(source, /stripe\.prices\.list\(\{ product: productId, active: true, limit: 100 \}\)/);
+  assert.match(source, /stripe\.prices\.create\(/);
+  assert.match(source, /recurring: \{ interval: "month", interval_count: 6 \}/);
   assert.match(source, /existing\?\.provider === "stripe"/);
   assert.match(source, /providerCustomerId\?\.startsWith\("cus_"\)/);
   assert.match(source, /stripeError\.code !== "resource_missing"/);

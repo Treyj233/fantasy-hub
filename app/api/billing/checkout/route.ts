@@ -1,10 +1,40 @@
 import { eq } from "drizzle-orm";
+import Stripe from "stripe";
 import { getDb } from "../../../../db";
 import { subscriptions } from "../../../../db/schema";
 import { getChatGPTUser } from "../../../chatgpt-auth";
 import { getStripe, priceForPlan, type FantasyHubBillingPlan } from "../../../stripe";
 
 const plans = new Set<FantasyHubBillingPlan>(["monthly", "season", "annual"]);
+
+function isSeasonPrice(price: Stripe.Price) {
+  return price.active
+    && price.currency === "usd"
+    && price.unit_amount === 2499
+    && price.recurring?.interval === "month"
+    && price.recurring.interval_count === 6;
+}
+
+async function resolveSeasonPrice(stripe: Stripe, configuredPriceId: string) {
+  const configuredPrice = await stripe.prices.retrieve(configuredPriceId);
+  if (isSeasonPrice(configuredPrice)) return configuredPrice.id;
+
+  const productId = typeof configuredPrice.product === "string"
+    ? configuredPrice.product
+    : configuredPrice.product.id;
+  const prices = await stripe.prices.list({ product: productId, active: true, limit: 100 });
+  const matchingPrice = prices.data.find(isSeasonPrice);
+  if (matchingPrice) return matchingPrice.id;
+
+  const newPrice = await stripe.prices.create({
+    product: productId,
+    currency: "usd",
+    unit_amount: 2499,
+    recurring: { interval: "month", interval_count: 6 },
+    metadata: { fantasyHubPlan: "season" },
+  });
+  return newPrice.id;
+}
 
 export async function POST(request: Request) {
   const user = await getChatGPTUser();
@@ -20,14 +50,10 @@ export async function POST(request: Request) {
 
   try {
     const { stripe, config } = await getStripe();
-    const price = priceForPlan(config, payload.plan);
+    let price = priceForPlan(config, payload.plan);
     if (!price) return Response.json({ error: "This billing plan is not available yet" }, { status: 503 });
     if (payload.plan === "season") {
-      const configuredPrice = await stripe.prices.retrieve(price);
-      if (configuredPrice.currency !== "usd" || configuredPrice.unit_amount !== 2499 || configuredPrice.recurring?.interval !== "month" || configuredPrice.recurring.interval_count !== 6) {
-        console.error("Stripe season price does not match the advertised $24.99 six-month plan");
-        return Response.json({ error: "Season billing is temporarily unavailable" }, { status: 503 });
-      }
+      price = await resolveSeasonPrice(stripe, price);
     }
     const storedStripeCustomerId = existing?.provider === "stripe" && existing.providerCustomerId?.startsWith("cus_")
       ? existing.providerCustomerId
