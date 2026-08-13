@@ -56,5 +56,11 @@ export async function sendApplePush(token: string, notification: { title: string
       path: notification.path ?? "/",
     }),
   });
-  if (!response.ok) throw new Error(`APNs rejected notification (${response.status}): ${await response.text()}`);
+  if (!response.ok) {
+    const detail = await response.text();
+    const error = new Error(`APNs rejected notification (${response.status}): ${detail}`) as Error & { status?: number; reason?: string };
+    error.status = response.status;
+    error.reason = detail;
+    throw error;
+  }
 }

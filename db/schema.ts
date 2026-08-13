@@ -70,6 +70,26 @@ export const pushDevices = sqliteTable("push_devices", {
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });
 
+export const pushAlertDeliveries = sqliteTable("push_alert_deliveries", {
+  eventKey: text("event_key").primaryKey(),
+  userId: text("user_id").notNull(),
+  category: text("category").notNull(),
+  title: text("title").notNull(),
+  sentCount: integer("sent_count").notNull().default(0),
+  failedCount: integer("failed_count").notNull().default(0),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const pushAlertStates = sqliteTable("push_alert_states", {
+  stateKey: text("state_key").primaryKey(),
+  userId: text("user_id").notNull(),
+  leagueKey: text("league_key").notNull(),
+  payloadJson: text("payload_json").notNull().default("{}"),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [
+  uniqueIndex("push_alert_states_user_league").on(table.userId, table.leagueKey),
+]);
+
 export const managedLeagues = sqliteTable("managed_leagues", {
   id: text("id").primaryKey(),
   userId: text("user_id").notNull(),

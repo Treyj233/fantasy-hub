@@ -39,3 +39,16 @@ test("notification preferences are persisted per account", async () => {
   assert.match(route, /export async function PATCH/);
   assert.match(route, /sanitizePushPreferences/);
 });
+
+test("automatic APNs evaluation is scheduled and deduplicated", async () => {
+  const evaluator = await readFile(new URL("../app/api/notifications/run/route.ts", import.meta.url), "utf8");
+  const worker = await readFile(new URL("../push-cron/worker.ts", import.meta.url), "utf8");
+  const config = await readFile(new URL("../push-cron/wrangler.jsonc", import.meta.url), "utf8");
+  assert.match(evaluator, /pushAlertDeliveries/);
+  assert.match(evaluator, /pushAlertStates/);
+  assert.match(evaluator, /delta >= 5/);
+  assert.match(evaluator, /BadDeviceToken\|Unregistered\|DeviceTokenNotForTopic/);
+  assert.match(worker, /async scheduled/);
+  assert.match(worker, /ctx\.waitUntil/);
+  assert.match(config, /"crons": \["\* \* \* \* \*"\]/);
+});
