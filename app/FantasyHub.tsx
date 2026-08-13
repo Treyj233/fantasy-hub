@@ -28,7 +28,7 @@ type View =
   | "Simulator"
   | "Glossary"
   | "Fantasy Hub Pro"
-  | "Access Account"
+  | "My Account"
   | "Manage Leagues";
 type Player = {
   id: string;
@@ -652,7 +652,7 @@ const nav: { label: View; displayLabel?: string; mark: string; tone: string; gro
   { label: "All Leagues", displayLabel: "Mission Hub", mark: "◆", tone: "violet", group: "Portfolio" },
   { label: "Manage Leagues", mark: "⚙", tone: "slate", group: "Portfolio" },
   { label: "Fantasy Hub Pro", displayLabel: "Manage Plans", mark: "P", tone: "gold", group: "Utilities" },
-  { label: "Access Account", mark: "J", tone: "blue", group: "Utilities" },
+  { label: "My Account", mark: "J", tone: "blue", group: "Utilities" },
   { label: "Command Center", mark: "★", tone: "amber", group: "Team Management" },
   { label: "My Team", mark: "♟", tone: "blue", group: "Team Management" },
   { label: "Start / Sit", mark: "⚡", tone: "orange", group: "Team Management" },
@@ -675,7 +675,7 @@ const glossaryDetails: Record<View, { summary: string; use: string }> = {
   "All Leagues": { summary: "Your portfolio-wide Mission Hub, combining urgent lineup, waiver, weather, injury, and trade actions across every connected league.", use: "Open first to see the three most important actions across your portfolio." },
   "Manage Leagues": { summary: "Connect, remove, refresh, and reorder Sleeper or ESPN leagues while managing account and appearance preferences.", use: "Use when adding a league, changing league order, or updating your Hub setup." },
   "Fantasy Hub Pro": { summary: "Compare Free and Pro access, start a subscription, restore an App Store purchase, or manage active billing.", use: "Use to review plans and unlock Fantasy Hub’s proprietary tools." },
-  "Access Account": { summary: "Review account details, subscription status, billing management, notification access, and sign-in controls.", use: "Use to manage your Fantasy Hub account or safely end a subscription." },
+  "My Account": { summary: "Review account details, subscription status, billing management, notification preferences, and sign-in controls.", use: "Use to manage your Fantasy Hub account or safely end a subscription." },
   "Command Center": { summary: "A league-specific briefing that combines roster readiness, matchup edges, priorities, and recommended next moves.", use: "Open before making weekly decisions for one team." },
   "My Team": { summary: "Your complete roster in platform lineup order, separated into starters, bench, IR, and other reserve slots.", use: "Use to review lineup status, player trends, projections, weather, and opponent strength." },
   "Start / Sit": { summary: "Compares realistic lineup decisions using platform projections, floor, median, ceiling, matchup strength, and game-script needs.", use: "Use when two or more eligible players are competing for the same lineup or flex spot." },
@@ -2049,11 +2049,11 @@ export default function FantasyHub({
           </div>
           <div className="top-actions">
             <div className="account-actions">
-              <button className="account-chip account-chip-button" type="button" onClick={() => setView("Access Account")}>
+              <button className="account-chip account-chip-button" type="button" onClick={() => setView("My Account")}>
                 <span>{accountUser.displayName.slice(0, 1).toUpperCase()}</span>
                 <small>
                   {connection?.displayName ?? accountUser.displayName}
-                  <b>Access account</b>
+                  <b>My Account</b>
                 </small>
               </button>
               <div className="account-utility-row">
@@ -2493,7 +2493,7 @@ export default function FantasyHub({
           />
         )}
         {view === "Fantasy Hub Pro" && <ProPlans entitlement={entitlement} />}
-        {view === "Access Account" && <AccessAccount accountUser={accountUser} entitlement={entitlement} onPlans={() => setView("Fantasy Hub Pro")} />}
+        {view === "My Account" && <AccessAccount accountUser={accountUser} entitlement={entitlement} onPlans={() => setView("Fantasy Hub Pro")} />}
       </section>
 
       {selectedPlayer && (
@@ -2684,8 +2684,55 @@ function AccessAccount({ accountUser, entitlement, onPlans }: { accountUser: Acc
   const [billingBusy, setBillingBusy] = useState(false);
   const [billingError, setBillingError] = useState("");
   const [confirmCancel, setConfirmCancel] = useState(false);
+  const [pushEnabled, setPushEnabled] = useState(false);
+  const [pushBusy, setPushBusy] = useState(false);
+  const [pushPreferences, setPushPreferences] = useState<PushPreferences>(DEFAULT_PUSH_PREFERENCES);
+  const [pushMessage, setPushMessage] = useState("");
   const billingProvider = entitlement.provider;
   const recurringBilling = billingProvider === "stripe" || billingProvider === "apple" || billingProvider === "app_store";
+
+  useEffect(() => {
+    if (!nativeIos) return;
+    void fetch("/api/account/push").then((response) => response.ok ? response.json() : null).then((data: { enabled?: boolean; preferences?: PushPreferences } | null) => {
+      setPushEnabled(Boolean(data?.enabled));
+      if (data?.preferences) setPushPreferences(data.preferences);
+    }).catch(() => undefined);
+  }, [nativeIos]);
+
+  async function updatePushPreference(key: PushAlertKey) {
+    const previous = pushPreferences;
+    const next = { ...previous, [key]: !previous[key] };
+    setPushPreferences(next);
+    setPushBusy(true);
+    setPushMessage("");
+    try {
+      const response = await fetch("/api/account/push", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ preferences: next }) });
+      const data = await response.json() as { error?: string; preferences?: PushPreferences };
+      if (!response.ok) throw new Error(data.error ?? "Unable to save notification preferences");
+      if (data.preferences) setPushPreferences(data.preferences);
+      setPushMessage("Notification preferences saved.");
+    } catch (requestError) {
+      setPushPreferences(previous);
+      setPushMessage(requestError instanceof Error ? requestError.message : "Unable to save notification preferences");
+    } finally {
+      setPushBusy(false);
+    }
+  }
+
+  async function togglePush() {
+    setPushBusy(true);
+    setPushMessage("");
+    try {
+      if (pushEnabled) await disableNativePushNotifications();
+      else await enableNativePushNotifications();
+      setPushEnabled(!pushEnabled);
+      setPushMessage(pushEnabled ? "Fantasy Hub notifications are off on this device." : "Fantasy Hub notifications are ready on this device.");
+    } catch (requestError) {
+      setPushMessage(requestError instanceof Error ? requestError.message : "Unable to update notifications");
+    } finally {
+      setPushBusy(false);
+    }
+  }
 
   async function openSubscriptionManagement() {
     setBillingBusy(true);
@@ -2724,8 +2771,23 @@ function AccessAccount({ accountUser, entitlement, onPlans }: { accountUser: Acc
 
   return <div className="page-content access-account-page">
     <section className="access-account-hero">
-      <span>ACCESS ACCOUNT</span><h2>Your Fantasy Hub identity.</h2><p>Account information, membership, billing, and secure access controls in one place.</p>
+      <span>MY ACCOUNT</span><h2>Your Fantasy Hub identity.</h2><p>Account information, membership, notifications, billing, and secure access controls in one place.</p>
     </section>
+    {nativeIos && <section className="native-notifications panel">
+      <header><div><span>NOTIFICATION PREFERENCES</span><h3>Choose what deserves an alert</h3><p>Alerts are grouped by matchup and tied only to leagues saved on this account. Big-play alerts trigger at 5 or more fantasy points.</p></div><button type="button" disabled={pushBusy} aria-pressed={pushEnabled} onClick={() => void togglePush()}>{pushBusy ? "Updating…" : pushEnabled ? "Turn notifications off" : "Enable notifications"}</button></header>
+      {pushEnabled && <div className="notification-types">{([
+        ["kickoffSoon", "15 minutes to kickoff", "A player in your lineup or your opponent’s lineup is about to lock."],
+        ["slateStarted", "NFL slate started", "One concise alert when a game window containing relevant players begins."],
+        ["bigPlays", "Big plays · 5+ points", "Real play context, fantasy points, league, and estimated matchup impact."],
+        ["matchupResults", "Matchup won or lost", "A final result once the fantasy matchup outcome is confirmed."],
+        ["closeGame", "Close matchup", "Your matchup is within 5 points or its live win probability enters the 40–60% range late in the slate."],
+        ["pathToVictory", "Path to victory", "A late-game update showing the player, points, or stat line you still need to win."],
+        ["weatherRisk", "Inclement weather", "Actionable wind, precipitation, temperature, or delay risk before a relevant player’s kickoff."],
+        ["lineupUrgency", "Lineup needs attention", "Empty slots, inactive starters, or a relevant game nearing lock."],
+        ["injuryStatus", "Important injury changes", "New inactive or major status changes affecting starters."],
+      ] as [PushAlertKey, string, string][]).map(([key, title, detail]) => <button type="button" key={key} className={pushPreferences[key] ? "enabled" : ""} aria-pressed={pushPreferences[key]} disabled={pushBusy} onClick={() => void updatePushPreference(key)}><i aria-hidden="true">{pushPreferences[key] ? "✓" : ""}</i><span><strong>{title}</strong><small>{detail}</small></span></button>)}</div>}
+      {pushMessage && <p className="notification-message" role="status">{pushMessage}</p>}
+    </section>}
     <section className="account-settings-grid">
       <article className="panel account-profile-card"><header><span>{accountUser.displayName.slice(0,1).toUpperCase()}</span><div><small>ACCOUNT PROFILE</small><h3>{accountUser.displayName}</h3><p>{accountUser.email}</p></div></header><dl><div><dt>Sign-in provider</dt><dd>{accountUser.provider === "clerk" ? "Fantasy Hub account" : "ChatGPT"}</dd></div><div><dt>Membership</dt><dd>{entitlement.pro ? "Fantasy Hub Pro" : "Fantasy Hub Free"}</dd></div></dl><p className="account-edit-note">Name, email, password, and connected sign-in methods are securely managed by your authentication provider.</p></article>
       <article className="panel account-plan-card"><header><div><small>MEMBERSHIP & BILLING</small><h3>{entitlement.pro ? "Pro is active" : "Free plan"}</h3></div><b className={entitlement.pro ? "active" : "free"}>{entitlement.pro ? "PRO" : "FREE"}</b></header><p>{entitlement.pro ? recurringBilling ? `Your membership is billed through ${billingProvider === "stripe" ? "Fantasy Hub billing" : "the App Store"}.` : "Your account has Pro access without a recurring subscription." : "Upgrade for advanced intelligence, simulations, stories, and customization."}</p><div className="account-plan-actions"><button onClick={onPlans}>{entitlement.pro ? "View Pro benefits" : "Explore Pro plans"}</button>{entitlement.pro && recurringBilling && <button disabled={billingBusy} onClick={() => void openSubscriptionManagement()}>{billingBusy ? "Opening…" : "Manage billing"}</button>}</div>{nativeIos && <button className="restore-purchases-link" type="button" disabled={billingBusy} onClick={() => void restoreAppStorePurchases()}>{billingBusy ? "Checking purchases…" : "Restore App Store purchases"}</button>}{billingError && <p className="billing-error" role="alert">{billingError}</p>}</article>
@@ -2917,10 +2979,6 @@ function ManageLeagues({
   const [success, setSuccess] = useState("");
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
   const [deletingAccount, setDeletingAccount] = useState(false);
-  const nativeIos = useSyncExternalStore(() => () => undefined, isNativeIosApp, () => false);
-  const [pushEnabled, setPushEnabled] = useState(false);
-  const [pushBusy, setPushBusy] = useState(false);
-  const [pushPreferences, setPushPreferences] = useState<PushPreferences>(DEFAULT_PUSH_PREFERENCES);
   const [pairing, setPairing] = useState<{ code: string; expiresAt: string } | null>(null);
   const [espnSelection, setEspnSelection] = useState<{ id: string; name: string; season: string; teams: { id: string; name: string; managerName: string }[] } | null>(null);
   const providers: {
@@ -3018,45 +3076,6 @@ function ManageLeagues({
     }
   }
 
-  useEffect(() => {
-    if (!nativeIos) return;
-    void fetch("/api/account/push").then((response) => response.ok ? response.json() : null).then((data: { enabled?: boolean; preferences?: PushPreferences } | null) => {
-      setPushEnabled(Boolean(data?.enabled));
-      if (data?.preferences) setPushPreferences(data.preferences);
-    }).catch(() => undefined);
-  }, [nativeIos]);
-
-  async function updatePushPreference(key: PushAlertKey) {
-    const next = { ...pushPreferences, [key]: !pushPreferences[key] };
-    setPushPreferences(next);
-    setPushBusy(true);
-    try {
-      const response = await fetch("/api/account/push", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ preferences: next }) });
-      const data = await response.json() as { error?: string; preferences?: PushPreferences };
-      if (!response.ok) throw new Error(data.error ?? "Unable to save notification preferences");
-      if (data.preferences) setPushPreferences(data.preferences);
-    } catch (requestError) {
-      setPushPreferences(pushPreferences);
-      setError(requestError instanceof Error ? requestError.message : "Unable to save notification preferences");
-    } finally {
-      setPushBusy(false);
-    }
-  }
-
-  async function togglePush() {
-    setPushBusy(true);
-    setError("");
-    try {
-      if (pushEnabled) await disableNativePushNotifications();
-      else await enableNativePushNotifications();
-      setPushEnabled(!pushEnabled);
-      setSuccess(pushEnabled ? "Fantasy Hub notifications are off on this device." : "Fantasy Hub notifications are ready on this device.");
-    } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : "Unable to update notifications");
-    } finally {
-      setPushBusy(false);
-    }
-  }
 
   return (
     <div className="page-content manage-leagues">
@@ -3474,20 +3493,6 @@ function ManageLeagues({
           </div>
         )}
       </section>
-      {nativeIos && <section className="native-notifications panel">
-        <header><div><span>GAME-DAY NOTIFICATIONS</span><h3>Choose what deserves an alert</h3><p>Alerts are grouped by matchup and tied only to leagues saved on this account. Big-play alerts trigger at 5 or more fantasy points.</p></div><button type="button" disabled={pushBusy} aria-pressed={pushEnabled} onClick={() => void togglePush()}>{pushBusy ? "Updating…" : pushEnabled ? "Turn notifications off" : "Enable notifications"}</button></header>
-        {pushEnabled && <div className="notification-types">{([
-          ["kickoffSoon", "15 minutes to kickoff", "A player in your lineup or your opponent’s lineup is about to lock."],
-          ["slateStarted", "NFL slate started", "One concise alert when a game window containing relevant players begins."],
-          ["bigPlays", "Big plays · 5+ points", "Real play context, fantasy points, league, and estimated matchup impact."],
-          ["matchupResults", "Matchup won or lost", "A final result once the fantasy matchup outcome is confirmed."],
-          ["closeGame", "Close matchup", "Your matchup is within 5 points or its live win probability enters the 40–60% range late in the slate."],
-          ["pathToVictory", "Path to victory", "A late-game update showing the player, points, or stat line you still need to win."],
-          ["weatherRisk", "Inclement weather", "Actionable wind, precipitation, temperature, or delay risk before a relevant player’s kickoff."],
-          ["lineupUrgency", "Lineup needs attention", "Empty slots, inactive starters, or a relevant game nearing lock."],
-          ["injuryStatus", "Important injury changes", "New inactive or major status changes affecting starters."],
-        ] as [PushAlertKey, string, string][]).map(([key, title, detail]) => <button type="button" key={key} className={pushPreferences[key] ? "enabled" : ""} aria-pressed={pushPreferences[key]} disabled={pushBusy} onClick={() => void updatePushPreference(key)}><i aria-hidden="true">{pushPreferences[key] ? "✓" : ""}</i><span><strong>{title}</strong><small>{detail}</small></span></button>)}</div>}
-      </section>}
       <section className="account-danger-zone panel">
         <div>
           <span>ACCOUNT &amp; PRIVACY</span>
