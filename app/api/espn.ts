@@ -164,7 +164,7 @@ export function normalizeEspnScoreboard(payload: EspnPayload, ownedRosterId: str
       if (!player) return [];
       const role = slotById[entry.lineupSlotId ?? 20] ?? "Bench";
       const isStarter = !["Bench", "IR"].includes(role);
-      return [{ id: `espn-player:${player.id ?? 0}`, name: player.fullName ?? "ESPN Player", position: positionById[player.defaultPositionId ?? 0] ?? "FLEX", lineupSlot: isStarter ? role : "BN", lineupOrder: isStarter ? index : 100 + index, nflTeam: nflTeamById[player.proTeamId ?? 0] ?? "FA", points: actualPoints(player, week), projection: projection(player, week), isStarter, yards: 0, touchdowns: 0, receptions: 0, targets: 0 }];
+      return [{ id: `espn-player:${player.id ?? 0}`, name: player.fullName ?? "ESPN Player", position: positionById[player.defaultPositionId ?? 0] ?? "FLEX", lineupSlot: isStarter ? role : "BN", lineupOrder: isStarter ? index : 100 + index, nflTeam: nflTeamById[player.proTeamId ?? 0] ?? "FA", points: actualPoints(player, week), projection: projection(player, week), isStarter, yards: 0, touchdowns: 0, receptions: 0, targets: 0, offensiveTurnovers: 0, defensiveTurnovers: 0, returnTouchdowns: 0, fieldGoals: 0 }];
     }).sort((a, b) => a.lineupOrder - b.lineupOrder);
     return { rosterId: String(team?.id ?? ""), ownerId: ownerId || null, managerName: owner?.displayName ?? (`${owner?.firstName ?? ""} ${owner?.lastName ?? ""}`.trim() || "ESPN Manager"), teamName: team ? teamName(team) : "ESPN Team", points: Number((side?.totalPoints ?? topPlayers.filter((player) => player.isStarter).reduce((sum, player) => sum + player.points, 0)).toFixed(2)), isMine: String(team?.id ?? "") === ownedRosterId, topPlayers };
   };

@@ -4,6 +4,7 @@ import { Fragment, createContext, useContext, useEffect, useMemo, useRef, useSta
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { estimatedWinProbability, playerLeverage, rootingInterests, whatDoINeed } from "./game-day-model.mjs";
+import { classifyFantasyPlay, matchupImpactText } from "./live-play-alerts.mjs";
 import { PRE_KICKOFF_VISUALS, PRE_KICKOFF_VISUALS_ENABLED } from "./pre-kickoff-visuals";
 import { disableNativePushNotifications, enableNativePushNotifications, initializeNativeRuntime, isNativeIosApp, nativeManageSubscriptions, nativePurchase, nativeRefreshPurchases, nativeRestorePurchases, nativeStoreProducts } from "./native-runtime";
 
@@ -438,6 +439,10 @@ type ScoreboardPlayer = {
   touchdowns: number;
   receptions: number;
   targets: number;
+  offensiveTurnovers: number;
+  defensiveTurnovers: number;
+  returnTouchdowns: number;
+  fieldGoals: number;
 };
 
 function playerTemperature(player: ScoreboardPlayer, matchupStatus: string) {
@@ -4303,7 +4308,7 @@ function AllLeagueScoreboard({
   const [swingFeed, setSwingFeed] = useState<{ id: string; league: string; text: string; previous: number; current: number; at: string }[]>([]);
   const [pulseEvents, setPulseEvents] = useState<{ id: string; text: string; impact: "helps" | "hurts"; at: string }[]>([]);
   const previousOdds = useRef<Record<string, number>>({});
-  const previousPulseSnapshot = useRef<Record<string, { points: number; yards: number; touchdowns: number; receptions: number }>>({});
+  const previousPulseSnapshot = useRef<Record<string, { points: number; yards: number; touchdowns: number; receptions: number; offensiveTurnovers: number; defensiveTurnovers: number; returnTouchdowns: number; fieldGoals: number }>>({});
   const previousPulseOdds = useRef<Record<string, number | null>>({});
   const savedWinPathPayloads = useRef<Record<string, string>>({});
   useEffect(() => {
@@ -4360,28 +4365,16 @@ function AllLeagueScoreboard({
         matchup.teams.forEach((team) => team.topPlayers.filter((player) => player.isStarter).forEach((player) => {
           const key = `${leagueId}:${team.rosterId}:${player.id}`;
           const previous = previousPulseSnapshot.current[key];
-          nextSnapshot[key] = { points: player.points, yards: player.yards, touchdowns: player.touchdowns, receptions: player.receptions };
+          nextSnapshot[key] = { points: player.points, yards: player.yards, touchdowns: player.touchdowns, receptions: player.receptions, offensiveTurnovers: player.offensiveTurnovers ?? 0, defensiveTurnovers: player.defensiveTurnovers ?? 0, returnTouchdowns: player.returnTouchdowns ?? 0, fieldGoals: player.fieldGoals ?? 0 };
           const pointDelta = previous ? player.points - previous.points : 0;
-          if (status !== "live" || !previous || pointDelta <= .01) return;
+          if (status !== "live" || !previous) return;
+          const classified = classifyFantasyPlay(previous, nextSnapshot[key]);
+          if (!classified.qualifies) return;
           const impact = team.isMine ? "helps" as const : "hurts" as const;
-          const touchdownDelta = player.touchdowns - previous.touchdowns;
-          const receptionDelta = player.receptions - previous.receptions;
-          const yardDelta = player.yards - previous.yards;
-          const play = touchdownDelta > 0
-            ? `${touchdownDelta > 1 ? `${touchdownDelta} touchdowns` : "a touchdown"}`
-            : receptionDelta > 0 && yardDelta > 0
-              ? `${receptionDelta > 1 ? `${receptionDelta} catches` : "a catch"} for ${yardDelta} yards`
-              : yardDelta > 0
-                ? `${yardDelta} new yards`
-                : `${pointDelta.toFixed(1)} fantasy points`;
           const previousOdds = previousPulseOdds.current[leagueId];
-          const oddsChange = previousOdds != null && currentOdds != null
-            ? ` Win outlook ${currentOdds > previousOdds ? "rose" : currentOdds < previousOdds ? "fell" : "holds"} at ${currentOdds}%.`
-            : "";
-          const scoreImplication = team.isMine
-            ? mine.points >= opponent.points ? ` You now lead ${mine.points.toFixed(1)}–${opponent.points.toFixed(1)}.` : ` Your deficit is ${Math.abs(mine.points - opponent.points).toFixed(1)}.`
-            : mine.points >= opponent.points ? ` Your lead is ${Math.abs(mine.points - opponent.points).toFixed(1)}.` : ` You now trail ${mine.points.toFixed(1)}–${opponent.points.toFixed(1)}.`;
-          scoringEvents.push({ id: `${key}:${player.points}:${Date.now()}`, impact, delta: pointDelta, at: new Date().toISOString(), text: `${impact === "helps" ? "📈" : "📉"} ${player.name}: ${play} ${impact === "helps" ? "for you" : "for your opponent"} in ${league.name}.${scoreImplication}${oddsChange}` });
+          const matchupImpact = matchupImpactText({ isMine: team.isMine, yourPoints: mine.points, opponentPoints: opponent.points, previousOdds, currentOdds });
+          const pointsLabel = classified.fantasyPoints === 0 ? "" : ` (${classified.fantasyPoints > 0 ? "+" : ""}${classified.fantasyPoints.toFixed(1)} pts)`;
+          scoringEvents.push({ id: `${key}:${player.points}:${Date.now()}`, impact, delta: Math.max(Math.abs(pointDelta), classified.kind === "turnover" ? 3 : 0), at: new Date().toISOString(), text: `${impact === "helps" ? "📈" : "📉"} ${player.name}: ${classified.description}${pointsLabel} in ${league.name}. ${matchupImpact}` });
         }));
       });
       previousPulseSnapshot.current = nextSnapshot;
