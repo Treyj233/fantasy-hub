@@ -1109,13 +1109,14 @@ html[data-theme="dark"] .manage-leagues .connection-status.live{color:#dfffee!im
   .portfolio-action-list strong{margin-top:2px;font-size:12px}
   .portfolio-action-list small{margin-top:2px;font-size:9px!important;line-height:1.3}
   .portfolio-action-list button{grid-column:2;justify-self:start;padding:6px 8px}
-  .action-queue-groups{display:flex;gap:8px;overflow-x:auto;padding:8px;scroll-snap-type:x proximity}
-  .action-queue-groups>section{min-width:86%;scroll-snap-align:start}
+  .action-queue-groups{display:flex;gap:8px;overflow-x:auto;padding:8px;overscroll-behavior-inline:contain;scroll-padding-inline:8px;scroll-snap-type:x mandatory}
+  .action-queue-groups>section{flex:0 0 100%;min-width:100%;scroll-snap-align:start;scroll-snap-stop:always}
   .action-queue-groups>section>header{padding:9px 10px}
   .action-queue-groups button{grid-template-columns:29px minmax(0,1fr) auto;gap:7px;padding:9px 10px}
   .action-queue-groups button>i{width:29px;height:29px}
   .action-queue-groups button strong{font-size:11px}
   .action-queue-groups button small{margin-top:2px;font-size:9px!important;line-height:1.3}
+  .action-queue-groups button em{padding:3px 5px;border:1px solid currentColor;border-radius:6px;font-size:7px;line-height:1}
 
   .projection-source{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;margin-bottom:9px;padding:10px 11px}
   .projection-source>div:first-child small{display:-webkit-box;overflow:hidden;-webkit-box-orient:vertical;-webkit-line-clamp:1}
@@ -1131,7 +1132,7 @@ html[data-theme="dark"] .manage-leagues .connection-status.live{color:#dfffee!im
 }
 @media(max-width:390px){
   .waiver-grid{grid-template-columns:1fr}
-  .action-queue-groups>section{min-width:92%}
+  .action-queue-groups>section{min-width:100%}
 }
 
 /* League Stories: a playful league-magazine treatment with disciplined text
