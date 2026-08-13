@@ -3563,6 +3563,7 @@ function AllLeagues({
   const [scanCompleted, setScanCompleted] = useState(0);
   const lastAutomaticScan = useRef("");
   const cachedScansRef = useRef(cachedScans);
+  const leagueScanSignature = leagues.map((league) => league.id).sort().join(":");
   const scanIsActive = loading || (leagues.length > 0 && scans.length < leagues.length);
   const estimatedScanProgress = useEstimatedLoadingProgress(scanIsActive);
   const completedScanProgress =
@@ -3595,13 +3596,12 @@ function AllLeagues({
       setLoading(false);
     }, 0);
     return () => window.clearTimeout(cachedStateTimer);
-  }, [leagues, cachedScans]);
+  }, [leagueScanSignature, cachedScans, leagues]);
 
   useEffect(() => {
     if (!leagues.length) return;
-    const scanSignature = leagues.map((league) => league.id).sort().join(":");
-    if (refreshKey === 0 && lastAutomaticScan.current === scanSignature) return;
-    lastAutomaticScan.current = scanSignature;
+    if (refreshKey === 0 && lastAutomaticScan.current === leagueScanSignature) return;
+    lastAutomaticScan.current = leagueScanSignature;
     const leagueIds = new Set(leagues.map((league) => league.id));
     const cachedAtScanStart = cachedScansRef.current;
     const cacheMatches =
@@ -3949,7 +3949,10 @@ function AllLeagues({
       controller.abort();
       if (loadingTimer != null) window.clearTimeout(loadingTimer);
     };
-  }, [leagues, refreshKey, onScansChange]);
+    // League objects can be re-created during unrelated account renders. The
+    // stable ID signature prevents those renders from aborting an active scan.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [leagueScanSignature, refreshKey, onScansChange]);
 
   const issueCount = scans.reduce((sum, scan) => sum + scan.issues.length, 0);
   const urgentCount = scans.reduce(
