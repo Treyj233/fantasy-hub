@@ -3509,6 +3509,14 @@ function AllLeagues({
     const cacheMatches =
       cachedScans.length === leagues.length &&
       cachedScans.every((scan) => leagueIds.has(scan.league.id));
+    if (refreshKey === 0 && cacheMatches) {
+      const cachedStateTimer = window.setTimeout(() => {
+        setScans(cachedScans);
+        setScanCompleted(leagues.length);
+        setLoading(false);
+      }, 0);
+      return () => window.clearTimeout(cachedStateTimer);
+    }
     const controller = new AbortController();
     const loadingTimer = cacheMatches && refreshKey === 0
       ? undefined
@@ -3525,7 +3533,7 @@ function AllLeagues({
           for (let attempt = 0; attempt < 3; attempt += 1) {
             try {
               leagueResponse = await fetchWithTimeout(
-                `/api/league?id=${encodeURIComponent(league.id)}`,
+                `/api/league?id=${encodeURIComponent(league.id)}${refreshKey > 0 ? "&refresh=1" : ""}`,
                 { signal: controller.signal },
                 15_000,
               );

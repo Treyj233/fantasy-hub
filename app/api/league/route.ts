@@ -13,6 +13,7 @@ type MatchupRow = { roster_id?: number; matchup_id?: number | null };
 type AdpRow = { player?: { name?: string }; avg?: number; src_79?: number; src_4350?: number; src_80?: number; src_439?: number; src_624?: number };
 
 const LEAGUE_PAYLOAD_VERSION = 2;
+const LEAGUE_SNAPSHOT_TTL_MS = 30 * 60 * 1000;
 const isCurrentFantasyPlayer = (player: SourcePlayer) => {
   const status = (player.status ?? "").trim().toLowerCase();
   return Boolean(player.team) && !/(retired|inactive|deceased)/.test(status);
@@ -41,7 +42,7 @@ export async function GET(request: Request) {
   const db = await getDb();
   if (!forceRefresh) {
     const [snapshot] = await db.select().from(leagueDataSnapshots).where(and(eq(leagueDataSnapshots.userId, user.userId), eq(leagueDataSnapshots.leagueKey, id))).limit(1);
-    if (snapshot && Date.now() - new Date(snapshot.refreshedAt).getTime() < 5 * 60 * 1000) {
+    if (snapshot && Date.now() - new Date(snapshot.refreshedAt).getTime() < LEAGUE_SNAPSHOT_TTL_MS) {
       try {
         const cached = JSON.parse(snapshot.payloadJson) as { payloadVersion?: number };
         if (cached.payloadVersion === LEAGUE_PAYLOAD_VERSION)
