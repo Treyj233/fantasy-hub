@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { classifyFantasyPlay, matchupImpactText } from "../app/live-play-alerts.mjs";
+import { classifyFantasyPlay, espnPlayerToken, findEspnPlayContext, matchupImpactText } from "../app/live-play-alerts.mjs";
 
 const baseline = { points: 4, yards: 30, touchdowns: 0, receptions: 2, offensiveTurnovers: 0, defensiveTurnovers: 0, returnTouchdowns: 0, fieldGoals: 0 };
 
@@ -28,4 +28,18 @@ test("matchup impact names direction, score, and win probability movement", () =
   assert.match(text, /Helps your lineup/);
   assert.match(text, /lead by 3.0/);
   assert.match(text, /rose 9 points to 57%/);
+});
+
+test("ESPN context matches abbreviated player names and the correct NFL team", () => {
+  assert.equal(espnPlayerToken("Ja'Marr Chase"), "jchase");
+  const plays = [
+    { id: "1", text: "J.Chase pass complete for 60 yards, TOUCHDOWN.", offenseTeam: "CIN", defenseTeam: "BAL" },
+    { id: "2", text: "J.Chase pass complete for 8 yards.", offenseTeam: "OTHER", defenseTeam: "BAL" },
+  ];
+  assert.equal(findEspnPlayContext({ name: "Ja'Marr Chase", nflTeam: "CIN", position: "WR" }, plays, "offense")?.id, "1");
+});
+
+test("ESPN context maps defensive takeaways by team", () => {
+  const play = { id: "pick", text: "Pass intercepted and returned 24 yards.", offenseTeam: "PIT", defenseTeam: "CIN", isTurnover: true };
+  assert.equal(findEspnPlayContext({ name: "Cincinnati Bengals", nflTeam: "CIN", position: "DEF" }, [play], "turnover")?.id, "pick");
 });

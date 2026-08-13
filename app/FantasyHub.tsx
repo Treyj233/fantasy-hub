@@ -4,7 +4,7 @@ import { Fragment, createContext, useContext, useEffect, useMemo, useRef, useSta
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { estimatedWinProbability, playerLeverage, rootingInterests, whatDoINeed } from "./game-day-model.mjs";
-import { classifyFantasyPlay, matchupImpactText } from "./live-play-alerts.mjs";
+import { classifyFantasyPlay, findEspnPlayContext, matchupImpactText } from "./live-play-alerts.mjs";
 import { PRE_KICKOFF_VISUALS, PRE_KICKOFF_VISUALS_ENABLED } from "./pre-kickoff-visuals";
 import { disableNativePushNotifications, enableNativePushNotifications, initializeNativeRuntime, isNativeIosApp, nativeManageSubscriptions, nativePurchase, nativeRefreshPurchases, nativeRestorePurchases, nativeStoreProducts } from "./native-runtime";
 
@@ -473,6 +473,20 @@ type ScoreboardData = {
   week: number;
   updatedAt: string;
   matchups: { matchupId: number; status: string; teams: ScoreboardTeam[] }[];
+};
+type EspnPlayContext = {
+  id: string;
+  gameId: string;
+  text: string;
+  type: string;
+  yardage: number;
+  scoringPlay: boolean;
+  isTurnover: boolean;
+  period: number;
+  clock: string;
+  at: string;
+  offenseTeam: string;
+  defenseTeam: string;
 };
 type NflImpactPlayer = {
   id: string;
@@ -4318,19 +4332,24 @@ function AllLeagueScoreboard({
     previousPulseOdds.current = {};
     const refresh = async () => {
       setLoading(true);
-      const results = await mapWithConcurrency(
-        leagues,
-        3,
-        async (league) => {
-          try {
-            const response = await fetch(`/api/scoreboard?leagueId=${encodeURIComponent(league.id)}&week=${week}`);
-            if (!response.ok) return [league.id, null] as const;
-            return [league.id, await response.json() as ScoreboardData] as const;
-          } catch {
-            return [league.id, null] as const;
-          }
-        },
-      );
+      const [results, espnPlays] = await Promise.all([
+        mapWithConcurrency(
+          leagues,
+          3,
+          async (league) => {
+            try {
+              const response = await fetch(`/api/scoreboard?leagueId=${encodeURIComponent(league.id)}&week=${week}`);
+              if (!response.ok) return [league.id, null] as const;
+              return [league.id, await response.json() as ScoreboardData] as const;
+            } catch {
+              return [league.id, null] as const;
+            }
+          },
+        ),
+        fetch(`/api/nfl-plays?season=${encodeURIComponent(leagues[0]?.season ?? String(new Date().getFullYear()))}&week=${week}`)
+          .then(async (response) => response.ok ? (await response.json() as { plays?: EspnPlayContext[] }).plays ?? [] : [])
+          .catch(() => [] as EspnPlayContext[]),
+      ]);
       if (!active) return;
       const hadPulseBaseline = Object.keys(previousPulseSnapshot.current).length > 0;
       const nextSnapshot: typeof previousPulseSnapshot.current = {};
@@ -4374,7 +4393,10 @@ function AllLeagueScoreboard({
           const previousOdds = previousPulseOdds.current[leagueId];
           const matchupImpact = matchupImpactText({ isMine: team.isMine, yourPoints: mine.points, opponentPoints: opponent.points, previousOdds, currentOdds });
           const pointsLabel = classified.fantasyPoints === 0 ? "" : ` (${classified.fantasyPoints > 0 ? "+" : ""}${classified.fantasyPoints.toFixed(1)} pts)`;
-          scoringEvents.push({ id: `${key}:${player.points}:${Date.now()}`, impact, delta: Math.max(Math.abs(pointDelta), classified.kind === "turnover" ? 3 : 0), at: new Date().toISOString(), text: `${impact === "helps" ? "📈" : "📉"} ${player.name}: ${classified.description}${pointsLabel} in ${league.name}. ${matchupImpact}` });
+          const playContext = findEspnPlayContext(player, espnPlays, classified.kind);
+          const playDescription = playContext?.text ?? `${player.name}: ${classified.description}`;
+          const gameClock = playContext && playContext.period ? ` Q${playContext.period}${playContext.clock ? ` ${playContext.clock}` : ""}.` : "";
+          scoringEvents.push({ id: `${key}:${player.points}:${playContext?.id ?? Date.now()}`, impact, delta: Math.max(Math.abs(pointDelta), classified.kind === "turnover" ? 3 : 0), at: new Date().toISOString(), text: `${impact === "helps" ? "📈" : "📉"} ${playDescription}${pointsLabel} in ${league.name}.${gameClock} ${matchupImpact}` });
         }));
       });
       previousPulseSnapshot.current = nextSnapshot;

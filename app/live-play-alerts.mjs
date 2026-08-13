@@ -40,3 +40,22 @@ export function matchupImpactText({ isMine, yourPoints, opponentPoints, previous
     : ` Win outlook ${oddsDelta > 0 ? "rose" : "fell"} ${Math.abs(oddsDelta)} points to ${currentOdds}%.`;
   return `${isMine ? "Helps your lineup." : "Helps your opponent."} ${score}${odds}`;
 }
+
+const normalized = (value) => String(value ?? "").toLowerCase().replaceAll(/[^a-z0-9]/g, "");
+
+export function espnPlayerToken(name) {
+  const parts = String(name ?? "").trim().split(/\s+/).filter(Boolean);
+  if (parts.length < 2) return normalized(name);
+  return normalized(`${parts[0][0]}.${parts.at(-1)}`);
+}
+
+export function findEspnPlayContext(player, plays, kind) {
+  const token = espnPlayerToken(player?.name);
+  const team = String(player?.nflTeam ?? "").toUpperCase();
+  return plays.find((play) => {
+    const offenseMatch = !play.offenseTeam || play.offenseTeam === team;
+    const defenseMatch = !play.defenseTeam || play.defenseTeam === team;
+    if (player?.position === "DEF" && kind === "turnover") return Boolean(play.isTurnover && defenseMatch);
+    return Boolean(token && normalized(play.text).includes(token) && (offenseMatch || defenseMatch));
+  }) ?? null;
+}
