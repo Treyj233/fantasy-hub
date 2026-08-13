@@ -42,12 +42,24 @@ function base64Url(bytes: Uint8Array) {
 }
 
 function privateKeyBytes(value: string) {
-  const encoded = value
-    .replace(/-----BEGIN PRIVATE KEY-----/g, "")
-    .replace(/-----END PRIVATE KEY-----/g, "")
-    .replace(/\s/g, "");
-  if (!encoded) throw new Error("App Store private key is invalid");
-  return Uint8Array.from(atob(encoded), (character) => character.charCodeAt(0));
+  let normalized = value.trim();
+  if (normalized.startsWith('"') && normalized.endsWith('"')) {
+    try {
+      normalized = JSON.parse(normalized) as string;
+    } catch {
+      throw new Error("App Store private key has invalid quoting");
+    }
+  }
+  normalized = normalized.replace(/\\r/g, "").replace(/\\n/g, "\n").trim();
+  const match = normalized.match(/-----BEGIN PRIVATE KEY-----\s*([A-Za-z0-9+/=\s]+?)\s*-----END PRIVATE KEY-----/);
+  const encoded = (match?.[1] ?? normalized).replace(/\s/g, "");
+  if (!encoded || !/^[A-Za-z0-9+/]+={0,2}$/.test(encoded) || encoded.length % 4 !== 0)
+    throw new Error("App Store private key is not valid PKCS#8 PEM data");
+  try {
+    return Uint8Array.from(atob(encoded), (character) => character.charCodeAt(0));
+  } catch {
+    throw new Error("App Store private key could not be decoded");
+  }
 }
 
 async function appStoreToken(config: AppleRuntimeConfig) {

@@ -71,6 +71,9 @@ test("Apple verification performs request-scoped authenticated API calls", async
   assert.doesNotMatch(source, /@apple\/app-store-server-library/);
   assert.match(source, /crypto\.subtle\.importKey/);
   assert.match(source, /crypto\.subtle\.sign/);
+  assert.match(source, /JSON\.parse\(normalized\)/);
+  assert.match(source, /BEGIN PRIVATE KEY/);
+  assert.match(source, /not valid PKCS#8 PEM data/);
   assert.match(source, /aud: "appstoreconnect-v1"/);
   assert.match(source, /api\.storekit-sandbox\.itunes\.apple\.com/);
   assert.match(source, /payload\.bundleId !== config\.bundleId/);
