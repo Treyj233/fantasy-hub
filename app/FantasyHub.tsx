@@ -8332,8 +8332,8 @@ function TradeLab({
   const [selectedId, setSelectedId] = useState(opponents[0]?.id ?? "");
   const [styles, setStyles] = useState<Record<string, TradeStyle>>({});
   const [activeSuggestionId, setActiveSuggestionId] = useState("");
-  const [calculatorSendId, setCalculatorSendId] = useState("");
-  const [calculatorReceiveId, setCalculatorReceiveId] = useState("");
+  const [calculatorSendIds, setCalculatorSendIds] = useState<string[]>([]);
+  const [calculatorReceiveIds, setCalculatorReceiveIds] = useState<string[]>([]);
   const partner =
     opponents.find((team) => team.id === selectedId) ?? opponents[0];
   const partnerStyle = partner ? (styles[partner.id] ?? "Neutral") : "Neutral";
@@ -8356,8 +8356,8 @@ function TradeLab({
   function selectPartner(id: string) {
     setSelectedId(id);
     setActiveSuggestionId("");
-    setCalculatorSendId("");
-    setCalculatorReceiveId("");
+    setCalculatorSendIds([]);
+    setCalculatorReceiveIds([]);
   }
   function updateStyle(style: TradeStyle) {
     if (!partner) return;
@@ -8397,28 +8397,41 @@ function TradeLab({
   const eligiblePartnerPlayers = partner.roster.filter(
     (player) => !["K", "DEF"].includes(player.position),
   );
-  const effectiveSendId =
-    calculatorSendId ||
-    suggestion?.send[0]?.id ||
-    eligibleYourPlayers[0]?.id ||
-    "";
-  const effectiveReceiveId =
-    calculatorReceiveId ||
-    suggestion?.receive[0]?.id ||
-    eligiblePartnerPlayers[0]?.id ||
-    "";
-  const calculatorSend = yourTeam.roster.find(
-    (player) => player.id === effectiveSendId,
-  );
-  const calculatorReceive = partner.roster.find(
-    (player) => player.id === effectiveReceiveId,
-  );
-  const calculatorSendAsset = calculatorSend
-    ? tradeAsset(calculatorSend, rankingById, tradeFormat)
-    : null;
-  const calculatorReceiveAsset = calculatorReceive
-    ? tradeAsset(calculatorReceive, rankingById, tradeFormat)
-    : null;
+  const pickAsset = (pick: DraftPick): TradeAssetValue => ({
+    id: `pick:${pick.season}:${pick.round}:${pick.originalRosterId}`,
+    name: `${pick.season} Round ${pick.round} pick`,
+    position: "PICK",
+    team: "Draft capital",
+    meta: `Originally roster ${pick.originalRosterId}`,
+    value: pick.value,
+    trueTalent: pick.value,
+    currentOverall: pick.value,
+    dynastyOverall: pick.value,
+    confidence: "High",
+  });
+  const yourTradeAssets = [
+    ...eligibleYourPlayers.map((player) => tradeAsset(player, rankingById, tradeFormat)),
+    ...(yourTeam.draftCapital?.picks ?? []).map(pickAsset),
+  ];
+  const partnerTradeAssets = [
+    ...eligiblePartnerPlayers.map((player) => tradeAsset(player, rankingById, tradeFormat)),
+    ...(partner.draftCapital?.picks ?? []).map(pickAsset),
+  ];
+  const effectiveSendIds = calculatorSendIds.length
+    ? calculatorSendIds
+    : suggestion?.send.map((asset) => asset.id) ?? eligibleYourPlayers.slice(0, 1).map((player) => player.id);
+  const effectiveReceiveIds = calculatorReceiveIds.length
+    ? calculatorReceiveIds
+    : suggestion?.receive.map((asset) => asset.id) ?? eligiblePartnerPlayers.slice(0, 1).map((player) => player.id);
+  const calculatorSendAssets = yourTradeAssets.filter((asset) => effectiveSendIds.includes(asset.id));
+  const calculatorReceiveAssets = partnerTradeAssets.filter((asset) => effectiveReceiveIds.includes(asset.id));
+  const calculatorSendPlayers = yourTeam.roster.filter((player) => effectiveSendIds.includes(player.id));
+  const calculatorReceivePlayers = partner.roster.filter((player) => effectiveReceiveIds.includes(player.id));
+  const toggleCalculatorAsset = (side: "send" | "receive", id: string) => {
+    const setIds = side === "send" ? setCalculatorSendIds : setCalculatorReceiveIds;
+    const effectiveIds = side === "send" ? effectiveSendIds : effectiveReceiveIds;
+    setIds(effectiveIds.includes(id) ? effectiveIds.filter((assetId) => assetId !== id) : [...effectiveIds, id].slice(0, 6));
+  };
   const calculatorYourBefore = tradeRosterStrength(
     yourTeam.roster,
     rankingById,
@@ -8430,35 +8443,37 @@ function TradeLab({
     context,
   );
   const calculatorYourAfter =
-    calculatorSend && calculatorReceive
+    calculatorSendAssets.length && calculatorReceiveAssets.length
       ? tradeRosterStrength(
           [
             ...yourTeam.roster.filter(
-              (player) => player.id !== calculatorSend.id,
+              (player) => !effectiveSendIds.includes(player.id),
             ),
-            calculatorReceive,
+            ...calculatorReceivePlayers,
           ],
           rankingById,
           context,
-        )
+        ) + (calculatorReceiveAssets.filter((asset) => asset.position === "PICK").reduce((sum, asset) => sum + asset.value, 0) - calculatorSendAssets.filter((asset) => asset.position === "PICK").reduce((sum, asset) => sum + asset.value, 0)) * .15
       : calculatorYourBefore;
   const calculatorPartnerAfter =
-    calculatorSend && calculatorReceive
+    calculatorSendAssets.length && calculatorReceiveAssets.length
       ? tradeRosterStrength(
           [
             ...partner.roster.filter(
-              (player) => player.id !== calculatorReceive.id,
+              (player) => !effectiveReceiveIds.includes(player.id),
             ),
-            calculatorSend,
+            ...calculatorSendPlayers,
           ],
           rankingById,
           context,
-        )
+        ) + (calculatorSendAssets.filter((asset) => asset.position === "PICK").reduce((sum, asset) => sum + asset.value, 0) - calculatorReceiveAssets.filter((asset) => asset.position === "PICK").reduce((sum, asset) => sum + asset.value, 0)) * .15
       : calculatorPartnerBefore;
+  const calculatorSendValue = calculatorSendAssets.reduce((sum, asset) => sum + asset.value, 0);
+  const calculatorReceiveValue = calculatorReceiveAssets.reduce((sum, asset) => sum + asset.value, 0);
   const calculatorGap =
-    calculatorSendAsset && calculatorReceiveAsset
-      ? Math.abs(calculatorSendAsset.value - calculatorReceiveAsset.value) /
-        Math.max(1, calculatorReceiveAsset.value)
+    calculatorSendAssets.length && calculatorReceiveAssets.length
+      ? Math.abs(calculatorSendValue - calculatorReceiveValue) /
+        Math.max(1, calculatorReceiveValue)
       : 1;
   const calculatorMutual =
     calculatorYourAfter >= calculatorYourBefore &&
@@ -8478,9 +8493,9 @@ function TradeLab({
     calculatorPartnerAfter - calculatorPartnerBefore >= calculatorProfile.partnerGain &&
     calculatorOfferRatio >= calculatorProfile.offerRatio;
   const calculatorViability =
-    !calculatorSend || !calculatorReceive
-      ? "Select players"
-      : calculatorSend.position === "TE" && calculatorReceive.position === "TE"
+    !calculatorSendAssets.length || !calculatorReceiveAssets.length
+      ? "Select assets"
+      : calculatorSendPlayers.length === 1 && calculatorReceivePlayers.length === 1 && calculatorSendPlayers[0].position === "TE" && calculatorReceivePlayers[0].position === "TE"
         ? "Poor roster fit"
         : calculatorProfileFit && calculatorGap <= calculatorProfile.strongGap
           ? "Strong framework"
@@ -8560,46 +8575,24 @@ function TradeLab({
           </b>
         </header>
         <div className="calculator-grid">
-          <label>
-            <span>You send</span>
-            <select
-              value={effectiveSendId}
-              onChange={(event) => setCalculatorSendId(event.target.value)}
-            >
-              {yourTeam.roster
-                .filter((player) => !["K", "DEF"].includes(player.position))
-                .map((player) => (
-                  <option key={player.id} value={player.id}>
-                    {player.name} · {player.position}
-                  </option>
-                ))}
-            </select>
-          </label>
+          <fieldset className="calculator-assets">
+            <legend>You send</legend>
+            <div>{yourTradeAssets.map((asset) => <button type="button" className={effectiveSendIds.includes(asset.id) ? "selected" : ""} aria-pressed={effectiveSendIds.includes(asset.id)} key={asset.id} onClick={() => toggleCalculatorAsset("send", asset.id)}><span><b>{asset.name}</b><small>{asset.position === "PICK" ? asset.meta : `${asset.position} · ${asset.team}`}</small></span><em>{asset.value}</em></button>)}</div>
+          </fieldset>
           <div className="calculator-score">
-            <span>{calculatorSendAsset?.value ?? "—"}</span>
+            <span>{calculatorSendAssets.length ? calculatorSendValue : "—"}</span>
             <i>↔</i>
-            <span>{calculatorReceiveAsset?.value ?? "—"}</span>
+            <span>{calculatorReceiveAssets.length ? calculatorReceiveValue : "—"}</span>
             <small>
               {calculatorGap < 1
                 ? `${Math.round(calculatorGap * 100)}% value gap`
                 : "Select both players"}
             </small>
           </div>
-          <label>
-            <span>You receive</span>
-            <select
-              value={effectiveReceiveId}
-              onChange={(event) => setCalculatorReceiveId(event.target.value)}
-            >
-              {partner.roster
-                .filter((player) => !["K", "DEF"].includes(player.position))
-                .map((player) => (
-                  <option key={player.id} value={player.id}>
-                    {player.name} · {player.position}
-                  </option>
-                ))}
-            </select>
-          </label>
+          <fieldset className="calculator-assets">
+            <legend>You receive</legend>
+            <div>{partnerTradeAssets.map((asset) => <button type="button" className={effectiveReceiveIds.includes(asset.id) ? "selected" : ""} aria-pressed={effectiveReceiveIds.includes(asset.id)} key={asset.id} onClick={() => toggleCalculatorAsset("receive", asset.id)}><span><b>{asset.name}</b><small>{asset.position === "PICK" ? asset.meta : `${asset.position} · ${asset.team}`}</small></span><em>{asset.value}</em></button>)}</div>
+          </fieldset>
         </div>
         <div className="calculator-impact">
           <span>
@@ -8642,8 +8635,8 @@ function TradeLab({
                 className={suggestion.id === item.id ? "active" : ""}
                 onClick={() => {
                   setActiveSuggestionId(item.id);
-                  setCalculatorSendId(item.send[0]?.id ?? "");
-                  setCalculatorReceiveId(item.receive[0]?.id ?? "");
+                  setCalculatorSendIds(item.send.map((asset) => asset.id));
+                  setCalculatorReceiveIds(item.receive.map((asset) => asset.id));
                   const memory = tradeMemoryFor(item);
                   rememberDecision({ ...memory, userSelection: `Reviewed: ${item.title}` });
                 }}
