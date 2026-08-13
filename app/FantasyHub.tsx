@@ -2775,7 +2775,9 @@ function AccessAccount({ accountUser, entitlement, onPlans }: { accountUser: Acc
     </section>
     {nativeIos && <section className="native-notifications panel">
       <header><div><span>NOTIFICATION PREFERENCES</span><h3>Choose what deserves an alert</h3><p>Alerts are grouped by matchup and tied only to leagues saved on this account. Big-play alerts trigger at 5 or more fantasy points.</p></div><button type="button" disabled={pushBusy} aria-pressed={pushEnabled} onClick={() => void togglePush()}>{pushBusy ? "Updating…" : pushEnabled ? "Turn notifications off" : "Enable notifications"}</button></header>
-      {pushEnabled && <div className="notification-types">{([
+      {pushEnabled && <details className="notification-options">
+        <summary><span><strong>Optional notification types</strong><small>{Object.values(pushPreferences).filter(Boolean).length} of {Object.keys(pushPreferences).length} enabled</small></span><b aria-hidden="true">⌄</b></summary>
+        <div className="notification-types">{([
         ["kickoffSoon", "15 minutes to kickoff", "A player in your lineup or your opponent’s lineup is about to lock."],
         ["slateStarted", "NFL slate started", "One concise alert when a game window containing relevant players begins."],
         ["bigPlays", "Big plays · 5+ points", "Real play context, fantasy points, league, and estimated matchup impact."],
@@ -2785,7 +2787,8 @@ function AccessAccount({ accountUser, entitlement, onPlans }: { accountUser: Acc
         ["weatherRisk", "Inclement weather", "Actionable wind, precipitation, temperature, or delay risk before a relevant player’s kickoff."],
         ["lineupUrgency", "Lineup needs attention", "Empty slots, inactive starters, or a relevant game nearing lock."],
         ["injuryStatus", "Important injury changes", "New inactive or major status changes affecting starters."],
-      ] as [PushAlertKey, string, string][]).map(([key, title, detail]) => <button type="button" key={key} className={pushPreferences[key] ? "enabled" : ""} aria-pressed={pushPreferences[key]} disabled={pushBusy} onClick={() => void updatePushPreference(key)}><i aria-hidden="true">{pushPreferences[key] ? "✓" : ""}</i><span><strong>{title}</strong><small>{detail}</small></span></button>)}</div>}
+      ] as [PushAlertKey, string, string][]).map(([key, title, detail]) => <button type="button" key={key} className={pushPreferences[key] ? "enabled" : ""} aria-pressed={pushPreferences[key]} disabled={pushBusy} onClick={() => void updatePushPreference(key)}><i aria-hidden="true">{pushPreferences[key] ? "✓" : ""}</i><span><strong>{title}</strong><small>{detail}</small></span></button>)}</div>
+      </details>}
       {pushMessage && <p className="notification-message" role="status">{pushMessage}</p>}
     </section>}
     <section className="account-settings-grid">

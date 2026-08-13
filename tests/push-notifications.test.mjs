@@ -14,6 +14,9 @@ test("notification preferences cover the complete game-day alert set", async () 
   assert.match(accountUi, /Close matchup/);
   assert.match(accountUi, /Path to victory/);
   assert.match(accountUi, /Inclement weather/);
+  assert.match(accountUi, /<details className="notification-options">/);
+  assert.match(accountUi, /Optional notification types/);
+  assert.doesNotMatch(accountUi, /<details className="notification-options" open/);
   assert.match(accountUi, /view === "My Account"/);
   assert.doesNotMatch(accountUi, /view === "Access Account"/);
 });
