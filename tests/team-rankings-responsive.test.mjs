@@ -18,8 +18,8 @@ test("Team Rankings groups assets by position and removes mobile horizontal scro
   assert.match(rankings, /className="team-assets-modal-layer"/);
   assert.match(rankings, /className="team-assets-mobile-open"/);
   assert.doesNotMatch(rankings, /team-rank-head/);
-  assert.match(rankings, /TOP \{Math\.ceil\(/);
-  assert.match(rankings, /% OF LEAGUE/);
+  assert.doesNotMatch(rankings, /% OF LEAGUE/);
+  assert.match(rankings, /\.slice\(0, 4\)/);
   assert.match(rankings, /rank-elite/);
   assert.match(rankings, /rank-trailing/);
   assert.match(rankings, /aria-controls=\{`team-assets-\$\{team\.id\}`\}/);

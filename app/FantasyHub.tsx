@@ -6849,7 +6849,7 @@ function TeamRankings({
             .map((player) => rankingById.get(player.id))
             .filter((player): player is LeagueRanking => Boolean(player))
             .sort((a, b) => a.overallRank - b.overallRank)
-            .slice(0, 3);
+            .slice(0, 4);
           const firstRounders =
             team.draftCapital?.picks.filter((pick) => pick.round === 1)
               .length ?? 0;
@@ -6877,7 +6877,6 @@ function TeamRankings({
               {positions.map((position) => (
                 <div className={`room-rank ${roomRankTone(roomRanks[position].get(team.id) ?? teams.length)}`} data-position={position} key={position}>
                   <b>#{roomRanks[position].get(team.id)}</b>
-                  <small>TOP {Math.ceil(((roomRanks[position].get(team.id) ?? teams.length) / teams.length) * 100)}% OF LEAGUE</small>
                 </div>
               ))}
               {isDynasty && (
