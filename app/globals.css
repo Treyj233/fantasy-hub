@@ -851,6 +851,8 @@ html[data-theme="dark"] .account-theme-customizer{color:#fff;background:radial-g
 .team-rank-toggle,.team-rank-toggle span,.rank-team-name,.core-assets{min-width:0}
 .team-rank-toggle span strong,.team-rank-toggle span small,.core-assets button{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .core-assets{gap:3px}.core-assets button{padding:4px}
+.team-rank-row .core-assets button{background:rgb(var(--brand-primary-rgb,11 134 80) / .14);border-color:rgb(var(--brand-primary-rgb,11 134 80) / .34)}
+html[data-theme="dark"] .team-rank-row .core-assets button{background:rgb(var(--brand-primary-rgb,11 134 80) / .2);border-color:rgb(var(--brand-primary-rgb,11 134 80) / .46)}
 .team-assets-drawer{width:100%;min-width:0!important}
 .team-assets-close{display:grid;place-items:center;flex:0 0 auto;width:36px;height:36px;padding:0;color:var(--ink);background:var(--chalk);border:1px solid var(--line);border-radius:9px;font-size:22px;line-height:1}
 .team-assets-mobile-open{display:none}
