@@ -2161,6 +2161,11 @@ export default function FantasyHub({
                     setDraggedLeagueId(league.id);
                     event.dataTransfer.effectAllowed = "move";
                     event.dataTransfer.setData("text/plain", league.id);
+                    const dragPreview = event.currentTarget.cloneNode(true) as HTMLElement;
+                    dragPreview.classList.add("league-drag-preview");
+                    document.body.appendChild(dragPreview);
+                    event.dataTransfer.setDragImage(dragPreview, dragPreview.offsetWidth / 2, dragPreview.offsetHeight / 2);
+                    window.requestAnimationFrame(() => dragPreview.remove());
                   }}
                   onDragOver={(event) => {
                     event.preventDefault();
@@ -2215,8 +2220,8 @@ export default function FantasyHub({
                   title="Drag to reorder · Alt+Left/Right also moves this league"
                 >
                   <i className="league-drag-handle" aria-hidden="true">⋮⋮</i>
-                  <b>{league.name}</b>
-                  <small>
+                  <b title={league.name}>{league.name}</b>
+                  <small title={`${league.season} · ${league.teams} teams · ${league.format} · ${league.scoring}`}>
                     {league.season} · {league.teams} teams · {league.format} ·{" "}
                     {league.scoring}
                   </small>
