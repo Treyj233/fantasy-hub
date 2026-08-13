@@ -1,5 +1,3 @@
-import type { AppStoreServerAPIClient as AppStoreServerAPIClientType } from "@apple/app-store-server-library";
-
 export const APP_STORE_PRODUCTS = new Set([
   "com.fantasyhubapp.pro.monthly",
   "com.fantasyhubapp.pro.season",
@@ -37,20 +35,68 @@ function decodeJwsPayload(value: string) {
   return JSON.parse(new TextDecoder().decode(bytes)) as Record<string, unknown>;
 }
 
+function base64Url(bytes: Uint8Array) {
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
+function privateKeyBytes(value: string) {
+  const encoded = value
+    .replace(/-----BEGIN PRIVATE KEY-----/g, "")
+    .replace(/-----END PRIVATE KEY-----/g, "")
+    .replace(/\s/g, "");
+  if (!encoded) throw new Error("App Store private key is invalid");
+  return Uint8Array.from(atob(encoded), (character) => character.charCodeAt(0));
+}
+
+async function appStoreToken(config: AppleRuntimeConfig) {
+  const now = Math.floor(Date.now() / 1000);
+  const encode = (value: Record<string, unknown>) => base64Url(new TextEncoder().encode(JSON.stringify(value)));
+  const unsignedToken = `${encode({ alg: "ES256", kid: config.keyId, typ: "JWT" })}.${encode({
+    iss: config.issuerId,
+    iat: now,
+    exp: now + 300,
+    aud: "appstoreconnect-v1",
+    bid: config.bundleId,
+  })}`;
+  const key = await crypto.subtle.importKey(
+    "pkcs8",
+    privateKeyBytes(config.privateKey),
+    { name: "ECDSA", namedCurve: "P-256" },
+    false,
+    ["sign"],
+  );
+  const signature = await crypto.subtle.sign(
+    { name: "ECDSA", hash: "SHA-256" },
+    key,
+    new TextEncoder().encode(unsignedToken),
+  );
+  return `${unsignedToken}.${base64Url(new Uint8Array(signature))}`;
+}
+
+async function getTransactionInfo(config: AppleRuntimeConfig, transactionId: string, sandbox: boolean) {
+  const host = sandbox ? "api.storekit-sandbox.itunes.apple.com" : "api.storekit.itunes.apple.com";
+  const response = await fetch(`https://${host}/inApps/v1/transactions/${encodeURIComponent(transactionId)}`, {
+    headers: {
+      Accept: "application/json",
+      Authorization: `Bearer ${await appStoreToken(config)}`,
+    },
+  });
+  if (!response.ok) throw new Error(`Apple transaction lookup failed (${response.status})`);
+  return await response.json() as { signedTransactionInfo?: string };
+}
+
 export async function verifyAppleTransaction(transactionId: string) {
   const config = await runtimeConfig();
   if (!config) throw new Error("App Store Server credentials are not configured");
-  // This package initializes cryptographic randomness when it is evaluated.
-  // Cloudflare Workers only permits that work inside a request handler, so the
-  // runtime import must stay inside this function rather than at module scope.
-  const { AppStoreServerAPIClient, Environment } = await import("@apple/app-store-server-library");
-  let response: Awaited<ReturnType<AppStoreServerAPIClientType["getTransactionInfo"]>> | null = null;
+  let response: { signedTransactionInfo?: string };
   let environment = "Production";
   try {
-    response = await new AppStoreServerAPIClient(config.privateKey, config.keyId, config.issuerId, config.bundleId, Environment.PRODUCTION).getTransactionInfo(transactionId);
+    response = await getTransactionInfo(config, transactionId, false);
   } catch {
     environment = "Sandbox";
-    response = await new AppStoreServerAPIClient(config.privateKey, config.keyId, config.issuerId, config.bundleId, Environment.SANDBOX).getTransactionInfo(transactionId);
+    response = await getTransactionInfo(config, transactionId, true);
   }
   if (!response.signedTransactionInfo) throw new Error("Apple did not return signed transaction information");
   const payload = decodeJwsPayload(response.signedTransactionInfo);

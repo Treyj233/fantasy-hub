@@ -65,3 +65,15 @@ test("Apple billing uses one canonical provider and supports legacy records", as
   assert.match(portalRoute, /record\.provider === "app_store"/);
   assert.match(entitlements, /record\?\.provider === "app_store" \? "apple"/);
 });
+
+test("Apple verification performs request-scoped authenticated API calls", async () => {
+  const source = await readFile(new URL("../app/app-store.ts", import.meta.url), "utf8");
+  assert.doesNotMatch(source, /@apple\/app-store-server-library/);
+  assert.match(source, /crypto\.subtle\.importKey/);
+  assert.match(source, /crypto\.subtle\.sign/);
+  assert.match(source, /aud: "appstoreconnect-v1"/);
+  assert.match(source, /api\.storekit-sandbox\.itunes\.apple\.com/);
+  assert.match(source, /payload\.bundleId !== config\.bundleId/);
+  assert.match(source, /payload\.transactionId !== transactionId/);
+  assert.match(source, /APP_STORE_PRODUCTS\.has\(productId\)/);
+});
