@@ -1580,6 +1580,48 @@ export default function FantasyHub({
       if (requestNumber !== importRequest.current) return;
       const season = data.league.season ?? String(new Date().getFullYear());
       const currentWeek = Math.max(1, data.league.currentWeek ?? 1);
+      const applyLeagueData = (
+        weather: WeatherData | null,
+        schedule: NflScheduleData | null,
+        matchupStrengths: MatchupStrengthData | null,
+      ) => {
+        if (requestNumber !== importRequest.current) return;
+        setLeagueName(data.league.name);
+        setLeaguePlatform(data.league.platform ?? "Sleeper");
+        const importedTeams = (data.teams ?? []).map((team) => ({
+          ...team,
+          roster: team.roster.map((player) =>
+            applyMatchupStrength(applyWeather(applyOpponent(player, schedule, currentWeek), weather), matchupStrengths),
+          ),
+        }));
+        setLeagueTeams(importedTeams);
+        const ownedTeam = rosterIdOverride
+          ? importedTeams.find((team) => team.id === rosterIdOverride)
+          : ownerIdOverride
+            ? importedTeams.find((team) => team.ownerId === ownerIdOverride)
+            : undefined;
+        if (ownedTeam || importedTeams.length === 1) {
+          const activeTeam = ownedTeam ?? importedTeams[0];
+          setSelectedTeamId(activeTeam.id);
+          setPlayers(activeTeam.roster);
+        } else {
+          setSelectedTeamId("");
+        }
+        setLeagueRankings((data.rankings ?? []).map((player) =>
+          applyMatchupStrength(applyWeather(applyOpponent(player, schedule, currentWeek), weather), matchupStrengths),
+        ));
+        setWaiverPlayers((data.waiverPlayers ?? []).map((player) =>
+          applyMatchupStrength(applyWeather(applyOpponent(player, schedule, currentWeek), weather), matchupStrengths),
+        ));
+        setLeagueStatus(data.league.status ?? "unknown");
+        setLeagueWeek(data.league.currentWeek ?? 0);
+        setLeagueSeason(season);
+        setRankingContext(data.rankingContext ?? null);
+        setImportState("success");
+      };
+      // Render the user-scoped cached league payload immediately. Weather,
+      // schedule, and matchup context enhance it in the background.
+      applyLeagueData(null, null, null);
       let weather: WeatherData | null = null;
       let schedule: NflScheduleData | null = null;
       let matchupStrengths: MatchupStrengthData | null = null;
@@ -1597,43 +1639,7 @@ export default function FantasyHub({
       } catch {
         /* Schedule and weather enrichment are optional; core roster loading continues. */
       }
-      if (requestNumber !== importRequest.current) return;
-      setLeagueName(data.league.name);
-      setLeaguePlatform(data.league.platform ?? "Sleeper");
-      const importedTeams = (data.teams ?? []).map((team) => ({
-        ...team,
-        roster: team.roster.map((player) =>
-          applyMatchupStrength(applyWeather(applyOpponent(player, schedule, currentWeek), weather), matchupStrengths),
-        ),
-      }));
-      setLeagueTeams(importedTeams);
-      const ownedTeam = rosterIdOverride
-        ? importedTeams.find((team) => team.id === rosterIdOverride)
-        : ownerIdOverride
-        ? importedTeams.find((team) => team.ownerId === ownerIdOverride)
-        : undefined;
-      if (ownedTeam || importedTeams.length === 1) {
-        const activeTeam = ownedTeam ?? importedTeams[0];
-        setSelectedTeamId(activeTeam.id);
-        setPlayers(activeTeam.roster);
-      } else {
-        setSelectedTeamId("");
-      }
-      setLeagueRankings(
-        (data.rankings ?? []).map((player) =>
-          applyMatchupStrength(applyWeather(applyOpponent(player, schedule, currentWeek), weather), matchupStrengths),
-        ),
-      );
-      setWaiverPlayers(
-        (data.waiverPlayers ?? []).map((player) =>
-          applyMatchupStrength(applyWeather(applyOpponent(player, schedule, currentWeek), weather), matchupStrengths),
-        ),
-      );
-      setLeagueStatus(data.league.status ?? "unknown");
-      setLeagueWeek(data.league.currentWeek ?? 0);
-      setLeagueSeason(season);
-      setRankingContext(data.rankingContext ?? null);
-      setImportState("success");
+      applyLeagueData(weather, schedule, matchupStrengths);
     } catch {
       if (requestNumber !== importRequest.current) return;
       setImportState("error");
