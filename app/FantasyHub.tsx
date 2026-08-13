@@ -70,7 +70,6 @@ type MatchupStrengthData = {
 };
 const PlayerOpenContext = createContext<(player: Player) => void>(() => undefined);
 const ProjectionPlatformContext = createContext("League platform");
-const PORTFOLIO_CACHE_TTL = 30 * 60 * 1000;
 const PORTFOLIO_CACHE_VERSION = 2;
 const weatherRequestCache = new Map<
   string,
@@ -1687,8 +1686,6 @@ export default function FantasyHub({
       const leagueIds = new Set(orderedLeagues.map((league) => league.id));
       if (
         cached?.version === PORTFOLIO_CACHE_VERSION &&
-        cached.savedAt &&
-        Date.now() - cached.savedAt <= PORTFOLIO_CACHE_TTL &&
         cached.scans?.length === orderedLeagues.length &&
         cached.scans.every((scan) => leagueIds.has(scan.league.id))
       )
@@ -3487,6 +3484,7 @@ function AllLeagues({
   const [refreshKey, setRefreshKey] = useState(0);
   const [scanCompleted, setScanCompleted] = useState(0);
   const lastAutomaticScan = useRef("");
+  const cachedScansRef = useRef(cachedScans);
   const scanIsActive = loading || (leagues.length > 0 && scans.length < leagues.length);
   const estimatedScanProgress = useEstimatedLoadingProgress(scanIsActive);
   const completedScanProgress =
@@ -3503,22 +3501,34 @@ function AllLeagues({
   );
 
   useEffect(() => {
+    cachedScansRef.current = cachedScans;
+  }, [cachedScans]);
+
+  useEffect(() => {
+    if (!leagues.length || !cachedScans.length) return;
+    const leagueIds = new Set(leagues.map((league) => league.id));
+    const cacheMatches =
+      cachedScans.length === leagues.length &&
+      cachedScans.every((scan) => leagueIds.has(scan.league.id));
+    if (!cacheMatches) return;
+    const cachedStateTimer = window.setTimeout(() => {
+      setScans(cachedScans);
+      setScanCompleted(leagues.length);
+      setLoading(false);
+    }, 0);
+    return () => window.clearTimeout(cachedStateTimer);
+  }, [leagues, cachedScans]);
+
+  useEffect(() => {
     if (!leagues.length) return;
     const scanSignature = leagues.map((league) => league.id).sort().join(":");
     if (refreshKey === 0 && lastAutomaticScan.current === scanSignature) return;
     lastAutomaticScan.current = scanSignature;
     const leagueIds = new Set(leagues.map((league) => league.id));
+    const cachedAtScanStart = cachedScansRef.current;
     const cacheMatches =
-      cachedScans.length === leagues.length &&
-      cachedScans.every((scan) => leagueIds.has(scan.league.id));
-    if (refreshKey === 0 && cacheMatches) {
-      const cachedStateTimer = window.setTimeout(() => {
-        setScans(cachedScans);
-        setScanCompleted(leagues.length);
-        setLoading(false);
-      }, 0);
-      return () => window.clearTimeout(cachedStateTimer);
-    }
+      cachedAtScanStart.length === leagues.length &&
+      cachedAtScanStart.every((scan) => leagueIds.has(scan.league.id));
     const controller = new AbortController();
     const loadingTimer = cacheMatches && refreshKey === 0
       ? undefined
@@ -3861,7 +3871,7 @@ function AllLeagues({
       controller.abort();
       if (loadingTimer != null) window.clearTimeout(loadingTimer);
     };
-  }, [leagues, cachedScans, refreshKey, onScansChange]);
+  }, [leagues, refreshKey, onScansChange]);
 
   const issueCount = scans.reduce((sum, scan) => sum + scan.issues.length, 0);
   const urgentCount = scans.reduce(
