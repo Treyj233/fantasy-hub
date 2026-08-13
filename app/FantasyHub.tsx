@@ -8351,6 +8351,30 @@ function TradeLab({
   const [calculatorSendIds, setCalculatorSendIds] = useState<string[]>([]);
   const [calculatorReceiveIds, setCalculatorReceiveIds] = useState<string[]>([]);
   const [assetSelectorSide, setAssetSelectorSide] = useState<"send" | "receive" | null>(null);
+  useEffect(() => {
+    if (!assetSelectorSide) return;
+    const scrollY = window.scrollY;
+    const previous = {
+      bodyOverflow: document.body.style.overflow,
+      bodyPosition: document.body.style.position,
+      bodyTop: document.body.style.top,
+      bodyWidth: document.body.style.width,
+      htmlOverflow: document.documentElement.style.overflow,
+    };
+    document.documentElement.style.overflow = "hidden";
+    document.body.style.overflow = "hidden";
+    document.body.style.position = "fixed";
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.width = "100%";
+    return () => {
+      document.documentElement.style.overflow = previous.htmlOverflow;
+      document.body.style.overflow = previous.bodyOverflow;
+      document.body.style.position = previous.bodyPosition;
+      document.body.style.top = previous.bodyTop;
+      document.body.style.width = previous.bodyWidth;
+      window.scrollTo(0, scrollY);
+    };
+  }, [assetSelectorSide]);
   const partner =
     opponents.find((team) => team.id === selectedId) ?? opponents[0];
   const partnerStyle = partner ? (styles[partner.id] ?? "Neutral") : "Neutral";
@@ -8593,7 +8617,7 @@ function TradeLab({
         <div className="calculator-grid">
           <fieldset className="calculator-assets">
             <legend>You send</legend>
-            <button className="asset-selector-trigger" type="button" onClick={() => setAssetSelectorSide("send")}><span><b>{yourTeam.teamName}</b><small>{calculatorSendAssets.length} asset{calculatorSendAssets.length === 1 ? "" : "s"} selected</small></span><em>Choose assets</em></button>
+            <button className="asset-selector-trigger" type="button" onClick={() => setAssetSelectorSide("send")}><span><b>{yourTeam.teamName}</b><small>{calculatorSendAssets.length} selected · Choose assets</small></span></button>
             <div className="calculator-package-summary">{calculatorSendAssets.length ? calculatorSendAssets.map((asset) => <span key={asset.id}><b>{asset.name}</b><small>{asset.position}</small></span>) : <p>No assets selected</p>}</div>
           </fieldset>
           <div className="calculator-score">
@@ -8608,7 +8632,7 @@ function TradeLab({
           </div>
           <fieldset className="calculator-assets">
             <legend>You receive</legend>
-            <button className="asset-selector-trigger" type="button" onClick={() => setAssetSelectorSide("receive")}><span><b>{partner.teamName}</b><small>{calculatorReceiveAssets.length} asset{calculatorReceiveAssets.length === 1 ? "" : "s"} selected</small></span><em>Choose assets</em></button>
+            <button className="asset-selector-trigger" type="button" onClick={() => setAssetSelectorSide("receive")}><span><b>{partner.teamName}</b><small>{calculatorReceiveAssets.length} selected · Choose assets</small></span></button>
             <div className="calculator-package-summary">{calculatorReceiveAssets.length ? calculatorReceiveAssets.map((asset) => <span key={asset.id}><b>{asset.name}</b><small>{asset.position}</small></span>) : <p>No assets selected</p>}</div>
           </fieldset>
         </div>
