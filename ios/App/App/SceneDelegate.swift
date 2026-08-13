@@ -158,15 +158,32 @@ class FantasyHubStoreKitPlugin: CAPPlugin, CAPBridgedPlugin {
 
     @objc func manageSubscriptions(_ call: CAPPluginCall) {
         Task { @MainActor in
-            guard let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene else {
-                call.reject("No active app window")
+            guard let scene = UIApplication.shared.connectedScenes
+                .compactMap({ $0 as? UIWindowScene })
+                .first(where: { $0.activationState == .foregroundActive }) else {
+                openSubscriptionsFallback(call)
                 return
             }
             do {
                 try await AppStore.showManageSubscriptions(in: scene)
                 call.resolve()
             } catch {
-                call.reject("Unable to open App Store subscriptions", nil, error)
+                openSubscriptionsFallback(call)
+            }
+        }
+    }
+
+    @MainActor
+    private func openSubscriptionsFallback(_ call: CAPPluginCall) {
+        guard let url = URL(string: "https://apps.apple.com/account/subscriptions") else {
+            call.reject("Unable to open App Store subscriptions")
+            return
+        }
+        UIApplication.shared.open(url, options: [:]) { opened in
+            if opened {
+                call.resolve()
+            } else {
+                call.reject("Unable to open App Store subscriptions")
             }
         }
     }

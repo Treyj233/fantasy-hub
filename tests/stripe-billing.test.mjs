@@ -32,6 +32,9 @@ test("Apple StoreKit guards the $24.99 six-month season subscription", async () 
   assert.match(source, /period\.value == 6/);
   assert.match(source, /try validateProduct\(product\)/);
   assert.match(source, /CAPPluginMethod\(name: "entitlements"/);
+  assert.match(source, /activationState == \.foregroundActive/);
+  assert.match(source, /https:\/\/apps\.apple\.com\/account\/subscriptions/);
+  assert.match(source, /openSubscriptionsFallback\(call\)/);
   assert.match(runtime, /nativeRefreshPurchases/);
   assert.match(plans, /Another purchase is pending/);
   assert.match(plans, /setInterval\(.*5_000/);
