@@ -9,7 +9,7 @@ export async function GET() {
       capabilities: {
         accountDeletion: true,
         universalLinks: false,
-        pushNotifications: false,
+        pushNotifications: true,
         liveStreaming: false,
         backgroundSync: false,
       },
@@ -22,4 +22,3 @@ export async function GET() {
     { cacheControl: "public, max-age=300, stale-while-revalidate=3600" },
   );
 }
-
