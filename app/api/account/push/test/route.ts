@@ -13,9 +13,9 @@ async function temporaryAdminSecret() {
 export async function POST(request: Request) {
   const user = await getChatGPTUser();
   const db = await getDb();
-  const authorization = request.headers.get("authorization") ?? "";
+  const testToken = request.headers.get("x-push-admin-token") ?? "";
   const adminSecret = await temporaryAdminSecret();
-  const adminRequest = adminSecret.length >= 32 && authorization === `Bearer ${adminSecret}`;
+  const adminRequest = adminSecret.length >= 32 && testToken === adminSecret;
   if (!user && !adminRequest) return Response.json({ error: "Sign in required" }, { status: 401 });
   const devices = user
     ? await db.select().from(pushDevices).where(eq(pushDevices.userId, user.userId))
