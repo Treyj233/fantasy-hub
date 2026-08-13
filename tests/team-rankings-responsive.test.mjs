@@ -34,5 +34,6 @@ test("Team Rankings groups assets by position and removes mobile horizontal scro
   assert.match(styles, /font-family:Impact,"Arial Black",ui-rounded,sans-serif/);
   assert.match(styles, /\.room-rank\.rank-elite b/);
   assert.match(styles, /\.room-rank\.rank-trailing b/);
+  assert.match(styles, /\.team-rank-row \.room-rank\{[^}]*background:rgb\(var\(--brand-primary-rgb,11 134 80\) \/ \.14\)/);
   assert.doesNotMatch(rankings, /<i>\{expanded \? "−" : "\+"\}<\/i>/);
 });

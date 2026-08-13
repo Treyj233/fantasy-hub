@@ -877,7 +877,7 @@ html[data-theme="dark"] .team-position-room{background:#20242c;border-color:#404
   .team-rank-row .team-rank-toggle{min-height:44px;padding:2px 0;touch-action:manipulation}
   .team-rank-row .team-score{position:absolute;right:38px;top:13px;font-size:15px}
   .team-rank-row .team-score:before{display:block;color:var(--muted);font-size:5px;letter-spacing:.06em;content:"SCORE"}
-  .team-rank-row .room-rank{position:relative;display:grid;grid-template-columns:auto auto;align-items:center;justify-content:space-between;gap:6px;min-width:0;padding:8px 9px;background:color-mix(in srgb,var(--green) 5%,var(--cream));border:1px solid var(--line);border-radius:8px;text-align:left}
+  .team-rank-row .room-rank{position:relative;display:grid;grid-template-columns:auto auto;align-items:center;justify-content:space-between;gap:6px;min-width:0;padding:8px 9px;background:rgb(var(--brand-primary-rgb,11 134 80) / .14);border:1px solid rgb(var(--brand-primary-rgb,11 134 80) / .34);border-radius:8px;text-align:left}
   .team-rank-row .room-rank:before{color:var(--green);font-size:8px;font-weight:950;content:attr(data-position)}
   .team-rank-row .room-rank b{justify-self:end;font-size:11px}.team-rank-row .room-rank small{grid-column:1/-1;font-size:6px}
   .team-rank-row .draft-rank{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;padding:7px 9px;background:color-mix(in srgb,var(--gold-light) 15%,var(--chalk));border-radius:8px}.team-rank-row .draft-rank:before{font-size:7px;font-weight:950;content:"DRAFT CAPITAL"}
@@ -889,7 +889,7 @@ html[data-theme="dark"] .team-position-room{background:#20242c;border-color:#404
   .team-position-room .team-assets-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:5px;padding:6px}
   .team-position-room .team-assets-grid>button{grid-template-columns:24px minmax(0,1fr);column-gap:9px;row-gap:4px;min-width:0;padding:8px}
   .team-position-room .team-assets-grid>button>.pos{width:24px;height:24px}.team-position-room .team-assets-grid>button>b{grid-column:2;color:var(--green);font-size:6px}.team-position-room .team-assets-grid p strong{font-size:8px}.team-position-room .team-assets-grid p small{font-size:6px}
-  html[data-theme="dark"] .team-rank-row .room-rank{background:#242b31;border-color:#424956}
+  html[data-theme="dark"] .team-rank-row .room-rank{background:rgb(var(--brand-primary-rgb,11 134 80) / .2);border-color:rgb(var(--brand-primary-rgb,11 134 80) / .46)}
 }
 
 /* Single-line labels that are truly clipped pan gently while the dashboard is
