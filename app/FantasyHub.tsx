@@ -6761,6 +6761,12 @@ function TeamRankings({
       ),
     ]),
   ) as Record<string, Map<string, number>>;
+  const roomRankTone = (rank: number) =>
+    rank <= 3
+      ? "rank-elite"
+      : rank > Math.ceil(teams.length * (2 / 3))
+        ? "rank-trailing"
+        : "rank-middle";
   const draftRanks = new Map(
     [...scoredTeams]
       .sort((a, b) => b.draftScore - a.draftScore)
@@ -6869,7 +6875,7 @@ function TeamRankings({
               </div>
               <strong className="team-score">{team.overallScore}</strong>
               {positions.map((position) => (
-                <div className="room-rank" data-position={position} key={position}>
+                <div className={`room-rank ${roomRankTone(roomRanks[position].get(team.id) ?? teams.length)}`} data-position={position} key={position}>
                   <b>#{roomRanks[position].get(team.id)}</b>
                   <small>TOP {Math.ceil(((roomRanks[position].get(team.id) ?? teams.length) / teams.length) * 100)}% OF LEAGUE</small>
                 </div>
