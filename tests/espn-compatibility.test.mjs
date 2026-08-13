@@ -20,6 +20,9 @@ test("ESPN connection requires explicit team ownership and persists it", async (
   assert.match(schema, /rosterId: text\("roster_id"\)/);
   assert.match(client, /SELECT YOUR TEAM/);
   assert.match(client, /PUBLIC LEAGUE CONNECTION/);
+  assert.match(client, /automatic live score refreshes/);
+  assert.match(client, /WANT LIVE GAME-DAY REFRESHES/);
+  assert.match(client, /saved snapshots and must be synced again/);
 });
 
 test("ESPN connected leagues feed the shared live scoreboard", async () => {

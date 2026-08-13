@@ -6,6 +6,7 @@ import Link from "next/link";
 import { estimatedWinProbability, playerLeverage, rootingInterests, whatDoINeed } from "./game-day-model.mjs";
 import { classifyFantasyPlay, findEspnPlayContext, matchupImpactText } from "./live-play-alerts.mjs";
 import { PRE_KICKOFF_VISUALS, PRE_KICKOFF_VISUALS_ENABLED } from "./pre-kickoff-visuals";
+import { DEFAULT_PUSH_PREFERENCES, type PushAlertKey, type PushPreferences } from "./push-preferences";
 import { disableNativePushNotifications, enableNativePushNotifications, initializeNativeRuntime, isNativeIosApp, nativeManageSubscriptions, nativePurchase, nativeRefreshPurchases, nativeRestorePurchases, nativeStoreProducts } from "./native-runtime";
 
 type View =
@@ -2919,6 +2920,7 @@ function ManageLeagues({
   const nativeIos = useSyncExternalStore(() => () => undefined, isNativeIosApp, () => false);
   const [pushEnabled, setPushEnabled] = useState(false);
   const [pushBusy, setPushBusy] = useState(false);
+  const [pushPreferences, setPushPreferences] = useState<PushPreferences>(DEFAULT_PUSH_PREFERENCES);
   const [pairing, setPairing] = useState<{ code: string; expiresAt: string } | null>(null);
   const [espnSelection, setEspnSelection] = useState<{ id: string; name: string; season: string; teams: { id: string; name: string; managerName: string }[] } | null>(null);
   const providers: {
@@ -3018,8 +3020,28 @@ function ManageLeagues({
 
   useEffect(() => {
     if (!nativeIos) return;
-    void fetch("/api/account/push").then((response) => response.ok ? response.json() : null).then((data: { enabled?: boolean } | null) => setPushEnabled(Boolean(data?.enabled))).catch(() => undefined);
+    void fetch("/api/account/push").then((response) => response.ok ? response.json() : null).then((data: { enabled?: boolean; preferences?: PushPreferences } | null) => {
+      setPushEnabled(Boolean(data?.enabled));
+      if (data?.preferences) setPushPreferences(data.preferences);
+    }).catch(() => undefined);
   }, [nativeIos]);
+
+  async function updatePushPreference(key: PushAlertKey) {
+    const next = { ...pushPreferences, [key]: !pushPreferences[key] };
+    setPushPreferences(next);
+    setPushBusy(true);
+    try {
+      const response = await fetch("/api/account/push", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ preferences: next }) });
+      const data = await response.json() as { error?: string; preferences?: PushPreferences };
+      if (!response.ok) throw new Error(data.error ?? "Unable to save notification preferences");
+      if (data.preferences) setPushPreferences(data.preferences);
+    } catch (requestError) {
+      setPushPreferences(pushPreferences);
+      setError(requestError instanceof Error ? requestError.message : "Unable to save notification preferences");
+    } finally {
+      setPushBusy(false);
+    }
+  }
 
   async function togglePush() {
     setPushBusy(true);
@@ -3244,7 +3266,7 @@ function ManageLeagues({
           <p>
             {provider === "sleeper"
               ? "Username finds every team you own. League ID adds one public league directly."
-              : "Enter a public ESPN league ID, then select the team you manage. Private ESPN leagues cannot be read through league-ID access."}
+              : "For automatic live score refreshes, make the league publicly viewable in ESPN before connecting by league ID. Private leagues can use the browser extension, but update only when synced again."}
           </p>
         </div>
         {provider === "espn" && (
@@ -3254,6 +3276,10 @@ function ManageLeagues({
               <b>NO PASSWORD SHARING</b>
             </div>
             <p>The extension reads your league while you are signed into ESPN and sends league data—not your password or ESPN cookies—to Fantasy Hub.</p>
+            <aside className="espn-live-refresh-note">
+              <b>WANT LIVE GAME-DAY REFRESHES?</b>
+              <p>Make the league public in ESPN and connect it by league ID. Private leagues connected through the extension use saved snapshots and must be synced again to update.</p>
+            </aside>
             <div className="espn-sync-actions">
               <a className="manage-add" href="/extensions/fantasy-hub-espn-sync.zip" download>Download extension</a>
               <button className="manage-add secondary" onClick={() => void createEspnPairing()} disabled={busy}>{busy ? "Generating…" : "Generate pairing code"}</button>
@@ -3448,7 +3474,17 @@ function ManageLeagues({
           </div>
         )}
       </section>
-      {nativeIos && <section className="native-notifications panel"><div><span>GAME-DAY NOTIFICATIONS</span><h3>Know when your leagues need you</h3><p>Receive lineup, injury, scoring-swing, waiver, and matchup alerts tied only to leagues saved on this account.</p></div><button type="button" disabled={pushBusy} aria-pressed={pushEnabled} onClick={() => void togglePush()}>{pushBusy ? "Updating…" : pushEnabled ? "Turn notifications off" : "Enable notifications"}</button></section>}
+      {nativeIos && <section className="native-notifications panel">
+        <header><div><span>GAME-DAY NOTIFICATIONS</span><h3>Choose what deserves an alert</h3><p>Alerts are grouped by matchup and tied only to leagues saved on this account. Big-play alerts trigger at 5 or more fantasy points.</p></div><button type="button" disabled={pushBusy} aria-pressed={pushEnabled} onClick={() => void togglePush()}>{pushBusy ? "Updating…" : pushEnabled ? "Turn notifications off" : "Enable notifications"}</button></header>
+        {pushEnabled && <div className="notification-types">{([
+          ["kickoffSoon", "15 minutes to kickoff", "A player in your lineup or your opponent’s lineup is about to lock."],
+          ["slateStarted", "NFL slate started", "One concise alert when a game window containing relevant players begins."],
+          ["bigPlays", "Big plays · 5+ points", "Real play context, fantasy points, league, and estimated matchup impact."],
+          ["matchupResults", "Matchup won or lost", "A final result once the fantasy matchup outcome is confirmed."],
+          ["lineupUrgency", "Lineup needs attention", "Empty slots, inactive starters, or a relevant game nearing lock."],
+          ["injuryStatus", "Important injury changes", "New inactive or major status changes affecting starters."],
+        ] as [PushAlertKey, string, string][]).map(([key, title, detail]) => <button type="button" key={key} className={pushPreferences[key] ? "enabled" : ""} aria-pressed={pushPreferences[key]} disabled={pushBusy} onClick={() => void updatePushPreference(key)}><i aria-hidden="true">{pushPreferences[key] ? "✓" : ""}</i><span><strong>{title}</strong><small>{detail}</small></span></button>)}</div>}
+      </section>}
       <section className="account-danger-zone panel">
         <div>
           <span>ACCOUNT &amp; PRIVACY</span>

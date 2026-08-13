@@ -63,7 +63,7 @@ export async function fetchEspnLeague(leagueId: string, seasonHint?: number) {
     }).catch(() => null);
     if (response?.ok) return await response.json() as EspnPayload;
     if (response?.status === 401 || response?.status === 403)
-      throw new Error("This ESPN league is private. Make it publicly viewable before importing by league ID.");
+      throw new Error("This ESPN league is private. Make the league public in ESPN for automatic live score refreshes, then try the league ID again. You can still use the browser extension for snapshot-based access.");
   }
   throw new Error("ESPN league not found for the current or previous season.");
 }

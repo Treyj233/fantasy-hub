@@ -1,7 +1,8 @@
 import { and, eq } from "drizzle-orm";
 import { getDb } from "../../../../db";
-import { pushDevices } from "../../../../db/schema";
+import { pushDevices, userPreferences } from "../../../../db/schema";
 import { getChatGPTUser } from "../../../chatgpt-auth";
+import { DEFAULT_PUSH_PREFERENCES, parsePushPreferences, sanitizePushPreferences } from "../../../push-preferences";
 
 export async function GET() {
   const user = await getChatGPTUser();
@@ -9,7 +10,21 @@ export async function GET() {
   const db = await getDb();
   const devices = await db.select({ enabled: pushDevices.enabled, platform: pushDevices.platform, lastSeenAt: pushDevices.lastSeenAt })
     .from(pushDevices).where(eq(pushDevices.userId, user.userId));
-  return Response.json({ enabled: devices.some((device) => device.enabled), devices });
+  const [saved] = await db.select({ value: userPreferences.pushPreferencesJson }).from(userPreferences).where(eq(userPreferences.userId, user.userId)).limit(1);
+  return Response.json({ enabled: devices.some((device) => device.enabled), devices, preferences: parsePushPreferences(saved?.value) });
+}
+
+export async function PATCH(request: Request) {
+  const user = await getChatGPTUser();
+  if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
+  const body = await request.json().catch(() => null) as { preferences?: unknown } | null;
+  const preferences = sanitizePushPreferences(body?.preferences);
+  if (!preferences) return Response.json({ error: "Every notification category must be enabled or disabled" }, { status: 400 });
+  const db = await getDb();
+  const now = new Date().toISOString();
+  await db.insert(userPreferences).values({ userId: user.userId, email: user.email, pushPreferencesJson: JSON.stringify(preferences), updatedAt: now })
+    .onConflictDoUpdate({ target: userPreferences.userId, set: { pushPreferencesJson: JSON.stringify(preferences), updatedAt: now } });
+  return Response.json({ preferences: { ...DEFAULT_PUSH_PREFERENCES, ...preferences } });
 }
 
 export async function POST(request: Request) {

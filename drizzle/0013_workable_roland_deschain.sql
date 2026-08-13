@@ -1,0 +1,1 @@
+ALTER TABLE `user_preferences` ADD `push_preferences_json` text DEFAULT '{}' NOT NULL;

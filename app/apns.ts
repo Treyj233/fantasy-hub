@@ -31,7 +31,9 @@ async function bearerToken(value: ApnsConfig) {
   return `${message}.${base64url(new Uint8Array(signature))}`;
 }
 
-export async function sendApplePush(token: string, notification: { title: string; body: string; path?: string }) {
+export type ApplePushCategory = "KICKOFF_SOON" | "SLATE_STARTED" | "BIG_PLAY" | "MATCHUP_RESULT" | "LINEUP_URGENCY" | "INJURY_STATUS" | "GENERAL";
+
+export async function sendApplePush(token: string, notification: { title: string; body: string; path?: string; category?: ApplePushCategory; threadId?: string; interruptionLevel?: "active" | "time-sensitive" }) {
   const value = await config();
   if (!value) throw new Error("APNs credentials are not configured");
   const response = await fetch(`https://${value.production ? "api.push.apple.com" : "api.sandbox.push.apple.com"}/3/device/${encodeURIComponent(token)}`, {
@@ -43,7 +45,16 @@ export async function sendApplePush(token: string, notification: { title: string
       "apns-priority": "10",
       "content-type": "application/json",
     },
-    body: JSON.stringify({ aps: { alert: { title: notification.title, body: notification.body }, sound: "default" }, path: notification.path ?? "/" }),
+    body: JSON.stringify({
+      aps: {
+        alert: { title: notification.title, body: notification.body },
+        sound: "default",
+        category: notification.category ?? "GENERAL",
+        "thread-id": notification.threadId ?? "fantasy-hub",
+        "interruption-level": notification.interruptionLevel ?? "active",
+      },
+      path: notification.path ?? "/",
+    }),
   });
   if (!response.ok) throw new Error(`APNs rejected notification (${response.status}): ${await response.text()}`);
 }
