@@ -12,8 +12,11 @@ test("Team Rankings groups assets by position and removes mobile horizontal scro
   assert.match(rankings, /\[\.\.\.positions, "OTHER"\]/);
   assert.match(rankings, /team-position-room/);
   assert.match(rankings, /data-position=\{position\}/);
+  assert.match(rankings, /scrollIntoView\(\{ behavior: "smooth", block: "start" \}\)/);
+  assert.match(rankings, /aria-controls=\{`team-assets-\$\{team\.id\}`\}/);
   assert.match(styles, /\.team-rank-table\{width:100%;overflow-x:hidden!important/);
   assert.match(styles, /\.team-rank-row,.team-rank-row\.dynasty\{position:relative;display:grid;grid-template-columns:repeat\(2,minmax\(0,1fr\)\)!important/);
   assert.match(styles, /\.team-position-room \.team-assets-grid\{grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
   assert.match(styles, /min-width:0!important/);
+  assert.match(styles, /\.team-rank-row \.team-rank-toggle\{min-height:44px/);
 });

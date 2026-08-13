@@ -868,7 +868,7 @@ html[data-theme="dark"] .team-position-room{background:#20242c;border-color:#404
   .team-rank-row.your-team{border-left:4px solid var(--gold)}
   .team-rank-row .overall-place{position:absolute;left:9px;top:14px;width:31px;text-align:center}
   .team-rank-row .rank-team-name{grid-column:1/-1;padding:0 47px 7px 34px;border-bottom:1px solid var(--line)}
-  .team-rank-row .team-rank-toggle{padding:0}.team-rank-row .team-rank-toggle i{position:absolute;right:7px;top:7px}
+  .team-rank-row .team-rank-toggle{min-height:44px;padding:2px 0;touch-action:manipulation}.team-rank-row .team-rank-toggle i{position:absolute;right:7px;top:7px}
   .team-rank-row .team-score{position:absolute;right:38px;top:13px;font-size:15px}
   .team-rank-row .team-score:before{display:block;color:var(--muted);font-size:5px;letter-spacing:.06em;content:"SCORE"}
   .team-rank-row .room-rank{position:relative;display:grid;grid-template-columns:auto auto;align-items:center;justify-content:space-between;gap:6px;min-width:0;padding:8px 9px;background:color-mix(in srgb,var(--green) 5%,var(--cream));border:1px solid var(--line);border-radius:8px;text-align:left}
@@ -876,7 +876,7 @@ html[data-theme="dark"] .team-position-room{background:#20242c;border-color:#404
   .team-rank-row .room-rank b{justify-self:end;font-size:10px}.team-rank-row .room-rank small{grid-column:1/-1;font-size:6px}.team-rank-row .room-rank small:after{margin-left:3px;content:"ROOM SCORE"}
   .team-rank-row .draft-rank{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;padding:7px 9px;background:color-mix(in srgb,var(--gold-light) 15%,var(--chalk));border-radius:8px}.team-rank-row .draft-rank:before{font-size:7px;font-weight:950;content:"DRAFT CAPITAL"}
   .team-rank-row .core-assets{grid-column:1/-1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px}.team-rank-row .core-assets button:nth-child(n){display:flex;width:100%;overflow:hidden}
-  .team-assets-drawer{margin:-8px 0 10px;padding:11px 8px;border-radius:0 0 12px 12px}
+  .team-assets-drawer{scroll-margin-top:12px;margin:-8px 0 10px;padding:11px 8px;border-radius:0 0 12px 12px}
   .team-assets-drawer>header{align-items:flex-start}.team-assets-drawer>header small{max-width:45%;text-align:right}
   .team-assets-drawer .team-rating-breakdown{grid-template-columns:repeat(3,minmax(0,1fr))}
   .team-position-room .team-assets-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:5px;padding:6px}

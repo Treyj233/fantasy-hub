@@ -6626,6 +6626,16 @@ function TeamRankings({
   setSelectedPlayer: (player: Player) => void;
 }) {
   const [expandedTeamId, setExpandedTeamId] = useState("");
+  useEffect(() => {
+    if (!expandedTeamId || !window.matchMedia("(max-width: 700px)").matches)
+      return;
+    const frame = window.requestAnimationFrame(() => {
+      document
+        .getElementById(`team-assets-${expandedTeamId}`)
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [expandedTeamId]);
   const rankingById = new Map(rankings.map((player) => [player.id, player]));
   const isDynasty = context?.format === "Dynasty";
   const positions = ["QB", "RB", "WR", "TE"];
@@ -6855,7 +6865,7 @@ function TeamRankings({
             >
               <b className="overall-place">#{overallRanks.get(team.id)}</b>
               <div className="rank-team-name">
-                <button className="team-rank-toggle" type="button" aria-expanded={expanded} onClick={() => setExpandedTeamId((current) => current === team.id ? "" : team.id)}>
+                <button className="team-rank-toggle" type="button" aria-expanded={expanded} aria-controls={`team-assets-${team.id}`} aria-label={`${expanded ? "Hide" : "View"} ${team.teamName} complete team assets`} onClick={() => setExpandedTeamId((current) => current === team.id ? "" : team.id)}>
                   <span><strong>{team.teamName}</strong><small>{team.managerName}{team.id === selectedTeamId ? " · YOUR TEAM" : ""}</small></span>
                   <i>{expanded ? "−" : "+"}</i>
                 </button>
@@ -6891,7 +6901,7 @@ function TeamRankings({
                 ))}
               </div>
             </article>
-            {expanded && <section className="team-assets-drawer">
+            {expanded && <section className="team-assets-drawer" id={`team-assets-${team.id}`}>
               <header><div><span>COMPLETE TEAM ASSETS</span><strong>{team.teamName}</strong></div><small>{allAssets.length} rostered players{isDynasty ? ` · ${team.draftCapital?.picks.length ?? 0} draft picks` : ""}</small></header>
               <div className="team-rating-breakdown"><article><span>STARTERS</span><b>{team.starterScore.toFixed(0)}</b><small>{isDynasty ? "52%" : "72%"}</small></article><article><span>DEPTH</span><b>{team.depthScore.toFixed(0)}</b><small>{isDynasty ? "14%" : "18%"}</small></article><article><span>BALANCE</span><b>{team.balanceScore.toFixed(0)}</b><small>{isDynasty ? "16%" : "10%"}</small></article>{isDynasty && <><article><span>RUNWAY</span><b>{team.runwayScore.toFixed(0)}</b><small>10%</small></article><article><span>DRAFT</span><b>{team.draftValue.toFixed(0)}</b><small>8%</small></article></>}</div>
               <div className="team-position-rooms">
@@ -9807,6 +9817,9 @@ function PlayerPanel({
   return (
     <div
       className="modal-backdrop"
+      role="dialog"
+      aria-modal="true"
+      aria-label={`${player.name} player details`}
       onMouseDown={(event) => event.target === event.currentTarget && close()}
     >
       <aside className="player-panel player-dossier">
