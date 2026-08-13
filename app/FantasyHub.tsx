@@ -8561,7 +8561,7 @@ function TradeLab({
         </header>
         <div className="calculator-grid">
           <label>
-            You send
+            <span>You send</span>
             <select
               value={effectiveSendId}
               onChange={(event) => setCalculatorSendId(event.target.value)}
@@ -8586,7 +8586,7 @@ function TradeLab({
             </small>
           </div>
           <label>
-            You receive
+            <span>You receive</span>
             <select
               value={effectiveReceiveId}
               onChange={(event) => setCalculatorReceiveId(event.target.value)}
