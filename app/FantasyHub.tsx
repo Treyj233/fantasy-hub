@@ -2689,8 +2689,8 @@ function AccessAccount({ accountUser, entitlement, onPlans }: { accountUser: Acc
     setBillingBusy(true);
     setBillingError("");
     try {
-      if (await nativeRestorePurchases()) window.location.reload();
-      else setBillingError("No active Fantasy Hub Pro purchase was found for this Apple ID.");
+      await nativeRestorePurchases();
+      window.location.reload();
     } catch (error) {
       setBillingError(error instanceof Error ? error.message : "Purchases could not be restored");
     } finally {

@@ -75,7 +75,10 @@ export async function nativePurchase(productId: string) {
 
 export async function nativeRestorePurchases() {
   if (!isNativeIosApp()) return false;
-  const { transactions } = await StoreKit.restore();
+  // Reading current entitlements is sufficient for StoreKit 2 restoration and
+  // avoids AppStore.sync(), which can prompt for the production Apple account
+  // while a TestFlight user is working with a Sandbox Apple Account.
+  const { transactions } = await StoreKit.entitlements();
   let active = false;
   for (const transaction of transactions) active = (await verifyNativeTransaction(transaction)) || active;
   if (!active) await clearStaleNativeEntitlement();
