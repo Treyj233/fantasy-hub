@@ -15,6 +15,7 @@ test("Team Rankings groups assets by position and removes mobile horizontal scro
   assert.match(rankings, /role="dialog" aria-modal="true"/);
   assert.match(rankings, /className="team-assets-close"/);
   assert.match(rankings, /createPortal\(drawer, document\.body\)/);
+  assert.match(rankings, /className="team-assets-modal-layer"/);
   assert.match(rankings, /className="team-assets-mobile-open"/);
   assert.doesNotMatch(rankings, /team-rank-head/);
   assert.match(rankings, /TOP \{Math\.ceil\(/);
@@ -27,7 +28,8 @@ test("Team Rankings groups assets by position and removes mobile horizontal scro
   assert.match(styles, /\.team-position-room \.team-assets-grid\{grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
   assert.match(styles, /min-width:0!important/);
   assert.match(styles, /\.team-rank-row \.team-rank-toggle\{min-height:44px/);
-  assert.match(styles, /\.team-assets-drawer\{position:fixed;z-index:2147483600;inset:max\(54px,calc\(env\(safe-area-inset-top\) \+ 10px\)\)/);
+  assert.match(styles, /\.team-assets-modal-layer\{position:fixed;z-index:2147483599;inset:0;display:block;background:var\(--chalk\)/);
+  assert.match(styles, /\.team-assets-drawer\{position:absolute;z-index:1;inset:max\(54px,calc\(env\(safe-area-inset-top\) \+ 10px\)\)/);
   assert.match(styles, /\.team-assets-mobile-open\{display:block;grid-column:1\/-1/);
   assert.match(styles, /font-family:Impact,"Arial Black",ui-rounded,sans-serif/);
   assert.match(styles, /\.room-rank\.rank-elite b/);

@@ -6906,7 +6906,7 @@ function TeamRankings({
               <button className="team-assets-mobile-open" type="button" aria-haspopup="dialog" aria-expanded={expanded} aria-controls={`team-assets-${team.id}`} onClick={() => setExpandedTeamId((current) => current === team.id ? "" : team.id)}>{expanded ? "Hide complete roster" : "View complete roster"}</button>
             </article>
             {expanded && (() => {
-              const drawer = <section className="team-assets-drawer" id={`team-assets-${team.id}`} role="dialog" aria-modal="true" aria-label={`${team.teamName} complete team assets`}>
+              const drawer = <div className="team-assets-modal-layer"><section className="team-assets-drawer" id={`team-assets-${team.id}`} role="dialog" aria-modal="true" aria-label={`${team.teamName} complete team assets`}>
               <header><div><span>COMPLETE TEAM ASSETS</span><strong>{team.teamName}</strong></div><small>{allAssets.length} rostered players{isDynasty ? ` · ${team.draftCapital?.picks.length ?? 0} draft picks` : ""}</small><button className="team-assets-close" type="button" aria-label="Close team assets" onClick={() => setExpandedTeamId("")}>×</button></header>
               <div className="team-rating-breakdown"><article><span>STARTERS</span><b>{team.starterScore.toFixed(0)}</b><small>{isDynasty ? "52%" : "72%"}</small></article><article><span>DEPTH</span><b>{team.depthScore.toFixed(0)}</b><small>{isDynasty ? "14%" : "18%"}</small></article><article><span>BALANCE</span><b>{team.balanceScore.toFixed(0)}</b><small>{isDynasty ? "16%" : "10%"}</small></article>{isDynasty && <><article><span>RUNWAY</span><b>{team.runwayScore.toFixed(0)}</b><small>10%</small></article><article><span>DRAFT</span><b>{team.draftValue.toFixed(0)}</b><small>8%</small></article></>}</div>
               <div className="team-position-rooms">
@@ -6923,7 +6923,7 @@ function TeamRankings({
                 })}
               </div>
               {isDynasty && Boolean(team.draftCapital?.picks.length) && <div className="team-pick-assets"><span>DRAFT CAPITAL</span>{team.draftCapital!.picks.map((pick) => <b key={pick.id}>{pick.season} R{pick.round}{pick.originalRosterId !== team.id ? " · ACQUIRED" : ""}</b>)}</div>}
-              </section>;
+              </section></div>;
               return portalTeamAssets && typeof document !== "undefined" ? createPortal(drawer, document.body) : drawer;
             })()}
             </Fragment>
