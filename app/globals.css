@@ -851,6 +851,7 @@ html[data-theme="dark"] .account-theme-customizer{color:#fff;background:radial-g
 .team-rank-toggle span strong,.team-rank-toggle span small,.core-assets button{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .core-assets{gap:3px}.core-assets button{padding:4px}.core-assets button:nth-child(n+3){display:none}
 .team-assets-drawer{width:100%;min-width:0!important}
+.team-assets-close{display:grid;place-items:center;flex:0 0 auto;width:36px;height:36px;padding:0;color:var(--ink);background:var(--chalk);border:1px solid var(--line);border-radius:9px;font-size:22px;line-height:1}
 .team-position-rooms{display:grid;gap:11px}
 .team-position-room{min-width:0;overflow:hidden;background:color-mix(in srgb,var(--chalk) 90%,transparent);border:1px solid var(--line);border-radius:11px}
 .team-position-room>header{display:grid;grid-template-columns:28px minmax(0,1fr) auto;align-items:center;gap:8px;padding:8px 10px;background:color-mix(in srgb,var(--green) 7%,var(--chalk));border-bottom:1px solid var(--line)}
@@ -876,8 +877,8 @@ html[data-theme="dark"] .team-position-room{background:#20242c;border-color:#404
   .team-rank-row .room-rank b{justify-self:end;font-size:10px}.team-rank-row .room-rank small{grid-column:1/-1;font-size:6px}.team-rank-row .room-rank small:after{margin-left:3px;content:"ROOM SCORE"}
   .team-rank-row .draft-rank{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;padding:7px 9px;background:color-mix(in srgb,var(--gold-light) 15%,var(--chalk));border-radius:8px}.team-rank-row .draft-rank:before{font-size:7px;font-weight:950;content:"DRAFT CAPITAL"}
   .team-rank-row .core-assets{grid-column:1/-1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px}.team-rank-row .core-assets button:nth-child(n){display:flex;width:100%;overflow:hidden}
-  .team-assets-drawer{scroll-margin-top:12px;margin:-8px 0 10px;padding:11px 8px;border-radius:0 0 12px 12px}
-  .team-assets-drawer>header{align-items:flex-start}.team-assets-drawer>header small{max-width:45%;text-align:right}
+  .team-assets-drawer{position:fixed;z-index:2147483600;inset:0;width:100%;height:100%;max-height:100dvh;margin:0;padding:calc(14px + env(safe-area-inset-top)) 10px calc(18px + env(safe-area-inset-bottom));overflow-x:hidden;overflow-y:auto;background:var(--chalk);border:0;border-radius:0;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;animation:none}
+  .team-assets-drawer>header{position:sticky;z-index:2;top:calc(-14px - env(safe-area-inset-top));align-items:center;margin:calc(-14px - env(safe-area-inset-top)) -10px 12px;padding:calc(14px + env(safe-area-inset-top)) 12px 11px;color:#fff;background:linear-gradient(135deg,var(--deep),var(--green));border-bottom:3px solid var(--gold)}.team-assets-drawer>header span,.team-assets-drawer>header small{color:#c9d9cf}.team-assets-drawer>header strong{color:#fff}.team-assets-drawer>header small{max-width:none;margin-left:auto;text-align:right}.team-assets-close{color:#fff;background:#ffffff14;border-color:#ffffff45}
   .team-assets-drawer .team-rating-breakdown{grid-template-columns:repeat(3,minmax(0,1fr))}
   .team-position-room .team-assets-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:5px;padding:6px}
   .team-position-room .team-assets-grid>button{grid-template-columns:24px minmax(0,1fr);gap:5px;min-width:0;padding:7px}
