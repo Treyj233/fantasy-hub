@@ -57,5 +57,18 @@ export async function DELETE() {
   const [subscription] = await db.select().from(subscriptions).where(and(
     eq(subscriptions.userId, user.userId), inArray(subscriptions.provider, ["apple", "app_store"]),
   )).limit(1);
-  return Response.json({ appStoreManaged: Boolean(subscription), manageInApp: true });
+  if (subscription) {
+    await db.update(subscriptions)
+      .set({
+        plan: "free",
+        status: "canceled",
+        currentPeriodEnd: null,
+        updatedAt: new Date().toISOString(),
+      })
+      .where(and(
+        eq(subscriptions.userId, user.userId),
+        inArray(subscriptions.provider, ["apple", "app_store"]),
+      ));
+  }
+  return Response.json({ reconciled: true, active: false });
 }

@@ -78,6 +78,7 @@ export async function nativeRestorePurchases() {
   const { transactions } = await StoreKit.restore();
   let active = false;
   for (const transaction of transactions) active = (await verifyNativeTransaction(transaction)) || active;
+  if (!active) await clearStaleNativeEntitlement();
   return active;
 }
 
@@ -87,7 +88,14 @@ export async function nativeRefreshPurchases() {
   const { transactions } = await StoreKit.restore();
   let active = false;
   for (const transaction of transactions) active = (await verifyNativeTransaction(transaction)) || active;
+  if (!active) await clearStaleNativeEntitlement();
   return active;
+}
+
+async function clearStaleNativeEntitlement() {
+  const response = await fetch("/api/billing/apple", { method: "DELETE" });
+  const result = await response.json().catch(() => ({})) as { error?: string };
+  if (!response.ok) throw new Error(result.error ?? "Unable to reconcile App Store purchases");
 }
 
 export async function nativeManageSubscriptions() {
