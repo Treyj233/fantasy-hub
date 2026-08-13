@@ -5089,8 +5089,10 @@ function NflGames({
       }
     };
     void refresh();
+    const stopPolling = startVisiblePolling(refresh);
     return () => {
       active = false;
+      stopPolling();
     };
   }, [leagueId, players, season, week]);
 

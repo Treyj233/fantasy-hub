@@ -20,6 +20,8 @@ type SourcePlayer = {
   team?: string;
 };
 type SourceProjection = { player_id?: string; stats?: Record<string, number> };
+type EspnCompetitor = { homeAway?: string; score?: string; winner?: boolean; team?: { abbreviation?: string; displayName?: string; shortDisplayName?: string; color?: string; logo?: string }; records?: { name?: string; summary?: string }[] };
+type EspnEvent = { id?: string; date?: string; name?: string; status?: { displayClock?: string; period?: number; type?: { state?: string; description?: string; shortDetail?: string } }; competitions?: { competitors?: EspnCompetitor[]; venue?: { fullName?: string }; broadcasts?: { names?: string[] }[] }[] };
 const normalizeTeam = (team?: string) =>
   ({ JAC: "JAX", WSH: "WAS", LA: "LAR" })[team ?? ""] ?? team ?? "";
 
@@ -73,6 +75,7 @@ export async function GET(request: Request) {
   const season = league.season ?? String(new Date().getUTCFullYear());
   const seasonNumber = Number(season);
   const [
+    espnGamesResponse,
     scheduleGames,
     matchupsResponse,
     rostersResponse,
@@ -80,6 +83,7 @@ export async function GET(request: Request) {
     playersResponse,
     projectionsResponse,
   ] = await Promise.all([
+    fetch(`https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates=${season}&seasontype=2&week=${week}`, { next: { revalidate: 20 } }).catch(() => null),
     loadNflSeasonSchedule(seasonNumber),
     fetch(`https://api.sleeper.app/v1/league/${leagueId}/matchups/${week}`, {
       next: { revalidate: 15 },
@@ -177,21 +181,33 @@ export async function GET(request: Request) {
       ];
     }),
   );
-  const games = scheduleGames
+  const attachImpactPlayers = (teams: { abbreviation: string }[]) => {
+    const teamCodes = new Set(teams.map((team) => team.abbreviation));
+    return matchupPlayers
+      .filter((player) => teamCodes.has(player.nflTeam))
+      .sort((a, b) => Number(b.starter) - Number(a.starter) || b.fantasyPoints - a.fantasyPoints);
+  };
+  const espnPayload = espnGamesResponse?.ok
+    ? await espnGamesResponse.json().catch(() => null) as { events?: EspnEvent[] } | null
+    : null;
+  const espnGames = (espnPayload?.events ?? []).flatMap((event) => {
+    const competition = event.competitions?.[0];
+    const competitors = competition?.competitors ?? [];
+    if (competitors.length !== 2) return [];
+    const teams = competitors.map((competitor) => {
+      const abbreviation = normalizeTeam(competitor.team?.abbreviation);
+      return { abbreviation, name: competitor.team?.shortDisplayName ?? competitor.team?.displayName ?? abbreviation, displayName: competitor.team?.displayName ?? competitor.team?.shortDisplayName ?? abbreviation, homeAway: competitor.homeAway ?? "away", score: Number(competitor.score ?? 0), winner: Boolean(competitor.winner), color: competitor.team?.color ?? teamColors[abbreviation] ?? "173f2a", logo: competitor.team?.logo ?? null, record: competitor.records?.find((record) => record.name === "overall")?.summary ?? "" };
+    }).sort((a, b) => a.homeAway === "away" ? -1 : b.homeAway === "away" ? 1 : 0);
+    const state = event.status?.type?.state ?? "pre";
+    return [{ id: event.id ?? event.name ?? event.date ?? "nfl-game", date: event.date ?? "", name: event.name ?? `${teams[0].name} at ${teams[1].name}`, status: event.status?.type?.shortDetail ?? event.status?.type?.description ?? "Scheduled", state, clock: state === "in" ? `${event.status?.period ? `Q${event.status.period} · ` : ""}${event.status?.displayClock ?? ""}` : "", venue: competition?.venue?.fullName ?? "", broadcast: competition?.broadcasts?.flatMap((broadcast) => broadcast.names ?? []).join(" · ") ?? "", teams, impactPlayers: attachImpactPlayers(teams) }];
+  });
+  const fallbackGames = scheduleGames
     .filter((game) => game.week === week)
     .map((game) => {
       const teams = [
         { ...game.away, displayName: game.away.name, homeAway: "away", score: 0, winner: false, color: teamColors[game.away.abbreviation] ?? "173f2a", logo: null, record: "" },
         { ...game.home, displayName: game.home.name, homeAway: "home", score: 0, winner: false, color: teamColors[game.home.abbreviation] ?? "173f2a", logo: null, record: "" },
       ];
-      const teamCodes = new Set(teams.map((team) => team.abbreviation));
-      const impactPlayers = matchupPlayers
-        .filter((player) => teamCodes.has(player.nflTeam))
-        .sort(
-          (a, b) =>
-            Number(b.starter) - Number(a.starter) ||
-            b.fantasyPoints - a.fantasyPoints,
-        );
       return {
         id: game.id,
         date: game.date,
@@ -202,9 +218,11 @@ export async function GET(request: Request) {
         venue: game.venue,
         broadcast: game.broadcast,
         teams,
-        impactPlayers,
+        impactPlayers: attachImpactPlayers(teams),
       };
-    })
+    });
+  const fallbackSchedule = espnGames.length === 0;
+  const games = (fallbackSchedule ? fallbackGames : espnGames)
     .sort(
       (a, b) =>
         Number(b.impactPlayers.length > 0) -
@@ -215,8 +233,8 @@ export async function GET(request: Request) {
     league: { id: leagueId, name: league.name ?? "League", season, provider: "Sleeper", projectionSource: "Sleeper Projections" },
     week,
     updatedAt: new Date().toISOString(),
-    scoresAvailable: false,
-    fallbackSchedule: true,
+    scoresAvailable: !fallbackSchedule,
+    fallbackSchedule,
     fantasyMatchup: {
       available: Boolean(myRow && opponentRow),
       yourPoints: Number((myRow?.points ?? 0).toFixed(2)),

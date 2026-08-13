@@ -237,6 +237,21 @@ test("NFL game impact details open in an accessible popout", async () => {
   assert.match(source, /aria-modal="true"/);
 });
 
+test("NFL Game Hub prefers ESPN live scores and falls back to the imported schedule", async () => {
+  const [source, route] = await Promise.all([
+    readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/nfl-games/route.ts", import.meta.url), "utf8"),
+  ]);
+  assert.match(route, /site\.api\.espn\.com\/apis\/site\/v2\/sports\/football\/nfl\/scoreboard/);
+  assert.match(route, /const fallbackSchedule = espnGames\.length === 0/);
+  assert.match(route, /scoresAvailable: !fallbackSchedule/);
+  const start = source.indexOf("function NflGames(");
+  const end = source.indexOf("const dynastyCurves", start);
+  const component = source.slice(start, end);
+  assert.match(component, /startVisiblePolling\(refresh\)/);
+  assert.match(component, /stopPolling\(\)/);
+});
+
 test("player popouts retain connected-platform projections across page models", async () => {
   const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
   const start = source.indexOf("function PlayerPanel(");
