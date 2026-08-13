@@ -841,6 +841,13 @@ html[data-theme="dark"] .account-theme-customizer{color:#fff;background:radial-g
   .portfolio-score-bug{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 
+/* Single-line labels that are truly clipped pan gently while the dashboard is
+   idle. JS supplies the exact overflow distance, so short labels remain still. */
+.overflow-auto-scroll{overflow:hidden;text-overflow:clip!important;animation:overflow-text-pan var(--overflow-duration,9s) ease-in-out var(--overflow-delay,0s) infinite}
+.overflow-auto-scroll:hover,.overflow-auto-scroll:focus,.overflow-auto-scroll:focus-visible{animation-play-state:paused}
+@keyframes overflow-text-pan{0%,18%{text-indent:0}72%,90%{text-indent:var(--overflow-pan,0)}100%{text-indent:0}}
+@media(prefers-reduced-motion:reduce){.overflow-auto-scroll{animation:none!important;text-overflow:ellipsis!important}}
+
 /* Manage Plans uses the bright stadium-night campaign language from the App Store creative. */
 .pro-plans-page{gap:20px;background:radial-gradient(circle at 12% 4%,rgb(63 149 255 / .12),transparent 25%),radial-gradient(circle at 88% 18%,rgb(var(--brand-secondary-rgb,241 180 50) / .13),transparent 27%)}
 .pro-plans-hero{display:grid;min-height:330px;grid-template-columns:minmax(0,1fr) 230px;align-items:center;gap:34px;padding:48px 52px;background:radial-gradient(circle at 18% -20%,#2a78d9 0,transparent 43%),radial-gradient(circle at 82% 13%,rgb(var(--brand-secondary-rgb,241 180 50) / .5),transparent 24%),repeating-linear-gradient(115deg,transparent 0,transparent 54px,#ffffff08 55px,#ffffff08 57px),linear-gradient(145deg,#061832 0,var(--deep) 48%,color-mix(in srgb,var(--green) 76%,#061322) 100%);border:1px solid #ffffff24;border-bottom:5px solid var(--gold);box-shadow:0 24px 54px rgb(3 18 41 / .28)}

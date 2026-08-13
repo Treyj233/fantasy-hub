@@ -346,6 +346,45 @@ function startVisiblePolling(refresh: () => Promise<void>, intervalMs = 30_000) 
     document.removeEventListener("visibilitychange", runWhenVisible);
   };
 }
+
+function useOverflowAutoScroll() {
+  useEffect(() => {
+    let frame = 0;
+    const update = () => {
+      frame = 0;
+      document.querySelectorAll<HTMLElement>(".app-shell *").forEach((element) => {
+        const style = window.getComputedStyle(element);
+        const isSingleLineEllipsis = style.textOverflow === "ellipsis" && style.whiteSpace === "nowrap";
+        const overflow = element.scrollWidth - element.clientWidth;
+        const eligible = isSingleLineEllipsis && element.childElementCount === 0 && overflow > 3;
+        element.classList.toggle("overflow-auto-scroll", eligible);
+        if (!eligible) {
+          element.style.removeProperty("--overflow-pan");
+          element.style.removeProperty("--overflow-duration");
+          element.style.removeProperty("--overflow-delay");
+          return;
+        }
+        element.style.setProperty("--overflow-pan", `${-(overflow + 10)}px`);
+        element.style.setProperty("--overflow-duration", `${Math.max(7, Math.min(18, 6 + overflow / 14)).toFixed(1)}s`);
+        element.style.setProperty("--overflow-delay", `${(element.textContent?.length ?? 0) % 4}s`);
+        if (!element.title) element.title = element.textContent?.trim() ?? "";
+      });
+    };
+    const schedule = () => {
+      if (!frame) frame = window.requestAnimationFrame(update);
+    };
+    const mutations = new MutationObserver(schedule);
+    mutations.observe(document.body, { childList: true, characterData: true, subtree: true });
+    const resize = new ResizeObserver(schedule);
+    resize.observe(document.documentElement);
+    schedule();
+    return () => {
+      if (frame) window.cancelAnimationFrame(frame);
+      mutations.disconnect();
+      resize.disconnect();
+    };
+  }, []);
+}
 type AccountEntitlement = { plan: "free" | "pro"; status: string; pro: boolean; currentPeriodEnd: string | null; provider: "stripe" | "apple" | "manual" | null };
 type AccountPreferences = {
   colorMode: Theme;
@@ -1354,6 +1393,7 @@ export default function FantasyHub({
   const leagueDragOccurred = useRef(false);
 
   useEffect(() => initializeNativeRuntime(), []);
+  useOverflowAutoScroll();
 
   useEffect(() => {
     if (view !== "Waiver Wire") return;
