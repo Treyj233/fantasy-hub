@@ -47,3 +47,10 @@ test("standard player popouts stay inside the iPhone safe viewport", async () =>
   assert.match(styles, /\.player-modal-layer\{position:fixed;z-index:2147483599;inset:0;background:var\(--chalk\)/);
   assert.match(styles, /\.modal-backdrop\.player-modal-backdrop\{position:absolute;z-index:1;inset:max\(54px,calc\(env\(safe-area-inset-top\) \+ 10px\)\)/);
 });
+
+test("League Analytics typography stays scoped and collision-safe", async () => {
+  const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  assert.match(styles, /\.dynasty-page :is\(\.dynasty-hero h2,\.panel-header h3,\.window-score strong,\.dynasty-metrics \.metric strong\)/);
+  assert.match(styles, /\.dynasty-page \.panel-header h3\{[^}]*text-overflow:ellipsis;white-space:nowrap/);
+  assert.match(styles, /\.dynasty-page :is\(\.allocation-grid article>span,[^}]*white-space:nowrap/);
+});

@@ -853,6 +853,18 @@ html[data-theme="dark"] .account-theme-customizer{color:#fff;background:radial-g
 .core-assets{gap:3px}.core-assets button{padding:4px}
 .team-rank-row .core-assets button{background:rgb(var(--brand-primary-rgb,11 134 80) / .14);border-color:rgb(var(--brand-primary-rgb,11 134 80) / .34)}
 html[data-theme="dark"] .team-rank-row .core-assets button{background:rgb(var(--brand-primary-rgb,11 134 80) / .2);border-color:rgb(var(--brand-primary-rgb,11 134 80) / .46)}
+
+/* League Analytics typography: a sharper sports-report hierarchy without
+   changing card geometry or allowing labels to collide. */
+.dynasty-page :is(.dynasty-hero h2,.panel-header h3,.window-score strong,.dynasty-metrics .metric strong){font-family:Impact,"Arial Black",ui-rounded,sans-serif;font-style:italic;font-weight:900}
+.dynasty-page .dynasty-hero h2{letter-spacing:.005em;line-height:1.02;text-wrap:balance}
+.dynasty-page .dynasty-hero>div:first-child>span,.dynasty-page .panel-header span,.dynasty-page .window-score small,.dynasty-page .metric>span{font-family:"Arial Narrow",Arial,sans-serif;font-weight:950;letter-spacing:.14em;text-transform:uppercase}
+.dynasty-page .panel-header{min-width:0}.dynasty-page .panel-header>div{min-width:0}.dynasty-page .panel-header h3{overflow:hidden;max-width:100%;font-size:18px;letter-spacing:.015em;line-height:1.08;text-overflow:ellipsis;white-space:nowrap}
+.dynasty-page .window-score{min-width:0}.dynasty-page .window-score strong{letter-spacing:.035em;line-height:1}.dynasty-page .window-score span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dynasty-page .dynasty-metrics .metric{min-width:0}.dynasty-page .dynasty-metrics .metric strong{overflow:hidden;max-width:100%;letter-spacing:.025em;line-height:1;text-overflow:ellipsis;white-space:nowrap}
+.dynasty-page :is(.allocation-grid article>strong,.dynasty-player-list button>b,.window-bars span,.redraft-range-labels b,.analytics-route-card>b){font-family:"Arial Narrow",Arial,sans-serif;font-weight:950;letter-spacing:.025em}
+.dynasty-page :is(.allocation-grid article>span,.allocation-grid article>small,.dynasty-player-list p strong,.dynasty-player-list p small,.dynasty-player-list button>b small,.analytics-route-card strong,.analytics-route-card em){min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media(max-width:700px){.dynasty-page .panel-header h3{font-size:16px}.dynasty-page .dynasty-hero h2{font-size:28px}.dynasty-page .window-score strong{font-size:36px}}
 .team-assets-drawer{width:100%;min-width:0!important}
 .team-assets-close{display:grid;place-items:center;flex:0 0 auto;width:36px;height:36px;padding:0;color:var(--ink);background:var(--chalk);border:1px solid var(--line);border-radius:9px;font-size:22px;line-height:1}
 .team-assets-mobile-open{display:none}
