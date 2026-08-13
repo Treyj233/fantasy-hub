@@ -6862,7 +6862,7 @@ function TeamRankings({
               </div>
               <strong className="team-score">{team.overallScore}</strong>
               {positions.map((position) => (
-                <div className="room-rank" key={position}>
+                <div className="room-rank" data-position={position} key={position}>
                   <b>#{roomRanks[position].get(team.id)}</b>
                   <small>{team.roomScores[position].toFixed(0)}</small>
                 </div>
@@ -6894,10 +6894,19 @@ function TeamRankings({
             {expanded && <section className="team-assets-drawer">
               <header><div><span>COMPLETE TEAM ASSETS</span><strong>{team.teamName}</strong></div><small>{allAssets.length} rostered players{isDynasty ? ` · ${team.draftCapital?.picks.length ?? 0} draft picks` : ""}</small></header>
               <div className="team-rating-breakdown"><article><span>STARTERS</span><b>{team.starterScore.toFixed(0)}</b><small>{isDynasty ? "52%" : "72%"}</small></article><article><span>DEPTH</span><b>{team.depthScore.toFixed(0)}</b><small>{isDynasty ? "14%" : "18%"}</small></article><article><span>BALANCE</span><b>{team.balanceScore.toFixed(0)}</b><small>{isDynasty ? "16%" : "10%"}</small></article>{isDynasty && <><article><span>RUNWAY</span><b>{team.runwayScore.toFixed(0)}</b><small>10%</small></article><article><span>DRAFT</span><b>{team.draftValue.toFixed(0)}</b><small>8%</small></article></>}</div>
-              <div className="team-assets-grid">{allAssets.map((player) => {
-                const ranking = rankingById.get(player.id);
-                return <button type="button" key={player.id} onClick={() => setSelectedPlayer(player)}><span className={`pos pos-${player.position.toLowerCase()}`}>{player.position}</span><p><strong>{player.name}</strong><small>{player.team} · {formatRosterSlot(player.role)}</small></p><b>{ranking ? `#${ranking.overallRank}` : `${player.projection.toFixed(1)} PTS`}</b></button>;
-              })}</div>
+              <div className="team-position-rooms">
+                {[...positions, "OTHER"].map((position) => {
+                  const positionPlayers = allAssets.filter((player) => position === "OTHER" ? !positions.includes(player.position) : player.position === position);
+                  if (!positionPlayers.length) return null;
+                  return <section className="team-position-room" key={position}>
+                    <header><span className={`pos pos-${position.toLowerCase()}`}>{position === "OTHER" ? "ST" : position}</span><strong>{position === "OTHER" ? "KICKERS & DEFENSE" : `${position}s`}</strong><small>{positionPlayers.length} PLAYERS</small></header>
+                    <div className="team-assets-grid">{positionPlayers.map((player) => {
+                      const ranking = rankingById.get(player.id);
+                      return <button type="button" key={player.id} onClick={() => setSelectedPlayer(player)}><span className={`pos pos-${player.position.toLowerCase()}`}>{player.position}</span><p><strong>{player.name}</strong><small>{player.team} · {formatRosterSlot(player.role)}</small></p><b>{ranking ? `#${ranking.overallRank}` : `${player.projection.toFixed(1)} PTS`}</b></button>;
+                    })}</div>
+                  </section>;
+                })}
+              </div>
               {isDynasty && Boolean(team.draftCapital?.picks.length) && <div className="team-pick-assets"><span>DRAFT CAPITAL</span>{team.draftCapital!.picks.map((pick) => <b key={pick.id}>{pick.season} R{pick.round}{pick.originalRosterId !== team.id ? " · ACQUIRED" : ""}</b>)}</div>}
             </section>}
             </Fragment>

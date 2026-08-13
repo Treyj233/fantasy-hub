@@ -841,6 +841,50 @@ html[data-theme="dark"] .account-theme-customizer{color:#fff;background:radial-g
   .portfolio-score-bug{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 
+/* Team Rankings is a responsive roster board, never a horizontally scrolling
+   desktop table. Expanded players are grouped into explicit position rooms. */
+.team-rankings-page,.team-rank-table,.team-rank-row,.team-assets-drawer{min-width:0;max-width:100%}
+.team-rank-table{width:100%;overflow-x:hidden!important;padding:8px 12px}
+.team-rank-row{grid-template-columns:36px minmax(120px,1.15fr) 52px repeat(4,minmax(34px,46px)) minmax(125px,1fr)!important;width:100%;min-width:0!important;gap:6px}
+.team-rank-row.dynasty{grid-template-columns:36px minmax(115px,1.1fr) 50px repeat(4,minmax(32px,43px)) minmax(66px,80px) minmax(110px,.9fr)!important}
+.team-rank-toggle,.team-rank-toggle span,.rank-team-name,.core-assets{min-width:0}
+.team-rank-toggle span strong,.team-rank-toggle span small,.core-assets button{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.core-assets{gap:3px}.core-assets button{padding:4px}.core-assets button:nth-child(n+3){display:none}
+.team-assets-drawer{width:100%;min-width:0!important}
+.team-position-rooms{display:grid;gap:11px}
+.team-position-room{min-width:0;overflow:hidden;background:color-mix(in srgb,var(--chalk) 90%,transparent);border:1px solid var(--line);border-radius:11px}
+.team-position-room>header{display:grid;grid-template-columns:28px minmax(0,1fr) auto;align-items:center;gap:8px;padding:8px 10px;background:color-mix(in srgb,var(--green) 7%,var(--chalk));border-bottom:1px solid var(--line)}
+.team-position-room>header .pos{width:27px;height:25px;font-size:6px}.team-position-room>header strong{font-size:9px}.team-position-room>header small{color:var(--muted);font-size:6px;font-weight:900;letter-spacing:.07em}
+.team-position-room .team-assets-grid{padding:8px}
+html[data-theme="dark"] .team-position-room{background:#20242c;border-color:#404753}html[data-theme="dark"] .team-position-room>header{background:#26332d;border-color:#404753}
+
+@media(max-width:700px){
+  .team-rankings-page{width:100%;max-width:100%;overflow-x:hidden}
+  .team-rankings-page .team-rank-summary{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+  .team-rankings-page .team-rank-summary .metric{min-width:0;padding:11px}.team-rankings-page .team-rank-summary .metric strong{font-size:22px}.team-rankings-page .team-rank-summary .metric small{font-size:8px}
+  .team-rank-table{padding:6px;background:transparent;border:0;box-shadow:none}
+  .team-rank-row.team-rank-head{display:none}
+  .team-rank-row,.team-rank-row.dynasty{position:relative;display:grid;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:6px;width:100%;margin-bottom:8px;padding:10px;background:var(--chalk);border:1px solid var(--line);border-radius:12px;box-shadow:0 6px 16px rgb(7 59 39 / .06)}
+  .team-rank-row.your-team{border-left:4px solid var(--gold)}
+  .team-rank-row .overall-place{position:absolute;left:9px;top:14px;width:31px;text-align:center}
+  .team-rank-row .rank-team-name{grid-column:1/-1;padding:0 47px 7px 34px;border-bottom:1px solid var(--line)}
+  .team-rank-row .team-rank-toggle{padding:0}.team-rank-row .team-rank-toggle i{position:absolute;right:7px;top:7px}
+  .team-rank-row .team-score{position:absolute;right:38px;top:13px;font-size:15px}
+  .team-rank-row .team-score:before{display:block;color:var(--muted);font-size:5px;letter-spacing:.06em;content:"SCORE"}
+  .team-rank-row .room-rank{position:relative;display:grid;grid-template-columns:auto auto;align-items:center;justify-content:space-between;gap:6px;min-width:0;padding:8px 9px;background:color-mix(in srgb,var(--green) 5%,var(--cream));border:1px solid var(--line);border-radius:8px;text-align:left}
+  .team-rank-row .room-rank:before{color:var(--green);font-size:8px;font-weight:950;content:attr(data-position)}
+  .team-rank-row .room-rank b{justify-self:end;font-size:10px}.team-rank-row .room-rank small{grid-column:1/-1;font-size:6px}.team-rank-row .room-rank small:after{margin-left:3px;content:"ROOM SCORE"}
+  .team-rank-row .draft-rank{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;padding:7px 9px;background:color-mix(in srgb,var(--gold-light) 15%,var(--chalk));border-radius:8px}.team-rank-row .draft-rank:before{font-size:7px;font-weight:950;content:"DRAFT CAPITAL"}
+  .team-rank-row .core-assets{grid-column:1/-1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px}.team-rank-row .core-assets button:nth-child(n){display:flex;width:100%;overflow:hidden}
+  .team-assets-drawer{margin:-8px 0 10px;padding:11px 8px;border-radius:0 0 12px 12px}
+  .team-assets-drawer>header{align-items:flex-start}.team-assets-drawer>header small{max-width:45%;text-align:right}
+  .team-assets-drawer .team-rating-breakdown{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .team-position-room .team-assets-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:5px;padding:6px}
+  .team-position-room .team-assets-grid>button{grid-template-columns:24px minmax(0,1fr);gap:5px;min-width:0;padding:7px}
+  .team-position-room .team-assets-grid>button>.pos{width:24px;height:24px}.team-position-room .team-assets-grid>button>b{grid-column:2;color:var(--green);font-size:6px}.team-position-room .team-assets-grid p strong{font-size:8px}.team-position-room .team-assets-grid p small{font-size:6px}
+  html[data-theme="dark"] .team-rank-row .room-rank{background:#242b31;border-color:#424956}
+}
+
 /* Single-line labels that are truly clipped pan gently while the dashboard is
    idle. JS supplies the exact overflow distance, so short labels remain still. */
 .overflow-auto-scroll{overflow:hidden;text-overflow:clip!important;animation:overflow-text-pan var(--overflow-duration,9s) ease-in-out var(--overflow-delay,0s) infinite}
