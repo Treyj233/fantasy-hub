@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, createContext, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type MouseEvent } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { estimatedWinProbability, playerLeverage, rootingInterests, whatDoINeed } from "./game-day-model.mjs";
 import { PRE_KICKOFF_VISUALS, PRE_KICKOFF_VISUALS_ENABLED } from "./pre-kickoff-visuals";
@@ -8640,7 +8641,8 @@ function TradeLab({
           const selectorAssets = assetSelectorSide === "send" ? yourTradeAssets : partnerTradeAssets;
           const selectorIds = assetSelectorSide === "send" ? effectiveSendIds : effectiveReceiveIds;
           const selectorTeam = assetSelectorSide === "send" ? yourTeam : partner;
-          return <div className="asset-selector-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setAssetSelectorSide(null); }}><section className="asset-selector-dialog" role="dialog" aria-modal="true" aria-label={`Select assets from ${selectorTeam.teamName}`}><header><div><span>{assetSelectorSide === "send" ? "YOU SEND" : "YOU RECEIVE"}</span><h3>{selectorTeam.teamName}</h3><small>Select or deselect up to six players and picks.</small></div><button type="button" aria-label="Close asset selector" onClick={() => setAssetSelectorSide(null)}>×</button></header><div className="asset-selector-list">{selectorAssets.map((asset) => <button type="button" className={selectorIds.includes(asset.id) ? "selected" : ""} aria-pressed={selectorIds.includes(asset.id)} key={asset.id} onClick={() => toggleCalculatorAsset(assetSelectorSide, asset.id)}><i>{selectorIds.includes(asset.id) ? "✓" : "+"}</i><span><b>{asset.name}</b><small>{asset.position === "PICK" ? asset.meta : `${asset.position} · ${asset.team}`}</small></span><em>{asset.value}</em></button>)}</div><footer><small>{selectorIds.length}/6 selected</small><button type="button" onClick={() => setAssetSelectorSide(null)}>Done</button></footer></section></div>;
+          if (typeof document === "undefined") return null;
+          return createPortal(<div className="asset-selector-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setAssetSelectorSide(null); }}><section className="asset-selector-dialog" role="dialog" aria-modal="true" aria-label={`Select assets from ${selectorTeam.teamName}`}><header><div><span>{assetSelectorSide === "send" ? "YOU SEND" : "YOU RECEIVE"}</span><h3>{selectorTeam.teamName}</h3><small>Select or deselect up to six players and picks.</small></div><button type="button" aria-label="Close asset selector" onClick={() => setAssetSelectorSide(null)}>×</button></header><div className="asset-selector-list">{selectorAssets.map((asset) => <button type="button" className={selectorIds.includes(asset.id) ? "selected" : ""} aria-pressed={selectorIds.includes(asset.id)} key={asset.id} onClick={() => toggleCalculatorAsset(assetSelectorSide, asset.id)}><i>{selectorIds.includes(asset.id) ? "✓" : "+"}</i><span><b>{asset.name}</b><small>{asset.position === "PICK" ? asset.meta : `${asset.position} · ${asset.team}`}</small></span><em>{asset.value}</em></button>)}</div><footer><small>{selectorIds.length}/6 selected</small><button type="button" onClick={() => setAssetSelectorSide(null)}>Done</button></footer></section></div>, document.body);
         })()}
         <div className="calculator-impact">
           <span>
