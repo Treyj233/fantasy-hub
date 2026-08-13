@@ -8484,8 +8484,8 @@ function TradeLab({
         ? { strongGap: 0.14, workableGap: 0.22, partnerGain: 0, yourGain: -0.1, offerRatio: 0.95 }
         : { strongGap: 0.25, workableGap: 0.4, partnerGain: -0.25, yourGain: -0.3, offerRatio: 0.86 };
   const calculatorOfferRatio =
-    calculatorSendAsset && calculatorReceiveAsset
-      ? calculatorSendAsset.value / Math.max(1, calculatorReceiveAsset.value)
+    calculatorSendAssets.length && calculatorReceiveAssets.length
+      ? calculatorSendValue / Math.max(1, calculatorReceiveValue)
       : 0;
   const calculatorProfileFit =
     calculatorYourAfter - calculatorYourBefore >= calculatorProfile.yourGain &&
