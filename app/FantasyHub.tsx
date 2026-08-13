@@ -1396,6 +1396,17 @@ export default function FantasyHub({
   useOverflowAutoScroll();
 
   useEffect(() => {
+    const orientation = screen.orientation as ScreenOrientation & {
+      lock?: (mode: "portrait") => Promise<void>;
+    };
+    if (!orientation?.lock || !window.matchMedia("(pointer: coarse)").matches) return;
+    void orientation.lock("portrait").catch(() => {
+      // Regular browser tabs may reject orientation locking. The installed PWA
+      // manifest and native iOS plist remain the authoritative constraints.
+    });
+  }, []);
+
+  useEffect(() => {
     if (view !== "Waiver Wire") return;
     window.requestAnimationFrame(() => {
       window.scrollTo({ top: 0, left: 0, behavior: "auto" });
