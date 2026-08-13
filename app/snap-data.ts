@@ -128,15 +128,23 @@ async function fetchSnapProfiles(season: number) {
 
 const snapProfileCache = new Map<
   number,
-  Promise<Map<string, SnapProfile>>
+  { expiresAt: number; request: Promise<Map<string, SnapProfile>> }
 >();
 
 export function loadSnapProfiles(season: number) {
   const cached = snapProfileCache.get(season);
-  if (cached) return cached;
+  if (cached && cached.expiresAt > Date.now()) return cached.request;
   const request = fetchSnapProfiles(season);
-  snapProfileCache.set(season, request);
+  snapProfileCache.set(season, { expiresAt: Date.now() + 6 * 60 * 60 * 1000, request });
   return request;
+}
+
+export async function loadCurrentSnapProfiles(currentSeason: number, currentWeek: number) {
+  if (currentWeek >= 2) {
+    const current = await loadSnapProfiles(currentSeason);
+    if (current.size) return current;
+  }
+  return loadSnapProfiles(currentSeason - 1);
 }
 
 export const snapProfileFor = (profiles: Map<string, SnapProfile>, name: string) =>

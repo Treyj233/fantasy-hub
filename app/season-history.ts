@@ -135,23 +135,74 @@ async function fetchTeamOffense(season: number) {
   }
 }
 
-const playerCache = new Map<number, Promise<Map<string, PlayerSeasonProfile>>>();
-const offenseCache = new Map<number, Promise<Map<string, TeamOffenseProfile>>>();
+const playerCache = new Map<number, { expiresAt: number; request: Promise<Map<string, PlayerSeasonProfile>> }>();
+const offenseCache = new Map<number, { expiresAt: number; request: Promise<Map<string, TeamOffenseProfile>> }>();
 
 export function loadPlayerSeasonProfiles(season: number) {
   const cached = playerCache.get(season);
-  if (cached) return cached;
+  if (cached && cached.expiresAt > Date.now()) return cached.request;
   const request = fetchPlayerSeason(season);
-  playerCache.set(season, request);
+  playerCache.set(season, { expiresAt: Date.now() + 6 * 60 * 60 * 1000, request });
   return request;
 }
 
 export function loadTeamOffenseProfiles(season: number) {
   const cached = offenseCache.get(season);
-  if (cached) return cached;
+  if (cached && cached.expiresAt > Date.now()) return cached.request;
   const request = fetchTeamOffense(season);
-  offenseCache.set(season, request);
+  offenseCache.set(season, { expiresAt: Date.now() + 6 * 60 * 60 * 1000, request });
   return request;
+}
+
+export async function loadBlendedPlayerSeasonProfiles(currentSeason: number, currentWeek: number) {
+  const previousSeason = currentSeason - 1;
+  const [current, previous] = await Promise.all([
+    loadPlayerSeasonProfiles(currentSeason),
+    loadPlayerSeasonProfiles(previousSeason),
+  ]);
+  if (!current.size) return { profiles: previous, sourceSeason: previousSeason, blended: false };
+  const weight = Math.min(1, Math.max(.25, (currentWeek - 1) / 4));
+  if (weight >= 1) return { profiles: current, sourceSeason: currentSeason, blended: false };
+  const profiles = new Map(previous);
+  current.forEach((latest, key) => {
+    const prior = previous.get(key);
+    if (!prior) return void profiles.set(key, latest);
+    const latestPpg = latest.games ? latest.fantasyPoints / latest.games : 0;
+    const priorPpg = prior.games ? prior.fantasyPoints / prior.games : latestPpg;
+    const latestReceptions = latest.games ? latest.receptions / latest.games : 0;
+    const priorReceptions = prior.games ? prior.receptions / prior.games : latestReceptions;
+    profiles.set(key, {
+      games: latest.games,
+      fantasyPoints: (latestPpg * weight + priorPpg * (1 - weight)) * latest.games,
+      receptions: (latestReceptions * weight + priorReceptions * (1 - weight)) * latest.games,
+      team: latest.team ?? prior.team,
+    });
+  });
+  return { profiles, sourceSeason: currentSeason, blended: true };
+}
+
+export async function loadBlendedTeamOffenseProfiles(currentSeason: number, currentWeek: number) {
+  const previousSeason = currentSeason - 1;
+  const [current, previous] = await Promise.all([
+    loadTeamOffenseProfiles(currentSeason),
+    loadTeamOffenseProfiles(previousSeason),
+  ]);
+  if (!current.size) return { profiles: previous, sourceSeason: previousSeason, blended: false };
+  const weight = Math.min(1, Math.max(.25, (currentWeek - 1) / 4));
+  const values = new Map<string, TeamOffenseProfile>();
+  new Set([...previous.keys(), ...current.keys()]).forEach((team) => {
+    const latest = current.get(team);
+    const prior = previous.get(team);
+    if (!latest && prior) return void values.set(team, prior);
+    if (!latest) return;
+    values.set(team, {
+      rank: 0,
+      games: latest.games,
+      pointsPerGame: Number((latest.pointsPerGame * weight + (prior?.pointsPerGame ?? latest.pointsPerGame) * (1 - weight)).toFixed(1)),
+    });
+  });
+  [...values.entries()].sort((a, b) => b[1].pointsPerGame - a[1].pointsPerGame).forEach(([team, profile], index) => values.set(team, { ...profile, rank: index + 1 }));
+  return { profiles: values, sourceSeason: currentSeason, blended: weight < 1 };
 }
 
 export const playerSeasonProfileFor = (

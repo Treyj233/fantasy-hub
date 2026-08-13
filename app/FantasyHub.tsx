@@ -51,6 +51,8 @@ type Player = {
   snapAverage?: number | null;
   snapWeek?: number | null;
   snapSeason?: number | null;
+  statsSourceSeason?: number;
+  statsBlended?: boolean;
   fantasyPpg2025?: number | null;
   gamesPlayed2025?: number | null;
   team2025?: string | null;
@@ -970,7 +972,7 @@ function MatchupBadge({ player }: { player: Pick<Player, "position" | "opponent"
     <span
       className={`matchup-team matchup-${strength.label.toLowerCase()}`}
       style={{ "--matchup-hue": hue, "--matchup-position": `${strength.score}%` } as CSSProperties}
-      title={`${player.matchupSourceSeason ?? 2025} ${matchupPosition(player.position)} matchup: ${strength.label}, ${strength.rank}${strength.rank === 1 ? "st" : strength.rank === 2 ? "nd" : strength.rank === 3 ? "rd" : "th"} most PPR fantasy points allowed (${strength.pointsAllowed.toFixed(1)} per game)`}
+      title={`${player.matchupSourceSeason ?? new Date().getUTCFullYear() - 1} ${matchupPosition(player.position)} matchup: ${strength.label}, ${strength.rank}${strength.rank === 1 ? "st" : strength.rank === 2 ? "nd" : strength.rank === 3 ? "rd" : "th"} most PPR fantasy points allowed (${strength.pointsAllowed.toFixed(1)} per game)`}
     >
       <b>{player.opponent}</b>
       <span><i /><b>{strength.label}</b> · #{strength.rank} vs {matchupPosition(player.position)}</span>
@@ -1650,7 +1652,7 @@ export default function FantasyHub({
         const [weatherPayload, scheduleResponse, matchupResponse] = await Promise.all([
           loadWeatherData(season, currentWeek),
           fetch(`/api/nfl-schedule?season=${encodeURIComponent(season)}`),
-          fetch(`/api/matchup-strength?season=${encodeURIComponent(season)}`),
+          fetch(`/api/matchup-strength?season=${encodeURIComponent(season)}&week=${currentWeek}`),
         ]);
         weather = weatherPayload;
         if (scheduleResponse.ok)
@@ -6931,6 +6933,9 @@ function PlayerRanks({
     });
   const pool: (RankedPlayer & Partial<LeagueRanking>)[] =
     personalizedPool.length ? personalizedPool : rankedPlayers;
+  const statsSample = pool.find((player) => player.statsSourceSeason);
+  const statsSeasonLabel = statsSample?.statsSourceSeason ?? new Date().getUTCFullYear() - 1;
+  const statsMethodLabel = statsSample?.statsBlended ? `${statsSeasonLabel} BLENDED` : String(statsSeasonLabel);
   const filtered = pool
     .filter(
       (player) =>
@@ -6996,14 +7001,14 @@ function PlayerRanks({
       )}
       <section className="ranking-method panel">
         <div>
-          <span>2025 FANTASY PPG</span>
+          <span>{statsMethodLabel} FANTASY PPG</span>
           <strong>Actual regular-season scoring</strong>
           <small>Average points per game adjusted for this league&apos;s reception scoring.</small>
         </div>
         <div>
           <span>TEAM OFFENSE</span>
           <strong>NFL points-per-game rank</strong>
-          <small>The player&apos;s 2025 team ranked by regular-season scoring.</small>
+          <small>The player&apos;s source-season team ranked by regular-season scoring.</small>
         </div>
         <div>
           <span>SEASON SNAP %</span>
@@ -7045,8 +7050,8 @@ function PlayerRanks({
         >
           <option value="overall">Sort: Hub rank</option>
           <option value="position">Sort: Position rank</option>
-          <option value="ppg">Sort: 2025 fantasy PPG</option>
-          <option value="games">Sort: 2025 games played</option>
+          <option value="ppg">Sort: {statsSeasonLabel} fantasy PPG</option>
+          <option value="games">Sort: {statsSeasonLabel} games played</option>
           <option value="offense">Sort: Team offense rank</option>
           <option value="snaps">Sort: Season snap %</option>
         </select>
@@ -7072,7 +7077,7 @@ function PlayerRanks({
                   <span>Pos.</span>
                   <span>Pos. rank</span>
                   <span>Fantasy PPG</span>
-                  <span>2025 GP</span>
+                  <span>{statsSeasonLabel} GP</span>
                   <span>Team offense</span>
                   <span>Hub score</span>
                   <span>Season snap %</span>
@@ -8902,7 +8907,7 @@ function HeadToHeadMatchup({
     Promise.all([
       fetch(`/api/nfl-schedule?season=${encodeURIComponent(season)}`, { signal: controller.signal }),
       loadWeatherData(season, week),
-      fetch(`/api/matchup-strength?season=${encodeURIComponent(season)}`, { signal: controller.signal }),
+      fetch(`/api/matchup-strength?season=${encodeURIComponent(season)}&week=${week}`, { signal: controller.signal }),
     ])
       .then(async ([scheduleResponse, weatherPayload, strengthResponse]) => {
         if (scheduleResponse.ok) setNflSchedule(await scheduleResponse.json() as NflScheduleData);
@@ -9008,7 +9013,7 @@ function HeadToHeadMatchup({
         <div>
           <span>FANTASY MATCHUPS</span>
           <h2>{data?.league.name ?? "Loading matchup…"}</h2>
-          <p>Fantasy scoring refreshes every 30 seconds. NFL opponent, weather, and position matchup grades use live schedule data and {matchupStrengths?.sourceSeason ?? 2025} fantasy points allowed.</p>
+          <p>Fantasy scoring refreshes every 30 seconds. NFL opponent, weather, and position matchup grades use live schedule data and {matchupStrengths?.sourceSeason ?? new Date().getUTCFullYear() - 1} fantasy points allowed.</p>
         </div>
         <label>
           Week

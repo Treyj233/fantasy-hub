@@ -21,7 +21,9 @@ export async function GET(request: Request) {
     const resolved = directory[requestedId ?? ""] ?? Object.values(directory).find((entry) => entry.full_name?.toLowerCase() === requestedName);
     const playerId = resolved?.player_id;
     if (!playerId) return Response.json({ sourceStatus: "unavailable", player: { id: requestedId ?? "" }, seasons: [], recentWeeks: [], weeks: [] });
-    const latestSeason = Number(state.previous_season ?? state.season ?? new Date().getUTCFullYear() - 1);
+    const currentSeason = Number(state.season ?? new Date().getUTCFullYear());
+    const previousSeason = Number(state.previous_season ?? currentSeason - 1);
+    const latestSeason = Number.isFinite(currentSeason) && currentSeason >= previousSeason ? currentSeason : previousSeason;
     const seasons = [latestSeason, latestSeason - 1, latestSeason - 2];
     const [seasonResponses, weeklyResponses, snapProfiles] = await Promise.all([
       Promise.all(seasons.map((season) => fetch(`https://api.sleeper.com/stats/nfl/player/${playerId}?season_type=regular&season=${season}&grouping=season`, { next: { revalidate: 86400 } }).then((response) => response.ok ? response.json() as Promise<StatLine> : null).catch(() => null))),

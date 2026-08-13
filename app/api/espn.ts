@@ -101,12 +101,13 @@ export function espnLeagueSummary(payload: EspnPayload) {
 export async function normalizeEspnLeague(payload: EspnPayload) {
   const week = Math.max(1, payload.scoringPeriodId ?? payload.status?.latestScoringPeriod ?? 1);
   const leagueSeason = Number(payload.seasonId ?? new Date().getUTCFullYear());
-  const historySeason = leagueSeason > 2025 ? 2025 : leagueSeason;
-  const [snapProfiles, seasonProfiles, teamOffenseProfiles] = await Promise.all([
-    loadSnapProfiles(historySeason),
-    loadPlayerSeasonProfiles(historySeason),
-    loadTeamOffenseProfiles(historySeason),
+  const [snapProfiles, seasonContext, offenseContext] = await Promise.all([
+    loadCurrentSnapProfiles(leagueSeason, week),
+    loadBlendedPlayerSeasonProfiles(leagueSeason, week),
+    loadBlendedTeamOffenseProfiles(leagueSeason, week),
   ]);
+  const seasonProfiles = seasonContext.profiles;
+  const teamOffenseProfiles = offenseContext.profiles;
   const members = new Map((payload.members ?? []).flatMap((member) => member.id ? [[member.id, member]] : []));
   const allPoolPlayers = (payload.players ?? []).flatMap((entry) => entry.player ? [{ ...entry.player, onTeamId: entry.onTeamId ?? 0 }] : []);
   const rosterPlayers = (payload.teams ?? []).flatMap((team) => (team.roster?.entries ?? []).flatMap((entry) => entry.playerPoolEntry?.player ? [{ ...entry.playerPoolEntry.player, onTeamId: team.id ?? 0 }] : []));
@@ -121,7 +122,7 @@ export async function normalizeEspnLeague(payload: EspnPayload) {
     const historicalPoints = seasonProfile
       ? seasonProfile.fantasyPoints + seasonProfile.receptions * receptionPoints
       : null;
-    return { id: `espn-player:${player.id ?? 0}`, name, position: positionById[player.defaultPositionId ?? 0] ?? "FLEX", team: nflTeamById[player.proTeamId ?? 0] ?? "FA", opponent: "Matchup pending", projection: points, leagueProjection: points, floor: Number((points * .68).toFixed(1)), ceiling: Number((points * 1.38).toFixed(1)), trend: 0, status: player.injuryStatus || (player.injured ? "Questionable" : "Healthy"), role, rankingValue: Number((points * 3 + (player.ownership?.percentOwned ?? 0) * .35).toFixed(2)), ageAdjustment: 0, lineupAdjustment: 0, snapPct: snapProfile?.latestPct ?? null, snapAverage: snapProfile?.averagePct ?? null, snapWeek: snapProfile?.latestWeek ?? null, snapSeason: snapProfile?.season ?? null, fantasyPpg2025: seasonProfile?.games && historicalPoints != null ? Number((historicalPoints / seasonProfile.games).toFixed(1)) : null, gamesPlayed2025: seasonProfile?.games ?? null, team2025: seasonProfile?.team ?? null, teamOffenseRank2025: teamOffense?.rank ?? null, teamPointsPerGame2025: teamOffense?.pointsPerGame ?? null };
+    return { id: `espn-player:${player.id ?? 0}`, name, position: positionById[player.defaultPositionId ?? 0] ?? "FLEX", team: nflTeamById[player.proTeamId ?? 0] ?? "FA", opponent: "Matchup pending", projection: points, leagueProjection: points, floor: Number((points * .68).toFixed(1)), ceiling: Number((points * 1.38).toFixed(1)), trend: 0, status: player.injuryStatus || (player.injured ? "Questionable" : "Healthy"), role, rankingValue: Number((points * 3 + (player.ownership?.percentOwned ?? 0) * .35).toFixed(2)), ageAdjustment: 0, lineupAdjustment: 0, snapPct: snapProfile?.latestPct ?? null, snapAverage: snapProfile?.averagePct ?? null, snapWeek: snapProfile?.latestWeek ?? null, snapSeason: snapProfile?.season ?? null, statsSourceSeason: seasonContext.sourceSeason, statsBlended: seasonContext.blended || offenseContext.blended, fantasyPpg2025: seasonProfile?.games && historicalPoints != null ? Number((historicalPoints / seasonProfile.games).toFixed(1)) : null, gamesPlayed2025: seasonProfile?.games ?? null, team2025: seasonProfile?.team ?? null, teamOffenseRank2025: teamOffense?.rank ?? null, teamPointsPerGame2025: teamOffense?.pointsPerGame ?? null };
   };
   const rosteredIds = new Set(rosterPlayers.map((player) => player.id));
   const rankingPool = universe.map((player) => playerShape(player)).filter((player) => ["QB", "RB", "WR", "TE", "K", "DEF"].includes(player.position)).sort((a, b) => b.rankingValue - a.rankingValue).map((player, index) => ({ ...player, overallRank: index + 1 }));
@@ -193,5 +194,5 @@ export function normalizeEspnSimulation(payload: EspnPayload) {
 import { and, desc, eq } from "drizzle-orm";
 import { getDb } from "../../db";
 import { espnLeagueSnapshots } from "../../db/schema";
-import { loadSnapProfiles, snapProfileFor } from "../snap-data";
-import { loadPlayerSeasonProfiles, loadTeamOffenseProfiles, playerSeasonProfileFor } from "../season-history";
+import { loadBlendedPlayerSeasonProfiles, loadBlendedTeamOffenseProfiles, playerSeasonProfileFor } from "../season-history";
+import { loadCurrentSnapProfiles, snapProfileFor } from "../snap-data";

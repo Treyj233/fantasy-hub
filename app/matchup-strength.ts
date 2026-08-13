@@ -84,22 +84,25 @@ async function calculateSeason(season: number) {
   return { sourceSeason: season, updatedAt: new Date().toISOString(), positions };
 }
 
-const cache = new Map<number, Promise<MatchupStrengthData | null>>();
+const cache = new Map<number, { expiresAt: number; request: Promise<MatchupStrengthData | null> }>();
 const seasonData = (season: number) => {
   const existing = cache.get(season);
-  if (existing) return existing;
+  if (existing && existing.expiresAt > Date.now()) return existing.request;
   const request = calculateSeason(season);
-  cache.set(season, request);
+  cache.set(season, { expiresAt: Date.now() + 6 * 60 * 60 * 1000, request });
   return request;
 };
 
-export async function loadMatchupStrengths(requestedSeason: number) {
-  if (requestedSeason > 2025) {
+export async function loadMatchupStrengths(requestedSeason: number, currentWeek = 1) {
+  // Week 1 intentionally uses the completed prior season as its baseline. Once
+  // the league advances to Week 2, opponent grades are exclusively current-year.
+  if (requestedSeason > 2025 && currentWeek >= 2) {
     const current = await seasonData(requestedSeason);
     if (current) return current;
   }
-  return (await seasonData(2025)) ?? (await seasonData(2024)) ?? {
-    sourceSeason: 2024,
+  const priorSeason = Math.max(2024, requestedSeason - 1);
+  return (await seasonData(priorSeason)) ?? (await seasonData(priorSeason - 1)) ?? {
+    sourceSeason: priorSeason - 1,
     updatedAt: new Date().toISOString(),
     positions: {},
   };
