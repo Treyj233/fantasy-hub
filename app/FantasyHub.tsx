@@ -3345,7 +3345,12 @@ function ManageLeagues({
             title="Drag to reorder this league"
           >
             <i className="manage-drag-handle" aria-hidden="true">⋮⋮</i>
-            <i className={`provider-badge ${league.provider ?? "sleeper"}`}>{league.provider === "espn" ? "E" : "S"}</i>
+            <div className="league-provider-stack">
+              <i className={`provider-badge ${league.provider ?? "sleeper"}`}>{league.provider === "espn" ? "E" : "S"}</i>
+              <span className={`connection-status ${hiddenLeagueIds.includes(league.id) ? "saved" : "live"}`}>
+                {hiddenLeagueIds.includes(league.id) ? "HIDDEN" : "● LIVE"}
+              </span>
+            </div>
             <p>
               <strong>{league.name}</strong>
               <small>
@@ -3353,9 +3358,6 @@ function ManageLeagues({
                 {league.format} · {league.scoring}
               </small>
             </p>
-            <span className={`connection-status ${hiddenLeagueIds.includes(league.id) ? "saved" : "live"}`}>
-              {hiddenLeagueIds.includes(league.id) ? "HIDDEN" : "● LIVE"}
-            </span>
             <div className="league-order-actions">
               <button
                 onClick={() => onMove(league.id, -1)}
