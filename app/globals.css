@@ -558,12 +558,13 @@ html[data-theme="dark"] .command-action-queue>div>button,html[data-theme="dark"]
 }
 
 @media(max-width:700px){
-  .modal-backdrop{z-index:80;align-items:flex-start;padding-top:max(0px,env(safe-area-inset-top));padding-bottom:env(safe-area-inset-bottom)}
-  .player-panel{width:100%;height:calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom));max-height:100%;padding:18px 16px 28px}
-  .player-panel.player-dossier>header{position:sticky;z-index:3;top:-18px;align-items:flex-start;margin:-18px -16px 0;padding:calc(18px + env(safe-area-inset-top)) 16px 14px;color:#fff;background:linear-gradient(135deg,var(--deep),#081812);border-bottom:3px solid var(--gold);backdrop-filter:none}
+  .player-modal-layer{position:fixed;z-index:2147483599;inset:0;background:var(--chalk);overscroll-behavior:none}
+  .modal-backdrop.player-modal-backdrop{position:absolute;z-index:1;inset:max(54px,calc(env(safe-area-inset-top) + 10px)) 8px max(20px,calc(env(safe-area-inset-bottom) + 8px));align-items:flex-start;padding:0;overflow:hidden;background:transparent;backdrop-filter:none;border-radius:16px;box-shadow:0 18px 50px rgb(0 0 0 / .36)}
+  .player-panel{width:100%;height:100%;max-height:100%;padding:18px 16px 28px;border-radius:16px}
+  .player-panel.player-dossier>header{position:sticky;z-index:3;top:-18px;display:grid;grid-template-columns:minmax(0,1fr) 44px;align-items:start;gap:10px;margin:-18px -16px 0;padding:18px 16px 14px;color:#fff;background:linear-gradient(135deg,var(--deep),#081812);border-bottom:3px solid var(--gold);backdrop-filter:none}
   .player-panel.player-dossier>header h2{color:#fff}
   .player-panel.player-dossier>header small{color:#b7cbbf}
-  .player-panel.player-dossier>header .close{position:relative;z-index:4;display:grid;place-items:center;flex:0 0 44px;width:44px;height:44px;padding:0;color:#fff;background:#ffffff14;border-color:#ffffff4a}
+  .player-panel.player-dossier>header .close{position:relative;z-index:4;display:grid;grid-column:2;grid-row:1;place-items:center;width:44px;height:44px;padding:0;color:#fff;background:#ffffff14;border-color:#ffffff4a}
 }
 
 @media(max-width:600px){

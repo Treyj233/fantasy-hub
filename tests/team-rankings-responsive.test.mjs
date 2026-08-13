@@ -37,3 +37,12 @@ test("Team Rankings groups assets by position and removes mobile horizontal scro
   assert.match(styles, /\.team-rank-row \.room-rank\{[^}]*background:rgb\(var\(--brand-primary-rgb,11 134 80\) \/ \.14\)/);
   assert.doesNotMatch(rankings, /<i>\{expanded \? "−" : "\+"\}<\/i>/);
 });
+
+test("standard player popouts stay inside the iPhone safe viewport", async () => {
+  const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
+  const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  assert.match(source, /className="player-modal-layer"/);
+  assert.match(source, /className="modal-backdrop player-modal-backdrop"/);
+  assert.match(styles, /\.player-modal-layer\{position:fixed;z-index:2147483599;inset:0;background:var\(--chalk\)/);
+  assert.match(styles, /\.modal-backdrop\.player-modal-backdrop\{position:absolute;z-index:1;inset:max\(54px,calc\(env\(safe-area-inset-top\) \+ 10px\)\)/);
+});

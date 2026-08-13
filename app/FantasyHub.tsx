@@ -9821,8 +9821,9 @@ function PlayerPanel({
     ),
   );
   return (
+    <div className="player-modal-layer">
     <div
-      className="modal-backdrop"
+      className="modal-backdrop player-modal-backdrop"
       role="dialog"
       aria-modal="true"
       aria-label={`${player.name} player details`}
@@ -10102,6 +10103,7 @@ function PlayerPanel({
           </p>
         </section>
       </aside>
+    </div>
     </div>
   );
 }
