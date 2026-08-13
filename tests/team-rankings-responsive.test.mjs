@@ -16,6 +16,9 @@ test("Team Rankings groups assets by position and removes mobile horizontal scro
   assert.match(rankings, /className="team-assets-close"/);
   assert.match(rankings, /createPortal\(drawer, document\.body\)/);
   assert.match(rankings, /className="team-assets-mobile-open"/);
+  assert.doesNotMatch(rankings, /team-rank-head/);
+  assert.match(rankings, /TOP \{Math\.ceil\(/);
+  assert.match(rankings, /% OF LEAGUE/);
   assert.match(rankings, /aria-controls=\{`team-assets-\$\{team\.id\}`\}/);
   assert.match(styles, /\.team-rank-table\{width:100%;overflow-x:hidden!important/);
   assert.match(styles, /\.team-rank-row,.team-rank-row\.dynasty\{position:relative;display:grid;grid-template-columns:repeat\(2,minmax\(0,1fr\)\)!important/);
@@ -24,5 +27,6 @@ test("Team Rankings groups assets by position and removes mobile horizontal scro
   assert.match(styles, /\.team-rank-row \.team-rank-toggle\{min-height:44px/);
   assert.match(styles, /\.team-assets-drawer\{position:fixed;z-index:2147483600;inset:max\(8px,env\(safe-area-inset-top\)\) 8px max\(8px,env\(safe-area-inset-bottom\)\)/);
   assert.match(styles, /\.team-assets-mobile-open\{display:block;grid-column:1\/-1/);
+  assert.match(styles, /font-family:Impact,"Arial Black",ui-rounded,sans-serif/);
   assert.doesNotMatch(rankings, /<i>\{expanded \? "−" : "\+"\}<\/i>/);
 });

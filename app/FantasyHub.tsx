@@ -6838,18 +6838,6 @@ function TeamRankings({
         )}
       </div>
       <section className="panel team-rank-table">
-        <div
-          className={`team-rank-row team-rank-head ${isDynasty ? "dynasty" : ""}`}
-        >
-          <span>Rank</span>
-          <span>Team</span>
-          <span>Overall</span>
-          {positions.map((position) => (
-            <span key={position}>{position}</span>
-          ))}
-          {isDynasty && <span>Draft capital</span>}
-          <span>Core assets</span>
-        </div>
         {scoredTeams.map((team) => {
           const coreAssets = team.roster
             .map((player) => rankingById.get(player.id))
@@ -6883,7 +6871,7 @@ function TeamRankings({
               {positions.map((position) => (
                 <div className="room-rank" data-position={position} key={position}>
                   <b>#{roomRanks[position].get(team.id)}</b>
-                  <small>{team.roomScores[position].toFixed(0)}</small>
+                  <small>TOP {Math.ceil(((roomRanks[position].get(team.id) ?? teams.length) / teams.length) * 100)}% OF LEAGUE</small>
                 </div>
               ))}
               {isDynasty && (
