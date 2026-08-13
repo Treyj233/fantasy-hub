@@ -857,6 +857,7 @@ html[data-theme="dark"] .team-rank-row .core-assets button{background:rgb(var(--
 /* League Analytics typography: a sharper sports-report hierarchy without
    changing card geometry or allowing labels to collide. */
 .dynasty-page :is(.dynasty-hero h2,.panel-header h3,.window-score strong,.dynasty-metrics .metric strong){font-family:Impact,"Arial Black",ui-rounded,sans-serif;font-style:italic;font-weight:900}
+.dynasty-page .panel-header h3{font-style:normal}
 .dynasty-page .dynasty-hero h2{letter-spacing:.005em;line-height:1.02;text-wrap:balance}
 .dynasty-page .dynasty-hero>div:first-child>span,.dynasty-page .panel-header span,.dynasty-page .window-score small,.dynasty-page .metric>span{font-family:"Arial Narrow",Arial,sans-serif;font-weight:950;letter-spacing:.14em;text-transform:uppercase}
 .dynasty-page .panel-header{min-width:0}.dynasty-page .panel-header>div{min-width:0}.dynasty-page .panel-header h3{overflow:hidden;max-width:100%;font-size:18px;letter-spacing:.015em;line-height:1.08;text-overflow:ellipsis;white-space:nowrap}
