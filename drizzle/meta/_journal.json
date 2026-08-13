@@ -85,6 +85,13 @@
       "when": 1786585200000,
       "tag": "0011_reset_requested_apple_entitlement",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1786585800000,
+      "tag": "0012_reset_requested_apple_entitlement_again",
+      "breakpoints": true
     }
   ]
 }
