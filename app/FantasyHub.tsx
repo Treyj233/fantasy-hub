@@ -6877,7 +6877,6 @@ function TeamRankings({
               <div className="rank-team-name">
                 <button className="team-rank-toggle" type="button" aria-expanded={expanded} aria-controls={`team-assets-${team.id}`} aria-label={`${expanded ? "Hide" : "View"} ${team.teamName} complete team assets`} onClick={() => setExpandedTeamId((current) => current === team.id ? "" : team.id)}>
                   <span><strong>{team.teamName}</strong><small>{team.managerName}{team.id === selectedTeamId ? " · YOUR TEAM" : ""}</small></span>
-                  <i>{expanded ? "−" : "+"}</i>
                 </button>
               </div>
               <strong className="team-score">{team.overallScore}</strong>
