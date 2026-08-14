@@ -33,6 +33,8 @@ test("waiver order and recommendations use position-normalized projections with 
   assert.match(route, /players\/nfl\/trending\/drop\?lookback_hours=24&limit=100/);
   assert.match(route, /projectionStats = new Map/);
   assert.match(route, /player\.waiverProjection - stats\.mean\) \/ stats\.deviation/);
+  assert.match(route, /Number\(b\.waiverProjection > 0\) - Number\(a\.waiverProjection > 0\)/);
+  assert.match(route, /leagueProjections\.has\(playerId\) \? platformProjection : projectedPoints/);
   assert.match(route, /b\.normalizedProjectionScore - a\.normalizedProjectionScore/);
   assert.match(route, /waiverRank: index \+ 1/);
   assert.match(route, /availableById\.get\(row\.player_id\)/);
@@ -41,5 +43,6 @@ test("waiver order and recommendations use position-normalized projections with 
   assert.match(hub, /title: "Trending Up"/);
   assert.match(hub, /title: "Trending Down"/);
   assert.match(hub, /NORMALIZED RANK/);
+  assert.match(hub, /player\.waiverProjection\.toFixed\(1\)/);
   assert.match(styles, /\.waiver-trending-grid/);
 });

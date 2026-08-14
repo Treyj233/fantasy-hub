@@ -8002,8 +8002,8 @@ function WaiverWire({
                   </p>
                 </button>
                 <b className="waiver-projection">
-                  {typeof player.leagueProjection === "number"
-                    ? player.leagueProjection.toFixed(1)
+                  {typeof player.waiverProjection === "number"
+                    ? player.waiverProjection.toFixed(1)
                     : "—"}
                 </b>
                 <Status value={player.status} />
