@@ -8748,9 +8748,9 @@ function TradeLab({
         text="The manual calculator is free and uses players currently owned by both teams. Fantasy Hub Pro adds roster-wide suggestions, mutual-need analysis, negotiation behavior, and estimated acceptance."
       />
       <div className="trade-lab-status" aria-label="Trade Lab capabilities">
-        <span><i>✓</i> Live league rosters</span>
-        <span><i>↗</i> Lineup impact</span>
-        <span><i>◎</i> Format-aware values</span>
+        <b><i>✓</i> Live league rosters</b>
+        <b><i>↗</i> Lineup impact</b>
+        <b><i>◎</i> Format-aware values</b>
       </div>
       <section className={`trade-controls panel ${isPro ? "" : "trade-suggestion-controls-locked"}`}>
         <div>
