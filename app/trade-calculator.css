@@ -75,7 +75,7 @@ html[data-theme="dark"] .trade-lab-status span{color:var(--ink);background:#252a
   .trade-lab-page>.section-intro h2{font-size:21px;line-height:1.08}
   .trade-lab-page>.section-intro p{font-size:10px!important;line-height:1.35}
   .trade-lab-status{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;margin:5px 0 0}
-  .trade-lab-status span{justify-content:center;padding:4px 3px;font-size:5px;letter-spacing:-.01em}.trade-lab-status i{display:none}
+  .trade-lab-status span{justify-content:center;padding:4px 2px;font-size:4.5px;line-height:1;letter-spacing:-.025em}.trade-lab-status i{display:none}
   .trade-lab-page .trade-controls{gap:8px;padding:11px;border-radius:14px}
   .trade-lab-page .trade-controls select,.trade-lab-page .style-toggle{min-height:38px}
   .trade-lab-page .trade-calculator{border-radius:15px}
@@ -85,7 +85,7 @@ html[data-theme="dark"] .trade-lab-status span{color:var(--ink);background:#252a
   .trade-lab-page .trade-calculator-header-actions>button,.trade-lab-page .trade-calculator-header-actions>.calculator-viability{min-width:0;padding:6px 7px;font-size:7px}
   .trade-lab-page .calculator-grid{grid-template-columns:minmax(0,1fr) 62px minmax(0,1fr);gap:6px;margin:10px 8px 0;padding:7px;border-radius:12px}
   .trade-lab-page .calculator-assets{padding:7px;border-radius:10px}
-  .trade-lab-page .calculator-side-heading{gap:4px;font-size:8px}.trade-lab-page .calculator-side-heading i{width:23px;height:16px;font-size:5px}
+  .trade-lab-page .calculator-side-heading{gap:4px;font-size:7px}.trade-lab-page .calculator-side-heading i{width:23px;height:16px;font-size:4px;letter-spacing:.04em}
   .trade-lab-page .asset-selector-trigger{min-height:48px;padding:7px 25px 7px 7px}.trade-lab-page .asset-selector-trigger:after{right:6px;width:18px;height:18px;border-radius:5px;font-size:12px}
   .trade-lab-page .asset-selector-trigger b{font-size:8px}.trade-lab-page .asset-selector-trigger small{font-size:6px}
   .trade-lab-page .calculator-package-summary{min-height:35px}.trade-lab-page .calculator-package-summary>span{max-width:90px;padding:5px 6px}.trade-lab-page .calculator-package-summary b{font-size:7px}.trade-lab-page .calculator-package-summary small{font-size:5px}
