@@ -35,6 +35,14 @@ test("Pro billing navigation lives in Utilities and replaces the simulator short
   assert.doesNotMatch(source, /season-roll" onClick=\{\(\) => setView\("Simulator"\)\}/);
 });
 
+test("Manage Leagues lives in Utilities and the mobile rail follows sidebar order", async () => {
+  const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
+  assert.match(source, /label: "Manage Leagues"[^\n]+group: "Utilities"/);
+  assert.doesNotMatch(source, /label: "Manage Leagues"[^\n]+group: "Portfolio"/);
+  assert.match(source, /const orderedMobileNav = navGroupOrder\.flatMap\(\(group\) =>\s*visibleNav\.filter\(\(item\) => item\.group === group\),\s*\);/);
+  assert.match(source, /\{orderedMobileNav\.map\(\(item\) => \(/);
+});
+
 test("League storytelling and reporting finish the Utilities section", async () => {
   const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
   assert.match(source, /label: "League Stories"[^\n]+group: "Utilities"/);

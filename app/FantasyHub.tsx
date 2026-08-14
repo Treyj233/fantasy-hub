@@ -691,7 +691,7 @@ type NavGroup = "Portfolio" | "Live" | "Team Management" | "League Insights" | "
 const navGroupOrder: NavGroup[] = ["Portfolio", "Live", "Team Management", "League Insights", "Utilities"];
 const nav: { label: View; displayLabel?: string; mark: string; tone: string; group: NavGroup }[] = [
   { label: "All Leagues", displayLabel: "Mission Hub", mark: "◆", tone: "violet", group: "Portfolio" },
-  { label: "Manage Leagues", mark: "⚙", tone: "slate", group: "Portfolio" },
+  { label: "Manage Leagues", mark: "⚙", tone: "slate", group: "Utilities" },
   { label: "Fantasy Hub Pro", displayLabel: "Manage Plans", mark: "P", tone: "gold", group: "Utilities" },
   { label: "My Account", mark: "J", tone: "blue", group: "Utilities" },
   { label: "Command Center", mark: "★", tone: "amber", group: "Team Management" },
