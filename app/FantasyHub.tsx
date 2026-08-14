@@ -4379,7 +4379,7 @@ function ManagerReport({ leagueId }: { leagueId: string }) {
   const activityTime = (timestamp: number | null) => timestamp ? new Intl.DateTimeFormat(undefined, { weekday: "short", hour: "numeric", minute: "2-digit" }).format(new Date(timestamp)) : "Completed this week";
   const assetList = (players: string[], picks: string[]) => [...players, ...picks].join(" · ") || "No assets recorded";
   return <div className="page-content manager-report-page">
-    <section className="manager-report-hero"><div><span>MANAGER REPORT · WEEK {data.league.week}</span><h2>Your actual week in review.</h2><p>Lineup choices and completed roster moves are verified against {data.summary.source}, not inferred from buttons viewed inside Fantasy Hub.</p></div><b>{data.summary.total}<small>ACTIONS OBSERVED</small></b></section>
+    <section className="manager-report-hero"><div><span>MANAGER REPORT · WEEK {data.league.week}</span><h2>Your actual week in review.</h2><p>Lineup choices and completed roster moves are verified against {data.summary.source}, not inferred from buttons viewed inside Fantasy Hub.</p></div></section>
     <section className="decision-scorecards">
       <article className="panel"><span>START / SIT</span><strong>{data.summary.startSit || "—"}</strong><small>Actual submitted lineup choices</small><em>Sleeper matchup lineup</em></article>
       <article className="panel"><span>ADDS / DROPS</span><strong>{data.summary.waiverMoves || "—"}</strong><small>Completed waiver and free-agent moves</small><em>Sleeper transactions</em></article>
