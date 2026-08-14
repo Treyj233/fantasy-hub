@@ -13,7 +13,7 @@ type MatchupRow = { roster_id?: number; matchup_id?: number | null };
 type AdpRow = { player?: { name?: string }; avg?: number; src_79?: number; src_4350?: number; src_80?: number; src_439?: number; src_624?: number };
 type TrendingRow = { player_id?: string; count?: number };
 
-const LEAGUE_PAYLOAD_VERSION = 3;
+const LEAGUE_PAYLOAD_VERSION = 4;
 const LEAGUE_SNAPSHOT_TTL_MS = 30 * 60 * 1000;
 const isCurrentFantasyPlayer = (player: SourcePlayer) => {
   const status = (player.status ?? "").trim().toLowerCase();
@@ -213,12 +213,24 @@ export async function GET(request: Request) {
       if (!hasCurrentRoleSignal) return [];
       const availableAdp = Object.values({ ...marketAdp, Sleeper: directSleeperAdp }).filter((item): item is number => typeof item === "number");
       const adpBySite = { ...marketAdp, Sleeper: directSleeperAdp, Consensus: marketAdp.Consensus ?? (availableAdp.length ? Number((availableAdp.reduce((sum, item) => sum + item, 0) / availableAdp.length).toFixed(1)) : null) };
-      return [{ id: player.player_id ?? playerId, name, position, team: player.team, opponent: "Matchup pending", projection: platformProjection, leagueProjection: leagueProjections.get(playerId) ?? null, floor: Number((platformProjection * .68).toFixed(1)), ceiling: Number((platformProjection * 1.38).toFixed(1)), trend: 0, status: player.injury_status ?? "Healthy", role: "Player pool", age: player.age ?? null, rankingValue: Number(value.toFixed(2)), sleeperRank: sourceRank, ageAdjustment: Number(ageAdjustment.toFixed(1)), lineupAdjustment: Number(lineupAdjustment.toFixed(1)), snapPct: snapProfile?.latestPct ?? null, snapAverage: snapProfile?.averagePct ?? null, snapWeek: snapProfile?.latestWeek ?? null, snapSeason: snapProfile?.season ?? null, statsSourceSeason, statsBlended, fantasyPpg2025: seasonProfile?.games ? Number((fantasyPoints! / seasonProfile.games).toFixed(1)) : null, gamesPlayed2025: seasonProfile?.games ?? null, team2025: seasonProfile?.team ?? null, teamOffenseRank2025: seasonTeamOffense?.rank ?? null, teamPointsPerGame2025: seasonTeamOffense?.pointsPerGame ?? null, adpBySite }];
+      return [{ id: player.player_id ?? playerId, name, position, team: player.team, opponent: "Matchup pending", projection: platformProjection, leagueProjection: leagueProjections.get(playerId) ?? null, waiverProjection: Number(projectedPoints.toFixed(2)), floor: Number((platformProjection * .68).toFixed(1)), ceiling: Number((platformProjection * 1.38).toFixed(1)), trend: 0, status: player.injury_status ?? "Healthy", role: "Player pool", age: player.age ?? null, rankingValue: Number(value.toFixed(2)), sleeperRank: sourceRank, ageAdjustment: Number(ageAdjustment.toFixed(1)), lineupAdjustment: Number(lineupAdjustment.toFixed(1)), snapPct: snapProfile?.latestPct ?? null, snapAverage: snapProfile?.averagePct ?? null, snapWeek: snapProfile?.latestWeek ?? null, snapSeason: snapProfile?.season ?? null, statsSourceSeason, statsBlended, fantasyPpg2025: seasonProfile?.games ? Number((fantasyPoints! / seasonProfile.games).toFixed(1)) : null, gamesPlayed2025: seasonProfile?.games ?? null, team2025: seasonProfile?.team ?? null, teamOffenseRank2025: seasonTeamOffense?.rank ?? null, teamPointsPerGame2025: seasonTeamOffense?.pointsPerGame ?? null, adpBySite }];
     }).sort((a, b) => b.rankingValue - a.rankingValue).slice(0, 600).map((player, index) => ({ ...player, overallRank: index + 1 }));
     const rosteredPlayerIds = new Set(rosters.flatMap((roster) => roster.players ?? []));
-    const waiverPlayers = league.status === "pre_draft"
-      ? []
-      : rankingPool.filter((player) => !rosteredPlayerIds.has(player.id)).sort((a, b) => a.sleeperRank - b.sleeperRank || b.rankingValue - a.rankingValue);
+    const availablePool = league.status === "pre_draft" ? [] : rankingPool.filter((player) => !rosteredPlayerIds.has(player.id));
+    const projectionStats = new Map<string, { mean: number; deviation: number }>();
+    for (const position of supportedPlayerPositions) {
+      const values = availablePool.filter((player) => player.position === position && player.waiverProjection > 0).map((player) => player.waiverProjection);
+      const mean = values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
+      const variance = values.length ? values.reduce((sum, value) => sum + Math.pow(value - mean, 2), 0) / values.length : 0;
+      projectionStats.set(position, { mean, deviation: Math.sqrt(variance) || 1 });
+    }
+    const waiverPlayers = availablePool
+      .map((player) => {
+        const stats = projectionStats.get(player.position) ?? { mean: 0, deviation: 1 };
+        return { ...player, normalizedProjectionScore: Number(((player.waiverProjection - stats.mean) / stats.deviation).toFixed(3)) };
+      })
+      .sort((a, b) => b.normalizedProjectionScore - a.normalizedProjectionScore || b.waiverProjection - a.waiverProjection || b.rankingValue - a.rankingValue)
+      .map((player, index) => ({ ...player, waiverRank: index + 1 }));
     const availableById = new Map(waiverPlayers.map((player) => [player.id, player]));
     const trendingFor = (rows: TrendingRow[], direction: "up" | "down") => rows.flatMap((row) => {
       const player = row.player_id ? availableById.get(row.player_id) : undefined;

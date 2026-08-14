@@ -272,6 +272,9 @@ type LeagueRanking = Player & {
   lineupAdjustment: number;
 };
 type WaiverPlayer = LeagueRanking & {
+  waiverProjection?: number;
+  normalizedProjectionScore?: number;
+  waiverRank?: number;
   trendCount?: number;
   trendDirection?: "up" | "down";
 };
@@ -7811,7 +7814,7 @@ function waiverAddDropPlan(
   const drop = [...droppable].sort((a, b) => dropUtility(a) - dropUtility(b))[0];
   const addProjection = add.leagueProjection ?? add.projection;
   const needBonus = (positionCounts[add.position] ?? 0) <= desiredAt(add.position) ? 2 : 0;
-  const marketBonus = Math.max(0, 3 - (add.sleeperRank ?? add.overallRank) * 0.025);
+  const marketBonus = Math.max(0, 3 - (add.waiverRank ?? add.overallRank) * 0.025);
   const formatBonus = context?.format === "Dynasty" ? Math.max(0, add.ageAdjustment) * 0.18 : 0;
   const injuryPenalty = ["Out", "IR", "Suspended"].includes(add.status) ? 4 : add.status === "Questionable" ? 1 : 0;
   const addUtility = addProjection + add.lineupAdjustment * 0.35 + needBonus + marketBonus + formatBonus - injuryPenalty;
@@ -7919,7 +7922,7 @@ function WaiverWire({
       <SectionIntro
         kicker="LIVE LEAGUE AVAILABILITY"
         title="Turn available players into weekly leverage"
-        text="Every player shown is currently unrostered in this league and follows Sleeper’s platform rank. Fantasy Hub applies your league scoring, format, and roster needs to its add/drop advice."
+        text="Every player shown is currently unrostered in this league and ranked by league-scored weekly projection normalized within position. This keeps naturally higher quarterback scoring from overwhelming RB, WR, TE, K, and defense value."
       />
       <section className="waiver-trending-grid" aria-label="Sleeper player trends">
         {([
@@ -7968,7 +7971,7 @@ function WaiverWire({
       </section>
       <section className="waiver-list panel">
         <header>
-          <span>SLEEPER RANK</span>
+          <span>NORMALIZED RANK</span>
           <span>PLAYER</span>
           <span>WEEKLY PROJ.</span>
           <span>STATUS</span>
