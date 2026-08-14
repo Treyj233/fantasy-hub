@@ -705,6 +705,8 @@ const nav: { label: View; displayLabel?: string; mark: string; tone: string; gro
   { label: "Waiver Wire", mark: "+", tone: "emerald", group: "Team Management" },
   { label: "Trade Lab", mark: "↔", tone: "pink", group: "Team Management" },
   { label: "Simulator", mark: "✦", tone: "indigo", group: "Team Management" },
+  { label: "Manager Report", mark: "✓", tone: "teal", group: "Team Management" },
+  { label: "League Stories", mark: "✎", tone: "violet", group: "League Insights" },
   { label: "League Analytics", mark: "◈", tone: "purple", group: "League Insights" },
   { label: "Team Rankings", mark: "↥", tone: "teal", group: "League Insights" },
   { label: "Player Rankings", mark: "♛", tone: "gold", group: "League Insights" },
@@ -712,8 +714,6 @@ const nav: { label: View; displayLabel?: string; mark: string; tone: string; gro
   { label: "Scoreboard", displayLabel: "Fantasy Scoreboard", mark: "▣", tone: "red", group: "Live" },
   { label: "NFL Games", mark: "🏈", tone: "football", group: "Live" },
   { label: "Matchups", displayLabel: "Fantasy Matchups", mark: "◎", tone: "sky", group: "Live" },
-  { label: "League Stories", mark: "✎", tone: "violet", group: "Utilities" },
-  { label: "Manager Report", mark: "✓", tone: "teal", group: "Utilities" },
   { label: "Glossary", mark: "?", tone: "blue", group: "Utilities" },
 ];
 

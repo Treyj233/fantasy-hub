@@ -43,11 +43,12 @@ test("Manage Leagues lives in Utilities and the mobile rail follows sidebar orde
   assert.match(source, /\{orderedMobileNav\.map\(\(item\) => \(/);
 });
 
-test("League storytelling and reporting finish the Utilities section", async () => {
+test("League Stories leads League Insights and Manager Report finishes Team Management", async () => {
   const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
-  assert.match(source, /label: "League Stories"[^\n]+group: "Utilities"/);
-  assert.match(source, /label: "Manager Report"[^\n]+group: "Utilities"/);
-  assert.ok(source.indexOf('label: "League Stories"') < source.indexOf('label: "Manager Report"'));
+  assert.match(source, /label: "League Stories"[^\n]+group: "League Insights"/);
+  assert.match(source, /label: "Manager Report"[^\n]+group: "Team Management"/);
+  assert.ok(source.indexOf('label: "Manager Report"') > source.indexOf('label: "Simulator"'));
+  assert.ok(source.indexOf('label: "League Stories"') < source.indexOf('label: "League Analytics"'));
 });
 
 test("Manager Report uses observed Sleeper weekly actions and theme-aware surfaces", async () => {
