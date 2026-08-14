@@ -1404,6 +1404,12 @@ html[data-theme="dark"] .all-leagues-page .exposure-list>b,html[data-theme="dark
 .start-sit-page>.section-intro p{font-size:11px;line-height:1.4}
 @media(max-width:700px){.start-sit-page>.section-intro{padding:8px 10px}.start-sit-page>.section-intro h2{font-size:17px;line-height:1.08}.start-sit-page>.section-intro p{font-size:9px!important;line-height:1.25}}
 
+/* Keep matchup posture controls visible throughout the vertical decision list. */
+.start-sit-page{overflow:visible!important}
+.start-sit-page>.aggression-panel{position:-webkit-sticky!important;position:sticky!important;z-index:46;top:12px;align-self:start;background:color-mix(in srgb,var(--chalk) 96%,transparent);backdrop-filter:blur(16px);transform:translateZ(0)}
+@media(max-width:700px){.start-sit-page>.aggression-panel{top:68px}}
+@media(max-width:700px){html[data-native-platform="ios"] .start-sit-page>.aggression-panel{top:calc(68px + max(0px,env(safe-area-inset-top)))}}
+
 /* The waiver market becomes a native-width list on phones. Every desktop
    column is retained as labeled row metadata, eliminating sideways scrolling. */
 @media(max-width:700px){
