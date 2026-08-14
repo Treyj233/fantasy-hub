@@ -8819,11 +8819,11 @@ function TradeLab({
           </div>
         </header>
         <div className="calculator-grid">
-          <fieldset className="calculator-assets">
-            <legend><i>SEND</i>You send</legend>
+          <section className="calculator-assets">
+            <div className="calculator-side-heading"><i>SEND</i><span>You send</span></div>
             <button className="asset-selector-trigger" type="button" onClick={() => setAssetSelectorSide("send")}><span><b>{yourTeam.teamName}</b><small>{calculatorSendAssets.length} selected · Choose assets</small></span></button>
             <div className="calculator-package-summary">{calculatorSendAssets.length ? calculatorSendAssets.map((asset) => <span key={asset.id}><b>{asset.name}</b><small>{asset.position}</small></span>) : <p>No assets selected</p>}</div>
-          </fieldset>
+          </section>
           <div className="calculator-score">
             <span>{calculatorSendAssets.length ? calculatorSendValue : "—"}</span>
             <i>↔</i>
@@ -8834,11 +8834,11 @@ function TradeLab({
                 : "Select both players"}
             </small>
           </div>
-          <fieldset className="calculator-assets">
-            <legend><i>GET</i>You receive</legend>
+          <section className="calculator-assets">
+            <div className="calculator-side-heading receive"><span>You receive</span><i>GET</i></div>
             <button className="asset-selector-trigger" type="button" onClick={() => setAssetSelectorSide("receive")}><span><b>{partner.teamName}</b><small>{calculatorReceiveAssets.length} selected · Choose assets</small></span></button>
             <div className="calculator-package-summary">{calculatorReceiveAssets.length ? calculatorReceiveAssets.map((asset) => <span key={asset.id}><b>{asset.name}</b><small>{asset.position}</small></span>) : <p>No assets selected</p>}</div>
-          </fieldset>
+          </section>
         </div>
         {assetSelectorSide && (() => {
           const selectorAssets = assetSelectorSide === "send" ? yourTradeAssets : partnerTradeAssets;

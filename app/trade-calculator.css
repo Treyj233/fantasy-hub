@@ -13,9 +13,9 @@
 .trade-lab-page>.section-intro>span{color:var(--gold-light)}
 .trade-lab-page>.section-intro h2{max-width:760px;color:#fff;letter-spacing:-.035em}
 .trade-lab-page>.section-intro p{max-width:790px;color:#d0dfd5}
-.trade-lab-status{display:flex;flex-wrap:wrap;gap:8px;margin:-27px 20px 0;position:relative;z-index:2}
-.trade-lab-status span{display:flex;align-items:center;gap:6px;padding:7px 10px;color:var(--deep);background:color-mix(in srgb,var(--chalk) 94%,transparent);border:1px solid color-mix(in srgb,var(--gold) 30%,var(--line));border-radius:999px;box-shadow:0 6px 18px rgb(7 59 39 / .12);font-size:8px;font-weight:900;backdrop-filter:blur(12px)}
-.trade-lab-status i{display:grid;width:16px;height:16px;place-items:center;color:#fff;background:var(--green);border-radius:50%;font-size:8px;font-style:normal}
+.trade-lab-status{display:flex;max-width:100%;flex-wrap:wrap;gap:6px;margin:7px 4px 0;position:relative;z-index:2}
+.trade-lab-status span{display:flex;min-width:0;align-items:center;gap:5px;padding:5px 8px;color:var(--deep);background:color-mix(in srgb,var(--chalk) 94%,transparent);border:1px solid color-mix(in srgb,var(--gold) 30%,var(--line));border-radius:999px;box-shadow:0 4px 12px rgb(7 59 39 / .08);font-size:7px;font-weight:900;line-height:1;white-space:nowrap;backdrop-filter:blur(12px)}
+.trade-lab-status i{display:grid;width:13px;height:13px;flex:0 0 auto;place-items:center;color:#fff;background:var(--green);border-radius:50%;font-size:6px;font-style:normal}
 .trade-lab-page .trade-controls{position:relative;align-items:stretch;margin:4px 0 0;padding:18px;background:linear-gradient(145deg,color-mix(in srgb,var(--chalk) 97%,var(--green)),var(--chalk));border:1px solid color-mix(in srgb,var(--green) 18%,var(--line));box-shadow:0 14px 38px rgb(7 59 39 / .08)}
 .trade-lab-page .trade-controls>div{display:flex;min-width:0;flex-direction:column;justify-content:center}
 .trade-lab-page .trade-controls select{min-height:44px;padding-inline:13px;background:color-mix(in srgb,var(--chalk) 96%,var(--green));border-color:color-mix(in srgb,var(--green) 22%,var(--line));box-shadow:inset 0 1px #fff}
@@ -30,13 +30,15 @@
 .trade-lab-page .trade-calculator>header span:before{width:7px;height:7px;background:var(--gold);border-radius:50%;box-shadow:0 0 0 4px color-mix(in srgb,var(--gold) 14%,transparent);content:""}
 .trade-lab-page .trade-calculator>header h3{font-size:22px;letter-spacing:-.02em}
 .trade-lab-page .trade-calculator-header-actions>button{background:var(--chalk);box-shadow:0 4px 12px rgb(7 59 39 / .06)}
-.trade-lab-page .trade-calculator-header-actions>.calculator-viability{border:1px solid currentColor;border-color:color-mix(in srgb,currentColor 22%,transparent);box-shadow:0 4px 12px rgb(7 59 39 / .07)}
+.trade-lab-page .trade-calculator-header-actions{min-width:0;max-width:100%;flex:0 1 auto;flex-wrap:wrap;justify-content:flex-end}
+.trade-lab-page .trade-calculator-header-actions>.calculator-viability{max-width:100%;overflow:hidden;padding:7px 8px;border:1px solid currentColor;border-color:color-mix(in srgb,currentColor 22%,transparent);box-shadow:0 4px 12px rgb(7 59 39 / .07);font-size:8px;text-overflow:ellipsis;white-space:nowrap}
 .trade-lab-page .calculator-grid{position:relative;grid-template-columns:minmax(0,1fr) 154px minmax(0,1fr);gap:18px;margin:18px 20px 0;padding:18px;background:linear-gradient(135deg,color-mix(in srgb,var(--green) 8%,var(--chalk)),color-mix(in srgb,var(--gold-light) 7%,var(--chalk)));border-color:color-mix(in srgb,var(--green) 18%,var(--line));border-radius:16px}
 .trade-lab-page .calculator-assets{padding:14px;background:color-mix(in srgb,var(--chalk) 96%,transparent);border:1px solid color-mix(in srgb,var(--green) 15%,var(--line));border-radius:13px;box-shadow:0 9px 24px rgb(7 59 39 / .07)}
-.trade-lab-page .calculator-assets legend{display:flex;align-items:center;gap:7px;width:100%;color:var(--ink);font-size:11px;font-weight:950;text-transform:uppercase}
-.trade-lab-page .calculator-assets legend i{display:grid;width:29px;height:20px;place-items:center;color:#fff;background:var(--green);border-radius:6px;font-size:6px;font-style:normal;letter-spacing:.08em}
-.trade-lab-page .calculator-assets:last-child legend{justify-content:flex-end}
-.trade-lab-page .calculator-assets:last-child legend i{order:2;background:var(--gold);color:var(--deep)}
+.trade-lab-page .calculator-side-heading{display:flex;width:100%;min-width:0;align-items:center;gap:7px;color:var(--ink);font-size:11px;font-weight:950;line-height:1;text-transform:uppercase}
+.trade-lab-page .calculator-side-heading span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.trade-lab-page .calculator-side-heading i{display:grid;width:29px;height:20px;flex:0 0 auto;place-items:center;color:#fff;background:var(--green);border-radius:6px;font-size:6px;font-style:normal;letter-spacing:.08em}
+.trade-lab-page .calculator-side-heading.receive{justify-content:flex-end;text-align:right}
+.trade-lab-page .calculator-side-heading.receive i{background:var(--gold);color:var(--deep)}
 .trade-lab-page .asset-selector-trigger{position:relative;min-height:55px;margin-top:10px;padding:11px 38px 11px 12px;background:color-mix(in srgb,var(--green) 4%,var(--chalk));border-color:color-mix(in srgb,var(--green) 22%,var(--line));border-radius:11px;transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease}
 .trade-lab-page .asset-selector-trigger:after{position:absolute;right:12px;top:50%;display:grid;width:22px;height:22px;place-items:center;color:#fff;background:var(--green);border-radius:7px;content:"+";font-size:15px;font-weight:500;transform:translateY(-50%)}
 .trade-lab-page .asset-selector-trigger:hover{border-color:var(--gold);box-shadow:0 7px 18px rgb(7 59 39 / .1);transform:translateY(-1px)}
@@ -72,16 +74,18 @@ html[data-theme="dark"] .trade-lab-status span{color:var(--ink);background:#252a
   .trade-lab-page>.section-intro:after{display:none}
   .trade-lab-page>.section-intro h2{font-size:21px;line-height:1.08}
   .trade-lab-page>.section-intro p{font-size:10px!important;line-height:1.35}
-  .trade-lab-status{gap:5px;margin:-24px 8px 0}
-  .trade-lab-status span{padding:5px 7px;font-size:6px}.trade-lab-status i{width:13px;height:13px;font-size:6px}
+  .trade-lab-status{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;margin:5px 0 0}
+  .trade-lab-status span{justify-content:center;padding:4px 3px;font-size:5px;letter-spacing:-.01em}.trade-lab-status i{display:none}
   .trade-lab-page .trade-controls{gap:8px;padding:11px;border-radius:14px}
   .trade-lab-page .trade-controls select,.trade-lab-page .style-toggle{min-height:38px}
   .trade-lab-page .trade-calculator{border-radius:15px}
   .trade-lab-page .trade-calculator>header{padding:15px 13px 12px}
   .trade-lab-page .trade-calculator>header h3{font-size:17px}
+  .trade-lab-page .trade-calculator-header-actions{justify-content:space-between;gap:5px;width:100%}
+  .trade-lab-page .trade-calculator-header-actions>button,.trade-lab-page .trade-calculator-header-actions>.calculator-viability{min-width:0;padding:6px 7px;font-size:7px}
   .trade-lab-page .calculator-grid{grid-template-columns:minmax(0,1fr) 62px minmax(0,1fr);gap:6px;margin:10px 8px 0;padding:7px;border-radius:12px}
   .trade-lab-page .calculator-assets{padding:7px;border-radius:10px}
-  .trade-lab-page .calculator-assets legend{gap:4px;font-size:8px}.trade-lab-page .calculator-assets legend i{width:23px;height:16px;font-size:5px}
+  .trade-lab-page .calculator-side-heading{gap:4px;font-size:8px}.trade-lab-page .calculator-side-heading i{width:23px;height:16px;font-size:5px}
   .trade-lab-page .asset-selector-trigger{min-height:48px;padding:7px 25px 7px 7px}.trade-lab-page .asset-selector-trigger:after{right:6px;width:18px;height:18px;border-radius:5px;font-size:12px}
   .trade-lab-page .asset-selector-trigger b{font-size:8px}.trade-lab-page .asset-selector-trigger small{font-size:6px}
   .trade-lab-page .calculator-package-summary{min-height:35px}.trade-lab-page .calculator-package-summary>span{max-width:90px;padding:5px 6px}.trade-lab-page .calculator-package-summary b{font-size:7px}.trade-lab-page .calculator-package-summary small{font-size:5px}
