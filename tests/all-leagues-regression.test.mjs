@@ -64,6 +64,10 @@ test("Manager Report uses observed Sleeper weekly actions and theme-aware surfac
   assert.match(source, /actualPoints\.toFixed\(1\)/);
   assert.match(styles, /--manager-surface:color-mix\(in srgb,rgb\(var\(--brand-primary-rgb/);
   assert.match(styles, /\.win-path-report>\.win-path-description\{display:block;width:100%/);
+  assert.match(source, /className="manager-activity-scroll"/);
+  assert.match(styles, /\.manager-activity-scroll\{max-height:213px;overflow-y:auto/);
+  assert.match(styles, /\.manager-activity\.manager-trades[^}]+background:linear-gradient\([^}]+--brand-secondary-rgb/);
+  assert.match(styles, /\.manager-trades \.manager-activity-scroll>article\{background:color-mix\(in srgb,rgb\(var\(--brand-secondary-rgb/);
 });
 
 test("expanded What Do I Need supports six player targets", async () => {
