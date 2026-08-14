@@ -1410,6 +1410,17 @@ html[data-theme="dark"] .all-leagues-page .exposure-list>b,html[data-theme="dark
 @media(max-width:700px){.start-sit-page>.aggression-panel{top:68px}}
 @media(max-width:700px){html[data-native-platform="ios"] .start-sit-page>.aggression-panel{top:calc(68px + max(0px,env(safe-area-inset-top)))}}
 
+/* Full Action Queue: reveal the horizontal track before the first swipe. */
+.action-queue-scroll-preview{display:none}
+@keyframes queue-scroll-nudge{50%{transform:translateX(3px)}}
+@media(max-width:700px){
+  .all-leagues-page .action-queue-scroll-preview{display:flex;align-items:center;justify-content:flex-end;gap:5px;margin:6px 10px -3px;color:var(--muted);font-size:7px;font-weight:900;letter-spacing:.06em;text-transform:uppercase}
+  .all-leagues-page .action-queue-scroll-preview i{color:var(--green);font-size:12px;font-style:normal;animation:queue-scroll-nudge 1.4s ease-in-out infinite}
+  .all-leagues-page .action-queue-groups{padding-right:8px}
+  .all-leagues-page .action-queue-groups>section{flex:0 0 calc(100% - 24px);min-width:calc(100% - 24px)}
+}
+@media(prefers-reduced-motion:reduce){.all-leagues-page .action-queue-scroll-preview i{animation:none}}
+
 /* The waiver market becomes a native-width list on phones. Every desktop
    column is retained as labeled row metadata, eliminating sideways scrolling. */
 @media(max-width:700px){

@@ -138,6 +138,15 @@ test("Start Sit aggressiveness remains sticky during vertical scrolling", async 
   assert.match(styles, /html\[data-native-platform="ios"\] \.start-sit-page>\.aggression-panel\{top:calc\(68px \+ max\(0px,env\(safe-area-inset-top\)\)\)\}/);
 });
 
+test("Full Action Queue previews additional horizontal cards", async () => {
+  const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
+  const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  assert.match(source, /className="action-queue-scroll-preview"[^>]*><span>Swipe for more<\/span><i>→<\/i>/);
+  assert.match(styles, /\.all-leagues-page \.action-queue-groups>section\{flex:0 0 calc\(100% - 24px\);min-width:calc\(100% - 24px\)\}/);
+  assert.match(styles, /@keyframes queue-scroll-nudge/);
+  assert.match(styles, /@media\(prefers-reduced-motion:reduce\)/);
+});
+
 test("Manager Report uses observed Sleeper weekly actions and theme-aware surfaces", async () => {
   const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
   const route = await readFile(new URL("../app/api/decisions/route.ts", import.meta.url), "utf8");
