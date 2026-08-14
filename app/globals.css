@@ -761,7 +761,8 @@ html[data-theme="dark"] .account-theme-customizer{color:#fff;background:radial-g
 .legal-page h2{font-size:1.28rem;margin:0 0 12px;color:#075d3e}
 .legal-page section p{font-size:1rem;line-height:1.72;margin:10px 0;color:#35594b}
 .legal-page footer{padding-top:30px;color:#688176;font-size:.9rem;text-align:center}
-@media(max-width:600px){.legal-page{padding-top:24px}.legal-page>header{border-radius:22px;padding:28px 24px}.legal-page>section{border-radius:18px}}
+@media(max-width:600px){.legal-page{box-sizing:border-box;min-height:100svh;padding-top:max(54px,calc(env(safe-area-inset-top) + 18px));padding-bottom:max(34px,calc(env(safe-area-inset-bottom) + 22px))}.legal-page>header{border-radius:22px;padding:28px 24px}.legal-page>section{border-radius:18px}}
+html[data-native-platform="ios"] .legal-page{padding-top:max(64px,calc(env(safe-area-inset-top) + 22px));padding-bottom:max(34px,calc(env(safe-area-inset-bottom) + 22px))}
 
 /* Fantasy Scoreboard: phone-first vertical presentation for the native app. */
 @media(max-width:700px){
