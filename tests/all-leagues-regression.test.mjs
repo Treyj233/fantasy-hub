@@ -184,6 +184,7 @@ test("mobile navigation provides a sticky badge rail and accessible menu drawer"
   assert.match(styles, /\.mobile-header-stack\{position:sticky/);
   assert.match(styles, /\.mobile-nav-open \.sidebar\{transform:translateX\(0\)\}/);
   assert.match(styles, /\.sidebar \.sidebar-bottom[^}]*position:static/);
+  assert.match(styles, /html\[data-theme="dark"\] \.sidebar \.sidebar-bottom\{background:transparent\}/);
 });
 
 test("Start Sit separates position and matchup badges", async () => {
