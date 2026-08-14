@@ -9628,7 +9628,6 @@ function Simulator({
           <button onClick={run} disabled={running}>
             {running ? "Simulating…" : "Sim season"}
           </button>
-          {result && <small>Seed {result.seed.toLocaleString()}</small>}
         </div>
         {result ? (
           <div className="sim-results">

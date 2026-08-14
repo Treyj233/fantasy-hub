@@ -55,3 +55,14 @@ test("League Analytics typography stays scoped and collision-safe", async () => 
   assert.match(styles, /\.dynasty-page \.panel-header h3\{font-style:normal\}/);
   assert.match(styles, /\.dynasty-page :is\(\.allocation-grid article>span,[^}]*white-space:nowrap/);
 });
+
+test("Season Simulator is compact and does not expose its random seed", async () => {
+  const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
+  const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  const start = source.indexOf("function Simulator(");
+  const simulator = source.slice(start);
+  assert.doesNotMatch(simulator, /Seed \{result\.seed\.toLocaleString\(\)\}/);
+  assert.match(styles, /\.simulator-live\{gap:10px\}/);
+  assert.match(styles, /\.simulator-live \.win-distribution>div:last-child\{height:170px/);
+  assert.match(styles, /@media\(max-width:700px\)\{\.simulator-live\{gap:8px\}/);
+});
