@@ -3020,7 +3020,7 @@ function ProPlans({ entitlement }: { entitlement: AccountEntitlement }) {
     <section className="pro-theme-gallery panel"><header><div><span>PRO THEME LOCKER</span><h3>Your leagues. Your Sunday look.</h3></div><p>Choose any NFL-inspired palette and four sidebar badge packs.</p></header><div>{[{name:"Midway Night",colors:["#0b162a","#c83803"]},{name:"South Beach",colors:["#008e97","#fc4c02"]},{name:"Purple Reign",colors:["#241773","#9e7c0c"]},{name:"Gold Rush",colors:["#aa0000","#b3995d"]}].map((theme) => <article key={theme.name} style={{"--preview-primary":theme.colors[0],"--preview-secondary":theme.colors[1]} as CSSProperties}><i/><b>{theme.name}</b><small>Dashboard + badge pack</small></article>)}</div></section>
     {billingError && <p className="billing-error" role="alert">{billingError}</p>}
     <section className="plan-grid"><article className="panel"><span>FREE</span><h3>$0</h3><p>Connect and manage your fantasy world.</p><ul><li>Unlimited Sleeper and ESPN league connections</li><li>All Leagues portfolio view</li><li>My Team, live scores, and matchups</li><li>Player rankings and ADP</li><li>Manual trade calculator</li><li>Core Start/Sit and waiver-wire access</li></ul><strong>CURRENT PLAN</strong></article><article className="panel featured"><span>FANTASY HUB PRO · MONTHLY</span><h3 className="plan-price">$4.99 <small>/ month</small></h3><p>Proprietary intelligence built by Fantasy Hub.</p><div className="trial-callout"><b>7-day free trial</b><small>No charge today. On day 8, your subscription automatically begins at $4.99/month and renews monthly until canceled.</small></div><ul>{proFeatures.map((feature) => <li key={feature}>{feature}</li>)}<li>All NFL themes and badge customization</li><li>Start/Sit aggressiveness strategy</li></ul>{purchaseButton("monthly", "Start 7-day trial →")}</article><article className="panel season"><span>FANTASY HUB PRO · SEASON</span><h3 className="plan-price">$24.99 <small>/ 6 months</small></h3><p>Built to cover the full fantasy season in one purchase.</p><div className="annual-savings"><b>Six months of Pro access</b><small>Stay supported from draft preparation through the fantasy playoffs.</small></div><ul>{proFeatures.slice(0,4).map((feature) => <li key={feature}>{feature}</li>)}<li>All Pro themes and customization</li></ul>{purchaseButton("season", "Choose season access →")}<small className="plan-renewal">$24.99 billed every six months until canceled.</small></article><article className="panel annual"><span>FANTASY HUB PRO · YEAR</span><h3 className="plan-price">$39.99 <small>/ year</small></h3><p>Year-round support for dynasty, offseason, draft, and game-day management.</p><div className="annual-savings"><b>Save $19.89 per year</b><small>About 33% less than paying monthly for 12 months.</small></div><ul>{proFeatures.slice(0,4).map((feature) => <li key={feature}>{feature}</li>)}<li>All Pro themes and customization</li></ul>{purchaseButton("annual", "Choose year-round access →")}<small className="plan-renewal">$39.99 billed annually until canceled. The monthly seven-day trial is a separate offer.</small></article></section>
-    <section className="pro-principle panel"><b>OUR FREEMIUM PROMISE</b><p>Fantasy Hub will not charge merely to display a connected league. Paid access is reserved for original Fantasy Hub analysis and experiences. Payments and subscription management are securely handled by {nativeIos ? "Apple" : "Stripe"}.</p></section>
+    <section className="pro-principle panel"><b>OUR FREEMIUM PROMISE</b><p>Fantasy Hub will not charge merely to display a connected league. Paid access is reserved for original Fantasy Hub analysis and experiences. Payments and subscription management are securely handled by {nativeIos ? "Apple" : "Stripe"}.</p><nav className="subscription-legal-links" aria-label="Subscription legal information"><a href="/privacy">Privacy Policy</a><a href="https://www.apple.com/legal/internet-services/itunes/dev/stdeula/" target="_blank" rel="noreferrer">Terms of Use</a></nav></section>
   </div>;
 }
 
@@ -7282,8 +7282,8 @@ function AdpPage({
 }) {
   const [position, setPosition] = useState("ALL");
   const [query, setQuery] = useState("");
-  const [adpSite, setAdpSite] = useState("Consensus");
   const [adpDirection, setAdpDirection] = useState<"asc" | "desc">("asc");
+  const adpSite = "Sleeper";
   const rosterNames = new Set(
     roster.map((player) => player.name.toLowerCase()),
   );
@@ -7333,23 +7333,15 @@ function AdpPage({
       if (typeof bAdp !== "number") return -1;
       return adpDirection === "asc" ? aAdp - bAdp : bAdp - aAdp;
     });
-  const adpSites = [
-    "Consensus",
-    "Sleeper",
-    "ESPN",
-    "CBS",
-    "RTSports",
-    "Fantrax",
-  ];
   return (
     <div className="page-content">
       <SectionIntro
         kicker="DRAFT MARKET"
-        title="Compare ADP across fantasy platforms"
+        title="Sleeper average draft position"
         text={
           context
-            ? `${context.format} ADP aligned to ${context.scoring} and ${context.positionDemand.QB > 1.4 ? "superflex / 2QB" : "1QB"} where the source supports it.`
-            : "Import a league to select the most relevant scoring and roster-format ADP feed."
+            ? `${context.format} Sleeper ADP aligned to ${context.scoring} and ${context.positionDemand.QB > 1.4 ? "superflex / 2QB" : "1QB"}.`
+            : "Import a league to load the most relevant Sleeper scoring and roster-format ADP feed."
         }
       />
       {context && (
@@ -7402,32 +7394,16 @@ function AdpPage({
       <section className="adp-controls panel">
         <div>
           <span>ADP SOURCE</span>
-          <strong>Compare where each platform is drafting players</strong>
+          <strong>Direct draft-market data from Sleeper</strong>
         </div>
         <div className="adp-sites" role="group" aria-label="Select ADP source">
-          {adpSites.map((site) => (
-            <button
-              key={site}
-              className={adpSite === site ? "active" : ""}
-              onClick={() => {
-                if (adpSite === site)
-                  setAdpDirection((current) =>
-                    current === "asc" ? "desc" : "asc",
-                  );
-                else {
-                  setAdpSite(site);
-                  setAdpDirection("asc");
-                }
-              }}
-            >
-              {site}
-              {adpSite === site ? (adpDirection === "asc" ? " ↑" : " ↓") : ""}
-            </button>
-          ))}
+          <button className="active" onClick={() => setAdpDirection((current) => current === "asc" ? "desc" : "asc")}>
+            Sleeper {adpDirection === "asc" ? "↑" : "↓"}
+          </button>
         </div>
         <small>
-          Lower ADP means the player is typically selected earlier. Select the
-          active source again to reverse sorting.
+          Lower ADP means the player is typically selected earlier. Select
+          Sleeper again to reverse sorting.
         </small>
       </section>
       <section className="tier-section adp-market-table">

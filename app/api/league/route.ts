@@ -10,28 +10,14 @@ import { fetchCachedUpstream } from "../upstream-cache";
 type SourcePlayer = { player_id?: string; full_name?: string; first_name?: string; last_name?: string; position?: string; team?: string; injury_status?: string | null; search_rank?: number; age?: number; status?: string; depth_chart_order?: number | null; depth_chart_position?: string | null };
 type SourceProjection = { player_id?: string; stats?: Record<string, number> };
 type MatchupRow = { roster_id?: number; matchup_id?: number | null };
-type AdpRow = { player?: { name?: string }; avg?: number; src_79?: number; src_4350?: number; src_80?: number; src_439?: number; src_624?: number };
 type TrendingRow = { player_id?: string; count?: number };
 
-const LEAGUE_PAYLOAD_VERSION = 5;
+const LEAGUE_PAYLOAD_VERSION = 6;
 const LEAGUE_SNAPSHOT_TTL_MS = 30 * 60 * 1000;
 const isCurrentFantasyPlayer = (player: SourcePlayer) => {
   const status = (player.status ?? "").trim().toLowerCase();
   return Boolean(player.team) && !/(retired|inactive|deceased)/.test(status);
 };
-
-const normalizePlayerName = (name: string) => name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "").replace(/(jr|sr|ii|iii|iv)$/, "");
-
-function parsePlatformAdp(html: string) {
-  const match = html.match(/window\.FP\.reportConfig = (\{[^\n]+\});/);
-  if (!match?.[1]) return new Map<string, Record<string, number | null>>();
-  try {
-    const report = JSON.parse(match[1]) as { table?: { rows?: AdpRow[] } };
-    return new Map((report.table?.rows ?? []).flatMap((row) => row.player?.name ? [[normalizePlayerName(row.player.name), { Consensus: row.avg ?? null, Sleeper: row.src_4350 ?? null, ESPN: row.src_79 ?? null, CBS: row.src_80 ?? null, RTSports: row.src_439 ?? null, Fantrax: row.src_624 ?? null }]] : []));
-  } catch {
-    return new Map<string, Record<string, number | null>>();
-  }
-}
 
 export async function GET(request: Request) {
   const user = await getChatGPTUser();
@@ -87,12 +73,9 @@ export async function GET(request: Request) {
     const projectionWeek = Math.min(18, Math.max(1, league.leg ?? 1));
     const scoring = league.scoring_settings ?? {};
     const receptionValue = scoring.rec ?? 1;
-    const adpPath = receptionValue >= .75 ? "ppr-overall" : receptionValue >= .25 ? "half-point-ppr-overall" : "overall";
-    const isDynasty = league.settings?.type === 2;
-    const [projectionResponse, matchupResponse, adpResponse, sleeperAdpResponse] = await Promise.all([
+    const [projectionResponse, matchupResponse, sleeperAdpResponse] = await Promise.all([
       fetchCachedUpstream(`https://api.sleeper.com/projections/nfl/${league.season ?? new Date().getUTCFullYear()}/${projectionWeek}?season_type=regular`, 3600).catch(() => null),
       fetch(`https://api.sleeper.app/v1/league/${id}/matchups/${projectionWeek}`, { cache: "no-store" }).catch(() => null),
-      isDynasty ? Promise.resolve(null) : fetchCachedUpstream(`https://www.fantasypros.com/nfl/adp/${adpPath}.php`, 21600, { headers: { "User-Agent": "Fantasy Hub ADP comparison" } }).catch(() => null),
       fetchCachedUpstream(`https://api.sleeper.com/projections/nfl/${league.season ?? new Date().getUTCFullYear()}?season_type=regular&order_by=adp_ppr`, 21600).catch(() => null),
     ]);
     const projectionPayload: unknown = projectionResponse?.ok ? await projectionResponse.json().catch(() => []) : [];
@@ -100,7 +83,6 @@ export async function GET(request: Request) {
     const sleeperAdpPayload: unknown = sleeperAdpResponse?.ok ? await sleeperAdpResponse.json().catch(() => []) : [];
     const sleeperAdpRows = Array.isArray(sleeperAdpPayload) ? sleeperAdpPayload as SourceProjection[] : [];
     const matchupRows = matchupResponse?.ok ? await matchupResponse.json().catch(() => []) as MatchupRow[] : [];
-    const platformAdp = adpResponse?.ok ? parsePlatformAdp(await adpResponse.text()) : new Map<string, Record<string, number | null>>();
     const matchupByRoster = new Map(matchupRows.flatMap((row) => row.roster_id ? [[row.roster_id, row.matchup_id ?? null]] : []));
     const projectionKey = receptionValue >= .75 ? "pts_ppr" : receptionValue >= .25 ? "pts_half_ppr" : "pts_std";
     const scoreProjectedStats = (playerId: string, stats: Record<string, number>) => {
@@ -202,8 +184,7 @@ export async function GET(request: Request) {
           (receptionValue + (position === "TE" ? tePremiumValue : 0))
         : 0;
       const fantasyPoints = seasonProfile ? seasonProfile.fantasyPoints + receptionBonus : null;
-      const marketAdp = platformAdp.get(normalizePlayerName(name)) ?? { Consensus: null, Sleeper: null, ESPN: null, CBS: null, RTSports: null, Fantrax: null };
-      const directSleeperAdp = sleeperAdp.get(playerId) ?? marketAdp.Sleeper ?? null;
+      const directSleeperAdp = sleeperAdp.get(playerId) ?? null;
       const hasCurrentRoleSignal =
         player.depth_chart_order != null ||
         leagueProjections.has(playerId) ||
@@ -211,8 +192,7 @@ export async function GET(request: Request) {
         Boolean(snapProfile?.games) ||
         Boolean(seasonProfile?.games);
       if (!hasCurrentRoleSignal) return [];
-      const availableAdp = Object.values({ ...marketAdp, Sleeper: directSleeperAdp }).filter((item): item is number => typeof item === "number");
-      const adpBySite = { ...marketAdp, Sleeper: directSleeperAdp, Consensus: marketAdp.Consensus ?? (availableAdp.length ? Number((availableAdp.reduce((sum, item) => sum + item, 0) / availableAdp.length).toFixed(1)) : null) };
+      const adpBySite = { Sleeper: directSleeperAdp };
       const waiverProjection = leagueProjections.has(playerId) ? platformProjection : projectedPoints;
       return [{ id: player.player_id ?? playerId, name, position, team: player.team, opponent: "Matchup pending", projection: platformProjection, leagueProjection: leagueProjections.get(playerId) ?? null, waiverProjection: Number(waiverProjection.toFixed(2)), floor: Number((platformProjection * .68).toFixed(1)), ceiling: Number((platformProjection * 1.38).toFixed(1)), trend: 0, status: player.injury_status ?? "Healthy", role: "Player pool", age: player.age ?? null, rankingValue: Number(value.toFixed(2)), sleeperRank: sourceRank, ageAdjustment: Number(ageAdjustment.toFixed(1)), lineupAdjustment: Number(lineupAdjustment.toFixed(1)), snapPct: snapProfile?.latestPct ?? null, snapAverage: snapProfile?.averagePct ?? null, snapWeek: snapProfile?.latestWeek ?? null, snapSeason: snapProfile?.season ?? null, statsSourceSeason, statsBlended, fantasyPpg2025: seasonProfile?.games ? Number((fantasyPoints! / seasonProfile.games).toFixed(1)) : null, gamesPlayed2025: seasonProfile?.games ?? null, team2025: seasonProfile?.team ?? null, teamOffenseRank2025: seasonTeamOffense?.rank ?? null, teamPointsPerGame2025: seasonTeamOffense?.pointsPerGame ?? null, adpBySite }];
     }).sort((a, b) => b.rankingValue - a.rankingValue).slice(0, 600).map((player, index) => ({ ...player, overallRank: index + 1 }));

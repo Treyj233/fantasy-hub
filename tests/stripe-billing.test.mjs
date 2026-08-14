@@ -42,6 +42,13 @@ test("Apple StoreKit guards the $24.99 six-month season subscription", async () 
   assert.doesNotMatch(plans, /native-billing-note[^\n]*Restore Purchases/);
 });
 
+test("subscription screen links to privacy policy and terms of use", async () => {
+  const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
+  assert.match(source, /className="subscription-legal-links"/);
+  assert.match(source, /href="\/privacy">Privacy Policy/);
+  assert.match(source, /apple\.com\/legal\/internet-services\/itunes\/dev\/stdeula/);
+});
+
 test("Stripe webhooks verify the raw signed body before granting Pro", async () => {
   const source = await readFile(new URL("../app/api/webhooks/stripe/route.ts", import.meta.url), "utf8");
   assert.match(source, /await request\.text\(\)/);

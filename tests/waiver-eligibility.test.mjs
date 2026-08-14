@@ -24,6 +24,20 @@ test("league snapshots refresh when waiver eligibility rules change", async () =
   assert.match(source, /payloadVersion: LEAGUE_PAYLOAD_VERSION/);
 });
 
+test("ADP uses Sleeper directly without consensus or FantasyPros data", async () => {
+  const [route, hub] = await Promise.all([
+    readFile(new URL("../app/api/league/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8"),
+  ]);
+
+  assert.doesNotMatch(route, /fantasypros/i);
+  assert.doesNotMatch(route, /Consensus/);
+  assert.match(route, /const adpBySite = \{ Sleeper: directSleeperAdp \}/);
+  assert.doesNotMatch(hub, /const \[adpSite, setAdpSite\]/);
+  assert.match(hub, /const adpSite = "Sleeper"/);
+  assert.doesNotMatch(hub, /"Consensus"/);
+});
+
 test("waiver order and recommendations use position-normalized projections with league-filtered trends", async () => {
   const route = await readFile(new URL("../app/api/league/route.ts", import.meta.url), "utf8");
   const hub = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
