@@ -32,6 +32,13 @@ test("All Leagues is presented as Mission Hub", async () => {
   assert.match(styles, /\.all-leagues-page \.action-queue-groups>section>header\{position:sticky/);
 });
 
+test("post-sign-in personalization stays inside the iPhone safe area", async () => {
+  const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  assert.match(styles, /\.onboarding-shell\{box-sizing:border-box;min-height:100vh;min-height:100svh/);
+  assert.match(styles, /\.onboarding-shell\{place-items:start center;padding:max\(54px,calc\(env\(safe-area-inset-top\) \+ 14px\)\)/);
+  assert.match(styles, /html\[data-native-platform="ios"\] \.onboarding-shell\{padding-top:max\(64px,calc\(env\(safe-area-inset-top\) \+ 22px\)\)\}/);
+});
+
 test("Pro billing navigation lives in Utilities and replaces the simulator shortcut", async () => {
   const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
   assert.match(source, /displayLabel: "Manage Plans"[^\n]+group: "Utilities"/);
