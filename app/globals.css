@@ -1253,7 +1253,7 @@ html[data-theme="dark"] .manage-leagues .connection-status.live{color:#dfffee!im
 .manager-report-page{--report-blue:#2b78c5;--report-green:#27a36a;--report-coral:#df665b}
 .manager-report-hero{position:relative;overflow:hidden;isolation:isolate;box-shadow:0 18px 42px rgb(var(--brand-primary-rgb,11 134 80) / .2)}
 .manager-report-hero:after{position:absolute;z-index:-1;right:-35px;bottom:-72px;width:230px;height:170px;border:20px solid #ffffff10;border-radius:50%;content:""}
-.manager-report-hero>div{min-width:0}.manager-report-hero h2{line-height:1.08}.manager-report-hero>b{display:grid;width:112px;height:112px;flex:0 0 112px;place-content:center;background:#ffffff12;border:2px solid #ffffff35;border-radius:50%;box-shadow:inset 0 0 0 7px #ffffff0a,0 10px 25px #0003;line-height:1}.manager-report-hero>b small{margin-top:7px;line-height:1.2}
+.manager-report-hero>div{min-width:0}.manager-report-hero h2{line-height:1.08}.manager-report-hero>b{display:grid;width:84px;height:84px;flex:0 0 84px;place-content:center;background:#ffffff12;border:1px solid #ffffff35;border-radius:50%;box-shadow:inset 0 0 0 5px #ffffff0a,0 8px 20px #0003;font-size:28px;line-height:1}.manager-report-hero>b small{max-width:62px;margin-top:5px;font-size:6px;line-height:1.15}
 .decision-scorecards article{position:relative;overflow:hidden;min-width:0;border-top-color:var(--report-blue)}.decision-scorecards article:nth-child(2){border-top-color:var(--report-green)}.decision-scorecards article:nth-child(3){border-top-color:var(--report-coral)}.decision-scorecards article:after{position:absolute;right:-18px;top:-18px;width:55px;height:55px;background:color-mix(in srgb,var(--gold-light) 13%,transparent);border-radius:50%;content:""}.decision-scorecards small,.decision-scorecards em{line-height:1.3}
 .manager-accountability,.win-path-report,.decision-ledger,.report-coming{border-top:4px solid var(--report-blue)}.win-path-report{border-top-color:var(--report-green)}.decision-ledger{border-top-color:var(--report-coral)}.report-coming{border-top-color:var(--gold)}
 .manager-accountability>header,.decision-ledger>header,.win-path-report>header{align-items:flex-start}.manager-accountability>header>div,.decision-ledger>header>div,.win-path-report>header>div{min-width:0}.manager-accountability h3,.decision-ledger h3,.win-path-report h3{line-height:1.15}
@@ -1269,7 +1269,7 @@ html[data-theme="dark"] .manager-report-page .manager-activity{background:linear
   .league-stories-hero h2,.manager-report-hero h2{margin:4px 0;font-size:24px}
   .league-stories-hero p,.manager-report-hero p{font-size:10px!important;line-height:1.35}
   .league-stories-hero button{grid-column:1/-1;width:100%;padding:9px}
-  .manager-report-hero>b{width:78px;height:78px;flex-basis:78px;font-size:27px;text-align:center}
+  .manager-report-hero>b{width:62px;height:62px;flex-basis:62px;font-size:21px;text-align:center}.manager-report-hero>b small{max-width:48px;margin-top:3px;font-size:5px}
   .story-ticker{grid-template-columns:auto minmax(0,1fr);gap:8px;padding:9px 10px}.story-ticker small{grid-column:2;text-align:left}
   .story-feature-grid,.story-dashboard-grid{gap:9px}.story-feature-grid>section,.story-dashboard-grid>section{padding:13px}
   .story-feature-grid header,.story-dashboard-grid header{gap:7px;margin-bottom:9px}.story-feature-grid h3,.story-dashboard-grid h3{font-size:16px}
