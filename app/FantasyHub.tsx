@@ -8747,6 +8747,11 @@ function TradeLab({
         title="Evaluate any deal, then let Pro find the best ones"
         text="The manual calculator is free and uses players currently owned by both teams. Fantasy Hub Pro adds roster-wide suggestions, mutual-need analysis, negotiation behavior, and estimated acceptance."
       />
+      <div className="trade-lab-status" aria-label="Trade Lab capabilities">
+        <span><i>✓</i> Live league rosters</span>
+        <span><i>↗</i> Lineup impact</span>
+        <span><i>◎</i> Format-aware values</span>
+      </div>
       <section className={`trade-controls panel ${isPro ? "" : "trade-suggestion-controls-locked"}`}>
         <div>
           <label htmlFor="trade-partner">Trade partner</label>
@@ -8815,7 +8820,7 @@ function TradeLab({
         </header>
         <div className="calculator-grid">
           <fieldset className="calculator-assets">
-            <legend>You send</legend>
+            <legend><i>SEND</i>You send</legend>
             <button className="asset-selector-trigger" type="button" onClick={() => setAssetSelectorSide("send")}><span><b>{yourTeam.teamName}</b><small>{calculatorSendAssets.length} selected · Choose assets</small></span></button>
             <div className="calculator-package-summary">{calculatorSendAssets.length ? calculatorSendAssets.map((asset) => <span key={asset.id}><b>{asset.name}</b><small>{asset.position}</small></span>) : <p>No assets selected</p>}</div>
           </fieldset>
@@ -8830,7 +8835,7 @@ function TradeLab({
             </small>
           </div>
           <fieldset className="calculator-assets">
-            <legend>You receive</legend>
+            <legend><i>GET</i>You receive</legend>
             <button className="asset-selector-trigger" type="button" onClick={() => setAssetSelectorSide("receive")}><span><b>{partner.teamName}</b><small>{calculatorReceiveAssets.length} selected · Choose assets</small></span></button>
             <div className="calculator-package-summary">{calculatorReceiveAssets.length ? calculatorReceiveAssets.map((asset) => <span key={asset.id}><b>{asset.name}</b><small>{asset.position}</small></span>) : <p>No assets selected</p>}</div>
           </fieldset>

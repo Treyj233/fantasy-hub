@@ -3,3 +3,89 @@
 @media(max-width:700px){.trade-calculator>header{display:block}.trade-calculator-header-actions{justify-content:space-between;margin-top:10px}.trade-calculator-header-actions>button{padding:6px 8px}.trade-calculator-header-actions>.calculator-viability{display:inline-block}.calculator-grid{grid-template-columns:minmax(0,1fr) 58px minmax(0,1fr);gap:7px;padding:10px}.calculator-score{order:0}.asset-selector-trigger{padding:7px}.asset-selector-trigger b{font-size:8px}.asset-selector-trigger small{font-size:6px}.calculator-package-summary>span{max-width:110px}.calculator-impact{display:grid}.asset-selector-backdrop{align-items:end;padding:0}.asset-selector-dialog{width:100%;max-height:88dvh;border-radius:16px 16px 0 0}.asset-selector-dialog>header{padding:15px 14px}.asset-selector-list{padding:9px}}
 
 .asset-selector-backdrop{z-index:2147483647;width:100vw;height:100dvh;background:#04120c;overscroll-behavior:none;isolation:isolate}
+
+/* Trade Lab product pass: one cohesive, theme-aware deal room. */
+.trade-lab-page{position:relative;gap:14px}
+.trade-lab-page>.section-intro{position:relative;overflow:hidden;margin-bottom:0;padding:25px 28px;color:#fff;background:linear-gradient(125deg,var(--deep),color-mix(in srgb,var(--green) 82%,#101a22));border:1px solid color-mix(in srgb,var(--gold) 32%,transparent);border-radius:20px;box-shadow:0 22px 52px rgb(7 40 28 / .2)}
+.trade-lab-page>.section-intro:before{position:absolute;right:-70px;top:-115px;width:280px;height:280px;background:radial-gradient(circle,color-mix(in srgb,var(--gold-light) 24%,transparent),transparent 68%);border-radius:50%;content:""}
+.trade-lab-page>.section-intro:after{position:absolute;right:28px;bottom:20px;width:108px;height:44px;opacity:.32;background:repeating-linear-gradient(90deg,transparent 0 13px,color-mix(in srgb,var(--gold-light) 55%,transparent) 14px 15px);content:"";transform:skewX(-18deg)}
+.trade-lab-page>.section-intro>*{position:relative;z-index:1}
+.trade-lab-page>.section-intro>span{color:var(--gold-light)}
+.trade-lab-page>.section-intro h2{max-width:760px;color:#fff;letter-spacing:-.035em}
+.trade-lab-page>.section-intro p{max-width:790px;color:#d0dfd5}
+.trade-lab-status{display:flex;flex-wrap:wrap;gap:8px;margin:-27px 20px 0;position:relative;z-index:2}
+.trade-lab-status span{display:flex;align-items:center;gap:6px;padding:7px 10px;color:var(--deep);background:color-mix(in srgb,var(--chalk) 94%,transparent);border:1px solid color-mix(in srgb,var(--gold) 30%,var(--line));border-radius:999px;box-shadow:0 6px 18px rgb(7 59 39 / .12);font-size:8px;font-weight:900;backdrop-filter:blur(12px)}
+.trade-lab-status i{display:grid;width:16px;height:16px;place-items:center;color:#fff;background:var(--green);border-radius:50%;font-size:8px;font-style:normal}
+.trade-lab-page .trade-controls{position:relative;align-items:stretch;margin:4px 0 0;padding:18px;background:linear-gradient(145deg,color-mix(in srgb,var(--chalk) 97%,var(--green)),var(--chalk));border:1px solid color-mix(in srgb,var(--green) 18%,var(--line));box-shadow:0 14px 38px rgb(7 59 39 / .08)}
+.trade-lab-page .trade-controls>div{display:flex;min-width:0;flex-direction:column;justify-content:center}
+.trade-lab-page .trade-controls select{min-height:44px;padding-inline:13px;background:color-mix(in srgb,var(--chalk) 96%,var(--green));border-color:color-mix(in srgb,var(--green) 22%,var(--line));box-shadow:inset 0 1px #fff}
+.trade-lab-page .style-toggle{min-height:44px;padding:4px;background:color-mix(in srgb,var(--green) 9%,var(--chalk));border-color:color-mix(in srgb,var(--green) 20%,var(--line))}
+.trade-lab-page .style-toggle button{transition:background .18s ease,color .18s ease,box-shadow .18s ease}
+.trade-lab-page .style-toggle button.active{color:var(--deep);background:linear-gradient(135deg,var(--gold-light),color-mix(in srgb,var(--gold-light) 65%,#fff));box-shadow:0 4px 12px color-mix(in srgb,var(--gold) 22%,transparent)}
+.trade-lab-page .trade-controls>p{display:flex;min-height:44px;flex-direction:column;justify-content:center;padding:11px 13px;background:color-mix(in srgb,var(--green) 6%,var(--chalk));border:1px solid color-mix(in srgb,var(--green) 14%,var(--line));border-left:3px solid var(--gold);border-radius:10px}
+.trade-lab-page .trade-calculator{position:relative;overflow:hidden;margin:0;padding:0;background:var(--chalk);border:1px solid color-mix(in srgb,var(--green) 22%,var(--line));border-radius:20px;box-shadow:0 22px 55px rgb(7 59 39 / .12)}
+.trade-lab-page .trade-calculator:before{position:absolute;inset:0 0 auto;height:4px;background:linear-gradient(90deg,var(--green),var(--gold-light),var(--green));content:""}
+.trade-lab-page .trade-calculator>header{align-items:center;margin:0;padding:22px 24px 18px;background:linear-gradient(120deg,color-mix(in srgb,var(--green) 8%,var(--chalk)),var(--chalk));border-bottom:1px solid color-mix(in srgb,var(--green) 14%,var(--line))}
+.trade-lab-page .trade-calculator>header span{display:inline-flex;align-items:center;gap:6px;color:var(--green)}
+.trade-lab-page .trade-calculator>header span:before{width:7px;height:7px;background:var(--gold);border-radius:50%;box-shadow:0 0 0 4px color-mix(in srgb,var(--gold) 14%,transparent);content:""}
+.trade-lab-page .trade-calculator>header h3{font-size:22px;letter-spacing:-.02em}
+.trade-lab-page .trade-calculator-header-actions>button{background:var(--chalk);box-shadow:0 4px 12px rgb(7 59 39 / .06)}
+.trade-lab-page .trade-calculator-header-actions>.calculator-viability{border:1px solid currentColor;border-color:color-mix(in srgb,currentColor 22%,transparent);box-shadow:0 4px 12px rgb(7 59 39 / .07)}
+.trade-lab-page .calculator-grid{position:relative;grid-template-columns:minmax(0,1fr) 154px minmax(0,1fr);gap:18px;margin:18px 20px 0;padding:18px;background:linear-gradient(135deg,color-mix(in srgb,var(--green) 8%,var(--chalk)),color-mix(in srgb,var(--gold-light) 7%,var(--chalk)));border-color:color-mix(in srgb,var(--green) 18%,var(--line));border-radius:16px}
+.trade-lab-page .calculator-assets{padding:14px;background:color-mix(in srgb,var(--chalk) 96%,transparent);border:1px solid color-mix(in srgb,var(--green) 15%,var(--line));border-radius:13px;box-shadow:0 9px 24px rgb(7 59 39 / .07)}
+.trade-lab-page .calculator-assets legend{display:flex;align-items:center;gap:7px;width:100%;color:var(--ink);font-size:11px;font-weight:950;text-transform:uppercase}
+.trade-lab-page .calculator-assets legend i{display:grid;width:29px;height:20px;place-items:center;color:#fff;background:var(--green);border-radius:6px;font-size:6px;font-style:normal;letter-spacing:.08em}
+.trade-lab-page .calculator-assets:last-child legend{justify-content:flex-end}
+.trade-lab-page .calculator-assets:last-child legend i{order:2;background:var(--gold);color:var(--deep)}
+.trade-lab-page .asset-selector-trigger{position:relative;min-height:55px;margin-top:10px;padding:11px 38px 11px 12px;background:color-mix(in srgb,var(--green) 4%,var(--chalk));border-color:color-mix(in srgb,var(--green) 22%,var(--line));border-radius:11px;transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease}
+.trade-lab-page .asset-selector-trigger:after{position:absolute;right:12px;top:50%;display:grid;width:22px;height:22px;place-items:center;color:#fff;background:var(--green);border-radius:7px;content:"+";font-size:15px;font-weight:500;transform:translateY(-50%)}
+.trade-lab-page .asset-selector-trigger:hover{border-color:var(--gold);box-shadow:0 7px 18px rgb(7 59 39 / .1);transform:translateY(-1px)}
+.trade-lab-page .asset-selector-trigger b{font-size:12px}
+.trade-lab-page .asset-selector-trigger small{margin-top:4px;font-size:8px}
+.trade-lab-page .calculator-package-summary{min-height:42px;gap:6px;margin-top:9px;padding-bottom:2px}
+.trade-lab-page .calculator-package-summary>span{max-width:160px;padding:7px 9px;background:color-mix(in srgb,var(--green) 8%,var(--chalk));border-color:color-mix(in srgb,var(--green) 22%,var(--line));border-radius:9px}
+.trade-lab-page .calculator-package-summary b{font-size:9px}.trade-lab-page .calculator-package-summary small{font-size:7px}
+.trade-lab-page .calculator-package-summary p{display:grid;width:100%;place-items:center;margin:0;color:color-mix(in srgb,var(--muted) 82%,transparent);border:1px dashed color-mix(in srgb,var(--green) 20%,var(--line));border-radius:9px;font-size:8px}
+.trade-lab-page .calculator-score{position:relative;align-self:center;min-height:132px;padding:20px 8px;background:linear-gradient(145deg,var(--deep),color-mix(in srgb,var(--green) 80%,#17202a));border:1px solid color-mix(in srgb,var(--gold) 42%,transparent);border-radius:16px;box-shadow:0 14px 30px rgb(7 59 39 / .2);color:#fff}
+.trade-lab-page .calculator-score>span{align-self:end;color:#fff;font-size:27px;line-height:1}
+.trade-lab-page .calculator-score>i{align-self:end;color:var(--gold-light);font-size:21px}
+.trade-lab-page .calculator-score>small{align-self:start;margin-top:10px;color:#c6d8cc;font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.06em}
+.trade-lab-page .calculator-impact{gap:9px;margin:15px 20px 20px}
+.trade-lab-page .calculator-impact>span{flex:1;min-width:150px;padding:11px 12px;background:color-mix(in srgb,var(--green) 5%,var(--chalk));border-color:color-mix(in srgb,var(--green) 16%,var(--line));border-radius:10px}
+.trade-lab-page .calculator-impact b{display:block;margin:4px 0 0;color:var(--green);font-size:11px}
+.trade-lab-page .suggestion-tabs{gap:10px;margin:2px 0 12px}
+.trade-lab-page .suggestion-tabs button{position:relative;overflow:hidden;min-height:88px;padding:15px 17px;background:linear-gradient(145deg,var(--chalk),color-mix(in srgb,var(--green) 4%,var(--chalk)));border-color:color-mix(in srgb,var(--green) 16%,var(--line));border-radius:14px;box-shadow:0 8px 22px rgb(7 59 39 / .06)}
+.trade-lab-page .suggestion-tabs button.active{background:linear-gradient(145deg,color-mix(in srgb,var(--gold-light) 12%,var(--chalk)),var(--chalk));box-shadow:inset 0 -3px var(--gold),0 12px 26px rgb(7 59 39 / .1)}
+.trade-lab-page .trade-board{grid-template-columns:minmax(0,1fr) 150px minmax(0,1fr);gap:12px}
+.trade-lab-page .trade-board>section{padding:19px;background:linear-gradient(145deg,var(--chalk),color-mix(in srgb,var(--green) 4%,var(--chalk)));border-color:color-mix(in srgb,var(--green) 18%,var(--line));border-radius:17px;box-shadow:0 12px 30px rgb(7 59 39 / .08)}
+.trade-lab-page .trade-balance{color:#fff;background:linear-gradient(145deg,var(--deep),var(--green));border-color:color-mix(in srgb,var(--gold) 45%,transparent);box-shadow:0 14px 32px rgb(7 59 39 / .18)}
+.trade-lab-page .trade-balance>strong,.trade-lab-page .trade-balance>b,.trade-lab-page .trade-balance>i{color:#fff}.trade-lab-page .trade-balance>span{color:#c4d7ca}
+.trade-lab-page .mutual-grid article{overflow:hidden;background:linear-gradient(145deg,var(--chalk),color-mix(in srgb,var(--green) 4%,var(--chalk)));border-color:color-mix(in srgb,var(--green) 17%,var(--line));box-shadow:0 10px 28px rgb(7 59 39 / .07)}
+.trade-lab-page .mutual-grid article:after{position:absolute;right:-22px;bottom:-30px;width:82px;height:82px;background:color-mix(in srgb,var(--green) 6%,transparent);border-radius:50%;content:""}
+html[data-theme="dark"] .trade-lab-page>.section-intro{background:linear-gradient(125deg,color-mix(in srgb,var(--deep) 70%,#12151b),color-mix(in srgb,var(--green) 58%,#181b22))}
+html[data-theme="dark"] .trade-lab-page :is(.trade-controls,.trade-calculator,.calculator-assets,.suggestion-tabs button,.trade-board>section,.mutual-grid article){background:linear-gradient(145deg,#22262e,color-mix(in srgb,var(--green) 8%,#191c23));border-color:#3f4651}
+html[data-theme="dark"] .trade-lab-page .calculator-grid{background:linear-gradient(135deg,color-mix(in srgb,var(--green) 14%,#1a1e25),color-mix(in srgb,var(--gold) 7%,#1a1e25))}
+html[data-theme="dark"] .trade-lab-status span{color:var(--ink);background:#252a33;border-color:#454c58}
+
+@media(max-width:700px){
+  .trade-lab-page>.section-intro{padding:16px 15px 28px;border-radius:15px}
+  .trade-lab-page>.section-intro:after{display:none}
+  .trade-lab-page>.section-intro h2{font-size:21px;line-height:1.08}
+  .trade-lab-page>.section-intro p{font-size:10px!important;line-height:1.35}
+  .trade-lab-status{gap:5px;margin:-24px 8px 0}
+  .trade-lab-status span{padding:5px 7px;font-size:6px}.trade-lab-status i{width:13px;height:13px;font-size:6px}
+  .trade-lab-page .trade-controls{gap:8px;padding:11px;border-radius:14px}
+  .trade-lab-page .trade-controls select,.trade-lab-page .style-toggle{min-height:38px}
+  .trade-lab-page .trade-calculator{border-radius:15px}
+  .trade-lab-page .trade-calculator>header{padding:15px 13px 12px}
+  .trade-lab-page .trade-calculator>header h3{font-size:17px}
+  .trade-lab-page .calculator-grid{grid-template-columns:minmax(0,1fr) 62px minmax(0,1fr);gap:6px;margin:10px 8px 0;padding:7px;border-radius:12px}
+  .trade-lab-page .calculator-assets{padding:7px;border-radius:10px}
+  .trade-lab-page .calculator-assets legend{gap:4px;font-size:8px}.trade-lab-page .calculator-assets legend i{width:23px;height:16px;font-size:5px}
+  .trade-lab-page .asset-selector-trigger{min-height:48px;padding:7px 25px 7px 7px}.trade-lab-page .asset-selector-trigger:after{right:6px;width:18px;height:18px;border-radius:5px;font-size:12px}
+  .trade-lab-page .asset-selector-trigger b{font-size:8px}.trade-lab-page .asset-selector-trigger small{font-size:6px}
+  .trade-lab-page .calculator-package-summary{min-height:35px}.trade-lab-page .calculator-package-summary>span{max-width:90px;padding:5px 6px}.trade-lab-page .calculator-package-summary b{font-size:7px}.trade-lab-page .calculator-package-summary small{font-size:5px}
+  .trade-lab-page .calculator-score{min-height:106px;padding:15px 2px;border-radius:11px}.trade-lab-page .calculator-score>span{font-size:16px}.trade-lab-page .calculator-score>i{font-size:13px}.trade-lab-page .calculator-score>small{margin-top:7px;font-size:6px;letter-spacing:0}
+  .trade-lab-page .calculator-impact{gap:5px;margin:8px}.trade-lab-page .calculator-impact>span{min-width:0;padding:7px 5px}.trade-lab-page .calculator-impact b{font-size:8px}
+  .trade-lab-page .trade-board{grid-template-columns:minmax(0,1fr) 70px minmax(0,1fr);gap:5px}
+}
