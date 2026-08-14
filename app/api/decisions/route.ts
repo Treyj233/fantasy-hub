@@ -28,53 +28,80 @@ export async function GET(request: Request) {
   const paywall = await requirePro(user.userId, user.email);
   if (paywall) return paywall;
   const leagueId = new URL(request.url).searchParams.get("leagueId")?.trim();
-  if (!leagueId) return Response.json({ error: "Select a league first" }, { status: 400 });
+  if (!leagueId || !/^\d{6,24}$/.test(leagueId)) return Response.json({ error: "Select a Sleeper league first" }, { status: 400 });
   const db = await getDb();
   const [connection] = await db.select().from(sleeperConnections).where(eq(sleeperConnections.userId, user.userId)).limit(1);
-  const rows = await db.select().from(decisionMemory).where(and(eq(decisionMemory.userId, user.userId), eq(decisionMemory.leagueId, leagueId))).orderBy(desc(decisionMemory.createdAt));
-  if (!connection) return Response.json({ decisions: [], summary: null });
-  const unresolvedStartSit = rows.filter((row) => row.category === "start_sit" && row.userSelection && !row.resultJson);
-  const unresolvedWinPaths = rows.filter((row) => row.category === "win_path" && !row.resultJson);
-  if (unresolvedStartSit.length || unresolvedWinPaths.length) {
-    const leagueResponse = await fetch(`https://api.sleeper.app/v1/league/${leagueId}`, { next: { revalidate: 60 } }).catch(() => null);
-    const rostersResponse = await fetch(`https://api.sleeper.app/v1/league/${leagueId}/rosters`, { next: { revalidate: 300 } }).catch(() => null);
-    const league = leagueResponse?.ok ? await leagueResponse.json().catch(() => ({})) as { leg?: number } : {};
-    const rosters = rostersResponse?.ok ? await rostersResponse.json().catch(() => []) as { roster_id?: number; owner_id?: string }[] : [];
-    const myRosterId = rosters.find((roster) => roster.owner_id === connection.sleeperUserId)?.roster_id;
-    const completed = unresolvedStartSit.filter((row) => row.week < (league.leg ?? row.week));
-    const completedWinPaths = unresolvedWinPaths.filter((row) => row.week < (league.leg ?? row.week));
-    const matchupByWeek = new Map<number, { roster_id?: number; players_points?: Record<string, number> }[]>();
-    await Promise.all([...new Set([...completed, ...completedWinPaths].map((row) => row.week))].map(async (week) => { const response = await fetch(`https://api.sleeper.app/v1/league/${leagueId}/matchups/${week}`, { next: { revalidate: 3600 } }).catch(() => null); matchupByWeek.set(week, response?.ok ? await response.json().catch(() => []) : []); }));
-    for (const row of completed) {
-      const alternatives = JSON.parse(row.alternativesJson) as { id?: string; name?: string; projection?: number }[];
-      const selected = alternatives.find((item) => item.name === row.userSelection);
-      const recommended = alternatives.find((item) => item.name === row.recommendation);
-      const points = matchupByWeek.get(row.week)?.find((item) => item.roster_id === myRosterId)?.players_points ?? {};
-      if (!selected?.id || !recommended?.id) continue;
-      const selectedPoints = Number((points[selected.id] ?? 0).toFixed(2));
-      const recommendedPoints = Number((points[recommended.id] ?? 0).toFixed(2));
-      const processGrade = row.userSelection === row.recommendation || (selected.projection ?? 0) >= (recommended.projection ?? 0) * .9 ? "Reasonable" : "Questionable with available evidence";
-      await db.update(decisionMemory).set({ resultJson: JSON.stringify({ selectedPoints, recommendedPoints, pointsLeft: Math.max(0, Number((recommendedPoints - selectedPoints).toFixed(2))), outcome: selectedPoints > recommendedPoints ? "User selection outscored the model pick" : selectedPoints < recommendedPoints ? "Model pick outscored the user selection" : "Selections tied" }), processGrade, updatedAt: new Date().toISOString() }).where(and(eq(decisionMemory.id, row.id), eq(decisionMemory.userId, user.userId)));
-    }
-    for (const row of completedWinPaths) {
-      const targets = JSON.parse(row.alternativesJson) as { id?: string; name?: string; targetTotal?: number }[];
-      const points = matchupByWeek.get(row.week)?.find((item) => item.roster_id === myRosterId)?.players_points ?? {};
-      const players = targets.flatMap((target) => {
-        if (!target.id || !target.name || typeof target.targetTotal !== "number") return [];
-        const actualPoints = Number((points[target.id] ?? 0).toFixed(2));
-        const difference = Number((actualPoints - target.targetTotal).toFixed(2));
-        return [{ id: target.id, name: target.name, actualPoints, targetTotal: target.targetTotal, difference, outcome: difference > .05 ? "over" : difference < -.05 ? "short" : "met" }];
-      });
-      await db.update(decisionMemory).set({ resultJson: JSON.stringify({ players }), processGrade: "Outcome recorded", updatedAt: new Date().toISOString() }).where(and(eq(decisionMemory.id, row.id), eq(decisionMemory.userId, user.userId)));
-    }
+  if (!connection) return Response.json({ error: "Connect a Sleeper account first" }, { status: 409 });
+
+  type SleeperPlayer = { full_name?: string; first_name?: string; last_name?: string; position?: string };
+  type Matchup = { roster_id?: number; starters?: string[]; players_points?: Record<string, number> };
+  type Transaction = { transaction_id?: string; type?: string; status?: string; status_updated?: number; created?: number; roster_ids?: number[]; adds?: Record<string, number> | null; drops?: Record<string, number> | null; settings?: { waiver_bid?: number } | null; draft_picks?: { season?: string; round?: number; previous_owner_id?: number; owner_id?: number }[] };
+  const [leagueResponse, rostersResponse, playersResponse] = await Promise.all([
+    fetch(`https://api.sleeper.app/v1/league/${leagueId}`, { next: { revalidate: 60 } }).catch(() => null),
+    fetch(`https://api.sleeper.app/v1/league/${leagueId}/rosters`, { next: { revalidate: 300 } }).catch(() => null),
+    fetch("https://api.sleeper.app/v1/players/nfl", { next: { revalidate: 86400 } }).catch(() => null),
+  ]);
+  if (!leagueResponse?.ok || !rostersResponse?.ok) return Response.json({ error: "Sleeper activity is temporarily unavailable" }, { status: 502 });
+  const league = await leagueResponse.json() as { leg?: number; name?: string };
+  const rosters = await rostersResponse.json() as { roster_id?: number; owner_id?: string }[];
+  const players = playersResponse?.ok ? await playersResponse.json().catch(() => ({})) as Record<string, SleeperPlayer> : {};
+  const week = Math.max(1, Math.min(18, league.leg ?? 1));
+  const myRosterId = rosters.find((roster) => roster.owner_id === connection.sleeperUserId)?.roster_id;
+  if (!myRosterId) return Response.json({ error: "Your Sleeper roster could not be identified in this league" }, { status: 409 });
+  const [matchupsResponse, transactionsResponse] = await Promise.all([
+    fetch(`https://api.sleeper.app/v1/league/${leagueId}/matchups/${week}`, { next: { revalidate: 30 } }).catch(() => null),
+    fetch(`https://api.sleeper.app/v1/league/${leagueId}/transactions/${week}`, { next: { revalidate: 60 } }).catch(() => null),
+  ]);
+  const matchups = matchupsResponse?.ok ? await matchupsResponse.json().catch(() => []) as Matchup[] : [];
+  const transactions = transactionsResponse?.ok ? await transactionsResponse.json().catch(() => []) as Transaction[] : [];
+  const myMatchup = matchups.find((row) => row.roster_id === myRosterId);
+  const starterIds = new Set(myMatchup?.starters ?? []);
+  const playerPoints = myMatchup?.players_points ?? {};
+  const playerName = (id: string) => players[id]?.full_name ?? (`${players[id]?.first_name ?? ""} ${players[id]?.last_name ?? ""}`.trim() || `Player ${id}`);
+  const safeJson = <T,>(value: string, fallback: T): T => { try { return JSON.parse(value) as T; } catch { return fallback; } };
+  let rows = await db.select().from(decisionMemory).where(and(eq(decisionMemory.userId, user.userId), eq(decisionMemory.leagueId, leagueId))).orderBy(desc(decisionMemory.createdAt));
+  const unresolvedWinPaths = rows.filter((row) => row.category === "win_path" && !row.resultJson && row.week < week);
+  for (const row of unresolvedWinPaths) {
+    const response = await fetch(`https://api.sleeper.app/v1/league/${leagueId}/matchups/${row.week}`, { next: { revalidate: 3600 } }).catch(() => null);
+    const historicalMatchups = response?.ok ? await response.json().catch(() => []) as Matchup[] : [];
+    const points = historicalMatchups.find((matchup) => matchup.roster_id === myRosterId)?.players_points ?? {};
+    const targets = safeJson<{ id?: string; name?: string; targetTotal?: number }[]>(row.alternativesJson, []);
+    const resolvedPlayers = targets.flatMap((target) => {
+      if (!target.id || !target.name || typeof target.targetTotal !== "number") return [];
+      const actualPoints = Number((points[target.id] ?? 0).toFixed(1));
+      const targetTotal = Number(target.targetTotal.toFixed(1));
+      const difference = Number((actualPoints - targetTotal).toFixed(1));
+      return [{ id: target.id, name: target.name, actualPoints, targetTotal, difference, outcome: difference > .05 ? "over" : difference < -.05 ? "short" : "met" }];
+    });
+    await db.update(decisionMemory).set({ resultJson: JSON.stringify({ players: resolvedPlayers }), processGrade: "Outcome recorded", updatedAt: new Date().toISOString() }).where(and(eq(decisionMemory.id, row.id), eq(decisionMemory.userId, user.userId)));
   }
-  const refreshedRows = unresolvedStartSit.length || unresolvedWinPaths.length ? await db.select().from(decisionMemory).where(and(eq(decisionMemory.userId, user.userId), eq(decisionMemory.leagueId, leagueId))).orderBy(desc(decisionMemory.createdAt)) : rows;
-  const parsed = refreshedRows.map((row) => ({ ...row, alternatives: JSON.parse(row.alternativesJson), information: JSON.parse(row.informationJson), result: row.resultJson ? JSON.parse(row.resultJson) : null }));
-  const decisions = parsed.filter((row) => row.category !== "win_path");
-  const winPathReports = parsed.filter((row) => row.category === "win_path");
-  const selected = decisions.filter((row) => row.userSelection);
-  const resolved = decisions.filter((row) => row.result);
-  const byCategory = ["start_sit", "waiver", "trade"].map((category) => { const items = decisions.filter((row) => row.category === category); return { category, total: items.length, selected: items.filter((row) => row.userSelection).length, resolved: items.filter((row) => row.result).length, averageConfidence: items.length ? Math.round(items.reduce((sum, row) => sum + row.confidence, 0) / items.length) : null }; });
-  const startSitResults = decisions.filter((row) => row.category === "start_sit" && row.result) as (typeof decisions[number] & { result: { pointsLeft?: number; recommendedPoints?: number } })[];
-  return Response.json({ decisions, winPathReports, summary: { total: decisions.length, selected: selected.length, resolved: resolved.length, processReasonable: decisions.filter((row) => row.processGrade === "Reasonable").length, pointsLeftOnBench: Number(startSitResults.reduce((sum, row) => sum + (row.result.pointsLeft ?? 0), 0).toFixed(1)), byCategory, projectionAccuracy: null, strongestPosition: null, weakestPosition: null, note: "Outcome grades appear only after Fantasy Hub observes a final result. Process quality is evaluated from the saved information available at decision time." } });
+  if (unresolvedWinPaths.length) rows = await db.select().from(decisionMemory).where(and(eq(decisionMemory.userId, user.userId), eq(decisionMemory.leagueId, leagueId))).orderBy(desc(decisionMemory.createdAt));
+  const startSit = rows.filter((row) => row.category === "start_sit" && row.week === week).flatMap((row) => {
+    const alternatives = safeJson<{ id?: string; name?: string; position?: string; projection?: number }[]>(row.alternativesJson, []);
+    const actual = alternatives.find((option) => option.id && starterIds.has(option.id));
+    const recommended = alternatives.find((option) => option.name === row.recommendation);
+    if (!actual || !recommended) return [];
+    const actualPoints = Number((playerPoints[actual.id ?? ""] ?? 0).toFixed(1));
+    const recommendedPoints = Number((playerPoints[recommended.id ?? ""] ?? 0).toFixed(1));
+    return [{ id: row.id, actual: actual.name ?? "Unknown starter", recommended: recommended.name ?? row.recommendation, position: actual.position ?? recommended.position ?? "FLEX", actualPoints, recommendedPoints, followedRecommendation: actual.id === recommended.id, confidence: Math.round(row.confidence) }];
+  });
+  const completed = transactions.filter((transaction) => transaction.status === "complete" && (transaction.roster_ids?.includes(myRosterId) || Object.values(transaction.adds ?? {}).includes(myRosterId) || Object.values(transaction.drops ?? {}).includes(myRosterId)));
+  const waiverMoves = completed.filter((transaction) => transaction.type === "waiver" || transaction.type === "free_agent").map((transaction) => ({
+    id: transaction.transaction_id ?? `move-${transaction.created ?? 0}`,
+    type: transaction.type === "waiver" ? "Waiver claim" : "Free-agent move",
+    added: Object.entries(transaction.adds ?? {}).filter(([, rosterId]) => rosterId === myRosterId).map(([id]) => playerName(id)),
+    dropped: Object.entries(transaction.drops ?? {}).filter(([, rosterId]) => rosterId === myRosterId).map(([id]) => playerName(id)),
+    faab: Math.max(0, Math.round(transaction.settings?.waiver_bid ?? 0)),
+    timestamp: transaction.status_updated ?? transaction.created ?? null,
+  }));
+  const trades = completed.filter((transaction) => transaction.type === "trade").map((transaction) => ({
+    id: transaction.transaction_id ?? `trade-${transaction.created ?? 0}`,
+    received: Object.entries(transaction.adds ?? {}).filter(([, rosterId]) => rosterId === myRosterId).map(([id]) => playerName(id)),
+    sent: Object.entries(transaction.drops ?? {}).filter(([, rosterId]) => rosterId === myRosterId).map(([id]) => playerName(id)),
+    picksReceived: (transaction.draft_picks ?? []).filter((pick) => pick.owner_id === myRosterId).map((pick) => `${pick.season ?? "Future"} Round ${pick.round ?? "—"}`),
+    picksSent: (transaction.draft_picks ?? []).filter((pick) => pick.previous_owner_id === myRosterId).map((pick) => `${pick.season ?? "Future"} Round ${pick.round ?? "—"}`),
+    timestamp: transaction.status_updated ?? transaction.created ?? null,
+  }));
+  const winPathReports = rows.filter((row) => row.category === "win_path").map((row) => ({ ...row, result: row.resultJson ? safeJson<Record<string, unknown>>(row.resultJson, {}) : null }));
+  return Response.json({ league: { name: league.name ?? "Sleeper league", week }, observed: { startSit, waiverMoves, trades }, winPathReports, summary: { total: startSit.length + waiverMoves.length + trades.length, startSit: startSit.length, waiverMoves: waiverMoves.length, trades: trades.length, source: "Sleeper" } });
 }

@@ -50,6 +50,22 @@ test("League storytelling and reporting finish the Utilities section", async () 
   assert.ok(source.indexOf('label: "League Stories"') < source.indexOf('label: "Manager Report"'));
 });
 
+test("Manager Report uses observed Sleeper weekly actions and theme-aware surfaces", async () => {
+  const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
+  const route = await readFile(new URL("../app/api/decisions/route.ts", import.meta.url), "utf8");
+  const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  assert.match(route, /\/matchups\/\$\{week\}/);
+  assert.match(route, /\/transactions\/\$\{week\}/);
+  assert.match(route, /transaction\.status === "complete"/);
+  assert.match(route, /transaction\.type === "waiver" \|\| transaction\.type === "free_agent"/);
+  assert.match(route, /transaction\.type === "trade"/);
+  assert.match(source, /Your actual week in review/);
+  assert.match(source, /className="win-path-description"/);
+  assert.match(source, /actualPoints\.toFixed\(1\)/);
+  assert.match(styles, /--manager-surface:color-mix\(in srgb,rgb\(var\(--brand-primary-rgb/);
+  assert.match(styles, /\.win-path-report>\.win-path-description\{display:block;width:100%/);
+});
+
 test("expanded What Do I Need supports six player targets", async () => {
   const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
   assert.match(source, /need\.targets\.slice\(0, 6\)/);

@@ -2474,8 +2474,6 @@ export default function FantasyHub({
           ))}
         {view === "Waiver Wire" && (
           <WaiverWire
-            leagueId={leagueId}
-            week={defaultGameWeek}
             key={leagueId || "no-league"}
             players={waiverPlayers}
             roster={players}
@@ -2487,8 +2485,6 @@ export default function FantasyHub({
         )}
         {view === "Trade Lab" && (
           <TradeLab
-            leagueId={leagueId}
-            week={defaultGameWeek}
             key={`${leagueId}-${selectedTeamId}`}
             teams={leagueTeams}
             selectedTeamId={selectedTeamId}
@@ -4340,7 +4336,16 @@ type LeagueStoryData = {
   methodology: string;
 };
 
-type DecisionReportData = { decisions: { id: string; week: number; category: string; recommendation: string; alternatives: unknown[]; information: Record<string, unknown>; confidence: number; userSelection: string | null; result: Record<string, unknown> | null; processGrade: string | null; createdAt: string }[]; winPathReports?: { id: string; week: number; result: { players?: { id: string; name: string; actualPoints: number; targetTotal: number; difference: number; outcome: "short" | "met" | "over" }[] } | null }[]; summary: { total: number; selected: number; resolved: number; processReasonable: number; pointsLeftOnBench: number; byCategory: { category: string; total: number; selected: number; resolved: number; averageConfidence: number | null }[]; projectionAccuracy: number | null; strongestPosition: string | null; weakestPosition: string | null; note: string } | null };
+type DecisionReportData = {
+  league: { name: string; week: number };
+  observed: {
+    startSit: { id: string; actual: string; recommended: string; position: string; actualPoints: number; recommendedPoints: number; followedRecommendation: boolean; confidence: number }[];
+    waiverMoves: { id: string; type: string; added: string[]; dropped: string[]; faab: number; timestamp: number | null }[];
+    trades: { id: string; received: string[]; sent: string[]; picksReceived: string[]; picksSent: string[]; timestamp: number | null }[];
+  };
+  winPathReports: { id: string; week: number; result: { players?: { id: string; name: string; actualPoints: number; targetTotal: number; difference: number; outcome: "short" | "met" | "over" }[] } | null }[];
+  summary: { total: number; startSit: number; waiverMoves: number; trades: number; source: string };
+};
 
 function ManagerReport({ leagueId }: { leagueId: string }) {
   const [data, setData] = useState<DecisionReportData | null>(null);
@@ -4354,8 +4359,22 @@ function ManagerReport({ leagueId }: { leagueId: string }) {
   if (!leagueId) return <div className="page-content"><SectionIntro kicker="DECISION MEMORY" title="Choose a league to open your Manager Report Card" text="Recommendations and selections are evaluated separately from their eventual outcomes." /></div>;
   if (error) return <div className="page-content"><SectionIntro kicker="DECISION MEMORY" title="Manager Report is temporarily unavailable" text={error} /></div>;
   if (!data) return <div className="page-content"><SectionIntro kicker="DECISION MEMORY" title="Building your decision ledger…" text="Fantasy Hub is loading recommendations saved for this league." /></div>;
-  const labels: Record<string, string> = { start_sit: "Start / Sit", waiver: "Waiver", trade: "Trade" };
-  return <div className="page-content manager-report-page"><section className="manager-report-hero"><div><span>MANAGER REPORT CARD</span><h2>Grade the process, not the hindsight.</h2><p>Every saved recommendation preserves what Fantasy Hub knew, what it considered, and what you chose.</p></div><b>{data.summary?.total ?? 0}<small>DECISIONS SAVED</small></b></section><section className="decision-scorecards">{data.summary?.byCategory.map((category) => <article className="panel" key={category.category}><span>{labels[category.category] ?? category.category}</span><strong>{category.total || "—"}</strong><small>{category.selected} selections · {category.resolved} final results</small><em>{category.averageConfidence == null ? "No sample" : `${category.averageConfidence}% avg. confidence`}</em></article>)}</section><section className="manager-accountability panel"><header><div><span>ACCOUNTABILITY FRAMEWORK</span><h3>What counts as a good decision?</h3></div><b>{data.summary?.resolved ?? 0} RESOLVED</b></header><div><article><strong>Information quality</strong><small>Were projections, availability, matchup and league settings captured?</small></article><article><strong>Alternative quality</strong><small>Was the selected option reasonable among choices available then?</small></article><article><strong>Outcome quality</strong><small>What happened afterward—reported separately from the process grade.</small></article></div><p>{data.summary?.note}</p></section><section className="win-path-report panel"><header><div><span>WHAT DO I NEED? RESULTS</span><h3>Who reached the live win-path target</h3></div><small>Compared with the final target saved before the matchup ended</small></header>{data.winPathReports?.length ? data.winPathReports.map((report) => <article key={report.id}><b>WEEK {report.week}</b>{report.result?.players?.length ? <div>{report.result.players.map((player) => <p className={player.outcome} key={player.id}><strong>{player.name}</strong><span><i style={{ width: `${Math.min(100, Math.round(player.actualPoints / Math.max(.1, player.targetTotal) * 100))}%` }} /></span><em>{player.actualPoints.toFixed(1)} / {player.targetTotal.toFixed(1)}</em><small>{player.outcome === "over" ? `Overperformed by ${player.difference.toFixed(1)}` : player.outcome === "met" ? "Hit the target" : `Came up ${Math.abs(player.difference).toFixed(1)} short`}</small></p>)}</div> : <small>Awaiting the final score.</small>}</article>) : <p className="story-empty">Live win-path results will appear after Fantasy Hub observes a matchup and its final scoring is available.</p>}</section><section className="decision-ledger panel"><header><div><span>DECISION LEDGER</span><h3>Your saved calls</h3></div><small>Newest first</small></header>{data.decisions.length ? data.decisions.map((decision) => <article key={decision.id}><div className="decision-ledger-top"><b>{labels[decision.category] ?? decision.category}</b><span>WEEK {decision.week}</span><em>{decision.confidence}% confidence</em></div><h4>{decision.recommendation}</h4><p><strong>Your selection:</strong> {decision.userSelection ?? "No selection recorded"}</p><div><span>AT THE TIME</span><small>{Object.entries(decision.information).slice(0, 5).map(([key, value]) => `${key.replaceAll(/([A-Z])/g, " $1")}: ${Array.isArray(value) ? value.length + " items" : value ?? "—"}`).join(" · ")}</small></div><footer><span>{decision.result ? "Final result recorded" : "Awaiting a final result"}</span><b>{decision.processGrade ?? "Process grade pending"}</b></footer></article>) : <p className="story-empty">Decision memory starts when Fantasy Hub presents a Start/Sit, waiver, or trade recommendation. Open one of those tools to begin your report card.</p>}</section><section className="report-coming panel"><span>REPORT CARD DEVELOPMENT</span><p>FAAB efficiency, trade performance, points left on the bench, projection accuracy by source, position strengths, and where you outperform the model will activate only after enough saved decisions reach final outcomes.</p></section></div>;
+  const activityTime = (timestamp: number | null) => timestamp ? new Intl.DateTimeFormat(undefined, { weekday: "short", hour: "numeric", minute: "2-digit" }).format(new Date(timestamp)) : "Completed this week";
+  const assetList = (players: string[], picks: string[]) => [...players, ...picks].join(" · ") || "No assets recorded";
+  return <div className="page-content manager-report-page">
+    <section className="manager-report-hero"><div><span>MANAGER REPORT · WEEK {data.league.week}</span><h2>Your actual week in review.</h2><p>Lineup choices and completed roster moves are verified against {data.summary.source}, not inferred from buttons viewed inside Fantasy Hub.</p></div><b>{data.summary.total}<small>ACTIONS OBSERVED</small></b></section>
+    <section className="decision-scorecards">
+      <article className="panel"><span>START / SIT</span><strong>{data.summary.startSit || "—"}</strong><small>Actual submitted lineup choices</small><em>Sleeper matchup lineup</em></article>
+      <article className="panel"><span>ADDS / DROPS</span><strong>{data.summary.waiverMoves || "—"}</strong><small>Completed waiver and free-agent moves</small><em>Sleeper transactions</em></article>
+      <article className="panel"><span>TRADES</span><strong>{data.summary.trades || "—"}</strong><small>Completed trades involving your roster</small><em>Sleeper transactions</em></article>
+    </section>
+    <section className="manager-weekly-grid">
+      <section className="manager-activity panel"><header><div><span>START / SIT DECISIONS</span><h3>What you actually started</h3></div><small>Compared with Fantasy Hub’s model call</small></header>{data.observed.startSit.length ? data.observed.startSit.map((decision) => <article key={decision.id}><b className={`pos pos-${decision.position.toLowerCase()}`}>{decision.position}</b><div><strong>{decision.actual}</strong><small>{decision.followedRecommendation ? "Matched the model recommendation" : `Model preferred ${decision.recommended}`}</small></div><em>{decision.actualPoints.toFixed(1)} pts<small>{decision.confidence}% model confidence</small></em></article>) : <p className="story-empty">No comparable Start/Sit call is available yet. Open Start/Sit during the week so Fantasy Hub can preserve its recommendation, then this report will match it to your submitted Sleeper lineup.</p>}</section>
+      <section className="manager-activity panel"><header><div><span>WAIVER WIRE</span><h3>Completed adds and drops</h3></div><small>Week {data.league.week}</small></header>{data.observed.waiverMoves.length ? data.observed.waiverMoves.map((move) => <article key={move.id}><b>+</b><div><strong>{move.added.join(" · ") || "No add recorded"}</strong><small>{move.dropped.length ? `Dropped ${move.dropped.join(" · ")}` : "No corresponding drop"}</small></div><em>{move.faab ? `${move.faab} FAAB` : move.type}<small>{activityTime(move.timestamp)}</small></em></article>) : <p className="story-empty">No completed waiver or free-agent moves involving your roster this week.</p>}</section>
+      <section className="manager-activity manager-trades panel"><header><div><span>COMPLETED TRADES</span><h3>Deals that actually processed</h3></div><small>Week {data.league.week}</small></header>{data.observed.trades.length ? data.observed.trades.map((trade) => <article key={trade.id}><b>↔</b><div><strong>Received: {assetList(trade.received, trade.picksReceived)}</strong><small>Sent: {assetList(trade.sent, trade.picksSent)}</small></div><em>Completed<small>{activityTime(trade.timestamp)}</small></em></article>) : <p className="story-empty">No completed Sleeper trades involving your roster this week.</p>}</section>
+    </section>
+    <section className="win-path-report panel"><header><div><span>WHAT DO I NEED? RESULTS</span><h3>Who reached the live win-path target</h3></div></header><p className="win-path-description">Each result compares the player’s final score with the last live target Fantasy Hub saved before the matchup ended.</p>{data.winPathReports.length ? data.winPathReports.map((report) => <article key={report.id}><b>WEEK {report.week}</b>{report.result?.players?.length ? <div>{report.result.players.map((player) => <p className={player.outcome} key={player.id}><strong>{player.name}</strong><span><i style={{ width: `${Math.min(100, Math.round(player.actualPoints / Math.max(.1, player.targetTotal) * 100))}%` }} /></span><em>{player.actualPoints.toFixed(1)} / {player.targetTotal.toFixed(1)}</em><small>{player.outcome === "over" ? `Overperformed by ${player.difference.toFixed(1)}` : player.outcome === "met" ? "Hit the target" : `Came up ${Math.abs(player.difference).toFixed(1)} short`}</small></p>)}</div> : <small>Awaiting the final score.</small>}</article>) : <p className="story-empty">Live win-path results will appear after Fantasy Hub observes a matchup and its final scoring is available.</p>}</section>
+  </div>;
 }
 
 function LeagueStories({ leagueId, setView }: { leagueId: string; setView: (view: View) => void }) {
@@ -7820,8 +7839,6 @@ function waiverReason(player: WaiverPlayer, context: RankingContext | null) {
 }
 
 function WaiverWire({
-  leagueId,
-  week,
   players,
   roster,
   leagueSelected,
@@ -7829,8 +7846,6 @@ function WaiverWire({
   context,
   setSelectedPlayer,
 }: {
-  leagueId: string;
-  week: number;
   players: WaiverPlayer[];
   roster: Player[];
   leagueSelected: boolean;
@@ -7854,12 +7869,6 @@ function WaiverWire({
   );
   const filtered = players
     .filter((player) => position === "ALL" || player.position === position);
-  const waiverMemories = useMemo(() => players.slice(0, 8).flatMap((player, index) => {
-    const plan = waiverAddDropPlan(player, roster, context);
-    if (!plan.worthIt || !plan.drop) return [];
-    return [{ id: `waiver:${week}:${player.id}`, leagueId, week, category: "waiver", recommendation: `Add ${player.name}; drop ${plan.drop.name}`, alternatives: [{ action: "Hold roster" }, { add: player.name, drop: plan.drop.name }], information: { playerId: player.id, dropPlayerId: plan.drop.id, projection: player.leagueProjection, improvement: plan.improvement, faab: waiverBid(player, index), scoring: context?.scoring ?? null }, confidence: Math.min(92, Math.max(50, Math.round(58 + plan.improvement * 5))) }];
-  }), [context, leagueId, players, roster, week]);
-  useEffect(() => { waiverMemories.forEach((decision) => rememberDecision(decision)); }, [waiverMemories]);
   if (!leagueSelected)
     return (
       <div className="page-content">
@@ -7962,8 +7971,6 @@ function WaiverWire({
                         ? current.filter((id) => id !== player.id)
                         : [...current, player.id],
                     );
-                    const memory = waiverMemories.find((item) => item.id === `waiver:${week}:${player.id}`);
-                    if (memory) rememberDecision({ ...memory, userSelection: planned.includes(player.id) ? "Removed from plan" : memory.recommendation });
                   }}
                 >
                   {planned.includes(player.id)
@@ -8477,8 +8484,6 @@ function buildTradeSuggestions(
 }
 
 function TradeLab({
-  leagueId,
-  week,
   teams,
   selectedTeamId,
   rankings,
@@ -8486,8 +8491,6 @@ function TradeLab({
   isPro,
   onUpgrade,
 }: {
-  leagueId: string;
-  week: number;
   teams: LeagueTeam[];
   selectedTeamId: string;
   rankings: LeagueRanking[];
@@ -8546,7 +8549,6 @@ function TradeLab({
     suggestions.find((item) => item.id === activeSuggestionId) ??
     suggestions[0] ??
     null;
-  const tradeMemoryFor = (item: TradeSuggestion) => ({ id: `trade:${week}:${partner?.id ?? "partner"}:${item.id}`, leagueId, week, category: "trade", recommendation: item.title, alternatives: suggestions.map((option) => ({ id: option.id, title: option.title, send: option.send.map((asset) => asset.name), receive: option.receive.map((asset) => asset.name), acceptance: option.acceptance })), information: { partner: partner?.teamName, negotiationProfile: partnerStyle, format: context?.format ?? "Redraft", send: item.send.map((asset) => ({ id: asset.id, name: asset.name, value: asset.value })), receive: item.receive.map((asset) => ({ id: asset.id, name: asset.name, value: asset.value })), yourBenefit: item.yourBenefit, partnerBenefit: item.partnerBenefit }, confidence: item.confidence });
   function selectPartner(id: string) {
     setSelectedId(id);
     setActiveSuggestionId("");
@@ -8840,8 +8842,6 @@ function TradeLab({
                   setActiveSuggestionId(item.id);
                   setCalculatorSendIds(item.send.map((asset) => asset.id));
                   setCalculatorReceiveIds(item.receive.map((asset) => asset.id));
-                  const memory = tradeMemoryFor(item);
-                  rememberDecision({ ...memory, userSelection: `Reviewed: ${item.title}` });
                 }}
               >
                 <span>OPTION {index + 1}</span>
