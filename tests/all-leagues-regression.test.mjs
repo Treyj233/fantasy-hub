@@ -60,6 +60,16 @@ test("League Stories matchup preview is compact and omits the redundant ownershi
   assert.match(styles, /\.league-stories-page \.matchup-preview article\{gap:8px;padding:9px 0\}/);
 });
 
+test("League Stories Trade Wire uses a simple readable trade hierarchy", async () => {
+  const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
+  const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  assert.match(source, /<h3>Completed deals<\/h3>/);
+  assert.match(source, /className="trade-wire-top"/);
+  assert.match(source, /className="trade-wire-teams"/);
+  assert.match(source, /className="trade-wire-assets"/);
+  assert.match(styles, /\.trade-wire-assets>span\{display:grid;grid-template-columns:minmax\(0,1fr\) auto/);
+});
+
 test("Manager Report uses observed Sleeper weekly actions and theme-aware surfaces", async () => {
   const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
   const route = await readFile(new URL("../app/api/decisions/route.ts", import.meta.url), "utf8");
