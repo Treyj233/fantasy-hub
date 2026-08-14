@@ -67,10 +67,12 @@ test("Manager Report uses observed Sleeper weekly actions and theme-aware surfac
   assert.match(styles, /\.win-path-report>\.win-path-description\{display:block;width:100%/);
   assert.match(source, /className="manager-activity-scroll"/);
   assert.match(styles, /\.manager-activity-scroll\{max-height:213px;overflow-y:auto/);
-  assert.match(styles, /\.manager-activity\.manager-trades\{grid-column:1\/-1;background:var\(--chalk\)/);
-  assert.match(styles, /\.manager-trades \.manager-activity-scroll>article\{background:var\(--cream\)/);
+  assert.match(source, /className="completed-trades-card panel"/);
+  assert.match(source, /className="completed-trades-list"/);
+  assert.match(styles, /\.completed-trades-card\{grid-column:1\/-1[^}]+background-color:var\(--chalk\)!important;background-image:none!important/);
+  assert.match(styles, /\.completed-trades-list>article\{[^}]+background-color:var\(--cream\)!important;background-image:none!important/);
   assert.doesNotMatch(source, /activityTime\(move\.timestamp\)/);
-  assert.match(styles, /html\[data-theme="dark"\] \.manager-report-page \.manager-activity\.manager-trades\{background:#191c23/);
+  assert.match(styles, /html\[data-theme="dark"\] \.manager-report-page \.completed-trades-card\{background-color:#191c23!important;background-image:none!important/);
   assert.doesNotMatch(source, /ACTIONS OBSERVED/);
   assert.match(styles, /\.manager-report-hero>div\{width:100%;min-width:0\}/);
 });
