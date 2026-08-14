@@ -1371,6 +1371,19 @@ html[data-theme="dark"] .all-leagues-page .exposure-list>b,html[data-theme="dark
   .all-leagues-page .all-league-metrics small{display:none}
 }
 
+/* Keep Mission Hub complete without turning it into a marathon page. Each
+   data-heavy card retains all rows in a bounded, touch-friendly scroll area. */
+.all-leagues-page{gap:12px}
+.all-leagues-page .all-leagues-hero{min-height:180px;padding:28px 32px}
+.all-leagues-page .portfolio-heading{padding:15px 18px}
+.all-leagues-page :is(.health-list,.portfolio-matchups,.exposure-list,.waiver-opportunity-list){max-height:220px;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;-webkit-overflow-scrolling:touch}
+.all-leagues-page .action-queue-groups>section{max-height:350px;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;-webkit-overflow-scrolling:touch}
+.all-leagues-page .action-queue-groups>section>header{position:sticky;z-index:2;top:0}
+.all-leagues-page :is(.health-list,.portfolio-matchups,.exposure-list,.waiver-opportunity-list,.action-queue-groups>section){scrollbar-color:color-mix(in srgb,var(--green) 38%,var(--line)) transparent;scrollbar-width:thin}
+.all-leagues-page :is(.health-list,.portfolio-matchups,.exposure-list,.waiver-opportunity-list,.action-queue-groups>section)::-webkit-scrollbar{width:5px}
+.all-leagues-page :is(.health-list,.portfolio-matchups,.exposure-list,.waiver-opportunity-list,.action-queue-groups>section)::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--green) 38%,var(--line));border-radius:99px}
+@media(max-width:700px){.all-leagues-page .all-leagues-hero{min-height:0;padding:20px 18px}.all-leagues-page .portfolio-heading{padding:12px 14px}.all-leagues-page :is(.health-list,.portfolio-matchups,.exposure-list,.waiver-opportunity-list){max-height:185px}.all-leagues-page .action-queue-groups>section{max-height:300px}.all-leagues-page .portfolio-recap article{min-height:82px;padding:14px 16px}}
+
 /* The waiver market becomes a native-width list on phones. Every desktop
    column is retained as labeled row metadata, eliminating sideways scrolling. */
 @media(max-width:700px){

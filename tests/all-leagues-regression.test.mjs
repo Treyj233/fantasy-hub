@@ -18,6 +18,7 @@ test("All Leagues loading state only uses component inputs", async () => {
 
 test("All Leagues is presented as Mission Hub", async () => {
   const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
+  const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
   assert.match(source, /label: "All Leagues", displayLabel: "Mission Hub"/);
   assert.match(source, /<span>MISSION HUB<\/span>/);
   assert.match(source, /<h1>\{viewTitle\}<\/h1>/);
@@ -25,6 +26,10 @@ test("All Leagues is presented as Mission Hub", async () => {
   assert.match(source, /!isPro && <b>PRO<\/b>/);
   assert.match(source, /id="hub-appearance"/);
   assert.match(source, /scrollIntoView\(\{ behavior: "smooth", block: "start" \}\)/);
+  assert.match(source, /`\$\{biggestProjection\.league\.name\} · \$\{biggestProjection\.projection\.toFixed\(1\)\} projected points`/);
+  assert.match(styles, /\.all-leagues-page :is\(\.health-list,\.portfolio-matchups,\.exposure-list,\.waiver-opportunity-list\)\{max-height:220px;[^}]*overflow-y:auto/);
+  assert.match(styles, /\.all-leagues-page \.action-queue-groups>section\{max-height:350px;[^}]*overflow-y:auto/);
+  assert.match(styles, /\.all-leagues-page \.action-queue-groups>section>header\{position:sticky/);
 });
 
 test("Pro billing navigation lives in Utilities and replaces the simulator shortcut", async () => {
