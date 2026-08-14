@@ -15,4 +15,7 @@ test("Clerk entry pages use a readable Chargers theme", async () => {
   assert.match(theme, /background: "linear-gradient\(135deg, #ffc20e, #ffd85a\)"/);
   assert.match(styles, /\.clerk-auth-shell\.chargers-entry-shell,\.chargers-entry-shell/);
   assert.match(styles, /linear-gradient\(145deg,#001f47 0,#004f91 48%,#0080c6 100%\)/);
+  assert.match(styles, /min-height:100svh/);
+  assert.match(styles, /padding:max\(54px,calc\(env\(safe-area-inset-top\) \+ 18px\)\)/);
+  assert.match(styles, /html\[data-native-platform="ios"\] \.clerk-auth-shell\.chargers-entry-shell\{padding-top:max\(64px,calc\(env\(safe-area-inset-top\) \+ 22px\)\)\}/);
 });
