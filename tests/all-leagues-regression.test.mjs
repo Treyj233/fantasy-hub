@@ -70,6 +70,17 @@ test("League Stories Trade Wire uses a simple readable trade hierarchy", async (
   assert.match(styles, /\.trade-wire-assets>span\{display:grid;grid-template-columns:minmax\(0,1fr\) auto/);
 });
 
+test("Draft-Day Expectations opens every draft selection in a safe-area dialog", async () => {
+  const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
+  const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  assert.match(source, /const \[draftOpen, setDraftOpen\] = useState\(false\)/);
+  assert.match(source, /aria-label="All draft selections"/);
+  assert.match(source, /\.draftDay\.picks\]\.sort/);
+  assert.match(source, /Overall pick \$\{pick\.pick\}/);
+  assert.match(styles, /\.draft-history-backdrop\{position:fixed;inset:0;z-index:120/);
+  assert.match(styles, /env\(safe-area-inset-top\)/);
+});
+
 test("Manager Report uses observed Sleeper weekly actions and theme-aware surfaces", async () => {
   const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
   const route = await readFile(new URL("../app/api/decisions/route.ts", import.meta.url), "utf8");
