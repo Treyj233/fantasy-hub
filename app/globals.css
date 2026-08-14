@@ -940,9 +940,9 @@ html[data-theme="dark"] .team-position-room{background:#20242c;border-color:#404
 /* Readability floor: preserve the existing type hierarchy while preventing
    supporting copy, badges, controls, and data labels from becoming illegible. */
 .scorebug-probability-track{background:linear-gradient(90deg,#25a968 0%,#e9b94c 50%,#df5b63 100%)}
-.page-content :is(span,small,em,label,th){font-size:max(10px,1em)!important}
-.page-content :is(p,td,button,input,select,textarea){font-size:max(11px,1em)!important}
-.topbar p,.sidebar-bottom div,.sidebar-bottom small{font-size:max(10px,1em)!important}
+:where(.page-content) :where(span,small,em,label,th){font-size:max(10px,1em)}
+:where(.page-content) :where(p,td,button,input,select,textarea){font-size:max(11px,1em)}
+:where(.topbar p,.sidebar-bottom div,.sidebar-bottom small){font-size:max(10px,1em)}
 .waiver-list>header>span:first-child,.waiver-list article>.waiver-rank{position:sticky;left:0;z-index:3;background:var(--chalk);box-shadow:1px 0 0 var(--line)}
 .waiver-list>header>span:first-child{z-index:4;background:color-mix(in srgb,var(--green) 5%,var(--cream))}
 @media(max-width:900px){
@@ -953,9 +953,9 @@ html[data-theme="dark"] .team-position-room{background:#20242c;border-color:#404
 }
 @media(max-width:700px){
   html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
-  .page-content :is(span,small,em,label,th){font-size:max(11px,1em)!important;line-height:max(1.25,1em)}
-  .page-content :is(p,td,button,input,select,textarea){font-size:max(12px,1em)!important}
-  .topbar p,.sidebar-bottom div,.sidebar-bottom small{font-size:max(11px,1em)!important}
+  :where(.page-content) :where(span,small,em,label,th){font-size:max(11px,1em);line-height:max(1.25,1em)}
+  :where(.page-content) :where(p,td,button,input,select,textarea){font-size:max(12px,1em)}
+  :where(.topbar p,.sidebar-bottom div,.sidebar-bottom small){font-size:max(11px,1em)}
 }
 
 /* Fixed-footprint typography: these dense controls and data cells are audited
@@ -1413,6 +1413,31 @@ html[data-theme="dark"] .all-leagues-page .exposure-list>b,html[data-theme="dark
 .start-sit-page>.aggression-panel{position:-webkit-sticky!important;position:sticky!important;z-index:34;top:12px;align-self:start;background:color-mix(in srgb,var(--chalk) 96%,transparent);backdrop-filter:blur(16px);transform:translateZ(0)}
 @media(max-width:700px){.start-sit-page>.aggression-panel{top:100px}}
 @media(max-width:700px){html[data-native-platform="ios"] .start-sit-page>.aggression-panel{top:calc(100px + max(54px,env(safe-area-inset-top)))}}
+
+/* League changes retain the last usable roster while the selected league
+   refreshes, with a compact and truthful freshness indicator. */
+.league-pills button .league-refresh-state{display:block;margin-top:4px;color:var(--green);font-size:7px!important;font-style:normal;font-weight:900;line-height:1.1;letter-spacing:.02em;white-space:nowrap}
+.league-pills button .league-refresh-state.refreshing:before{display:inline-block;width:5px;height:5px;margin-right:4px;background:var(--gold);border-radius:50%;content:"";animation:live-beacon 1.7s ease-out infinite}
+.all-leagues-loading.background-refresh{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:3px 16px;padding:12px 15px;border-style:dashed;box-shadow:none}
+.all-leagues-loading.background-refresh strong,.all-leagues-loading.background-refresh p{grid-column:1;margin:0}.all-leagues-loading.background-refresh p{font-size:9px}.all-leagues-loading.background-refresh .load-progress{grid-column:2;grid-row:1/3;width:90px}.all-leagues-loading.background-refresh .load-progress span{animation:background-refresh-pulse 1.6s ease-in-out infinite}.all-leagues-loading.background-refresh small{grid-column:1/-1}
+@keyframes background-refresh-pulse{50%{opacity:.45}}
+@media(max-width:700px){.all-leagues-loading.background-refresh{grid-template-columns:1fr}.all-leagues-loading.background-refresh .load-progress{grid-column:1;grid-row:auto;width:100%}}
+
+/* Shared overlay contract: every full-screen drawer respects device safe areas,
+   blocks background overscroll, and keeps its close control touchable. */
+:is(.player-modal-layer,.team-assets-modal-layer,.asset-selector-backdrop,.draft-history-backdrop){overscroll-behavior:none}
+:is(.player-panel,.team-assets-drawer,.asset-selector-dialog,.draft-history-dialog){max-height:calc(100dvh - max(20px,env(safe-area-inset-top)) - max(20px,env(safe-area-inset-bottom)));overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+:is(.player-panel,.team-assets-drawer,.asset-selector-dialog,.draft-history-dialog) :is(.close,.team-assets-close,header>button[aria-label^="Close"]){min-width:42px;min-height:42px;flex:0 0 auto}
+:is(.player-panel,.team-assets-drawer,.asset-selector-dialog,.draft-history-dialog) :focus-visible{outline:3px solid var(--gold-light);outline-offset:2px}
+@media(max-width:700px){
+  :is(.player-modal-layer,.team-assets-modal-layer,.asset-selector-backdrop,.draft-history-backdrop){padding-top:max(54px,calc(env(safe-area-inset-top) + 10px));padding-bottom:max(12px,env(safe-area-inset-bottom))}
+  :is(.player-panel,.team-assets-drawer,.asset-selector-dialog,.draft-history-dialog){max-height:calc(100dvh - max(66px,calc(env(safe-area-inset-top) + 22px)) - max(12px,env(safe-area-inset-bottom)))}
+}
+
+/* Defer below-the-fold card rendering without hiding any information. */
+.page-content>:is(.panel,.mutual-grid,.trade-board,.league-scan-list,.manager-weekly-grid,.season-narrative,.simulation-results){content-visibility:auto;contain-intrinsic-size:auto 260px}
+.app-status-banner{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:9px;margin:10px 20px 0;padding:10px 12px;color:var(--ink);background:color-mix(in srgb,var(--gold-light) 16%,var(--chalk));border:1px solid color-mix(in srgb,var(--gold) 38%,var(--line));border-radius:10px}.app-status-banner span{display:flex;min-width:0;gap:5px;color:var(--muted);font-size:9px}.app-status-banner b{color:var(--ink)}.app-status-banner button{padding:6px 9px;color:#fff;background:var(--green);border:0;border-radius:7px;font-size:8px;font-weight:900}.app-status-banner button.dismiss{display:grid;width:27px;height:27px;place-items:center;padding:0;color:var(--muted);background:transparent;font-size:17px}
+@media(max-width:700px){.app-status-banner{margin:7px 10px 0;padding:8px}.app-status-banner span{display:block;font-size:8px}.app-status-banner b{display:block;margin-bottom:2px}.app-status-banner button{padding:6px 7px}}
 
 /* Full Action Queue: reveal the horizontal track before the first swipe. */
 .action-queue-scroll-preview{display:none}

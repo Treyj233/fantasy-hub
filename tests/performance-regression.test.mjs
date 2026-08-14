@@ -9,13 +9,14 @@ test("account shell is released before league enrichment completes", async () =>
   assert.ok(release >= 0 && enrichment > release);
 });
 
-test("portfolio scans and weather requests use bounded client caches", async () => {
+test("portfolio scans preserve saved results while weather requests use a bounded client cache", async () => {
   const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
-  assert.match(source, /PORTFOLIO_CACHE_TTL = 30 \* 60 \* 1000/);
   assert.match(source, /PORTFOLIO_CACHE_VERSION = 2/);
   assert.match(source, /fantasy-hub-portfolio-scans:/);
   assert.match(source, /weatherRequestCache/);
   assert.match(source, /lastAutomaticScan/);
+  assert.match(source, /cachedScansRef/);
+  assert.match(source, /Showing saved results/);
 });
 
 test("launch traffic is bounded and public provider data is edge cached", async () => {
@@ -41,7 +42,7 @@ test("launch traffic is bounded and public provider data is edge cached", async 
 test("initial league scan retries transient failures before showing a result", async () => {
   const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
   assert.match(source, /for \(let attempt = 0; attempt < 3; attempt \+= 1\)/);
-  assert.match(source, /loading \|\| \(leagues\.length > 0 && !scans\.length\)/);
+  assert.match(source, /refreshing \|\| loading \|\| \(leagues\.length > 0 && scans\.length < leagues\.length\)/);
   assert.doesNotMatch(source, /League could not be scanned/);
 });
 
@@ -53,14 +54,14 @@ test("large dashboard bundle loads behind a lightweight client shell", async () 
   assert.match(source, /roundedProgress/);
 });
 
-test("league scans expose visible determinate progress", async () => {
+test("league scans expose truthful determinate progress", async () => {
   const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
   assert.match(source, /const \[scanCompleted, setScanCompleted\] = useState\(0\)/);
   assert.match(source, /aria-label="Scanning connected leagues"/);
-  assert.match(source, /useEstimatedLoadingProgress\(scanIsActive\)/);
+  assert.match(source, /scanCompleted \/ Math\.max\(1, leagues\.length\)/);
   assert.match(source, /const visibleScanCount = Math\.min/);
-  assert.match(source, /Math\.pow\(visibleScanProgress \/ 100, 1\.35\)/);
-  assert.match(source, /About \{visibleScanCount\} of \{leagues\.length\} leagues scanned/);
+  assert.doesNotMatch(source, /useEstimatedLoadingProgress\(scanIsActive\)/);
+  assert.match(source, /\$\{visibleScanCount\} of \$\{leagues\.length\} leagues scanned/);
 });
 
 test("Mission Hub scans are not aborted by equivalent league-array renders", async () => {

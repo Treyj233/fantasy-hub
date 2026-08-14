@@ -8,6 +8,7 @@ import { classifyFantasyPlay, findEspnPlayContext, matchupImpactText } from "./l
 import { PRE_KICKOFF_VISUALS, PRE_KICKOFF_VISUALS_ENABLED } from "./pre-kickoff-visuals";
 import { DEFAULT_PUSH_PREFERENCES, type PushAlertKey, type PushPreferences } from "./push-preferences";
 import { disableNativePushNotifications, enableNativePushNotifications, initializeNativeRuntime, isNativeIosApp, nativeManageSubscriptions, nativePurchase, nativeRefreshPurchases, nativeRestorePurchases, nativeStoreProducts } from "./native-runtime";
+import { useOverflowAutoScroll } from "./use-overflow-auto-scroll";
 
 type View =
   | "Command Center"
@@ -355,44 +356,6 @@ function startVisiblePolling(refresh: () => Promise<void>, intervalMs = 30_000) 
   };
 }
 
-function useOverflowAutoScroll() {
-  useEffect(() => {
-    let frame = 0;
-    const update = () => {
-      frame = 0;
-      document.querySelectorAll<HTMLElement>(".app-shell *").forEach((element) => {
-        const style = window.getComputedStyle(element);
-        const isSingleLineEllipsis = style.textOverflow === "ellipsis" && style.whiteSpace === "nowrap";
-        const overflow = element.scrollWidth - element.clientWidth;
-        const eligible = isSingleLineEllipsis && element.childElementCount === 0 && overflow > 3;
-        element.classList.toggle("overflow-auto-scroll", eligible);
-        if (!eligible) {
-          element.style.removeProperty("--overflow-pan");
-          element.style.removeProperty("--overflow-duration");
-          element.style.removeProperty("--overflow-delay");
-          return;
-        }
-        element.style.setProperty("--overflow-pan", `${-(overflow + 10)}px`);
-        element.style.setProperty("--overflow-duration", `${Math.max(7, Math.min(18, 6 + overflow / 14)).toFixed(1)}s`);
-        element.style.setProperty("--overflow-delay", `${(element.textContent?.length ?? 0) % 4}s`);
-        if (!element.title) element.title = element.textContent?.trim() ?? "";
-      });
-    };
-    const schedule = () => {
-      if (!frame) frame = window.requestAnimationFrame(update);
-    };
-    const mutations = new MutationObserver(schedule);
-    mutations.observe(document.body, { childList: true, characterData: true, subtree: true });
-    const resize = new ResizeObserver(schedule);
-    resize.observe(document.documentElement);
-    schedule();
-    return () => {
-      if (frame) window.cancelAnimationFrame(frame);
-      mutations.disconnect();
-      resize.disconnect();
-    };
-  }, []);
-}
 type AccountEntitlement = { plan: "free" | "pro"; status: string; pro: boolean; currentPeriodEnd: string | null; provider: "stripe" | "apple" | "manual" | null };
 type AccountPreferences = {
   colorMode: Theme;
@@ -1370,6 +1333,7 @@ export default function FantasyHub({
   const [leagueSeason, setLeagueSeason] = useState(
     String(new Date().getFullYear()),
   );
+  const [leagueRefreshedAt, setLeagueRefreshedAt] = useState<number | null>(null);
   const [connection, setConnection] = useState<SleeperConnection | null>(null);
   const [leaguePlatform, setLeaguePlatform] = useState("Sleeper");
   const [availableLeagues, setAvailableLeagues] = useState<ConnectedLeague[]>(
@@ -1636,15 +1600,6 @@ export default function FantasyHub({
     if (!requestedLeagueId) return;
     const requestNumber = ++importRequest.current;
     setImportState("loading");
-    setPlayers([]);
-    setLeagueTeams([]);
-    setSelectedTeamId("");
-    setLeagueRankings([]);
-    setRankingContext(null);
-    setWaiverPlayers([]);
-    setWaiverTrending({ up: [], down: [] });
-    setLeagueStatus("unknown");
-    setLeagueWeek(0);
     setSelectedPlayer(null);
     try {
       const response = await fetch(
@@ -1664,6 +1619,7 @@ export default function FantasyHub({
         waiverPlayers?: WaiverPlayer[];
         waiverTrending?: WaiverTrending;
         rankingContext?: RankingContext;
+        cache?: { status?: string; refreshedAt?: string };
       };
       if (requestNumber !== importRequest.current) return;
       const season = data.league.season ?? String(new Date().getFullYear());
@@ -1712,6 +1668,11 @@ export default function FantasyHub({
         setLeagueWeek(data.league.currentWeek ?? 0);
         setLeagueSeason(season);
         setRankingContext(data.rankingContext ?? null);
+        setLeagueRefreshedAt(
+          data.cache?.refreshedAt
+            ? new Date(data.cache.refreshedAt).getTime()
+            : Date.now(),
+        );
         setImportState("success");
       };
       // Render the user-scoped cached league payload immediately. Weather,
@@ -2087,9 +2048,9 @@ export default function FantasyHub({
             </i>
           </button>
           <div>
-            <span className="live-dot" /> DATA CURRENT
+            <span className="live-dot" /> {importState === "loading" ? "REFRESHING LEAGUE" : leagueRefreshedAt ? `UPDATED ${new Date(leagueRefreshedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}` : "DATA READY"}
           </div>
-          <small>Lineups lock Sunday · 12:00 PM</small>
+          <small>{leagueId ? leagueName : "Connect a league to begin"}</small>
         </div>
       </aside>
       <button
@@ -2208,6 +2169,14 @@ export default function FantasyHub({
         </nav>
         </div>
 
+        {accountError && view !== "Manage Leagues" && (
+          <section className="app-status-banner" role="status">
+            <span><b>Some data needs another pass.</b>{accountError}</span>
+            <button type="button" onClick={() => { setAccountError(""); void loadLeagues(false).catch(() => setAccountError("League data is still unavailable. Your saved dashboard remains available.")); }}>Retry</button>
+            <button type="button" className="dismiss" aria-label="Dismiss status message" onClick={() => setAccountError("")}>×</button>
+          </section>
+        )}
+
         {view !== "Manage Leagues" && visibleLeagues.length > 0 && (
           <section className="league-switcher">
             <div>
@@ -2299,6 +2268,15 @@ export default function FantasyHub({
                     {league.season} · {league.teams} teams · {league.format} ·{" "}
                     {league.scoring}
                   </small>
+                  {leagueId === league.id && (
+                    <em className={`league-refresh-state ${importState === "loading" ? "refreshing" : ""}`}>
+                      {importState === "loading"
+                        ? "Refreshing in background"
+                        : leagueRefreshedAt
+                          ? `Updated ${new Date(leagueRefreshedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`
+                          : "Ready"}
+                    </em>
+                  )}
                 </button>
               ))}
             </div>
@@ -3628,24 +3606,19 @@ function AllLeagues({
   const [loading, setLoading] = useState(
     leagues.length > 0 && cachedScans.length === 0,
   );
+  const [refreshing, setRefreshing] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [scanCompleted, setScanCompleted] = useState(0);
   const lastAutomaticScan = useRef("");
   const cachedScansRef = useRef(cachedScans);
   const leagueScanSignature = leagues.map((league) => league.id).sort().join(":");
-  const scanIsActive = loading || (leagues.length > 0 && scans.length < leagues.length);
-  const estimatedScanProgress = useEstimatedLoadingProgress(scanIsActive);
+  const scanIsActive = refreshing || loading || (leagues.length > 0 && scans.length < leagues.length);
   const completedScanProgress =
     (scanCompleted / Math.max(1, leagues.length)) * 100;
-  const visibleScanProgress = Math.round(
-    Math.min(99, Math.max(estimatedScanProgress, completedScanProgress)),
-  );
+  const visibleScanProgress = Math.round(Math.min(100, completedScanProgress));
   const visibleScanCount = Math.min(
-    Math.max(0, leagues.length - 1),
-    Math.max(
-      scanCompleted,
-      Math.floor(Math.pow(visibleScanProgress / 100, 1.35) * leagues.length),
-    ),
+    leagues.length,
+    Math.max(0, scanCompleted),
   );
 
   useEffect(() => {
@@ -3677,6 +3650,7 @@ function AllLeagues({
       cachedAtScanStart.length === leagues.length &&
       cachedAtScanStart.every((scan) => leagueIds.has(scan.league.id));
     const controller = new AbortController();
+    setRefreshing(true);
     const loadingTimer = cacheMatches && refreshKey === 0
       ? undefined
       : window.setTimeout(() => {
@@ -4012,7 +3986,10 @@ function AllLeagues({
         }
       })
       .finally(() => {
-        if (!controller.signal.aborted) setLoading(false);
+        if (!controller.signal.aborted) {
+          setLoading(false);
+          setRefreshing(false);
+        }
       });
     return () => {
       controller.abort();
@@ -4150,9 +4127,9 @@ function AllLeagues({
         <div className="mission-hero-actions">
           <button
             onClick={() => setRefreshKey((value) => value + 1)}
-            disabled={loading}
+            disabled={refreshing}
           >
-            {loading ? "Scanning…" : "Refresh all leagues"}
+            {refreshing ? "Refreshing…" : "Refresh all leagues"}
           </button>
         </div>
       </section>
@@ -4243,20 +4220,20 @@ function AllLeagues({
         </>
       )}
       {scanIsActive ? (
-        <section className="all-leagues-loading panel">
-          <strong>Scanning your league portfolio…</strong>
-          <p>Checking settings, starters, injuries, waivers, schedule, and weather.</p>
+        <section className={`all-leagues-loading panel ${scans.length ? "background-refresh" : ""}`} aria-live="polite">
+          <strong>{scans.length ? "Your saved Mission Hub is ready" : "Scanning your league portfolio…"}</strong>
+          <p>{scans.length ? "Refreshing league changes quietly in the background." : "Checking settings, starters, injuries, waivers, schedule, and weather."}</p>
           <div
             className="load-progress"
-            role="progressbar"
+            role={scans.length ? "presentation" : "progressbar"}
             aria-label="Scanning connected leagues"
             aria-valuemin={0}
             aria-valuemax={100}
-            aria-valuenow={visibleScanProgress}
+            aria-valuenow={scans.length ? undefined : visibleScanProgress}
           >
-            <span style={{ width: `${visibleScanProgress}%` }} />
+            <span style={{ width: scans.length ? "100%" : `${visibleScanProgress}%` }} />
           </div>
-          <small>About {visibleScanCount} of {leagues.length} leagues scanned · {visibleScanProgress}% complete</small>
+          <small>{scans.length ? `Showing saved results · ${visibleScanCount} refreshed` : `${visibleScanCount} of ${leagues.length} leagues scanned`}</small>
         </section>
       ) : (
         <section className="league-scan-list">

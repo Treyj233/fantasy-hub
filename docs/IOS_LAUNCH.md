@@ -62,8 +62,8 @@ The archive is written to `build/FantasyHub.xcarchive` and can then be validated
 - The app builds successfully for the iPhone 17 Pro simulator.
 - The production site loads inside the native web view without handing off to Safari.
 - Native app icon, launch screen, safe areas, offline handling, privacy manifest, lifecycle hooks, and custom URL scheme are configured.
-- Seven upload-ready 6.5-inch App Store screenshots are stored in `public/marketing/app-store/iphone-6.5` at 1242 × 2688. Each creative integrates the blue rounded-square FH app mark into its stadium scene, with matching masters in `public/marketing/app-store/generated-masters` and untouched edit sources in `public/marketing/app-store/original-masters`.
-- The canonical blue app-mark reference lives at `public/marketing/app-store/fh-blue-app-mark.png` with an editable SVG source beside it. `swift tools/refresh-app-store-branding.swift` provides a deterministic fallback compositor; the production screenshots use the higher-fidelity generated scene integration.
+- Seven upload-ready 6.5-inch App Store screenshots are stored in `marketing-assets/app-store/iphone-6.5` at 1242 × 2688. Each creative integrates the blue rounded-square FH app mark into its stadium scene, with matching masters in `marketing-assets/app-store/generated-masters` and untouched edit sources in `marketing-assets/app-store/original-masters`. These submission-only assets intentionally live outside `public` so they are not shipped to every app user.
+- The canonical runtime blue app-mark reference lives at `public/marketing/app-store/fh-blue-app-mark.png` with an editable SVG source beside it. `swift tools/refresh-app-store-branding.swift` provides a deterministic fallback compositor; the production screenshots use the higher-fidelity generated scene integration.
 - Valid Apple Development and Apple Distribution identities are installed for team `PSFU9Q2JRK`.
 - Release build 3 archives successfully at `build/FantasyHub.xcarchive` with the registered `com.fantasyhubapp.ios` provisioning profile.
 

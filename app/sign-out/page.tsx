@@ -12,7 +12,7 @@ export default function SignOutPage() {
     };
     const fallback = window.setTimeout(finishSignOut, 1500);
 
-    void signOut().then(finishSignOut, finishSignOut);
+    void signOut({ redirectUrl: "/sign-in" }).then(finishSignOut, finishSignOut);
     return () => {
       active = false;
       window.clearTimeout(fallback);

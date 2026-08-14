@@ -146,9 +146,9 @@ test("Start Sit uses a compact outcome heading", async () => {
 
 test("Start Sit aggressiveness remains sticky during vertical scrolling", async () => {
   const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
-  assert.match(styles, /\.start-sit-page>\.aggression-panel\{position:-webkit-sticky!important;position:sticky!important;z-index:46;top:12px/);
-  assert.match(styles, /\.start-sit-page>\.aggression-panel\{top:68px\}/);
-  assert.match(styles, /html\[data-native-platform="ios"\] \.start-sit-page>\.aggression-panel\{top:calc\(68px \+ max\(0px,env\(safe-area-inset-top\)\)\)\}/);
+  assert.match(styles, /\.start-sit-page>\.aggression-panel\{position:-webkit-sticky!important;position:sticky!important;z-index:34;top:12px/);
+  assert.match(styles, /\.start-sit-page>\.aggression-panel\{top:100px\}/);
+  assert.match(styles, /html\[data-native-platform="ios"\] \.start-sit-page>\.aggression-panel\{top:calc\(100px \+ max\(54px,env\(safe-area-inset-top\)\)\)\}/);
 });
 
 test("Full Action Queue previews additional horizontal cards", async () => {

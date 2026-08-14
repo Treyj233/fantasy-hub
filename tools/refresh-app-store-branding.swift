@@ -3,8 +3,8 @@ import Foundation
 
 let root = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
 let logoURL = root.appendingPathComponent("public/marketing/app-store/fh-blue-app-mark.png")
-let screenshots = root.appendingPathComponent("public/marketing/app-store/iphone-6.5")
-let masters = root.appendingPathComponent("public/marketing/app-store/generated-masters")
+let screenshots = root.appendingPathComponent("marketing-assets/app-store/iphone-6.5")
+let masters = root.appendingPathComponent("marketing-assets/app-store/generated-masters")
 
 guard let logo = NSImage(contentsOf: logoURL) else {
   fatalError("Missing live Fantasy Hub logo")
