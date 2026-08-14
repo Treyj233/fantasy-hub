@@ -51,6 +51,15 @@ test("League Stories leads League Insights and Manager Report finishes Team Mana
   assert.ok(source.indexOf('label: "League Stories"') < source.indexOf('label: "League Analytics"'));
 });
 
+test("League Stories matchup preview is compact and omits the redundant ownership label", async () => {
+  const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
+  const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  const preview = source.match(/<section className="panel matchup-preview">.*?<\/section>/s)?.[0] ?? "";
+  assert.doesNotMatch(preview, /YOUR MATCHUP/);
+  assert.match(styles, /\.league-stories-page \.matchup-preview\{padding:14px\}/);
+  assert.match(styles, /\.league-stories-page \.matchup-preview article\{gap:8px;padding:9px 0\}/);
+});
+
 test("Manager Report uses observed Sleeper weekly actions and theme-aware surfaces", async () => {
   const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
   const route = await readFile(new URL("../app/api/decisions/route.ts", import.meta.url), "utf8");
