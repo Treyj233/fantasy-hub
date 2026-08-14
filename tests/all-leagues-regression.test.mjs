@@ -74,13 +74,23 @@ test("League Stories Trade Wire separates the two teams and their received playe
 
 test("Draft-Day Expectations opens every draft selection in a safe-area dialog", async () => {
   const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
+  const route = await readFile(new URL("../app/api/league-story/route.ts", import.meta.url), "utf8");
   const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
   assert.match(source, /const \[draftOpen, setDraftOpen\] = useState\(false\)/);
   assert.match(source, /aria-label="All draft selections"/);
   assert.match(source, /\.draftDay\.picks\]\.sort/);
   assert.match(source, /Overall pick \$\{pick\.pick\}/);
+  assert.match(route, /picks: myDraftPicks\.map\(/);
+  assert.doesNotMatch(route, /picks: myDraftPicks\.slice\(0, 5\)/);
   assert.match(styles, /\.draft-history-backdrop\{position:fixed;inset:0;z-index:120/);
-  assert.match(styles, /env\(safe-area-inset-top\)/);
+  assert.match(styles, /\.draft-history-backdrop\{place-items:start center;padding:max\(54px,calc\(env\(safe-area-inset-top\) \+ 10px\)\)/);
+});
+
+test("Fantasy Scoreboard uses a neutral importance marker instead of a Cowboys-like star", async () => {
+  const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
+  const primaryPath = source.match(/<div className="primary-win-path">.*?<div className="league-win-paths">/s)?.[0] ?? "";
+  assert.match(primaryPath, /<i aria-hidden="true">!<\/i>/);
+  assert.doesNotMatch(primaryPath, />★<\/i>/);
 });
 
 test("Manager Report uses observed Sleeper weekly actions and theme-aware surfaces", async () => {
