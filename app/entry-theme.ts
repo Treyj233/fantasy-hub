@@ -5,7 +5,7 @@ export const chargersClerkAppearance = {
     colorText: "#001f47",
     colorTextSecondary: "#46647d",
     colorInputBackground: "#f4faff",
-    colorInputText: "#001f47",
+    colorInputText: "#000000",
     borderRadius: "0.8rem",
   },
   elements: {
@@ -19,7 +19,7 @@ export const chargersClerkAppearance = {
     dividerLine: { backgroundColor: "#c8dce9" },
     dividerText: { color: "#46647d", fontSize: ".82rem", fontWeight: "700" },
     formFieldLabel: { color: "#001f47", fontSize: ".88rem", fontWeight: "850" },
-    formFieldInput: { minHeight: "48px", color: "#001f47", backgroundColor: "#f8fcff", border: "1.5px solid #9fc9e4", fontSize: "1rem", fontWeight: "650" },
+    formFieldInput: { minHeight: "48px", color: "#000000", WebkitTextFillColor: "#000000", caretColor: "#000000", backgroundColor: "#f8fcff", border: "1.5px solid #9fc9e4", fontSize: "1rem", fontWeight: "650" },
     formButtonPrimary: { minHeight: "48px", color: "#001f47", background: "linear-gradient(135deg, #ffc20e, #ffd85a)", fontSize: ".95rem", fontWeight: "900", boxShadow: "0 8px 20px rgba(0, 128, 198, .22)" },
     footer: { background: "#eef8ff", borderTop: "1px solid #c7dfef" },
     footerActionText: { color: "#365a78", fontSize: ".88rem" },
