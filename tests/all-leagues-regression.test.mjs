@@ -60,14 +60,16 @@ test("League Stories matchup preview is compact and omits the redundant ownershi
   assert.match(styles, /\.league-stories-page \.matchup-preview article\{gap:8px;padding:9px 0\}/);
 });
 
-test("League Stories Trade Wire uses a simple readable trade hierarchy", async () => {
+test("League Stories Trade Wire separates the two teams and their received players", async () => {
   const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
   const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
   assert.match(source, /<h3>Completed deals<\/h3>/);
   assert.match(source, /className="trade-wire-top"/);
-  assert.match(source, /className="trade-wire-teams"/);
-  assert.match(source, /className="trade-wire-assets"/);
-  assert.match(styles, /\.trade-wire-assets>span\{display:grid;grid-template-columns:minmax\(0,1fr\) auto/);
+  assert.match(source, /const tradeTeams = trade\.teams\.slice\(0, 2\)/);
+  assert.match(source, /className="trade-wire-columns"/);
+  assert.match(source, /trade\.adds\.filter\(\(item\) => item\.team === team\)/);
+  assert.match(styles, /\.trade-wire-columns\{display:grid;grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
+  assert.match(styles, /\.league-stories-page \.narrative-timeline article\.win>i\{background:var\(--green\)\}/);
 });
 
 test("Draft-Day Expectations opens every draft selection in a safe-area dialog", async () => {
