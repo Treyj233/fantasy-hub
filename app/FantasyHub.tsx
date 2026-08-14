@@ -264,13 +264,18 @@ type LeagueTeam = {
 };
 type LeagueRanking = Player & {
   overallRank: number;
+  sleeperRank?: number;
   rankingValue: number;
   adpBySite?: Record<string, number | null>;
   age?: number | null;
   ageAdjustment: number;
   lineupAdjustment: number;
 };
-type WaiverPlayer = LeagueRanking;
+type WaiverPlayer = LeagueRanking & {
+  trendCount?: number;
+  trendDirection?: "up" | "down";
+};
+type WaiverTrending = { up: WaiverPlayer[]; down: WaiverPlayer[] };
 type RankingContext = {
   format: "Dynasty" | "Keeper" | "Redraft";
   scoring: string;
@@ -1356,6 +1361,7 @@ export default function FantasyHub({
     null,
   );
   const [waiverPlayers, setWaiverPlayers] = useState<WaiverPlayer[]>([]);
+  const [waiverTrending, setWaiverTrending] = useState<WaiverTrending>({ up: [], down: [] });
   const [leagueStatus, setLeagueStatus] = useState("unknown");
   const [leagueWeek, setLeagueWeek] = useState(0);
   const [leagueSeason, setLeagueSeason] = useState(
@@ -1586,6 +1592,7 @@ export default function FantasyHub({
           setLeagueRankings([]);
           setRankingContext(null);
           setWaiverPlayers([]);
+          setWaiverTrending({ up: [], down: [] });
           setImportState("idle");
         }
       }
@@ -1630,6 +1637,7 @@ export default function FantasyHub({
     setLeagueRankings([]);
     setRankingContext(null);
     setWaiverPlayers([]);
+    setWaiverTrending({ up: [], down: [] });
     setLeagueStatus("unknown");
     setLeagueWeek(0);
     setSelectedPlayer(null);
@@ -1649,6 +1657,7 @@ export default function FantasyHub({
         teams?: LeagueTeam[];
         rankings?: LeagueRanking[];
         waiverPlayers?: WaiverPlayer[];
+        waiverTrending?: WaiverTrending;
         rankingContext?: RankingContext;
       };
       if (requestNumber !== importRequest.current) return;
@@ -1684,9 +1693,16 @@ export default function FantasyHub({
         setLeagueRankings((data.rankings ?? []).map((player) =>
           applyMatchupStrength(applyWeather(applyOpponent(player, schedule, currentWeek), weather), matchupStrengths),
         ));
-        setWaiverPlayers((data.waiverPlayers ?? []).map((player) =>
-          applyMatchupStrength(applyWeather(applyOpponent(player, schedule, currentWeek), weather), matchupStrengths),
-        ));
+        const enhanceWaiverPlayer = (player: WaiverPlayer) =>
+          applyMatchupStrength(
+            applyWeather(applyOpponent(player, schedule, currentWeek), weather),
+            matchupStrengths,
+          ) as WaiverPlayer;
+        setWaiverPlayers((data.waiverPlayers ?? []).map(enhanceWaiverPlayer));
+        setWaiverTrending({
+          up: (data.waiverTrending?.up ?? []).map(enhanceWaiverPlayer),
+          down: (data.waiverTrending?.down ?? []).map(enhanceWaiverPlayer),
+        });
         setLeagueStatus(data.league.status ?? "unknown");
         setLeagueWeek(data.league.currentWeek ?? 0);
         setLeagueSeason(season);
@@ -2476,6 +2492,7 @@ export default function FantasyHub({
           <WaiverWire
             key={leagueId || "no-league"}
             players={waiverPlayers}
+            trending={waiverTrending}
             roster={players}
             leagueSelected={Boolean(leagueId)}
             leagueStatus={leagueStatus}
@@ -7794,7 +7811,7 @@ function waiverAddDropPlan(
   const drop = [...droppable].sort((a, b) => dropUtility(a) - dropUtility(b))[0];
   const addProjection = add.leagueProjection ?? add.projection;
   const needBonus = (positionCounts[add.position] ?? 0) <= desiredAt(add.position) ? 2 : 0;
-  const marketBonus = Math.max(0, 3 - add.overallRank * 0.025);
+  const marketBonus = Math.max(0, 3 - (add.sleeperRank ?? add.overallRank) * 0.025);
   const formatBonus = context?.format === "Dynasty" ? Math.max(0, add.ageAdjustment) * 0.18 : 0;
   const injuryPenalty = ["Out", "IR", "Suspended"].includes(add.status) ? 4 : add.status === "Questionable" ? 1 : 0;
   const addUtility = addProjection + add.lineupAdjustment * 0.35 + needBonus + marketBonus + formatBonus - injuryPenalty;
@@ -7840,6 +7857,7 @@ function waiverReason(player: WaiverPlayer, context: RankingContext | null) {
 
 function WaiverWire({
   players,
+  trending,
   roster,
   leagueSelected,
   leagueStatus,
@@ -7847,6 +7865,7 @@ function WaiverWire({
   setSelectedPlayer,
 }: {
   players: WaiverPlayer[];
+  trending: WaiverTrending;
   roster: Player[];
   leagueSelected: boolean;
   leagueStatus: string;
@@ -7900,8 +7919,35 @@ function WaiverWire({
       <SectionIntro
         kicker="LIVE LEAGUE AVAILABILITY"
         title="Turn available players into weekly leverage"
-        text="Every player shown is currently unrostered across this league. Rankings adjust for league scoring, format, lineup demand, positional scarcity, projection, age, and availability."
+        text="Every player shown is currently unrostered in this league and follows Sleeper’s platform rank. Fantasy Hub applies your league scoring, format, and roster needs to its add/drop advice."
       />
+      <section className="waiver-trending-grid" aria-label="Sleeper player trends">
+        {([
+          { key: "up", title: "Trending Up", detail: "Most added on Sleeper", empty: "No trending adds are currently available in this league." },
+          { key: "down", title: "Trending Down", detail: "Most dropped on Sleeper", empty: "No trending drops are currently available in this league." },
+        ] as const).map((group) => (
+          <article className={`waiver-trend-card panel ${group.key}`} key={group.key}>
+            <header>
+              <div>
+                <span>{group.key === "up" ? "↗" : "↘"}</span>
+                <p><strong>{group.title}</strong><small>{group.detail} · available here</small></p>
+              </div>
+              <b>TOP 5</b>
+            </header>
+            <div className="waiver-trend-list">
+              {trending[group.key].map((player, index) => (
+                <button key={player.id} onClick={() => setSelectedPlayer(player)}>
+                  <b>#{index + 1}</b>
+                  <span className={`pos pos-${player.position.toLowerCase()}`}>{player.position}</span>
+                  <p><strong>{player.name}</strong><small>{player.team || "FA"}</small></p>
+                  <em>{group.key === "up" ? "+" : "−"}{player.trendCount ?? 0} {group.key === "up" ? "adds" : "drops"}</em>
+                </button>
+              ))}
+              {!trending[group.key].length && <p className="waiver-trend-empty">{group.empty}</p>}
+            </div>
+          </article>
+        ))}
+      </section>
       <section className="waiver-controls panel">
         <div
           className="position-filters"
@@ -7922,7 +7968,7 @@ function WaiverWire({
       </section>
       <section className="waiver-list panel">
         <header>
-          <span>AVAILABLE RANK</span>
+          <span>SLEEPER RANK</span>
           <span>PLAYER</span>
           <span>WEEKLY PROJ.</span>
           <span>STATUS</span>

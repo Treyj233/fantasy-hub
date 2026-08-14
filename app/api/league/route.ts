@@ -11,8 +11,9 @@ type SourcePlayer = { player_id?: string; full_name?: string; first_name?: strin
 type SourceProjection = { player_id?: string; stats?: Record<string, number> };
 type MatchupRow = { roster_id?: number; matchup_id?: number | null };
 type AdpRow = { player?: { name?: string }; avg?: number; src_79?: number; src_4350?: number; src_80?: number; src_439?: number; src_624?: number };
+type TrendingRow = { player_id?: string; count?: number };
 
-const LEAGUE_PAYLOAD_VERSION = 2;
+const LEAGUE_PAYLOAD_VERSION = 3;
 const LEAGUE_SNAPSHOT_TTL_MS = 30 * 60 * 1000;
 const isCurrentFantasyPlayer = (player: SourcePlayer) => {
   const status = (player.status ?? "").trim().toLowerCase();
@@ -66,12 +67,14 @@ export async function GET(request: Request) {
   }
   if (!id || !/^\d{6,24}$/.test(id)) return Response.json({ error: "Invalid league ID" }, { status: 400 });
   try {
-    const [leagueResponse, rostersResponse, usersResponse, playersResponse, tradedPicksResponse] = await Promise.all([
+    const [leagueResponse, rostersResponse, usersResponse, playersResponse, tradedPicksResponse, trendingUpResponse, trendingDownResponse] = await Promise.all([
       fetch(`https://api.sleeper.app/v1/league/${id}`, { cache: "no-store" }),
       fetch(`https://api.sleeper.app/v1/league/${id}/rosters`, { cache: "no-store" }),
       fetch(`https://api.sleeper.app/v1/league/${id}/users`, { cache: "no-store" }),
       fetchCachedUpstream("https://api.sleeper.app/v1/players/nfl", 86400),
       fetch(`https://api.sleeper.app/v1/league/${id}/traded_picks`, { cache: "no-store" }).catch(() => null),
+      fetchCachedUpstream("https://api.sleeper.app/v1/players/nfl/trending/add?lookback_hours=24&limit=100", 300).catch(() => null),
+      fetchCachedUpstream("https://api.sleeper.app/v1/players/nfl/trending/drop?lookback_hours=24&limit=100", 300).catch(() => null),
     ]);
     if (!leagueResponse.ok || !rostersResponse.ok || !usersResponse.ok || !playersResponse.ok) throw new Error("League unavailable");
     const league = await leagueResponse.json() as { name?: string; status?: string; total_rosters?: number; season?: string; leg?: number; roster_positions?: string[]; scoring_settings?: Record<string, number>; settings?: { type?: number; draft_rounds?: number } };
@@ -79,6 +82,8 @@ export async function GET(request: Request) {
     const users = await usersResponse.json() as { user_id?: string; display_name?: string; metadata?: { team_name?: string } }[];
     const sourcePlayers = await playersResponse.json() as Record<string, SourcePlayer>;
     const tradedPicks = tradedPicksResponse?.ok ? await tradedPicksResponse.json().catch(() => []) as { season?: string; round?: number; roster_id?: number; owner_id?: number; previous_owner_id?: number }[] : [];
+    const trendingUpRows = trendingUpResponse?.ok ? await trendingUpResponse.json().catch(() => []) as TrendingRow[] : [];
+    const trendingDownRows = trendingDownResponse?.ok ? await trendingDownResponse.json().catch(() => []) as TrendingRow[] : [];
     const projectionWeek = Math.min(18, Math.max(1, league.leg ?? 1));
     const scoring = league.scoring_settings ?? {};
     const receptionValue = scoring.rec ?? 1;
@@ -208,12 +213,18 @@ export async function GET(request: Request) {
       if (!hasCurrentRoleSignal) return [];
       const availableAdp = Object.values({ ...marketAdp, Sleeper: directSleeperAdp }).filter((item): item is number => typeof item === "number");
       const adpBySite = { ...marketAdp, Sleeper: directSleeperAdp, Consensus: marketAdp.Consensus ?? (availableAdp.length ? Number((availableAdp.reduce((sum, item) => sum + item, 0) / availableAdp.length).toFixed(1)) : null) };
-      return [{ id: player.player_id ?? playerId, name, position, team: player.team, opponent: "Matchup pending", projection: platformProjection, leagueProjection: leagueProjections.get(playerId) ?? null, floor: Number((platformProjection * .68).toFixed(1)), ceiling: Number((platformProjection * 1.38).toFixed(1)), trend: 0, status: player.injury_status ?? "Healthy", role: "Player pool", age: player.age ?? null, rankingValue: Number(value.toFixed(2)), ageAdjustment: Number(ageAdjustment.toFixed(1)), lineupAdjustment: Number(lineupAdjustment.toFixed(1)), snapPct: snapProfile?.latestPct ?? null, snapAverage: snapProfile?.averagePct ?? null, snapWeek: snapProfile?.latestWeek ?? null, snapSeason: snapProfile?.season ?? null, statsSourceSeason, statsBlended, fantasyPpg2025: seasonProfile?.games ? Number((fantasyPoints! / seasonProfile.games).toFixed(1)) : null, gamesPlayed2025: seasonProfile?.games ?? null, team2025: seasonProfile?.team ?? null, teamOffenseRank2025: seasonTeamOffense?.rank ?? null, teamPointsPerGame2025: seasonTeamOffense?.pointsPerGame ?? null, adpBySite }];
+      return [{ id: player.player_id ?? playerId, name, position, team: player.team, opponent: "Matchup pending", projection: platformProjection, leagueProjection: leagueProjections.get(playerId) ?? null, floor: Number((platformProjection * .68).toFixed(1)), ceiling: Number((platformProjection * 1.38).toFixed(1)), trend: 0, status: player.injury_status ?? "Healthy", role: "Player pool", age: player.age ?? null, rankingValue: Number(value.toFixed(2)), sleeperRank: sourceRank, ageAdjustment: Number(ageAdjustment.toFixed(1)), lineupAdjustment: Number(lineupAdjustment.toFixed(1)), snapPct: snapProfile?.latestPct ?? null, snapAverage: snapProfile?.averagePct ?? null, snapWeek: snapProfile?.latestWeek ?? null, snapSeason: snapProfile?.season ?? null, statsSourceSeason, statsBlended, fantasyPpg2025: seasonProfile?.games ? Number((fantasyPoints! / seasonProfile.games).toFixed(1)) : null, gamesPlayed2025: seasonProfile?.games ?? null, team2025: seasonProfile?.team ?? null, teamOffenseRank2025: seasonTeamOffense?.rank ?? null, teamPointsPerGame2025: seasonTeamOffense?.pointsPerGame ?? null, adpBySite }];
     }).sort((a, b) => b.rankingValue - a.rankingValue).slice(0, 600).map((player, index) => ({ ...player, overallRank: index + 1 }));
     const rosteredPlayerIds = new Set(rosters.flatMap((roster) => roster.players ?? []));
     const waiverPlayers = league.status === "pre_draft"
       ? []
-      : rankingPool.filter((player) => !rosteredPlayerIds.has(player.id));
+      : rankingPool.filter((player) => !rosteredPlayerIds.has(player.id)).sort((a, b) => a.sleeperRank - b.sleeperRank || b.rankingValue - a.rankingValue);
+    const availableById = new Map(waiverPlayers.map((player) => [player.id, player]));
+    const trendingFor = (rows: TrendingRow[], direction: "up" | "down") => rows.flatMap((row) => {
+      const player = row.player_id ? availableById.get(row.player_id) : undefined;
+      return player ? [{ ...player, trendCount: Math.max(0, Math.round(row.count ?? 0)), trendDirection: direction }] : [];
+    }).slice(0, 5);
+    const waiverTrending = { up: trendingFor(trendingUpRows, "up"), down: trendingFor(trendingDownRows, "down") };
     const draftRounds = Math.max(1, Math.min(8, league.settings?.draft_rounds ?? 5));
     const firstFutureSeason = Number(league.season ?? new Date().getUTCFullYear()) + 1;
     const draftSeasons = [firstFutureSeason, firstFutureSeason + 1, firstFutureSeason + 2];
@@ -251,7 +262,7 @@ export async function GET(request: Request) {
       return { id: String(rosterId), ownerId: roster.owner_id, managerName, teamName: owner?.metadata?.team_name ?? `${managerName}'s Team`, matchupId: matchupByRoster.get(rosterId) ?? null, roster: normalized, draftCapital: { score: Number(ownedPicks.reduce((sum, pick) => sum + pick.value, 0).toFixed(1)), picks: ownedPicks } };
     });
     const managers = users.flatMap((user, index) => user.user_id ? [{ id: user.user_id, name: user.display_name ?? `Manager ${index + 1}`, teamName: user.metadata?.team_name ?? `${user.display_name ?? `Manager ${index + 1}`}'s Team`, style: "Neutral" as const }] : []);
-    const result = { payloadVersion: LEAGUE_PAYLOAD_VERSION, league: { name: league.name ?? "Imported League", platform: "Sleeper", status: league.status ?? "unknown", teams: league.total_rosters, season: league.season, currentWeek: Math.max(0, league.leg ?? 0), projectionWeek, managers: users.length }, teams, managers, rankingContext: { format, scoring: receptionLabel, teams: league.total_rosters ?? rosters.length, rosterSlots, positionDemand, tePremium: tePremiumValue, passTouchdown: scoring.pass_td ?? 4, interception: scoring.pass_int ?? -2, bonusRuleCount, scoringRuleCount: Object.values(scoring).filter((value) => value !== 0).length }, rankings: rankingPool, waiverPlayers };
+    const result = { payloadVersion: LEAGUE_PAYLOAD_VERSION, league: { name: league.name ?? "Imported League", platform: "Sleeper", status: league.status ?? "unknown", teams: league.total_rosters, season: league.season, currentWeek: Math.max(0, league.leg ?? 0), projectionWeek, managers: users.length }, teams, managers, rankingContext: { format, scoring: receptionLabel, teams: league.total_rosters ?? rosters.length, rosterSlots, positionDemand, tePremium: tePremiumValue, passTouchdown: scoring.pass_td ?? 4, interception: scoring.pass_int ?? -2, bonusRuleCount, scoringRuleCount: Object.values(scoring).filter((value) => value !== 0).length }, rankings: rankingPool, waiverPlayers, waiverTrending };
     const refreshedAt = new Date().toISOString();
     const snapshot = { id: crypto.randomUUID(), userId: user.userId, leagueKey: id, payloadJson: JSON.stringify(result), refreshedAt };
     await db.insert(leagueDataSnapshots).values(snapshot).onConflictDoUpdate({ target: [leagueDataSnapshots.userId, leagueDataSnapshots.leagueKey], set: { payloadJson: snapshot.payloadJson, refreshedAt } });
