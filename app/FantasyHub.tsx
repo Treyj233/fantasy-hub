@@ -2541,7 +2541,6 @@ export default function FantasyHub({
         {view === "Glossary" && <Glossary onNavigate={setView} />}
         {view === "Manage Leagues" && (
           <ManageLeagues
-            signOutPath={accountUser.signOutPath}
             connectedLeagues={availableLeagues}
             hiddenLeagueIds={hiddenLeagueIds}
             managedLeagues={managedLeagues}
@@ -2762,6 +2761,9 @@ function AccessAccount({ accountUser, entitlement, onPlans }: { accountUser: Acc
   const [pushBusy, setPushBusy] = useState(false);
   const [pushPreferences, setPushPreferences] = useState<PushPreferences>(DEFAULT_PUSH_PREFERENCES);
   const [pushMessage, setPushMessage] = useState("");
+  const [deleteConfirmation, setDeleteConfirmation] = useState("");
+  const [deletingAccount, setDeletingAccount] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
   const billingProvider = entitlement.provider;
   const recurringBilling = billingProvider === "stripe" || billingProvider === "apple" || billingProvider === "app_store";
 
@@ -2843,6 +2845,25 @@ function AccessAccount({ accountUser, entitlement, onPlans }: { accountUser: Acc
     }
   }
 
+  async function deleteAccount() {
+    if (deleteConfirmation !== "DELETE") return;
+    setDeletingAccount(true);
+    setDeleteError("");
+    try {
+      const response = await fetch("/api/v1/account", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirmation: deleteConfirmation }),
+      });
+      const data = await response.json() as { error?: { message?: string } };
+      if (!response.ok) throw new Error(data.error?.message ?? "Unable to delete account");
+      window.location.assign(accountUser.signOutPath);
+    } catch (requestError) {
+      setDeleteError(requestError instanceof Error ? requestError.message : "Unable to delete account");
+      setDeletingAccount(false);
+    }
+  }
+
   return <div className="page-content access-account-page">
     <section className="access-account-hero">
       <span>MY ACCOUNT</span><h2>Your Fantasy Hub identity.</h2><p>Account information, membership, notifications, billing, and secure access controls in one place.</p>
@@ -2871,6 +2892,22 @@ function AccessAccount({ accountUser, entitlement, onPlans }: { accountUser: Acc
     </section>
     {entitlement.pro && recurringBilling && <section className="panel account-cancel-card"><div><span>SUBSCRIPTION CONTROL</span><h3>Cancel subscription</h3><p>Cancellation stops automatic renewal. Pro access normally remains available through the end of the paid or trial period shown by your billing provider.</p></div>{!confirmCancel ? <button onClick={() => setConfirmCancel(true)}>Review cancellation</button> : <div className="cancel-confirm"><strong>Are you sure you want to continue to subscription cancellation?</strong><small>You will leave Fantasy Hub to confirm the cancellation with {billingProvider === "stripe" ? "our secure billing portal" : "Apple"}. Your subscription is not canceled until you finish there.</small><div><button onClick={() => setConfirmCancel(false)}>Keep subscription</button><button className="danger" disabled={billingBusy} onClick={() => void openSubscriptionManagement()}>{billingBusy ? "Opening…" : "Continue to cancel"}</button></div></div>}</section>}
     <section className="panel account-security-card"><div><span>SECURE ACCESS</span><h3>Sign out of Fantasy Hub</h3><p>End this session on the current device. Your connected leagues and saved account preferences remain available the next time you sign in.</p><a href="/privacy">Privacy Policy</a></div><a href={accountUser.signOutPath}>Sign out</a></section>
+    <section className="account-danger-zone panel">
+      <div>
+        <span>ACCOUNT &amp; PRIVACY</span>
+        <h3>Delete Fantasy Hub account</h3>
+        <p>Permanently removes saved connections, league snapshots, preferences, narratives, and decision history. This does not delete your Sleeper or ESPN account.</p>
+      </div>
+      <label>
+        Type DELETE to confirm
+        <input value={deleteConfirmation} onChange={(event) => setDeleteConfirmation(event.target.value)} autoComplete="off" aria-describedby="delete-account-error" />
+      </label>
+      <button type="button" disabled={deleteConfirmation !== "DELETE" || deletingAccount} onClick={() => void deleteAccount()}>
+        {deletingAccount ? "Deleting…" : "Delete account"}
+      </button>
+      {deleteError && <p id="delete-account-error" className="billing-error" role="alert">{deleteError}</p>}
+      <a href="/privacy">Review Privacy Policy</a>
+    </section>
   </div>;
 }
 
@@ -2994,7 +3031,6 @@ function ProFeatureArtwork({ type }: { type: "sim" | "trade" | "start" }) {
 }
 
 function ManageLeagues({
-  signOutPath,
   connectedLeagues,
   hiddenLeagueIds,
   managedLeagues,
@@ -3013,7 +3049,6 @@ function ManageLeagues({
   onReorder,
   onToggleVisibility,
 }: {
-  signOutPath: string;
   connectedLeagues: ConnectedLeague[];
   hiddenLeagueIds: string[];
   managedLeagues: ManagedLeague[];
@@ -3054,8 +3089,6 @@ function ManageLeagues({
   } | null>(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const [deleteConfirmation, setDeleteConfirmation] = useState("");
-  const [deletingAccount, setDeletingAccount] = useState(false);
   const [pairing, setPairing] = useState<{ code: string; expiresAt: string } | null>(null);
   const [espnSelection, setEspnSelection] = useState<{ id: string; name: string; season: string; teams: { id: string; name: string; managerName: string }[] } | null>(null);
   const providers: {
@@ -3133,26 +3166,6 @@ function ManageLeagues({
       setBusy(false);
     }
   }
-
-  async function deleteAccount() {
-    if (deleteConfirmation !== "DELETE") return;
-    setDeletingAccount(true);
-    setError("");
-    try {
-      const response = await fetch("/api/v1/account", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ confirmation: deleteConfirmation }),
-      });
-      const data = await response.json() as { error?: { message?: string } };
-      if (!response.ok) throw new Error(data.error?.message ?? "Unable to delete account");
-      window.location.assign(signOutPath);
-    } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : "Unable to delete account");
-      setDeletingAccount(false);
-    }
-  }
-
 
   return (
     <div className="page-content manage-leagues">
@@ -3569,21 +3582,6 @@ function ManageLeagues({
             </p>
           </div>
         )}
-      </section>
-      <section className="account-danger-zone panel">
-        <div>
-          <span>ACCOUNT &amp; PRIVACY</span>
-          <h3>Delete Fantasy Hub account</h3>
-          <p>Permanently removes saved connections, league snapshots, preferences, narratives, and decision history. This does not delete your Sleeper or ESPN account.</p>
-        </div>
-        <label>
-          Type DELETE to confirm
-          <input value={deleteConfirmation} onChange={(event) => setDeleteConfirmation(event.target.value)} autoComplete="off" />
-        </label>
-        <button type="button" disabled={deleteConfirmation !== "DELETE" || deletingAccount} onClick={() => void deleteAccount()}>
-          {deletingAccount ? "Deleting…" : "Delete account"}
-        </button>
-        <a href="/privacy">Review Privacy Policy</a>
       </section>
     </div>
   );

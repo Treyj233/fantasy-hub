@@ -31,11 +31,14 @@ test("account deletion requires explicit confirmation and removes every user-own
     assert.match(source, new RegExp(`db\\.delete\\(${table}\\)`));
 });
 
-test("Manage Leagues exposes the required in-product account deletion control", async () => {
+test("My Account exposes the required in-product account deletion control", async () => {
   const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
-  assert.match(source, /Delete Fantasy Hub account/);
-  assert.match(source, /fetch\("\/api\/v1\/account"/);
-  assert.match(source, /Type DELETE to confirm/);
+  const accountStart = source.indexOf("function AccessAccount");
+  const accountEnd = source.indexOf("function ProPlans", accountStart);
+  const accountSource = source.slice(accountStart, accountEnd);
+  assert.match(accountSource, /Delete Fantasy Hub account/);
+  assert.match(accountSource, /fetch\("\/api\/v1\/account"/);
+  assert.match(accountSource, /Type DELETE to confirm/);
 });
 
 test("freemium access is durable, visible, and enforced on proprietary APIs", async () => {
