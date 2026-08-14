@@ -98,6 +98,39 @@ test("Fantasy Scoreboard uses a neutral importance marker instead of a Cowboys-l
   assert.doesNotMatch(primaryPath, />★<\/i>/);
 });
 
+test("Trade Lab uses a compact page-intro heading", async () => {
+  const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
+  const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  assert.match(source, /title="Evaluate any deal, then let Pro find the best ones"/);
+  assert.match(styles, /\.trade-lab-page>\.section-intro h2\{margin:5px 0;font-size:28px/);
+  assert.match(styles, /\.trade-lab-page>\.section-intro h2\{font-size:17px/);
+});
+
+test("Trade Calculator Clear All leaves both asset packages empty", async () => {
+  const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
+  const styles = await readFile(new URL("../app/trade-calculator.css", import.meta.url), "utf8");
+  assert.match(source, /useState<string\[\] \| null>\(null\)/);
+  assert.match(source, /const effectiveSendIds = calculatorSendIds \?\?/);
+  assert.match(source, /const clearCalculator = \(\) => \{\s*setCalculatorSendIds\(\[\]\);\s*setCalculatorReceiveIds\(\[\]\);/);
+  assert.match(source, />Clear all<\/button>/);
+  assert.match(styles, /\.trade-calculator-header-actions>button/);
+});
+
+test("Start Sit scoring settings use one compact scrollable row", async () => {
+  const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  assert.match(styles, /\.start-sit-page \.start-sit-scoring\{display:flex;flex-wrap:nowrap;gap:4px;[^}]*overflow-x:auto/);
+  assert.match(styles, /\.start-sit-page \.start-sit-scoring span\{min-height:24px;padding:3px 7px;font-size:7px/);
+  assert.match(styles, /\.start-sit-page \.start-sit-scoring span\{min-height:21px;padding:3px 6px;font-size:6px/);
+});
+
+test("Start Sit uses a compact outcome heading", async () => {
+  const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
+  const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  assert.match(source, /title="Choose the outcome your matchup requires"/);
+  assert.match(styles, /\.start-sit-page>\.section-intro h2\{margin:4px 0;font-size:27px/);
+  assert.match(styles, /\.start-sit-page>\.section-intro h2\{font-size:17px/);
+});
+
 test("Manager Report uses observed Sleeper weekly actions and theme-aware surfaces", async () => {
   const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
   const route = await readFile(new URL("../app/api/decisions/route.ts", import.meta.url), "utf8");

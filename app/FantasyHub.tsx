@@ -8566,8 +8566,8 @@ function TradeLab({
   const [selectedId, setSelectedId] = useState(opponents[0]?.id ?? "");
   const [styles, setStyles] = useState<Record<string, TradeStyle>>({});
   const [activeSuggestionId, setActiveSuggestionId] = useState("");
-  const [calculatorSendIds, setCalculatorSendIds] = useState<string[]>([]);
-  const [calculatorReceiveIds, setCalculatorReceiveIds] = useState<string[]>([]);
+  const [calculatorSendIds, setCalculatorSendIds] = useState<string[] | null>(null);
+  const [calculatorReceiveIds, setCalculatorReceiveIds] = useState<string[] | null>(null);
   const [assetSelectorSide, setAssetSelectorSide] = useState<"send" | "receive" | null>(null);
   useEffect(() => {
     if (!assetSelectorSide) return;
@@ -8613,8 +8613,8 @@ function TradeLab({
   function selectPartner(id: string) {
     setSelectedId(id);
     setActiveSuggestionId("");
-    setCalculatorSendIds([]);
-    setCalculatorReceiveIds([]);
+    setCalculatorSendIds(null);
+    setCalculatorReceiveIds(null);
   }
   function updateStyle(style: TradeStyle) {
     if (!partner) return;
@@ -8674,12 +8674,8 @@ function TradeLab({
     ...eligiblePartnerPlayers.map((player) => tradeAsset(player, rankingById, tradeFormat)),
     ...(partner.draftCapital?.picks ?? []).map(pickAsset),
   ];
-  const effectiveSendIds = calculatorSendIds.length
-    ? calculatorSendIds
-    : suggestion?.send.map((asset) => asset.id) ?? eligibleYourPlayers.slice(0, 1).map((player) => player.id);
-  const effectiveReceiveIds = calculatorReceiveIds.length
-    ? calculatorReceiveIds
-    : suggestion?.receive.map((asset) => asset.id) ?? eligiblePartnerPlayers.slice(0, 1).map((player) => player.id);
+  const effectiveSendIds = calculatorSendIds ?? suggestion?.send.map((asset) => asset.id) ?? eligibleYourPlayers.slice(0, 1).map((player) => player.id);
+  const effectiveReceiveIds = calculatorReceiveIds ?? suggestion?.receive.map((asset) => asset.id) ?? eligiblePartnerPlayers.slice(0, 1).map((player) => player.id);
   const calculatorSendAssets = yourTradeAssets.filter((asset) => effectiveSendIds.includes(asset.id));
   const calculatorReceiveAssets = partnerTradeAssets.filter((asset) => effectiveReceiveIds.includes(asset.id));
   const calculatorSendPlayers = yourTeam.roster.filter((player) => effectiveSendIds.includes(player.id));
@@ -8688,6 +8684,12 @@ function TradeLab({
     const setIds = side === "send" ? setCalculatorSendIds : setCalculatorReceiveIds;
     const effectiveIds = side === "send" ? effectiveSendIds : effectiveReceiveIds;
     setIds(effectiveIds.includes(id) ? effectiveIds.filter((assetId) => assetId !== id) : [...effectiveIds, id].slice(0, 6));
+  };
+  const clearCalculator = () => {
+    setCalculatorSendIds([]);
+    setCalculatorReceiveIds([]);
+    setActiveSuggestionId("");
+    setAssetSelectorSide(null);
   };
   const calculatorYourBefore = tradeRosterStrength(
     yourTeam.roster,
@@ -8827,9 +8829,12 @@ function TradeLab({
                   : "Values emphasize current-season rank, the connected league projection, lineup demand, and roster impact."}
             </p>
           </div>
-          <b className={calculatorViability.toLowerCase().replaceAll(" ", "-")}>
-            {calculatorViability}
-          </b>
+          <div className="trade-calculator-header-actions">
+            <button type="button" onClick={clearCalculator} disabled={!calculatorSendAssets.length && !calculatorReceiveAssets.length}>Clear all</button>
+            <b className={`calculator-viability ${calculatorViability.toLowerCase().replaceAll(" ", "-")}`}>
+              {calculatorViability}
+            </b>
+          </div>
         </header>
         <div className="calculator-grid">
           <fieldset className="calculator-assets">

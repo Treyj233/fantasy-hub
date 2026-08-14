@@ -1384,6 +1384,26 @@ html[data-theme="dark"] .all-leagues-page .exposure-list>b,html[data-theme="dark
 .all-leagues-page :is(.health-list,.portfolio-matchups,.exposure-list,.waiver-opportunity-list,.action-queue-groups>section)::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--green) 38%,var(--line));border-radius:99px}
 @media(max-width:700px){.all-leagues-page .all-leagues-hero{min-height:0;padding:20px 18px}.all-leagues-page .portfolio-heading{padding:12px 14px}.all-leagues-page :is(.health-list,.portfolio-matchups,.exposure-list,.waiver-opportunity-list){max-height:185px}.all-leagues-page .action-queue-groups>section{max-height:300px}.all-leagues-page .portfolio-recap article{min-height:82px;padding:14px 16px}}
 
+/* Trade Lab needs a compact setup card so the calculator begins sooner. */
+.trade-lab-page>.section-intro{padding:16px 20px}
+.trade-lab-page>.section-intro h2{margin:5px 0;font-size:28px;line-height:1.08}
+.trade-lab-page>.section-intro p{font-size:12px;line-height:1.4}
+@media(max-width:700px){.trade-lab-page>.section-intro{margin-bottom:5px;padding:8px 10px}.trade-lab-page>.section-intro h2{font-size:17px;line-height:1.08}.trade-lab-page>.section-intro p{font-size:9px!important;line-height:1.25}}
+
+/* Start/Sit scoring context stays complete in one compact, swipeable row. */
+.start-sit-page .start-sit-scoring{display:flex;flex-wrap:nowrap;gap:4px;margin:0 0 8px;padding:0 0 3px;overflow-x:auto;overflow-y:hidden;overscroll-behavior-inline:contain;scrollbar-width:thin;-webkit-overflow-scrolling:touch}
+.start-sit-page .start-sit-scoring span{min-height:24px;padding:3px 7px;font-size:7px;line-height:1;white-space:nowrap}
+.start-sit-page .start-sit-scoring b{margin-right:1px;font-size:8px}
+.start-sit-page .start-sit-scoring::-webkit-scrollbar{height:3px}
+.start-sit-page .start-sit-scoring::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--green) 32%,var(--line));border-radius:99px}
+@media(max-width:700px){.start-sit-page .start-sit-scoring{gap:3px;margin-bottom:6px}.start-sit-page .start-sit-scoring span{min-height:21px;padding:3px 6px;font-size:6px}.start-sit-page .start-sit-scoring b{font-size:7px}}
+
+/* Start/Sit begins with the decisions, so its intro should stay compact. */
+.start-sit-page>.section-intro{padding:15px 19px}
+.start-sit-page>.section-intro h2{margin:4px 0;font-size:27px;line-height:1.08}
+.start-sit-page>.section-intro p{font-size:11px;line-height:1.4}
+@media(max-width:700px){.start-sit-page>.section-intro{padding:8px 10px}.start-sit-page>.section-intro h2{font-size:17px;line-height:1.08}.start-sit-page>.section-intro p{font-size:9px!important;line-height:1.25}}
+
 /* The waiver market becomes a native-width list on phones. Every desktop
    column is retained as labeled row metadata, eliminating sideways scrolling. */
 @media(max-width:700px){
