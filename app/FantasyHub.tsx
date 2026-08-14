@@ -1536,6 +1536,8 @@ export default function FantasyHub({
           }
           setNeedsOnboarding(!data.preferences.onboardingCompletedAt);
         } else {
+          setTheme("light");
+          window.localStorage.setItem("fantasy-hub-theme", "light");
           setNeedsOnboarding(true);
         }
         setAccountLoading(false);

@@ -39,6 +39,12 @@ test("post-sign-in personalization stays inside the iPhone safe area", async () 
   assert.match(styles, /html\[data-native-platform="ios"\] \.onboarding-shell\{padding-top:max\(64px,calc\(env\(safe-area-inset-top\) \+ 22px\)\)\}/);
 });
 
+test("new accounts start in light mode without changing saved account preferences", async () => {
+  const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
+  assert.match(source, /if \(data\.preferences\) \{[\s\S]*?setTheme\(data\.preferences\.colorMode\)/);
+  assert.match(source, /\} else \{\s*setTheme\("light"\);\s*window\.localStorage\.setItem\("fantasy-hub-theme", "light"\);\s*setNeedsOnboarding\(true\)/);
+});
+
 test("Pro billing navigation lives in Utilities and replaces the simulator shortcut", async () => {
   const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
   assert.match(source, /displayLabel: "Manage Plans"[^\n]+group: "Utilities"/);
