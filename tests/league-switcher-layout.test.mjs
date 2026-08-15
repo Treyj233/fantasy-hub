@@ -22,7 +22,8 @@ test("mobile league switching moves into an accessible right-edge drawer", async
   assert.match(css, /@media\(max-width:700px\)\{\s*\.league-switcher\{display:none\}/);
   assert.match(ui, /className="league-edge-handle"[\s\S]*?aria-label="Swipe or tap to switch leagues"/);
   assert.match(css, /\.league-edge-handle\{position:fixed;z-index:63;right:0;top:48%;[^}]*var\(--green\)[^}]*var\(--gold\)/);
-  assert.match(css, /\.league-drawer\{position:absolute;z-index:1;top:max\(env\(safe-area-inset-top\),8px\);right:0;bottom:max\(env\(safe-area-inset-bottom\),8px\)/);
+  assert.match(css, /\.league-drawer\{position:absolute;z-index:1;top:max\(54px,calc\(env\(safe-area-inset-top\) \+ 10px\)\);right:0;bottom:max\(20px,calc\(env\(safe-area-inset-bottom\) \+ 8px\)\)/);
+  assert.match(css, /html\[data-native-platform="ios"\] \.league-drawer\{top:max\(64px,calc\(env\(safe-area-inset-top\) \+ 18px\)\)\}/);
 });
 
 test("live matchup shortcut lives in the persistent active-team card", async () => {
