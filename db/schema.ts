@@ -36,6 +36,16 @@ export const userPreferences = sqliteTable("user_preferences", {
   updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });
 
+export const rivalryPreferences = sqliteTable("rivalry_preferences", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  leagueId: text("league_id").notNull(),
+  rosterIdsJson: text("roster_ids_json").notNull().default("[]"),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [
+  uniqueIndex("rivalry_preferences_user_league").on(table.userId, table.leagueId),
+]);
+
 export const subscriptions = sqliteTable("subscriptions", {
   userId: text("user_id").primaryKey(),
   email: text("email").notNull(),

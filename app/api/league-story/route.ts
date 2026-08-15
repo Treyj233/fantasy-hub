@@ -1,6 +1,6 @@
 import { and, asc, eq } from "drizzle-orm";
 import { getDb } from "../../../db";
-import { seasonNarrativeSnapshots, sleeperConnections } from "../../../db/schema";
+import { rivalryPreferences, seasonNarrativeSnapshots, sleeperConnections } from "../../../db/schema";
 import { getChatGPTUser } from "../../chatgpt-auth";
 import { requirePro } from "../../entitlements";
 
@@ -12,13 +12,43 @@ type Player = { full_name?: string; first_name?: string; last_name?: string; pos
 type Draft = { draft_id?: string; status?: string };
 type DraftPick = { player_id?: string; roster_id?: number; round?: number; pick_no?: number; draft_slot?: number };
 
+const validLeagueId = (value: string | null | undefined): value is string => Boolean(value && /^\d{6,24}$/.test(value));
+
+export async function PATCH(request: Request) {
+  const user = await getChatGPTUser();
+  if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
+  const paywall = await requirePro(user.userId, user.email);
+  if (paywall) return paywall;
+  const payload = await request.json().catch(() => null) as { leagueId?: string; rosterIds?: unknown } | null;
+  const leagueId = payload?.leagueId?.trim();
+  if (!validLeagueId(leagueId)) return Response.json({ error: "Select a valid league" }, { status: 400 });
+  if (!Array.isArray(payload?.rosterIds)) return Response.json({ error: "Choose up to three rivals" }, { status: 400 });
+  const rosterIds = [...new Set(payload.rosterIds.filter((id): id is number => typeof id === "number" && Number.isInteger(id) && id > 0))];
+  if (rosterIds.length !== payload.rosterIds.length || rosterIds.length > 3) return Response.json({ error: "Choose up to three unique rivals" }, { status: 400 });
+  const db = await getDb();
+  const [connection] = await db.select().from(sleeperConnections).where(eq(sleeperConnections.userId, user.userId)).limit(1);
+  if (!connection) return Response.json({ error: "Connect a Sleeper account first" }, { status: 409 });
+  const [leagueResponse, rostersResponse] = await Promise.all([
+    fetch(`https://api.sleeper.app/v1/league/${leagueId}`, { next: { revalidate: 60 } }),
+    fetch(`https://api.sleeper.app/v1/league/${leagueId}/rosters`, { next: { revalidate: 300 } }),
+  ]);
+  if (!leagueResponse.ok || !rostersResponse.ok) return Response.json({ error: "League data is unavailable" }, { status: 502 });
+  const rosters = await rostersResponse.json() as Roster[];
+  if (!rosters.some((roster) => roster.owner_id === connection.sleeperUserId)) return Response.json({ error: "This league is not connected to your account" }, { status: 403 });
+  const eligibleIds = new Set(rosters.filter((roster) => roster.owner_id !== connection.sleeperUserId).map((roster) => roster.roster_id));
+  if (rosterIds.some((id) => !eligibleIds.has(id))) return Response.json({ error: "One of those rivals is not in this league" }, { status: 400 });
+  const values = { id: `${user.userId}:${leagueId}`, userId: user.userId, leagueId, rosterIdsJson: JSON.stringify(rosterIds), updatedAt: new Date().toISOString() };
+  await db.insert(rivalryPreferences).values(values).onConflictDoUpdate({ target: rivalryPreferences.id, set: values });
+  return Response.json({ rosterIds });
+}
+
 export async function GET(request: Request) {
   const user = await getChatGPTUser();
   if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
   const paywall = await requirePro(user.userId, user.email);
   if (paywall) return paywall;
   const leagueId = new URL(request.url).searchParams.get("leagueId")?.trim();
-  if (!leagueId || !/^\d{6,24}$/.test(leagueId)) return Response.json({ error: "Select a league first" }, { status: 400 });
+  if (!validLeagueId(leagueId)) return Response.json({ error: "Select a league first" }, { status: 400 });
   const db = await getDb();
   const [connection] = await db.select().from(sleeperConnections).where(eq(sleeperConnections.userId, user.userId)).limit(1);
   if (!connection) return Response.json({ error: "Connect a Sleeper account first" }, { status: 409 });
@@ -99,6 +129,37 @@ export async function GET(request: Request) {
   const currentOpponent = currentMyGame?.teams.find((team) => team.rosterId !== myTeam?.rosterId);
   const rivalryGames = currentOpponent ? myGames.filter((game) => game.teams.some((team) => team.rosterId === currentOpponent.rosterId) && game.week <= completedWeek) : [];
   const rivalry = currentOpponent && myTeam ? { opponentName: currentOpponent.teamName, meetings: rivalryGames.length, wins: rivalryGames.filter((game) => (game.teams.find((team) => team.rosterId === myTeam.rosterId)?.points ?? 0) > (game.teams.find((team) => team.rosterId === currentOpponent.rosterId)?.points ?? 0)).length, losses: rivalryGames.filter((game) => (game.teams.find((team) => team.rosterId === myTeam.rosterId)?.points ?? 0) < (game.teams.find((team) => team.rosterId === currentOpponent.rosterId)?.points ?? 0)).length } : null;
+  const [savedRivals] = await db.select().from(rivalryPreferences).where(and(eq(rivalryPreferences.userId, user.userId), eq(rivalryPreferences.leagueId, leagueId))).limit(1);
+  const selectedRivalIds = (() => {
+    try { return (JSON.parse(savedRivals?.rosterIdsJson ?? "[]") as unknown[]).filter((id): id is number => typeof id === "number" && Number.isInteger(id) && teamByRoster.has(id)).slice(0, 3); }
+    catch { return []; }
+  })();
+  const rivalCandidates = [...teamByRoster.values()].filter((team) => !team.isMine).map((team) => ({ rosterId: team.rosterId, teamName: team.teamName, managerName: team.managerName }));
+  const rivalryReports = myTeam ? selectedRivalIds.flatMap((rivalRosterId) => {
+    const rival = teamByRoster.get(rivalRosterId);
+    if (!rival) return [];
+    const headToHead = myGames.filter((game) => game.week <= completedWeek && game.teams.some((team) => team.rosterId === rivalRosterId));
+    const results = headToHead.map((game) => {
+      const mine = game.teams.find((team) => team.rosterId === myTeam.rosterId)!;
+      const theirs = game.teams.find((team) => team.rosterId === rivalRosterId)!;
+      return { week: game.week, yourPoints: mine.points, rivalPoints: theirs.points, margin: Number((mine.points - theirs.points).toFixed(2)), result: mine.points > theirs.points ? "W" : mine.points < theirs.points ? "L" : "T" };
+    });
+    const rivalLatestGame = allGames.find((game) => game.week === completedWeek && game.teams.some((team) => team.rosterId === rivalRosterId));
+    const rivalSide = rivalLatestGame?.teams.find((team) => team.rosterId === rivalRosterId);
+    const rivalOpponent = rivalLatestGame?.teams.find((team) => team.rosterId !== rivalRosterId);
+    const directResult = results.find((result) => result.week === completedWeek);
+    const event = directResult?.result === "W" ? "beat-rival" : rivalSide && rivalOpponent && rivalSide.points < rivalOpponent.points ? "rival-lost" : "none";
+    const wins = results.filter((result) => result.result === "W").length;
+    const losses = results.filter((result) => result.result === "L").length;
+    const ties = results.filter((result) => result.result === "T").length;
+    const latest = results.at(-1) ?? null;
+    const smackTalk = event === "beat-rival"
+      ? `${rival.teamName}, the rivalry scoreboard has spoken: ${myTeam.teamName} took Week ${completedWeek} by ${Math.abs(directResult!.margin).toFixed(1)}. Better luck next chapter. #FantasyHub`
+      : event === "rival-lost"
+        ? `${rival.teamName} took another detour in Week ${completedWeek}. ${rivalOpponent!.teamName} handled the damage while ${myTeam.teamName} enjoyed the view. #FantasyHub`
+        : `${myTeam.teamName} vs ${rival.teamName}: ${wins}-${losses}${ties ? `-${ties}` : ""} in ${results.length} observed meeting${results.length === 1 ? "" : "s"}. The next chapter is personal. #FantasyHub`;
+    return [{ rosterId: rivalRosterId, teamName: rival.teamName, managerName: rival.managerName, meetings: results.length, wins, losses, ties, pointsFor: Number(results.reduce((sum, result) => sum + result.yourPoints, 0).toFixed(1)), pointsAgainst: Number(results.reduce((sum, result) => sum + result.rivalPoints, 0).toFixed(1)), latest, event, weeklyNote: event === "beat-rival" ? `You beat ${rival.teamName} in Week ${completedWeek}.` : event === "rival-lost" ? `${rival.teamName} lost to ${rivalOpponent!.teamName} in Week ${completedWeek}.` : completedWeek ? `${rival.teamName} did not trigger a rivalry moment in Week ${completedWeek}.` : "Weekly rivalry moments begin after Week 1.", smackTalk }];
+  }) : [];
   const trades = transactionPayloads.flatMap(({ week, rows }) => rows.filter((row) => row.type === "trade" && row.status === "complete").map((row) => ({ id: row.transaction_id ?? `${week}-${row.created}`, week, timestamp: row.created ?? null, teams: (row.roster_ids ?? []).map((id) => teamByRoster.get(id)?.teamName ?? `Team ${id}`), adds: Object.entries(row.adds ?? {}).map(([id, rosterId]) => ({ player: playerName(id), team: teamByRoster.get(rosterId)?.teamName ?? `Team ${rosterId}` })), drops: Object.entries(row.drops ?? {}).map(([id, rosterId]) => ({ player: playerName(id), team: teamByRoster.get(rosterId)?.teamName ?? `Team ${rosterId}` })) })));
   const playoffTeams = league.settings?.playoff_teams ?? Math.max(4, Math.floor(rosters.length / 2));
   const playoffWeek = league.settings?.playoff_week_start ?? 15;
@@ -128,6 +189,7 @@ export async function GET(request: Request) {
     preview: { week: currentWeek, games: allGames.filter((game) => game.week === currentWeek).map((game) => ({ matchupId: game.matchupId, teams: game.teams.map((team) => ({ rosterId: team.rosterId, teamName: team.teamName, managerName: team.managerName, points: team.points, isMine: team.isMine })) })) },
     powerRankings,
     rivalry,
+    rivalries: { selectedRosterIds: selectedRivalIds, candidates: rivalCandidates, reports: rivalryReports },
     trades,
     playoff: { teams: playoffTeams, startsWeek: playoffWeek, weeksRemaining: Math.max(0, playoffWeek - currentWeek), yourRank: completedWeek ? mineStanding?.rank ?? null : null, yourWins: completedWeek ? mineStanding?.wins ?? null : null, lineWins: completedWeek ? playoffLine?.wins ?? null : null, summary: !completedWeek ? "The playoff race begins after Week 1 results are recorded." : mineStanding && playoffLine ? mineStanding.rank <= playoffTeams ? `Currently inside the ${playoffTeams}-team playoff field, ${mineStanding.wins - playoffLine.wins} wins relative to the current cutoff.` : `Currently ${mineStanding.wins === playoffLine.wins ? "tied in wins with" : `${playoffLine.wins - mineStanding.wins} wins behind`} the playoff cutoff.` : "Playoff context is unavailable until standings are posted." },
     methodology: "Stories use observed Sleeper matchup scores, rosters and completed transactions. Power movement is standings-based; lineup notes describe outcomes, not decision quality."
