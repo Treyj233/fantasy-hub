@@ -1351,6 +1351,7 @@ export default function FantasyHub({
   const [hiddenLeagueIds, setHiddenLeagueIds] = useState<string[]>([]);
   const [managedLeagues, setManagedLeagues] = useState<ManagedLeague[]>([]);
   const [portfolioScans, setPortfolioScans] = useState<LeagueScan[]>([]);
+  const [liveMatchupCount, setLiveMatchupCount] = useState<number | null>(null);
   const [selectedMatchupId, setSelectedMatchupId] = useState<number | null>(
     null,
   );
@@ -1423,6 +1424,43 @@ export default function FantasyHub({
       document.removeEventListener("pointerdown", closeCategoryOnOutsidePress, true);
     };
   }, [mobileNavOpen, mobileCategoryOpen]);
+
+  useEffect(() => {
+    const leagues = availableLeagues.filter(
+      (league) => !hiddenLeagueIds.includes(league.id),
+    );
+    if (!leagues.length) return;
+    let active = true;
+    const week = leagueStatus === "pre_draft" || leagueWeek < 1
+      ? 1
+      : Math.min(18, leagueWeek);
+    const refreshLiveMatchups = async () => {
+      const results = await mapWithConcurrency(leagues, 3, async (league) => {
+        try {
+          const response = await fetchWithTimeout(
+            `/api/scoreboard?leagueId=${encodeURIComponent(league.id)}&week=${week}`,
+            {},
+            12_000,
+          );
+          if (!response.ok) return false;
+          const data = await response.json() as ScoreboardData;
+          const matchup = data.matchups.find((item) =>
+            item.teams.some((team) => team.isMine),
+          );
+          return Boolean(matchup && !["Final", "Scheduled"].includes(matchup.status));
+        } catch {
+          return false;
+        }
+      });
+      if (active) setLiveMatchupCount(results.filter(Boolean).length);
+    };
+    void refreshLiveMatchups();
+    const stopPolling = startVisiblePolling(refreshLiveMatchups);
+    return () => {
+      active = false;
+      stopPolling();
+    };
+  }, [availableLeagues, hiddenLeagueIds, leagueStatus, leagueWeek]);
 
   useEffect(() => {
     const savedTheme = window.localStorage.getItem("fantasy-hub-theme");
@@ -2251,7 +2289,24 @@ export default function FantasyHub({
         {view !== "Manage Leagues" && visibleLeagues.length > 0 && (
           <section className="league-switcher">
             <div>
-              <span>MY LEAGUES</span>
+              <header>
+                <span>MY LEAGUES</span>
+                <button
+                  className={`league-live-link ${liveMatchupCount === null ? "checking" : liveMatchupCount > 0 ? "live" : "idle"}`}
+                  type="button"
+                  aria-label={liveMatchupCount && liveMatchupCount > 0 ? `Open Fantasy Scoreboard, ${liveMatchupCount} matchups live` : "Open Fantasy Scoreboard, no matchups live"}
+                  onClick={() => {
+                    void nativeImpact();
+                    setScoreboardScope("all");
+                    setView("Scoreboard");
+                    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+                  }}
+                >
+                  <i aria-hidden="true" />
+                  <b>{liveMatchupCount === null ? "CHECKING" : liveMatchupCount > 0 ? `${liveMatchupCount} LIVE` : "NOT LIVE"}</b>
+                  <small>SCOREBOARD →</small>
+                </button>
+              </header>
               <strong>{visibleLeagues.length} leagues shown</strong>
               <small>
                 Choose a league and Fantasy Hub will open your roster

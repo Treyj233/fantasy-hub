@@ -119,6 +119,16 @@ test("League Stories uses its own native badge color", async () => {
   assert.match(styles, /\.nav-badge\.story\{background:linear-gradient\(145deg,#f97316,#9333ea\)\}/);
 });
 
+test("My Leagues exposes live matchup status and opens the Fantasy Scoreboard", async () => {
+  const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
+  const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  assert.match(source, /const \[liveMatchupCount, setLiveMatchupCount\] = useState<number \| null>\(null\)/);
+  assert.match(source, /\/api\/scoreboard\?leagueId=.*?matchup && !\["Final", "Scheduled"\]\.includes\(matchup\.status\)/s);
+  assert.match(source, /className=\{`league-live-link[\s\S]*?setScoreboardScope\("all"\)[\s\S]*?setView\("Scoreboard"\)/);
+  assert.match(source, /liveMatchupCount > 0 \? `\$\{liveMatchupCount\} LIVE` : "NOT LIVE"/);
+  assert.match(styles, /\.league-live-link\.live\{[^}]*background:#fff3f2/);
+});
+
 test("League Stories leads Analyze League and Manager Report finishes Manage Team", async () => {
   const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
   assert.match(source, /label: "League Stories"[^\n]+group: "Analyze League"/);
