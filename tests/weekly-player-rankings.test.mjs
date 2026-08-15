@@ -8,6 +8,8 @@ test("weekly player rankings are Pro-gated, week-aware, and position limited", a
   const start = source.indexOf("function PlayerRanks(");
   const end = source.indexOf("function AdpPage(", start);
   const rankings = source.slice(start, end);
+  const adpEnd = source.indexOf("function WaiverWire(", end);
+  const adp = source.slice(end, adpEnd);
 
   assert.match(rankings, /useState<"season" \| "weekly">\("season"\)/);
   assert.match(rankings, /PRO · WEEK \{Math\.max\(1, week\)\}/);
@@ -28,4 +30,8 @@ test("weekly player rankings are Pro-gated, week-aware, and position limited", a
   assert.match(styles, /\.weekly-matchup > \.matchup-team/);
   assert.match(styles, /\.weekly-position-grid\s*\{[^}]*grid-template-columns: 1fr 1fr/s);
   assert.match(styles, /@media \(max-width: 980px\)[\s\S]*?\.weekly-position-grid \{ grid-template-columns: 1fr; \}/);
+  assert.match(rankings, /\{\["ALL", "QB", "RB", "WR", "TE"\]\.map/);
+  assert.doesNotMatch(rankings, /\{\["ALL", "QB", "RB", "WR", "TE", "K", "DEF"\]\.map/);
+  assert.match(adp, /\{\["ALL", "QB", "RB", "WR", "TE"\]\.map/);
+  assert.doesNotMatch(adp, /\{\["ALL", "QB", "RB", "WR", "TE", "K", "DEF"\]\.map/);
 });

@@ -7463,7 +7463,7 @@ function PlayerRanks({
           role="group"
           aria-label="Filter rankings by position"
         >
-          {["ALL", "QB", "RB", "WR", "TE", "K", "DEF"].map((value) => (
+          {["ALL", "QB", "RB", "WR", "TE"].map((value) => (
             <button
               key={value}
               className={position === value ? "active" : ""}
@@ -7761,7 +7761,7 @@ function AdpPage({
           role="group"
           aria-label="Filter rankings by position"
         >
-          {["ALL", "QB", "RB", "WR", "TE", "K", "DEF"].map((value) => (
+          {["ALL", "QB", "RB", "WR", "TE"].map((value) => (
             <button
               key={value}
               className={position === value ? "active" : ""}
