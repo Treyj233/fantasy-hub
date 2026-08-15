@@ -360,6 +360,7 @@ function startVisiblePolling(refresh: () => Promise<void>, intervalMs = 30_000) 
 }
 
 type AccountEntitlement = { plan: "free" | "pro"; status: string; pro: boolean; currentPeriodEnd: string | null; provider: "stripe" | "apple" | "manual" | null };
+type RivalryWeek = { active: true; leagueId: string; week: number; season: string; opponentRosterId: number; opponentName: string; managerName: string };
 type AccountPreferences = {
   colorMode: Theme;
   teamTheme: string;
@@ -1370,6 +1371,7 @@ export default function FantasyHub({
   const [accountLoading, setAccountLoading] = useState(Boolean(accountUser));
   const [accountError, setAccountError] = useState("");
   const [entitlement, setEntitlement] = useState<AccountEntitlement>({ plan: "free", status: "inactive", pro: false, currentPeriodEnd: null, provider: null });
+  const [rivalryWeek, setRivalryWeek] = useState<RivalryWeek | null>(null);
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
   const [theme, setTheme] = useState<Theme>("light");
   const [teamTheme, setTeamTheme] = useState("LAC");
@@ -1392,6 +1394,32 @@ export default function FantasyHub({
   useOverflowAutoScroll();
   useOverlayGuard();
   useProductMonitoring(view, importState === "loading", accountError);
+
+  useEffect(() => {
+    if (!entitlement.pro || !leagueId || leaguePlatform.toLowerCase() !== "sleeper") {
+      return;
+    }
+    let controller = new AbortController();
+    const loadRivalryWeek = () => {
+      controller.abort();
+      controller = new AbortController();
+      const currentController = controller;
+      void fetch(`/api/rivalry-week?leagueId=${encodeURIComponent(leagueId)}`, { signal: currentController.signal })
+        .then(async (response) => response.ok ? await response.json() as RivalryWeek | { active: false } : { active: false as const })
+        .then((payload) => { if (!currentController.signal.aborted) setRivalryWeek(payload.active ? payload : null); })
+        .catch(() => { if (!currentController.signal.aborted) setRivalryWeek(null); });
+    };
+    const refreshAfterRivalChange = (event: Event) => {
+      const changedLeagueId = (event as CustomEvent<{ leagueId?: string }>).detail?.leagueId;
+      if (!changedLeagueId || changedLeagueId === leagueId) loadRivalryWeek();
+    };
+    loadRivalryWeek();
+    window.addEventListener("fantasy-hub:rivals-updated", refreshAfterRivalChange);
+    return () => {
+      controller.abort();
+      window.removeEventListener("fantasy-hub:rivals-updated", refreshAfterRivalChange);
+    };
+  }, [entitlement.pro, leagueId, leaguePlatform]);
 
   useEffect(() => {
     const orientation = screen.orientation as ScreenOrientation & {
@@ -2061,6 +2089,7 @@ export default function FantasyHub({
     (league) => !hiddenLeagueIds.includes(league.id),
   );
   const visibleNav = nav;
+  const activeRivalryWeek = entitlement.pro && rivalryWeek?.leagueId === leagueId && leaguePlatform.toLowerCase() === "sleeper" ? rivalryWeek : null;
   const activeNavGroup = nav.find((item) => item.label === view)?.group ?? "Home";
   const proViews = new Set<View>(["Command Center", "League Stories", "Manager Report", "League Analytics", "Trade Lab", "Simulator"]);
   const rosterReady = players.length > 0;
@@ -2091,7 +2120,7 @@ export default function FantasyHub({
     <ProjectionPlatformContext.Provider value={leaguePlatform}>
     <PlayerOpenContext.Provider value={setSelectedPlayer}>
     <main
-      className={`app-shell ${sidebarCollapsed ? "sidebar-collapsed" : ""} ${mobileNavOpen ? "mobile-nav-open" : ""}`}
+      className={`app-shell ${sidebarCollapsed ? "sidebar-collapsed" : ""} ${mobileNavOpen ? "mobile-nav-open" : ""} ${activeRivalryWeek ? "rivalry-week-active" : ""}`}
       data-release="scoreboard-render-fix-2"
     >
       <aside className="sidebar" id="primary-sidebar">
@@ -2337,6 +2366,8 @@ export default function FantasyHub({
           </section>
         )}
         </div>
+
+        {activeRivalryWeek && <button className="rivalry-week-banner" type="button" onClick={() => { setView("League Stories"); window.scrollTo({ top: 0, left: 0, behavior: "auto" }); }}><i aria-hidden="true">⚡</i><span><small>PRO · WEEK {activeRivalryWeek.week}</small><strong>Rivalry Week: You vs {activeRivalryWeek.opponentName}</strong></span><em>Open report <b aria-hidden="true">→</b></em></button>}
 
         {view !== "Manage Leagues" && (
           <section className={`tool-context-bar ${view === "All Leagues" ? "home-context" : ""}`} aria-label="Current tool context">
@@ -4717,6 +4748,7 @@ function LeagueStories({ leagueId, setView }: { leagueId: string; setView: (view
       const response = await fetch("/api/league-story", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ leagueId, rosterIds }) });
       const payload = await response.json() as { error?: string };
       if (!response.ok) throw new Error(payload.error ?? "Unable to save rivals");
+      window.dispatchEvent(new CustomEvent("fantasy-hub:rivals-updated", { detail: { leagueId } }));
       const refreshed = await fetch(`/api/league-story?leagueId=${encodeURIComponent(leagueId)}`);
       const nextStory = await refreshed.json() as LeagueStoryData & { error?: string };
       if (!refreshed.ok) throw new Error(nextStory.error ?? "Unable to refresh rivalry reports");
