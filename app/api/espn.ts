@@ -6,7 +6,7 @@ type EspnPlayer = {
   proTeamId?: number;
   injured?: boolean;
   injuryStatus?: string;
-  ownership?: { percentOwned?: number };
+  ownership?: { percentOwned?: number; averageDraftPosition?: number };
   stats?: { scoringPeriodId?: number; statSourceId?: number; appliedTotal?: number }[];
 };
 type EspnRosterEntry = { lineupSlotId?: number; playerPoolEntry?: { player?: EspnPlayer } };
@@ -101,10 +101,17 @@ export function espnLeagueSummary(payload: EspnPayload) {
 export async function normalizeEspnLeague(payload: EspnPayload) {
   const week = Math.max(1, payload.scoringPeriodId ?? payload.status?.latestScoringPeriod ?? 1);
   const leagueSeason = Number(payload.seasonId ?? new Date().getUTCFullYear());
-  const [snapProfiles, seasonContext, offenseContext] = await Promise.all([
+  const receptionPoints = payload.settings?.scoringSettings?.scoringItems?.find((item) => item.statId === 53)?.points ?? 0;
+  const lineupCounts = payload.settings?.rosterSettings?.lineupSlotCounts ?? {};
+  const rosterSlots = Object.entries(lineupCounts).flatMap(([slot, count]) => Array.from({ length: count }, () => slotById[Number(slot)] ?? "Bench"));
+  const slotCounts = rosterSlots.reduce<Record<string, number>>((map, slot) => ({ ...map, [slot]: (map[slot] ?? 0) + 1 }), {});
+  const format = (payload.settings?.keeperSettings?.keeperCount ?? 0) > 0 ? "Keeper" as const : "Redraft" as const;
+  const sleeperAdpKey = (slotCounts.SUPER_FLEX ?? 0) > 0 ? "adp_2qb" : receptionPoints >= .75 ? "adp_ppr" : receptionPoints >= .25 ? "adp_half_ppr" : "adp_std";
+  const [snapProfiles, seasonContext, offenseContext, sleeperAdp] = await Promise.all([
     loadCurrentSnapProfiles(leagueSeason, week),
     loadBlendedPlayerSeasonProfiles(leagueSeason, week),
     loadBlendedTeamOffenseProfiles(leagueSeason, week),
+    loadSleeperAdpByPlayerKey(leagueSeason, sleeperAdpKey),
   ]);
   const seasonProfiles = seasonContext.profiles;
   const teamOffenseProfiles = offenseContext.profiles;
@@ -112,7 +119,6 @@ export async function normalizeEspnLeague(payload: EspnPayload) {
   const allPoolPlayers = (payload.players ?? []).flatMap((entry) => entry.player ? [{ ...entry.player, onTeamId: entry.onTeamId ?? 0 }] : []);
   const rosterPlayers = (payload.teams ?? []).flatMap((team) => (team.roster?.entries ?? []).flatMap((entry) => entry.playerPoolEntry?.player ? [{ ...entry.playerPoolEntry.player, onTeamId: team.id ?? 0 }] : []));
   const universe = Array.from(new Map([...allPoolPlayers, ...rosterPlayers].flatMap((player) => player.id ? [[player.id, player]] : [])).values());
-  const receptionPoints = payload.settings?.scoringSettings?.scoringItems?.find((item) => item.statId === 53)?.points ?? 0;
   const playerShape = (player: EspnPlayer, role = "Player pool") => {
     const points = projection(player, week);
     const name = player.fullName ?? `ESPN Player ${player.id ?? ""}`;
@@ -122,7 +128,9 @@ export async function normalizeEspnLeague(payload: EspnPayload) {
     const historicalPoints = seasonProfile
       ? seasonProfile.fantasyPoints + seasonProfile.receptions * receptionPoints
       : null;
-    return { id: `espn-player:${player.id ?? 0}`, name, position: positionById[player.defaultPositionId ?? 0] ?? "FLEX", team: nflTeamById[player.proTeamId ?? 0] ?? "FA", opponent: "Matchup pending", projection: points, leagueProjection: points, floor: Number((points * .68).toFixed(1)), ceiling: Number((points * 1.38).toFixed(1)), trend: 0, status: player.injuryStatus || (player.injured ? "Questionable" : "Healthy"), role, rankingValue: Number((points * 3 + (player.ownership?.percentOwned ?? 0) * .35).toFixed(2)), ageAdjustment: 0, lineupAdjustment: 0, snapPct: snapProfile?.latestPct ?? null, snapAverage: snapProfile?.averagePct ?? null, snapWeek: snapProfile?.latestWeek ?? null, snapSeason: snapProfile?.season ?? null, statsSourceSeason: seasonContext.sourceSeason, statsBlended: seasonContext.blended || offenseContext.blended, fantasyPpg2025: seasonProfile?.games && historicalPoints != null ? Number((historicalPoints / seasonProfile.games).toFixed(1)) : null, gamesPlayed2025: seasonProfile?.games ?? null, team2025: seasonProfile?.team ?? null, teamOffenseRank2025: teamOffense?.rank ?? null, teamPointsPerGame2025: teamOffense?.pointsPerGame ?? null };
+    const position = positionById[player.defaultPositionId ?? 0] ?? "FLEX";
+    const espnAdp = player.ownership?.averageDraftPosition;
+    return { id: `espn-player:${player.id ?? 0}`, name, position, team: nflTeamById[player.proTeamId ?? 0] ?? "FA", opponent: "Matchup pending", projection: points, leagueProjection: points, floor: Number((points * .68).toFixed(1)), ceiling: Number((points * 1.38).toFixed(1)), trend: 0, status: player.injuryStatus || (player.injured ? "Questionable" : "Healthy"), role, rankingValue: Number((points * 3 + (player.ownership?.percentOwned ?? 0) * .35).toFixed(2)), ageAdjustment: 0, lineupAdjustment: 0, snapPct: snapProfile?.latestPct ?? null, snapAverage: snapProfile?.averagePct ?? null, snapWeek: snapProfile?.latestWeek ?? null, snapSeason: snapProfile?.season ?? null, statsSourceSeason: seasonContext.sourceSeason, statsBlended: seasonContext.blended || offenseContext.blended, fantasyPpg2025: seasonProfile?.games && historicalPoints != null ? Number((historicalPoints / seasonProfile.games).toFixed(1)) : null, gamesPlayed2025: seasonProfile?.games ?? null, team2025: seasonProfile?.team ?? null, teamOffenseRank2025: teamOffense?.rank ?? null, teamPointsPerGame2025: teamOffense?.pointsPerGame ?? null, adpBySite: { Sleeper: sleeperAdp.get(adpPlayerKey(name, position)) ?? null, ESPN: typeof espnAdp === "number" && espnAdp > 0 && espnAdp < 999 ? espnAdp : null } };
   };
   const rosteredIds = new Set(rosterPlayers.map((player) => player.id));
   const rankingPool = universe.map((player) => playerShape(player)).filter((player) => ["QB", "RB", "WR", "TE", "K", "DEF"].includes(player.position)).sort((a, b) => b.rankingValue - a.rankingValue).map((player, index) => ({ ...player, overallRank: index + 1 }));
@@ -135,12 +143,8 @@ export async function normalizeEspnLeague(payload: EspnPayload) {
     const roster = (team.roster?.entries ?? []).flatMap((entry) => entry.playerPoolEntry?.player ? [playerShape(entry.playerPoolEntry.player, slotById[entry.lineupSlotId ?? 20] ?? "Bench")] : []);
     return { id: String(team.id ?? index + 1), ownerId: `espn-team:${team.id ?? index + 1}`, managerName: owner?.displayName ?? (`${owner?.firstName ?? ""} ${owner?.lastName ?? ""}`.trim() || `Manager ${index + 1}`), teamName: teamName(team), matchupId: matchupByTeam.get(team.id ?? 0) ?? null, roster, draftCapital: { score: 0, picks: [] } };
   });
-  const lineupCounts = payload.settings?.rosterSettings?.lineupSlotCounts ?? {};
-  const rosterSlots = Object.entries(lineupCounts).flatMap(([slot, count]) => Array.from({ length: count }, () => slotById[Number(slot)] ?? "Bench"));
   const scoring = receptionPoints >= .75 ? "PPR" : receptionPoints >= .25 ? "Half PPR" : "Standard";
-  const slotCounts = rosterSlots.reduce<Record<string, number>>((map, slot) => ({ ...map, [slot]: (map[slot] ?? 0) + 1 }), {});
   const hasRosteredPlayers = teams.some((team) => team.roster.length > 0);
-  const format = (payload.settings?.keeperSettings?.keeperCount ?? 0) > 0 ? "Keeper" as const : "Redraft" as const;
   return {
     league: { name: payload.settings?.name ?? "ESPN League", platform: "ESPN", status: hasRosteredPlayers ? "in_season" : "pre_draft", teams: payload.settings?.size ?? teams.length, season: String(payload.seasonId ?? new Date().getUTCFullYear()), currentWeek: payload.status?.latestScoringPeriod ?? 0, projectionWeek: week, managers: members.size },
     teams,
@@ -196,3 +200,4 @@ import { getDb } from "../../db";
 import { espnLeagueSnapshots } from "../../db/schema";
 import { loadBlendedPlayerSeasonProfiles, loadBlendedTeamOffenseProfiles, playerSeasonProfileFor } from "../season-history";
 import { loadCurrentSnapProfiles, snapProfileFor } from "../snap-data";
+import { adpPlayerKey, loadSleeperAdpByPlayerKey } from "../adp-data";

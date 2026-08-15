@@ -6,13 +6,14 @@ import { and, eq } from "drizzle-orm";
 import { getDb } from "../../../db";
 import { leagueDataSnapshots } from "../../../db/schema";
 import { fetchCachedUpstream } from "../upstream-cache";
+import { adpPlayerKey, loadEspnAdpByPlayerKey } from "../../adp-data";
 
 type SourcePlayer = { player_id?: string; full_name?: string; first_name?: string; last_name?: string; position?: string; team?: string; injury_status?: string | null; search_rank?: number; age?: number; status?: string; depth_chart_order?: number | null; depth_chart_position?: string | null };
 type SourceProjection = { player_id?: string; stats?: Record<string, number> };
 type MatchupRow = { roster_id?: number; matchup_id?: number | null };
 type TrendingRow = { player_id?: string; count?: number };
 
-const LEAGUE_PAYLOAD_VERSION = 6;
+const LEAGUE_PAYLOAD_VERSION = 7;
 const LEAGUE_SNAPSHOT_TTL_MS = 30 * 60 * 1000;
 const isCurrentFantasyPlayer = (player: SourcePlayer) => {
   const status = (player.status ?? "").trim().toLowerCase();
@@ -73,10 +74,11 @@ export async function GET(request: Request) {
     const projectionWeek = Math.min(18, Math.max(1, league.leg ?? 1));
     const scoring = league.scoring_settings ?? {};
     const receptionValue = scoring.rec ?? 1;
-    const [projectionResponse, matchupResponse, sleeperAdpResponse] = await Promise.all([
+    const [projectionResponse, matchupResponse, sleeperAdpResponse, espnAdp] = await Promise.all([
       fetchCachedUpstream(`https://api.sleeper.com/projections/nfl/${league.season ?? new Date().getUTCFullYear()}/${projectionWeek}?season_type=regular`, 3600).catch(() => null),
       fetch(`https://api.sleeper.app/v1/league/${id}/matchups/${projectionWeek}`, { cache: "no-store" }).catch(() => null),
       fetchCachedUpstream(`https://api.sleeper.com/projections/nfl/${league.season ?? new Date().getUTCFullYear()}?season_type=regular&order_by=adp_ppr`, 21600).catch(() => null),
+      loadEspnAdpByPlayerKey(Number(league.season ?? new Date().getUTCFullYear())),
     ]);
     const projectionPayload: unknown = projectionResponse?.ok ? await projectionResponse.json().catch(() => []) : [];
     const sourceProjections = Array.isArray(projectionPayload) ? projectionPayload as SourceProjection[] : [];
@@ -185,6 +187,7 @@ export async function GET(request: Request) {
         : 0;
       const fantasyPoints = seasonProfile ? seasonProfile.fantasyPoints + receptionBonus : null;
       const directSleeperAdp = sleeperAdp.get(playerId) ?? null;
+      const directEspnAdp = espnAdp.get(adpPlayerKey(name, position)) ?? null;
       const hasCurrentRoleSignal =
         player.depth_chart_order != null ||
         leagueProjections.has(playerId) ||
@@ -192,7 +195,7 @@ export async function GET(request: Request) {
         Boolean(snapProfile?.games) ||
         Boolean(seasonProfile?.games);
       if (!hasCurrentRoleSignal) return [];
-      const adpBySite = { Sleeper: directSleeperAdp };
+      const adpBySite = { Sleeper: directSleeperAdp, ESPN: directEspnAdp };
       const waiverProjection = leagueProjections.has(playerId) ? platformProjection : projectedPoints;
       return [{ id: player.player_id ?? playerId, name, position, team: player.team, opponent: "Matchup pending", projection: platformProjection, leagueProjection: leagueProjections.get(playerId) ?? null, waiverProjection: Number(waiverProjection.toFixed(2)), floor: Number((platformProjection * .68).toFixed(1)), ceiling: Number((platformProjection * 1.38).toFixed(1)), trend: 0, status: player.injury_status ?? "Healthy", role: "Player pool", age: player.age ?? null, rankingValue: Number(value.toFixed(2)), sleeperRank: sourceRank, ageAdjustment: Number(ageAdjustment.toFixed(1)), lineupAdjustment: Number(lineupAdjustment.toFixed(1)), snapPct: snapProfile?.latestPct ?? null, snapAverage: snapProfile?.averagePct ?? null, snapWeek: snapProfile?.latestWeek ?? null, snapSeason: snapProfile?.season ?? null, statsSourceSeason, statsBlended, fantasyPpg2025: seasonProfile?.games ? Number((fantasyPoints! / seasonProfile.games).toFixed(1)) : null, gamesPlayed2025: seasonProfile?.games ?? null, team2025: seasonProfile?.team ?? null, teamOffenseRank2025: seasonTeamOffense?.rank ?? null, teamPointsPerGame2025: seasonTeamOffense?.pointsPerGame ?? null, adpBySite }];
     }).sort((a, b) => b.rankingValue - a.rankingValue).slice(0, 600).map((player, index) => ({ ...player, overallRank: index + 1 }));

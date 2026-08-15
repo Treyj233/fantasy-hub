@@ -7533,7 +7533,7 @@ function AdpPage({
   const [position, setPosition] = useState("ALL");
   const [query, setQuery] = useState("");
   const [adpDirection, setAdpDirection] = useState<"asc" | "desc">("asc");
-  const adpSite = "Sleeper";
+  const [adpSite, setAdpSite] = useState<"Sleeper" | "ESPN">("Sleeper");
   const rosterNames = new Set(
     roster.map((player) => player.name.toLowerCase()),
   );
@@ -7588,11 +7588,13 @@ function AdpPage({
       <SectionIntro
         compact
         kicker="DRAFT MARKET"
-        title="Sleeper average draft position"
+        title={`${adpSite} average draft position`}
         text={
           context
-            ? `${context.format} Sleeper ADP aligned to ${context.scoring} and ${context.positionDemand.QB > 1.4 ? "superflex / 2QB" : "1QB"}.`
-            : "Import a league to load the most relevant Sleeper scoring and roster-format ADP feed."
+            ? adpSite === "Sleeper"
+              ? `${context.format} Sleeper ADP aligned to ${context.scoring} and ${context.positionDemand.QB > 1.4 ? "superflex / 2QB" : "1QB"}.`
+              : "ESPN platform ADP reflects ESPN's redraft market and is shown separately for direct comparison."
+            : "Import a league to compare platform-specific Sleeper and ESPN draft markets."
         }
       />
       {context && (
@@ -7645,16 +7647,19 @@ function AdpPage({
       <section className="adp-controls panel">
         <div>
           <span>ADP SOURCE</span>
-          <strong>Direct draft-market data from Sleeper</strong>
+          <strong>Direct platform draft-market data from {adpSite}</strong>
         </div>
         <div className="adp-sites" role="group" aria-label="Select ADP source">
-          <button className="active" onClick={() => setAdpDirection((current) => current === "asc" ? "desc" : "asc")}>
-            Sleeper {adpDirection === "asc" ? "↑" : "↓"}
+          <button aria-pressed={adpSite === "Sleeper"} className={adpSite === "Sleeper" ? "active" : ""} onClick={() => { if (adpSite === "Sleeper") setAdpDirection((current) => current === "asc" ? "desc" : "asc"); else { setAdpSite("Sleeper"); setAdpDirection("asc"); } }}>
+            Sleeper {adpSite === "Sleeper" ? adpDirection === "asc" ? "↑" : "↓" : ""}
+          </button>
+          <button aria-pressed={adpSite === "ESPN"} className={adpSite === "ESPN" ? "active" : ""} onClick={() => { if (adpSite === "ESPN") setAdpDirection((current) => current === "asc" ? "desc" : "asc"); else { setAdpSite("ESPN"); setAdpDirection("asc"); } }}>
+            ESPN {adpSite === "ESPN" ? adpDirection === "asc" ? "↑" : "↓" : ""}
           </button>
         </div>
         <small>
           Lower ADP means the player is typically selected earlier. Select
-          Sleeper again to reverse sorting.
+          the active source again to reverse sorting.
         </small>
       </section>
       <section className="tier-section adp-market-table">

@@ -24,17 +24,24 @@ test("league snapshots refresh when waiver eligibility rules change", async () =
   assert.match(source, /payloadVersion: LEAGUE_PAYLOAD_VERSION/);
 });
 
-test("ADP uses Sleeper directly without consensus or FantasyPros data", async () => {
-  const [route, hub] = await Promise.all([
+test("ADP offers direct Sleeper and ESPN sources without consensus or FantasyPros data", async () => {
+  const [route, hub, adpData, espn] = await Promise.all([
     readFile(new URL("../app/api/league/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/adp-data.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/espn.ts", import.meta.url), "utf8"),
   ]);
 
   assert.doesNotMatch(route, /fantasypros/i);
   assert.doesNotMatch(route, /Consensus/);
-  assert.match(route, /const adpBySite = \{ Sleeper: directSleeperAdp \}/);
-  assert.doesNotMatch(hub, /const \[adpSite, setAdpSite\]/);
-  assert.match(hub, /const adpSite = "Sleeper"/);
+  assert.match(route, /const adpBySite = \{ Sleeper: directSleeperAdp, ESPN: directEspnAdp \}/);
+  assert.match(hub, /const \[adpSite, setAdpSite\] = useState<"Sleeper" \| "ESPN">\("Sleeper"\)/);
+  assert.match(hub, /ESPN \{adpSite === "ESPN" \? adpDirection === "asc" \? "↑" : "↓" : ""\}/);
+  assert.match(hub, /ESPN platform ADP reflects ESPN's redraft market/);
+  assert.match(adpData, /leaguedefaults\/3\?view=kona_player_info/);
+  assert.match(adpData, /averageDraftPosition/);
+  assert.match(adpData, /loadSleeperAdpByPlayerKey/);
+  assert.match(espn, /adpBySite: \{ Sleeper: sleeperAdp\.get[\s\S]*?ESPN:/);
   assert.doesNotMatch(hub, /"Consensus"/);
 });
 
