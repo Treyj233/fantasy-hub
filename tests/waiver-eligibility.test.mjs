@@ -36,8 +36,9 @@ test("ADP offers direct Sleeper and ESPN sources without consensus or FantasyPro
   assert.doesNotMatch(route, /Consensus/);
   assert.match(route, /const adpBySite = \{ Sleeper: directSleeperAdp, ESPN: directEspnAdp \}/);
   assert.match(hub, /const \[adpSite, setAdpSite\] = useState<"Sleeper" \| "ESPN">\("Sleeper"\)/);
-  assert.match(hub, /ESPN \{adpSite === "ESPN" \? adpDirection === "asc" \? "↑" : "↓" : ""\}/);
-  assert.match(hub, /ESPN platform ADP reflects ESPN's redraft market/);
+  assert.match(hub, /ESPN \(Single-QB\) \{adpSite === "ESPN" \? adpDirection === "asc" \? "↑" : "↓" : ""\}/);
+  assert.match(hub, /ESPN Single-QB platform ADP reflects ESPN's redraft market/);
+  assert.match(hub, /adpSite === "ESPN" \? "ESPN \(Single-QB\)" : "Sleeper"/);
   assert.match(adpData, /leaguedefaults\/3\?view=kona_player_info/);
   assert.match(adpData, /averageDraftPosition/);
   assert.match(adpData, /loadSleeperAdpByPlayerKey/);

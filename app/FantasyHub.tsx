@@ -7534,6 +7534,7 @@ function AdpPage({
   const [query, setQuery] = useState("");
   const [adpDirection, setAdpDirection] = useState<"asc" | "desc">("asc");
   const [adpSite, setAdpSite] = useState<"Sleeper" | "ESPN">("Sleeper");
+  const adpSourceLabel = adpSite === "ESPN" ? "ESPN (Single-QB)" : "Sleeper";
   const rosterNames = new Set(
     roster.map((player) => player.name.toLowerCase()),
   );
@@ -7588,12 +7589,12 @@ function AdpPage({
       <SectionIntro
         compact
         kicker="DRAFT MARKET"
-        title={`${adpSite} average draft position`}
+        title={`${adpSourceLabel} average draft position`}
         text={
           context
             ? adpSite === "Sleeper"
               ? `${context.format} Sleeper ADP aligned to ${context.scoring} and ${context.positionDemand.QB > 1.4 ? "superflex / 2QB" : "1QB"}.`
-              : "ESPN platform ADP reflects ESPN's redraft market and is shown separately for direct comparison."
+              : "ESPN Single-QB platform ADP reflects ESPN's redraft market and is shown separately for direct comparison."
             : "Import a league to compare platform-specific Sleeper and ESPN draft markets."
         }
       />
@@ -7647,14 +7648,14 @@ function AdpPage({
       <section className="adp-controls panel">
         <div>
           <span>ADP SOURCE</span>
-          <strong>Direct platform draft-market data from {adpSite}</strong>
+          <strong>Direct platform draft-market data from {adpSourceLabel}</strong>
         </div>
         <div className="adp-sites" role="group" aria-label="Select ADP source">
           <button aria-pressed={adpSite === "Sleeper"} className={adpSite === "Sleeper" ? "active" : ""} onClick={() => { if (adpSite === "Sleeper") setAdpDirection((current) => current === "asc" ? "desc" : "asc"); else { setAdpSite("Sleeper"); setAdpDirection("asc"); } }}>
             Sleeper {adpSite === "Sleeper" ? adpDirection === "asc" ? "↑" : "↓" : ""}
           </button>
           <button aria-pressed={adpSite === "ESPN"} className={adpSite === "ESPN" ? "active" : ""} onClick={() => { if (adpSite === "ESPN") setAdpDirection((current) => current === "asc" ? "desc" : "asc"); else { setAdpSite("ESPN"); setAdpDirection("asc"); } }}>
-            ESPN {adpSite === "ESPN" ? adpDirection === "asc" ? "↑" : "↓" : ""}
+            ESPN (Single-QB) {adpSite === "ESPN" ? adpDirection === "asc" ? "↑" : "↓" : ""}
           </button>
         </div>
         <small>
@@ -7665,7 +7666,7 @@ function AdpPage({
       <section className="tier-section adp-market-table">
         <header>
           <div>
-            <span>{adpSite.toUpperCase()} MARKET</span>
+            <span>{adpSourceLabel.toUpperCase()} MARKET</span>
             <h3>Average draft position</h3>
           </div>
           <small>{filtered.length} players</small>
@@ -7716,8 +7717,8 @@ function AdpPage({
                 </span>
                 <p>
                   {typeof adp === "number"
-                    ? `Typically selected near pick ${Math.round(adp)} on ${adpSite}.`
-                    : `${adpSite} ADP is not available for this player and format.`}
+                    ? `Typically selected near pick ${Math.round(adp)} on ${adpSourceLabel}.`
+                    : `${adpSourceLabel} ADP is not available for this player and format.`}
                 </p>
               </button>
             );
