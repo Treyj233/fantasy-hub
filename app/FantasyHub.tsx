@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import { estimatedWinProbability, playerLeverage, rootingInterests, whatDoINeed } from "./game-day-model.mjs";
 import { classifyFantasyPlay, findEspnPlayContext, matchupImpactText } from "./live-play-alerts.mjs";
-import { PRE_KICKOFF_VISUALS, PRE_KICKOFF_VISUALS_ENABLED } from "./pre-kickoff-visuals";
+import { PRE_KICKOFF_VISUALS_ENABLED } from "./pre-kickoff-visuals";
 import { DEFAULT_PUSH_PREFERENCES, type PushAlertKey, type PushPreferences } from "./push-preferences";
 import { disableNativePushNotifications, enableNativePushNotifications, initializeNativeRuntime, isNativeIosApp, nativeImpact, nativeManageSubscriptions, nativePurchase, nativeRefreshPurchases, nativeRestorePurchases, nativeStoreProducts } from "./native-runtime";
 import { useOverflowAutoScroll } from "./use-overflow-auto-scroll";
@@ -4884,22 +4884,6 @@ function AllLeagueScoreboard({
   }, [gameDay.matchups, updatedAt]);
   const hasObservedScoring = gameDay.matchups.some((item) => item.status === "live" || item.status === "final" || item.mine.points > 0 || item.opponent.points > 0);
   const usePreKickoffVisuals = PRE_KICKOFF_VISUALS_ENABLED && !hasObservedScoring;
-  const sundaySwingPreview = usePreKickoffVisuals ? gameDay.matchups.slice(0, 3).map((item, index) => {
-    const baseline = item.winProbability ?? 50;
-    const movement = PRE_KICKOFF_VISUALS.swingMovements[index] ?? 5;
-    const previous = Math.max(5, Math.min(95, baseline - movement));
-    const current = Math.max(5, Math.min(95, baseline));
-    return {
-      id: `preview-${item.league.id}`,
-      league: item.league.name,
-      previous,
-      current,
-      text:
-        movement > 0
-          ? `${item.mineStarters[0]?.name ?? "Your starter"} made a high-impact play, improving your projected outcome.`
-          : `${item.opponentStarters[0]?.name ?? "An opposing starter"} scored, tightening this matchup.`,
-    };
-  }) : [];
   const preKickoffOnFire = usePreKickoffVisuals
     ? gameDay.matchups
         .flatMap((item) => item.mineStarters.map((player) => ({ player, league: item.league })))
@@ -5098,7 +5082,7 @@ function AllLeagueScoreboard({
       </section>
       <div className="game-day-insights">
         <section className="panel rooting-interests"><header><div><span>ROOTING INTERESTS</span><h3>Who to cheer—and who to stop</h3></div><b>📣 GAME-DAY PULSE</b></header><div className="insight-scroll-window">{gameDay.interests.length ? gameDay.interests.map((interest) => <article className={`rooting-${interest.sentiment}`} key={interest.playerId}><div className="rooting-visual"><NflTeamLogo team={interest.nflTeam} /><PlayerHeadshot id={interest.playerId} position={interest.position} /><i aria-hidden="true">{interest.sentiment === "cheer" ? "📣" : interest.sentiment === "fade" ? "🛑" : "⚖️"}</i></div><p><span>{interest.sentiment === "cheer" ? "ROOT FOR" : interest.sentiment === "fade" ? "ROOT AGAINST" : "MIXED ROOTING INTEREST"}</span><strong>{interest.playerName}</strong><small>{interest.text}</small><span className="rooting-leagues">{interest.affectedLeagues.map((league) => <b className={league.impact} key={`${interest.playerId}-${league.id}`}>{league.impact === "helps" ? "↑" : "↓"} {league.name}</b>)}</span></p><em><small>{interest.level}</small>{interest.score}</em></article>) : <p className="game-day-empty">Rooting interests appear when weekly lineups and projections are available.</p>}</div></section>
-        <section className={`panel sunday-swing ${!swingFeed.length && sundaySwingPreview.length ? "pre-kickoff" : ""}`} data-visual-source={!swingFeed.length && sundaySwingPreview.length ? "pre-kickoff" : "observed"}><header><div><span>SUNDAY SWING</span><h3>{swingFeed.length ? "Observed this session" : "Projected swing paths"}</h3></div>{!swingFeed.length && sundaySwingPreview.length && <b>SUNDAY OUTLOOK</b>}</header><div className="insight-scroll-window">{swingFeed.length ? swingFeed.map((item) => <article key={item.id}><b className={item.current >= item.previous ? "positive" : "negative"}>{item.current >= item.previous ? "↑" : "↓"} {Math.abs(item.current - item.previous)} pts</b><p><strong>{item.league}</strong><small>{item.text}</small></p><time>{item.at ? new Date(item.at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "Now"}</time></article>) : sundaySwingPreview.length ? <><p className="swing-preview-note">Potential win-probability movement based on your current lineups and matchup projections. Live plays replace these paths automatically.</p>{sundaySwingPreview.map((item, index) => <article className="swing-preview-card" key={item.id}><b className={item.current >= item.previous ? "positive" : "negative"}>{item.current >= item.previous ? "↑" : "↓"} {Math.abs(item.current - item.previous)} pts</b><p><strong>{item.league}</strong><small>{item.text}</small><span><i style={{ width: `${item.current}%` }} /></span></p><time>{PRE_KICKOFF_VISUALS.swingWindows[index] ?? "GAME WINDOW"}</time></article>)}</> : <p className="game-day-empty">Scoring swings will populate as matchup results change.</p>}</div></section>
+        <section className="panel sunday-swing" data-visual-source="observed"><header><div><span>SUNDAY SWING</span><h3>Observed this session</h3></div>{swingFeed.length > 0 && <b>LIVE MOVEMENT</b>}</header><div className="insight-scroll-window">{swingFeed.length ? swingFeed.map((item) => <article key={item.id}><b className={item.current >= item.previous ? "positive" : "negative"}>{item.current >= item.previous ? "↑" : "↓"} {Math.abs(item.current - item.previous)} pts</b><p><strong>{item.league}</strong><small>{item.text}</small></p><time>{item.at ? new Date(item.at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "Now"}</time></article>) : <p className="game-day-empty">Waiting for live scoring. Win-probability swings of 5% or more will appear here once NFL games begin.</p>}</div></section>
       </div>
       <div className="portfolio-scoreboard-grid" id="league-matchups">
         {orderedLeagues.map((league) => {

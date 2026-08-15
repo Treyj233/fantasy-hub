@@ -481,6 +481,15 @@ test("pre-kickoff visuals are centralized and removable", async () => {
   assert.doesNotMatch(source, /NO DEMO LEAGUE DATA/);
 });
 
+test("Sunday Swing waits for observed live movement instead of staging scenarios", async () => {
+  const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
+  const fixtures = await readFile(new URL("../app/pre-kickoff-visuals.ts", import.meta.url), "utf8");
+  assert.match(source, /Waiting for live scoring\. Win-probability swings of 5% or more will appear here once NFL games begin\./);
+  assert.match(source, /Math\.abs\(item\.winProbability - previous\) < 5/);
+  assert.doesNotMatch(source, /sundaySwingPreview|Projected swing paths|swing-preview-card/);
+  assert.doesNotMatch(fixtures, /swingMovements|swingWindows/);
+});
+
 test("portfolio Scoreboard keeps matchup status in scope", async () => {
   const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
   const start = source.indexOf("function AllLeagueScoreboard(");
@@ -497,8 +506,8 @@ test("portfolio Scoreboard keeps matchup status in scope", async () => {
   assert.match(component, /leagueName: item\.league\.name/);
   assert.match(component, /ROOT FOR/);
   assert.match(component, /ROOT AGAINST/);
-  assert.match(component, /Projected swing paths/);
-  assert.match(component, /Live plays replace these paths automatically/);
+  assert.match(component, /Observed this session/);
+  assert.match(component, /Waiting for live scoring/);
 });
 
 test("NFL game impact details open in an accessible popout", async () => {

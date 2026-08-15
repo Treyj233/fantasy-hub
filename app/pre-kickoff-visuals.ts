@@ -7,8 +7,3 @@
  * live-only release.
  */
 export const PRE_KICKOFF_VISUALS_ENABLED = true;
-
-export const PRE_KICKOFF_VISUALS = {
-  swingMovements: [15, -10, 5],
-  swingWindows: ["EARLY WINDOW", "LATE WINDOW", "PRIME TIME"],
-} as const;
