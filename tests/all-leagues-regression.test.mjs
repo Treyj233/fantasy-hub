@@ -165,6 +165,14 @@ test("scoreboard only reports live matchups while ESPN has an NFL game in progre
   assert.doesNotMatch(source, /week === \(league\.leg \?\? week\) \? "Live"/);
 });
 
+test("hottest performers explains league help and harm in plain language", async () => {
+  const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
+  assert.match(source, /Helps in \$\{helps === 1 \? "one" : helps\} league/);
+  assert.match(source, /Hurts in \$\{hurts === 1 \? "one" : hurts\} league/);
+  assert.doesNotMatch(source, /`\$\{helps\} help`/);
+  assert.doesNotMatch(source, /`\$\{hurts\} hurt`/);
+});
+
 test("League Stories leads Analyze League and Manager Report finishes Manage Team", async () => {
   const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
   assert.match(source, /label: "League Stories"[^\n]+group: "Analyze League"/);
