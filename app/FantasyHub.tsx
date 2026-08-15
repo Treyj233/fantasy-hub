@@ -9023,6 +9023,7 @@ function TradeLab({
   const [calculatorSendIds, setCalculatorSendIds] = useState<string[]>([]);
   const [calculatorReceiveIds, setCalculatorReceiveIds] = useState<string[]>([]);
   const [assetSelectorSide, setAssetSelectorSide] = useState<"send" | "receive" | null>(null);
+  const tradeCalculatorRef = useRef<HTMLElement>(null);
   const partner =
     opponents.find((team) => team.id === selectedId) ?? opponents[0];
   const partnerStyle = partner ? (styles[partner.id] ?? "Neutral") : "Neutral";
@@ -9073,6 +9074,9 @@ function TradeLab({
   function updateStyle(style: TradeStyle) {
     if (!partner) return;
     setStyles((current) => ({ ...current, [partner.id]: style }));
+  }
+  function jumpToTradeCalculator() {
+    tradeCalculatorRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
   if (!yourTeam)
     return (
@@ -9299,7 +9303,7 @@ function TradeLab({
         </p>
         {!isPro && <button className="inline-pro-unlock trade-profile-unlock" onClick={onUpgrade}>PRO · Unlock negotiation profiles and suggested packages</button>}
       </section>
-      <section className="trade-calculator panel">
+      <section className="trade-calculator panel" ref={tradeCalculatorRef}>
         <header>
           <div>
             <span>TRADE CALCULATOR</span>
@@ -9402,6 +9406,7 @@ function TradeLab({
           </div> : <p className="trade-finder-empty">{partner.teamName} has no responsible package matching this position filter. Choose one of the ranked partners above.</p>}
         </section>
       )}
+      <button className="trade-calculator-jump" type="button" onClick={jumpToTradeCalculator} aria-label="Back to trade calculator"><i aria-hidden="true">↑</i><span><b>Back to calculator</b><small>Review or adjust this trade</small></span></button>
     </div>
   );
 }

@@ -313,6 +313,21 @@ test("Pro Trade Finder filters target positions and ranks league-wide partners",
   assert.match(styles, /\.trade-partner-grid\{/);
 });
 
+test("Trade Lab ends with a safe-header jump back to the calculator", async () => {
+  const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
+  const styles = await readFile(new URL("../app/trade-calculator.css", import.meta.url), "utf8");
+  const start = source.indexOf("function TradeLab(");
+  const end = source.indexOf("function HeadToHeadMatchup(", start);
+  const tradeLab = source.slice(start, end);
+
+  assert.match(tradeLab, /const tradeCalculatorRef = useRef<HTMLElement>\(null\)/);
+  assert.match(tradeLab, /tradeCalculatorRef\.current\?\.scrollIntoView\(\{ behavior: "smooth", block: "start" \}\)/);
+  assert.match(tradeLab, /className="trade-calculator panel" ref=\{tradeCalculatorRef\}/);
+  assert.match(tradeLab, /className="trade-calculator-jump"/);
+  assert.match(styles, /\.trade-calculator\{scroll-margin-top:150px\}/);
+  assert.match(styles, /scroll-margin-top:calc\(112px \+ env\(safe-area-inset-top\)\)/);
+});
+
 test("Trade Lab asset selection never mutates global document scrolling", async () => {
   const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
   const styles = await readFile(new URL("../app/trade-calculator.css", import.meta.url), "utf8");
