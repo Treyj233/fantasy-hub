@@ -111,6 +111,13 @@ test("Glossary mirrors the five-category header layout", async () => {
   assert.match(styles, /\.glossary-jump\{[^}]*grid-template-columns:repeat\(5,minmax\(0,1fr\)\)/);
 });
 
+test("League Stories uses its own native badge color", async () => {
+  const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
+  const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  assert.match(source, /label: "League Stories", mark: "✎", tone: "story"/);
+  assert.match(styles, /\.nav-badge\.story\{background:linear-gradient\(145deg,#f97316,#9333ea\)\}/);
+});
+
 test("League Stories leads Analyze League and Manager Report finishes Manage Team", async () => {
   const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
   assert.match(source, /label: "League Stories"[^\n]+group: "Analyze League"/);

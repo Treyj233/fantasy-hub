@@ -681,7 +681,7 @@ const nav: { label: View; displayLabel?: string; mark: string; tone: string; gro
   { label: "Trade Lab", mark: "↔", tone: "pink", group: "Manage Team" },
   { label: "Simulator", mark: "✦", tone: "indigo", group: "Manage Team" },
   { label: "Manager Report", mark: "✓", tone: "teal", group: "Manage Team" },
-  { label: "League Stories", mark: "✎", tone: "violet", group: "Analyze League" },
+  { label: "League Stories", mark: "✎", tone: "story", group: "Analyze League" },
   { label: "League Analytics", mark: "◈", tone: "purple", group: "Analyze League" },
   { label: "Team Rankings", mark: "↥", tone: "teal", group: "Analyze League" },
   { label: "Player Rankings", mark: "♛", tone: "gold", group: "Analyze League" },
