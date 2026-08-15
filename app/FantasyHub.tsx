@@ -1564,9 +1564,12 @@ export default function FantasyHub({
         : window.matchMedia("(prefers-color-scheme: dark)").matches
           ? "dark"
           : "light";
+    const isIPadLayout = window.matchMedia(
+      "(min-width: 701px) and (max-width: 1366px) and (pointer: coarse)",
+    ).matches;
     const timer = window.setTimeout(() => {
       setTheme(initialTheme);
-      setSidebarCollapsed(savedSidebarState === "true");
+      setSidebarCollapsed(isIPadLayout ? false : savedSidebarState === "true");
     }, 0);
     return () => window.clearTimeout(timer);
   }, []);
