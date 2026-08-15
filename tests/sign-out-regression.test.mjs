@@ -7,4 +7,6 @@ test("signing out returns directly to the same-origin sign-in page", async () =>
 
   assert.match(source, /signOut\(\{ redirectUrl: "\/sign-in" \}\)/);
   assert.doesNotMatch(source, /redirectUrl: "\/"/);
+  assert.doesNotMatch(source, /setTimeout/);
+  assert.match(source, /Sign out did not finish/);
 });
