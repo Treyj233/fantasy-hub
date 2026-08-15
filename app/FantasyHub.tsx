@@ -9039,10 +9039,6 @@ function TradeLab({
           partnerStyle,
         )
       : [];
-  const suggestion =
-    suggestions.find((item) => item.id === activeSuggestionId) ??
-    suggestions[0] ??
-    null;
   function selectPartner(id: string) {
     setSelectedId(id);
     setActiveSuggestionId("");
@@ -9333,18 +9329,18 @@ function TradeLab({
           <div className="trade-suggestion-preview" aria-hidden="true"><b>OPTION 1</b><strong>Upgrade WR depth without sacrificing your core</strong><span>78% modeled acceptance</span><i>Suggested from actual roster strengths</i></div>
           <button onClick={onUpgrade}>Unlock trade suggestions →</button>
         </section>
-      ) : suggestion ? (
-        <>
-          <div
-            className="suggestion-tabs"
-            role="tablist"
-            aria-label="Recommended trade frameworks"
-          >
+      ) : suggestions.length ? (
+        <section className="panel trade-recommendation-picker">
+          <header>
+            <div><span>PRO RECOMMENDATIONS</span><h3>Load a suggested framework</h3></div>
+            <small>The calculator stays empty until you choose an option.</small>
+          </header>
+          <div className="suggestion-tabs" role="list" aria-label="Recommended trade frameworks">
             {suggestions.map((item, index) => (
               <button
                 key={item.id}
-                role="tab"
-                aria-selected={activeSuggestionId === item.id}
+                type="button"
+                role="listitem"
                 className={activeSuggestionId === item.id ? "active" : ""}
                 onClick={() => {
                   setActiveSuggestionId(item.id);
@@ -9354,56 +9350,11 @@ function TradeLab({
               >
                 <span>OPTION {index + 1}</span>
                 <strong>{item.title}</strong>
-                <small>{item.acceptance}% estimated acceptance</small>
+                <small>{item.acceptance}% estimated acceptance · Load in calculator</small>
               </button>
             ))}
           </div>
-          <div className="trade-board">
-            <section>
-              <span>YOU RECEIVE</span>
-              {suggestion.receive.map((asset) => (
-                <TradeAsset key={asset.id} asset={asset} />
-              ))}
-            </section>
-            <div className="trade-balance">
-              <strong>
-                {Math.min(suggestion.yourBenefit, suggestion.partnerBenefit)}
-              </strong>
-              <span>Mutual benefit</span>
-              <i>↔</i>
-              <b>{suggestion.acceptance}% likely</b>
-            </div>
-            <section>
-              <span>{partner.teamName.toUpperCase()} RECEIVES</span>
-              {suggestion.send.map((asset) => (
-                <TradeAsset key={asset.id} asset={asset} />
-              ))}
-            </section>
-          </div>
-          <div className="mutual-grid">
-            <article>
-              <span>YOUR TEAM</span>
-              <strong>{suggestion.yourBenefit}</strong>
-              <h3>Why this helps you</h3>
-              <p>{suggestion.whyYou}</p>
-            </article>
-            <article>
-              <span>{partner?.teamName ?? "Trade partner"}</span>
-              <strong>{suggestion.partnerBenefit}</strong>
-              <h3>Why they may accept</h3>
-              <p>{suggestion.whyThem}</p>
-            </article>
-            <article>
-              <span>DEAL CONFIDENCE</span>
-              <strong>{suggestion.confidence}%</strong>
-              <h3>Framework quality</h3>
-              <p>
-                Confidence reflects role certainty, valuation range, roster-need
-                evidence, and the selected manager profile.
-              </p>
-            </article>
-          </div>
-        </>
+        </section>
       ) : (
         <section className="panel trade-no-suggestions">
           <strong>No responsible recommendation for this matchup</strong>
@@ -10696,24 +10647,5 @@ function PlayerChoice({
         <span>PROJECTED</span>
       </div>
     </button>
-  );
-}
-function TradeAsset({ asset }: { asset: TradeAssetValue }) {
-  const openPlayer = useContext(PlayerOpenContext);
-  return (
-    <article className="trade-asset">
-      <span className={`pos pos-${asset.position.toLowerCase()}`}>
-        {asset.position}
-      </span>
-      <p>
-        <button className="inline-player-link" onClick={() => openPlayer(playerShell(asset))}>{asset.name}</button>
-        <small>{asset.meta}</small>
-        <span className="trade-rating-profile">
-          Talent {asset.trueTalent} · Current {asset.currentOverall} · Dynasty{" "}
-          {asset.dynastyOverall}
-        </span>
-      </p>
-      <b>{asset.value}</b>
-    </article>
   );
 }

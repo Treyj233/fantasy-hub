@@ -275,9 +275,23 @@ test("Trade Calculator Clear All leaves both asset packages empty", async () => 
   assert.doesNotMatch(source, /suggestion\?\.send\.map|eligibleYourPlayers\.slice\(0, 1\)/);
   assert.match(source, /const clearCalculator = \(\) => \{\s*setCalculatorSendIds\(\[\]\);\s*setCalculatorReceiveIds\(\[\]\);/);
   assert.match(source, /setCalculatorSendIds\(item\.send\.map\(\(asset\) => asset\.id\)\)/);
-  assert.match(source, /aria-selected=\{activeSuggestionId === item\.id\}/);
+  assert.match(source, /className=\{activeSuggestionId === item\.id \? "active" : ""\}/);
   assert.match(source, />Clear all<\/button>/);
   assert.match(styles, /\.trade-calculator-header-actions>button/);
+});
+
+test("Trade Lab uses one empty calculator and recommendations only populate it on demand", async () => {
+  const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
+  const start = source.indexOf("function TradeLab(");
+  const end = source.indexOf("function HeadToHeadMatchup(", start);
+  const tradeLab = source.slice(start, end);
+
+  assert.equal((tradeLab.match(/className="trade-calculator panel"/g) ?? []).length, 1);
+  assert.doesNotMatch(tradeLab, /className="trade-board"/);
+  assert.doesNotMatch(tradeLab, /suggestions\[0\]/);
+  assert.match(tradeLab, /The calculator stays empty until you choose an option\./);
+  assert.match(tradeLab, /setCalculatorSendIds\(item\.send\.map/);
+  assert.match(tradeLab, /setCalculatorReceiveIds\(item\.receive\.map/);
 });
 
 test("Trade Lab asset selection never mutates global document scrolling", async () => {
