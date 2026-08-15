@@ -294,6 +294,25 @@ test("Trade Lab uses one empty calculator and recommendations only populate it o
   assert.match(tradeLab, /setCalculatorReceiveIds\(item\.receive\.map/);
 });
 
+test("Pro Trade Finder filters target positions and ranks league-wide partners", async () => {
+  const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
+  const styles = await readFile(new URL("../app/trade-calculator.css", import.meta.url), "utf8");
+  const start = source.indexOf("function TradeLab(");
+  const end = source.indexOf("function HeadToHeadMatchup(", start);
+  const tradeLab = source.slice(start, end);
+
+  assert.match(tradeLab, /const \[targetPositions, setTargetPositions\] = useState<string\[\]>\(\[\]\)/);
+  assert.match(tradeLab, /suggestion\.receive\.some\(\(asset\) => targetPositions\.includes\(asset\.position\)\)/);
+  assert.match(tradeLab, /const partnerMatches = isPro && yourTeam/);
+  assert.match(tradeLab, /sort\(\(a, b\) => b\.matchScore - a\.matchScore\)\.slice\(0, 4\)/);
+  assert.match(tradeLab, /What do you want to receive\?/);
+  assert.match(tradeLab, /Best trade partners/);
+  assert.match(tradeLab, /<b>You send:<\/b>/);
+  assert.match(tradeLab, /<b>You receive:<\/b>/);
+  assert.match(styles, /\.trade-position-filter\{/);
+  assert.match(styles, /\.trade-partner-grid\{/);
+});
+
 test("Trade Lab asset selection never mutates global document scrolling", async () => {
   const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
   const styles = await readFile(new URL("../app/trade-calculator.css", import.meta.url), "utf8");

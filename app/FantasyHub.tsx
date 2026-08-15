@@ -9021,6 +9021,7 @@ function TradeLab({
   );
   const [selectedId, setSelectedId] = useState(opponents[0]?.id ?? "");
   const [styles, setStyles] = useState<Record<string, TradeStyle>>({});
+  const [targetPositions, setTargetPositions] = useState<string[]>([]);
   const [activeSuggestionId, setActiveSuggestionId] = useState("");
   const [calculatorSendIds, setCalculatorSendIds] = useState<string[]>([]);
   const [calculatorReceiveIds, setCalculatorReceiveIds] = useState<string[]>([]);
@@ -9029,7 +9030,7 @@ function TradeLab({
     opponents.find((team) => team.id === selectedId) ?? opponents[0];
   const partnerStyle = partner ? (styles[partner.id] ?? "Neutral") : "Neutral";
   const tradeRankings = buildSeasonCompositeRankings(rankings, context);
-  const suggestions =
+  const allSuggestions =
     isPro && yourTeam && partner
       ? buildTradeSuggestions(
           yourTeam,
@@ -9039,6 +9040,33 @@ function TradeLab({
           partnerStyle,
         )
       : [];
+  const matchesTargetPosition = (suggestion: TradeSuggestion) =>
+    !targetPositions.length || suggestion.receive.some((asset) => targetPositions.includes(asset.position));
+  const suggestions = allSuggestions.filter(matchesTargetPosition);
+  const partnerMatches = isPro && yourTeam
+    ? opponents.map((team) => {
+        const packages = buildTradeSuggestions(
+          yourTeam,
+          team,
+          tradeRankings,
+          context,
+          styles[team.id] ?? "Neutral",
+        ).filter(matchesTargetPosition);
+        const best = packages[0] ?? null;
+        const matchScore = best
+          ? Math.min(99, Math.round(best.acceptance * 0.62 + best.yourBenefit * 0.23 + best.partnerBenefit * 0.15))
+          : 0;
+        return { team, packages, best, matchScore };
+      }).filter((match) => match.best).sort((a, b) => b.matchScore - a.matchScore).slice(0, 4)
+    : [];
+  const toggleTargetPosition = (position: string) => {
+    setTargetPositions((current) => current.includes(position)
+      ? current.filter((item) => item !== position)
+      : [...current, position]);
+    setActiveSuggestionId("");
+    setCalculatorSendIds([]);
+    setCalculatorReceiveIds([]);
+  };
   function selectPartner(id: string) {
     setSelectedId(id);
     setActiveSuggestionId("");
@@ -9354,41 +9382,27 @@ function TradeLab({
           <div className="trade-suggestion-preview" aria-hidden="true"><b>OPTION 1</b><strong>Upgrade WR depth without sacrificing your core</strong><span>78% modeled acceptance</span><i>Suggested from actual roster strengths</i></div>
           <button onClick={onUpgrade}>Unlock trade suggestions →</button>
         </section>
-      ) : suggestions.length ? (
+      ) : (
         <section className="panel trade-recommendation-picker">
           <header>
-            <div><span>PRO RECOMMENDATIONS</span><h3>Load a suggested framework</h3></div>
+            <div><span>PRO TRADE FINDER</span><h3>Find the right partner for your roster need</h3></div>
             <small>The calculator stays empty until you choose an option.</small>
           </header>
-          <div className="suggestion-tabs" role="list" aria-label="Recommended trade frameworks">
-            {suggestions.map((item, index) => (
-              <button
-                key={item.id}
-                type="button"
-                role="listitem"
-                className={activeSuggestionId === item.id ? "active" : ""}
-                onClick={() => {
-                  setActiveSuggestionId(item.id);
-                  setCalculatorSendIds(item.send.map((asset) => asset.id));
-                  setCalculatorReceiveIds(item.receive.map((asset) => asset.id));
-                }}
-              >
-                <span>OPTION {index + 1}</span>
-                <strong>{item.title}</strong>
-                <small>{item.acceptance}% estimated acceptance · Load in calculator</small>
-              </button>
-            ))}
+          <div className="trade-position-filter">
+            <div><b>What do you want to receive?</b><small>Select one or more positions.</small></div>
+            <div role="group" aria-label="Filter trade targets by position">
+              <button type="button" className={!targetPositions.length ? "active" : ""} onClick={() => { setTargetPositions([]); setActiveSuggestionId(""); setCalculatorSendIds([]); setCalculatorReceiveIds([]); }}>Any</button>
+              {["QB", "RB", "WR", "TE"].map((position) => <button type="button" key={position} aria-pressed={targetPositions.includes(position)} className={targetPositions.includes(position) ? "active" : ""} onClick={() => toggleTargetPosition(position)}>{position}</button>)}
+            </div>
           </div>
-        </section>
-      ) : (
-        <section className="panel trade-no-suggestions">
-          <strong>No responsible recommendation for this matchup</strong>
-          <p>
-            The calculator remains available, but the engine found no
-            cross-position deal that addresses both teams’ needs without
-            weakening either usable lineup. Try another trade partner or test
-            your own framework above.
-          </p>
+          <div className="trade-partner-finder">
+            <div className="trade-finder-label"><b>Best trade partners</b><small>Ranked by roster fit, mutual benefit, and modeled acceptance.</small></div>
+            {partnerMatches.length ? <div className="trade-partner-grid">{partnerMatches.map((match, index) => <button type="button" key={match.team.id} className={partner.id === match.team.id ? "active" : ""} onClick={() => selectPartner(match.team.id)}><i>{index + 1}</i><span><strong>{match.team.teamName}</strong><small>{match.packages.length} matching framework{match.packages.length === 1 ? "" : "s"}</small></span><b>{match.matchScore}<small>FIT</small></b></button>)}</div> : <p className="trade-finder-empty">No responsible league-wide match was found for the selected position filter.</p>}
+          </div>
+          <div className="trade-finder-label"><b>Recommended trades with {partner.teamName}</b><small>Choose a package to load it into the calculator above.</small></div>
+          {suggestions.length ? <div className="suggestion-tabs" role="list" aria-label={`Recommended trades with ${partner.teamName}`}>
+            {suggestions.map((item, index) => <button key={item.id} type="button" role="listitem" className={activeSuggestionId === item.id ? "active" : ""} onClick={() => { setActiveSuggestionId(item.id); setCalculatorSendIds(item.send.map((asset) => asset.id)); setCalculatorReceiveIds(item.receive.map((asset) => asset.id)); }}><span>OPTION {index + 1}</span><strong>{item.title}</strong><small><b>You send:</b> {item.send.map((asset) => asset.name).join(", ")}</small><small><b>You receive:</b> {item.receive.map((asset) => asset.name).join(", ")}</small><em>{item.acceptance}% acceptance · Load deal</em></button>)}
+          </div> : <p className="trade-finder-empty">{partner.teamName} has no responsible package matching this position filter. Choose one of the ranked partners above.</p>}
         </section>
       )}
     </div>
