@@ -80,8 +80,8 @@ test("normal tool intros use a condensed label-only card", async () => {
 
 test("mobile tool context stays inside the viewport without horizontal overscroll", async () => {
   const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
-  assert.match(styles, /\.tool-context-bar\{display:grid;grid-template-columns:repeat\(4,minmax\(0,1fr\)\)[^}]*overflow:hidden;overscroll-behavior:contain;touch-action:pan-y/);
-  assert.match(styles, /\.tool-context-bar>span\{min-width:0;padding:7px 5px;scroll-snap-align:none\}/);
+  assert.match(styles, /\.tool-context-bar,\.tool-context-bar\.home-context\{display:grid;grid-template-columns:repeat\(4,minmax\(0,1fr\)\)[^}]*overflow:hidden;overscroll-behavior:contain;touch-action:pan-y/);
+  assert.match(styles, /\.tool-context-bar>span,\.context-league-button\{min-width:0;padding:7px 5px;scroll-snap-align:none\}/);
   assert.doesNotMatch(styles, /\.tool-context-bar\{[^}]*overflow-x:auto;scroll-snap-type:x mandatory/);
 });
 

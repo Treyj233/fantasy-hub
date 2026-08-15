@@ -12,3 +12,13 @@ test("My Leagues uses a compact two-row draggable layout", async () => {
   assert.match(ui, /setDragImage\(dragPreview/);
   assert.match(ui, /reorderConnectedLeague\(draggedLeagueId, targetLeagueId, position\)/);
 });
+
+test("mobile league switching moves into an accessible right-edge drawer", async () => {
+  const ui = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
+  const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  assert.match(ui, /className="context-league-button"[\s\S]*?aria-expanded=\{leagueDrawerOpen\}/);
+  assert.match(ui, /clientX < window\.innerWidth - 24[\s\S]*?horizontalTravel > 48[\s\S]*?setLeagueDrawerOpen\(true\)/);
+  assert.match(ui, /leagueDrawerOpen && createPortal\([\s\S]*?className="league-drawer"[\s\S]*?visibleLeagues\.map[\s\S]*?openConnectedLeague\(league\)[\s\S]*?document\.body/);
+  assert.match(css, /@media\(max-width:700px\)\{\s*\.league-switcher\{display:none\}/);
+  assert.match(css, /\.league-drawer\{position:absolute;z-index:1;top:0;right:0;bottom:0;[^}]*env\(safe-area-inset-top\)/);
+});

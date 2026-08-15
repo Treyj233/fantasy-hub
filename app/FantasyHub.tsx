@@ -1368,6 +1368,7 @@ export default function FantasyHub({
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [mobileCategoryOpen, setMobileCategoryOpen] = useState<NavGroup | null>(null);
+  const [leagueDrawerOpen, setLeagueDrawerOpen] = useState(false);
   const [draggedLeagueId, setDraggedLeagueId] = useState("");
   const [leagueDropTarget, setLeagueDropTarget] = useState<{
     id: string;
@@ -1424,6 +1425,46 @@ export default function FantasyHub({
       document.removeEventListener("pointerdown", closeCategoryOnOutsidePress, true);
     };
   }, [mobileNavOpen, mobileCategoryOpen]);
+
+  useEffect(() => {
+    let edgeStart: { x: number; y: number } | null = null;
+    const onTouchStart = (event: TouchEvent) => {
+      const touch = event.touches[0];
+      if (!touch || touch.clientX < window.innerWidth - 24) return;
+      edgeStart = { x: touch.clientX, y: touch.clientY };
+    };
+    const onTouchEnd = (event: TouchEvent) => {
+      const touch = event.changedTouches[0];
+      if (!edgeStart || !touch) return;
+      const horizontalTravel = edgeStart.x - touch.clientX;
+      const verticalTravel = Math.abs(edgeStart.y - touch.clientY);
+      edgeStart = null;
+      if (horizontalTravel > 48 && verticalTravel < 72) {
+        setMobileCategoryOpen(null);
+        setMobileNavOpen(false);
+        setLeagueDrawerOpen(true);
+      }
+    };
+    document.addEventListener("touchstart", onTouchStart, { passive: true });
+    document.addEventListener("touchend", onTouchEnd, { passive: true });
+    return () => {
+      document.removeEventListener("touchstart", onTouchStart);
+      document.removeEventListener("touchend", onTouchEnd);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!leagueDrawerOpen) return;
+    document.body.classList.add("league-drawer-open");
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setLeagueDrawerOpen(false);
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.body.classList.remove("league-drawer-open");
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [leagueDrawerOpen]);
 
   useEffect(() => {
     const leagues = availableLeagues.filter(
@@ -2270,13 +2311,63 @@ export default function FantasyHub({
         )}
         </div>
 
-        {view !== "All Leagues" && view !== "Manage Leagues" && (
-          <section className="tool-context-bar" aria-label="Current tool context">
-            <span><b>{leagueName}</b><small>League</small></span>
+        {view !== "Manage Leagues" && (
+          <section className={`tool-context-bar ${view === "All Leagues" ? "home-context" : ""}`} aria-label="Current tool context">
+            <button
+              className="context-league-button"
+              type="button"
+              aria-label={`Switch league. Current league: ${leagueName}`}
+              aria-expanded={leagueDrawerOpen}
+              onClick={() => {
+                void nativeImpact();
+                setMobileCategoryOpen(null);
+                setLeagueDrawerOpen(true);
+              }}
+            ><b>{leagueName}</b><small>League</small><i aria-hidden="true">‹</i></button>
             <span><b>{rankingContext?.scoring ?? "Scoring pending"}</b><small>Format</small></span>
             <span><b>{periodLabel}</b><small>Season</small></span>
             <span className={importState === "loading" ? "refreshing" : "ready"}><i aria-hidden="true" /><b>{importState === "loading" ? "Updating" : leagueRefreshedAt ? `Updated ${new Date(leagueRefreshedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}` : "Ready"}</b><small>Data</small></span>
           </section>
+        )}
+
+        {leagueDrawerOpen && createPortal(
+          <div className="league-drawer-layer" role="presentation">
+            <button className="league-drawer-scrim" type="button" aria-label="Close league switcher" onClick={() => setLeagueDrawerOpen(false)} />
+            <aside className="league-drawer" role="dialog" aria-modal="true" aria-label="Switch leagues">
+              <header>
+                <div><small>MY LEAGUES</small><strong>Choose your league</strong></div>
+                <button type="button" aria-label="Close league switcher" onClick={() => setLeagueDrawerOpen(false)}>×</button>
+              </header>
+              <button
+                className={`league-drawer-live ${liveMatchupCount && liveMatchupCount > 0 ? "live" : ""}`}
+                type="button"
+                onClick={() => {
+                  setLeagueDrawerOpen(false);
+                  setScoreboardScope("all");
+                  setView("Scoreboard");
+                  window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+                }}
+              ><i aria-hidden="true" /><span><b>{liveMatchupCount === null ? "Checking matchups" : liveMatchupCount > 0 ? `${liveMatchupCount} matchups live` : "No matchups live"}</b><small>Open Fantasy Scoreboard</small></span><strong aria-hidden="true">›</strong></button>
+              <div className="league-drawer-list">
+                {visibleLeagues.map((league) => (
+                  <button
+                    key={league.id}
+                    type="button"
+                    className={leagueId === league.id ? "active" : ""}
+                    aria-current={leagueId === league.id ? "true" : undefined}
+                    disabled={importState === "loading"}
+                    onClick={() => {
+                      setLeagueDrawerOpen(false);
+                      void nativeImpact();
+                      void openConnectedLeague(league);
+                    }}
+                  ><span><b>{league.name}</b><small>{league.season} · {league.teams} teams · {league.format} · {league.scoring}</small></span>{leagueId === league.id ? <em>ACTIVE</em> : <strong aria-hidden="true">›</strong>}</button>
+                ))}
+              </div>
+              <button className="league-drawer-manage" type="button" onClick={() => { setLeagueDrawerOpen(false); setView("Manage Leagues"); window.scrollTo({ top: 0, left: 0, behavior: "auto" }); }}>Manage leagues</button>
+            </aside>
+          </div>,
+          document.body,
         )}
 
         {accountError && view !== "Manage Leagues" && (

@@ -17,7 +17,7 @@ test("Mission Hub prioritizes five decisions and progressively discloses depth",
 
 test("tools share one compact league and freshness context", async () => {
   const source = await load("../app/FantasyHub.tsx");
-  assert.match(source, /className="tool-context-bar"/);
+  assert.match(source, /className=\{`tool-context-bar/);
   assert.match(source, /leagueRefreshedAt/);
 });
 
