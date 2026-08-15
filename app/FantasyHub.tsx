@@ -2614,6 +2614,7 @@ function Glossary({ onNavigate }: { onNavigate: (view: View) => void }) {
   return (
     <div className="page-content glossary-page">
       <SectionIntro
+        compact
         kicker="FANTASY HUB GUIDE"
         title="Know where to go—and why"
         text="Every page has a distinct job. Browse by purpose, then jump directly into the tool you need."
@@ -6553,6 +6554,7 @@ function MyTeam({
   return (
     <div className="page-content">
       <SectionIntro
+        compact
         kicker="ROSTER CONTROL"
         title="Your complete roster in league order"
         text="Weekly scoring estimates come directly from your connected league platform under its scoring settings. Fantasy Hub uses those values for lineup totals and decisions."
@@ -6884,6 +6886,7 @@ function TeamRankings({
   return (
     <div className="page-content team-rankings-page">
       <SectionIntro
+        compact
         kicker="LEAGUE POWER RANKINGS"
         title="See where every roster has an edge"
         text={`Overall rank blends league-adjusted starters, usable depth, and positional balance${isDynasty ? ", plus roster runway and calibrated three-year draft capital" : " using this league’s lineup and scoring settings"}. Superflex leagues count the second quarterback as a required starter, while pick hoards are compressed so one outlier cannot distort the league.`}
@@ -7124,6 +7127,7 @@ function PlayerRanks({
   return (
     <div className="page-content">
       <SectionIntro
+        compact
         kicker="FANTASY HUB RANKINGS"
         title="Tier-based rankings built for your league"
         text={
@@ -7366,6 +7370,7 @@ function AdpPage({
   return (
     <div className="page-content">
       <SectionIntro
+        compact
         kicker="DRAFT MARKET"
         title="Sleeper average draft position"
         text={
@@ -7601,6 +7606,7 @@ function StartSit({
   return (
     <div className="page-content start-sit-page">
       <SectionIntro
+        compact
         kicker="WEEKLY DECISIONS"
         title="Choose the outcome your matchup requires"
         text={
@@ -7937,6 +7943,7 @@ function WaiverWire({
   return (
     <div className="page-content waiver-wire-page">
       <SectionIntro
+        compact
         kicker="LIVE LEAGUE AVAILABILITY"
         title="Turn available players into weekly leverage"
         text="Every player shown is currently unrostered in this league and ranked by league-scored weekly projection normalized within position. This keeps naturally higher quarterback scoring from overwhelming RB, WR, TE, K, and defense value."
@@ -8771,6 +8778,7 @@ function TradeLab({
   return (
     <div className="page-content trade-lab-page">
       <SectionIntro
+        compact
         kicker="LIVE LEAGUE TRADE INTELLIGENCE"
         title="Evaluate any deal, then let Pro find the best ones"
         text="The manual calculator is free and uses players currently owned by both teams. Fantasy Hub Pro adds roster-wide suggestions, mutual-need analysis, negotiation behavior, and estimated acceptance."
@@ -9675,6 +9683,7 @@ function Simulator({
   return (
     <div className="page-content simulator-live">
       <SectionIntro
+        compact
         kicker="LEAGUE-SPECIFIC MONTE CARLO"
         title={`Simulate ${simulation.league.name}, not a generic league`}
         text="Each run uses actual rosters, corrected opportunity-aware projections, weekly fantasy matchups, completed results, lineup rules, scoring configuration, playoff field, and playoff timing."
@@ -10224,19 +10233,21 @@ function Header({
   );
 }
 function SectionIntro({
+  compact = false,
   kicker,
   title,
   text,
 }: {
+  compact?: boolean;
   kicker: string;
   title: string;
   text: string;
 }) {
   return (
-    <header className="section-intro">
+    <header className={`section-intro ${compact ? "compact" : ""}`}>
       <span>{kicker}</span>
-      <h2>{title}</h2>
-      <p>{text}</p>
+      {!compact && <h2>{title}</h2>}
+      {!compact && <p>{text}</p>}
     </header>
   );
 }

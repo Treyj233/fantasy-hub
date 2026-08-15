@@ -67,6 +67,16 @@ test("Manage Leagues lives in Utilities and the mobile tray uses five categories
   assert.match(styles, /data-badge-theme="minimal"[^}]*\.mobile-category-tray \.nav-badge[^}]*border-radius:50%/);
 });
 
+test("normal tool intros use a condensed label-only card", async () => {
+  const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
+  const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  assert.equal((source.match(/<SectionIntro\s+compact\s+/g) ?? []).length, 9);
+  assert.match(source, /className=\{`section-intro \$\{compact \? "compact" : ""\}`\}/);
+  assert.match(source, /\{!compact && <h2>\{title\}<\/h2>\}/);
+  assert.match(source, /\{!compact && <p>\{text\}<\/p>\}/);
+  assert.match(styles, /\.section-intro\.compact\{[^}]*padding:11px 16px[^}]*border-radius:11px/);
+});
+
 test("League Stories leads Analyze League and Manager Report finishes Manage Team", async () => {
   const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
   assert.match(source, /label: "League Stories"[^\n]+group: "Analyze League"/);
