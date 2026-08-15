@@ -1321,6 +1321,12 @@ export default function FantasyHub({
   accountUser: AccountUser | null;
 }) {
   const [view, setView] = useState<View>("All Leagues");
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+    document.querySelector<HTMLElement>(".workspace")?.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }, [view]);
   const [players, setPlayers] = useState<Player[]>([]);
   const [leagueId, setLeagueId] = useState("");
   const [leagueName, setLeagueName] = useState("No league selected");

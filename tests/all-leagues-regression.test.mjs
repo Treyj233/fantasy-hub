@@ -183,6 +183,11 @@ test("mobile Game Day can jump directly to league matchups", async () => {
   assert.match(styles, /@media\(max-width:700px\)\{[\s\S]*?\.mobile-matchup-jump\{display:flex/);
 });
 
+test("switching primary pages resets every app scroll container to the top", async () => {
+  const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
+  assert.match(source, /useEffect\(\(\) => \{[\s\S]*?window\.scrollTo\(\{ top: 0, left: 0, behavior: "auto" \}\)[\s\S]*?document\.documentElement\.scrollTop = 0[\s\S]*?document\.body\.scrollTop = 0[\s\S]*?querySelector<HTMLElement>\("\.workspace"\)\?\.scrollTo[\s\S]*?\}, \[view\]\)/);
+});
+
 test("League Stories leads Analyze League and Manager Report finishes Manage Team", async () => {
   const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
   assert.match(source, /label: "League Stories"[^\n]+group: "Analyze League"/);
