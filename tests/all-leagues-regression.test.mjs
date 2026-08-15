@@ -309,6 +309,7 @@ test("Pro Trade Finder filters target positions and ranks league-wide partners",
   assert.match(tradeLab, /Best trade partners/);
   assert.match(tradeLab, /<b>You send:<\/b>/);
   assert.match(tradeLab, /<b>You receive:<\/b>/);
+  assert.match(source.slice(source.indexOf("function buildTradeSuggestions("), start), /\.slice\(0, 3\)\s*\.map\(\(candidate\) => candidate\.suggestion\)/);
   assert.match(styles, /\.trade-position-filter\{/);
   assert.match(styles, /\.trade-partner-grid\{/);
 });

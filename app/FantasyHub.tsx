@@ -8993,7 +8993,7 @@ function buildTradeSuggestions(
   );
   return candidates
     .sort((a, b) => b.score - a.score)
-    .slice(0, 6)
+    .slice(0, 3)
     .map((candidate) => candidate.suggestion);
 }
 
