@@ -39,6 +39,17 @@ test("post-sign-in personalization stays inside the iPhone safe area", async () 
   assert.match(styles, /html\[data-native-platform="ios"\] \.onboarding-shell\{padding-top:max\(64px,calc\(env\(safe-area-inset-top\) \+ 22px\)\)\}/);
 });
 
+test("Apple and Google sign-in remain available in the native iOS app", async () => {
+  const signIn = await readFile(new URL("../app/sign-in/[[...sign-in]]/page.tsx", import.meta.url), "utf8");
+  const signUp = await readFile(new URL("../app/sign-up/[[...sign-up]]/page.tsx", import.meta.url), "utf8");
+
+  for (const source of [signIn, signUp]) {
+    assert.doesNotMatch(source, /socialButtonsBlockButton:\s*\{\s*display:\s*"none"/);
+    assert.doesNotMatch(source, /dividerRow:\s*\{\s*display:\s*"none"/);
+    assert.match(source, /appearance=\{chargersClerkAppearance\}/);
+  }
+});
+
 test("new accounts start in light mode without changing saved account preferences", async () => {
   const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
   assert.match(source, /if \(data\.preferences\) \{[\s\S]*?setTheme\(data\.preferences\.colorMode\)/);
@@ -280,6 +291,22 @@ test("Trade Lab asset selection never mutates global document scrolling", async 
   assert.match(tradeLab, /className="asset-selector-backdrop"/);
   assert.match(styles, /\.asset-selector-backdrop\{[^}]*position:fixed;[^}]*inset:0;[^}]*overscroll-behavior:contain;[^}]*touch-action:none/);
   assert.match(styles, /\.asset-selector-list\{[^}]*overflow-y:auto;[^}]*overscroll-behavior:contain/);
+});
+
+test("Trade Lab applies a visible consolidation adjustment to uneven packages", async () => {
+  const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
+  const styles = await readFile(new URL("../app/trade-calculator.css", import.meta.url), "utf8");
+
+  assert.match(source, /function tradePackageValueAdjustment\(/);
+  assert.match(source, /send\.length === receive\.length\) return empty/);
+  assert.match(source, /const studFactor = Math\.max\(0, \(topConsolidated - 55\) \/ 44\)/);
+  assert.match(source, /const depthMultiplier = rosterDepth <= 18 \? 1\.15 : rosterDepth >= 28 \? 0\.8 : 1/);
+  assert.match(source, /calculatorAdjustedSendValue = calculatorSendValue \+ calculatorValueAdjustment\.send/);
+  assert.match(source, /calculatorAdjustedReceiveValue = calculatorReceiveValue \+ calculatorValueAdjustment\.receive/);
+  assert.match(source, /Value adjustment \+\$\{Math\.max\(calculatorValueAdjustment\.send, calculatorValueAdjustment\.receive\)\}/);
+  assert.match(source, /<h3>Value adjustment<\/h3>/);
+  assert.match(source, /Fantasy Hub adds a consolidation premium to the side receiving fewer assets/);
+  assert.match(styles, /\.calculator-score>div>em\{/);
 });
 
 test("Start Sit scoring settings use one compact scrollable row", async () => {

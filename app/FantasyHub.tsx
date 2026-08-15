@@ -2855,6 +2855,11 @@ function Glossary({ onNavigate }: { onNavigate: (view: View) => void }) {
           </section>
         ))}
       </div>
+      <section className="panel glossary-definition">
+        <span>TRADE LAB TERM</span>
+        <h3>Value adjustment</h3>
+        <p>An uneven multi-asset trade is more than the sum of its individual values. Fantasy Hub adds a consolidation premium to the side receiving fewer assets based on the best asset&apos;s quality, package concentration, extra roster spots required, and the connected league&apos;s depth. This prevents several lesser pieces from automatically equaling one elite player simply because their raw values reach the same total.</p>
+      </section>
     </div>
   );
 }
@@ -8604,6 +8609,36 @@ function tradePositionAdjustment(
   );
 }
 
+function tradePackageValueAdjustment(
+  send: TradeAssetValue[],
+  receive: TradeAssetValue[],
+  context: RankingContext | null,
+) {
+  const empty = { send: 0, receive: 0 };
+  if (!send.length || !receive.length || send.length === receive.length) return empty;
+  const consolidatedSide = send.length < receive.length ? "send" : "receive";
+  const consolidated = consolidatedSide === "send" ? send : receive;
+  const expanded = consolidatedSide === "send" ? receive : send;
+  if (expanded.length < 2) return empty;
+  const consolidatedTotal = consolidated.reduce((sum, asset) => sum + asset.value, 0);
+  const topConsolidated = Math.max(...consolidated.map((asset) => asset.value));
+  const topExpanded = Math.max(...expanded.map((asset) => asset.value));
+  const extraPieces = expanded.length - consolidated.length;
+  const concentration = topConsolidated / Math.max(1, consolidatedTotal);
+  const studFactor = Math.max(0, (topConsolidated - 55) / 44);
+  const qualityEdge = Math.max(0, (topConsolidated - topExpanded) / 44);
+  const rosterDepth = context?.rosterSlots.length ?? 18;
+  const depthMultiplier = rosterDepth <= 18 ? 1.15 : rosterDepth >= 28 ? 0.8 : 1;
+  const adjustment = Math.min(24, Math.max(2, Math.round(
+    extraPieces * (2.5 + studFactor * 5) *
+      (0.75 + concentration * 0.5) * depthMultiplier +
+      qualityEdge * 5,
+  )));
+  return consolidatedSide === "send"
+    ? { send: adjustment, receive: 0 }
+    : { send: 0, receive: adjustment };
+}
+
 function tradeAsset(
   player: Player,
   rankingById: Map<string, LeagueRanking>,
@@ -9127,10 +9162,13 @@ function TradeLab({
       : calculatorPartnerBefore;
   const calculatorSendValue = calculatorSendAssets.reduce((sum, asset) => sum + asset.value, 0);
   const calculatorReceiveValue = calculatorReceiveAssets.reduce((sum, asset) => sum + asset.value, 0);
+  const calculatorValueAdjustment = tradePackageValueAdjustment(calculatorSendAssets, calculatorReceiveAssets, context);
+  const calculatorAdjustedSendValue = calculatorSendValue + calculatorValueAdjustment.send;
+  const calculatorAdjustedReceiveValue = calculatorReceiveValue + calculatorValueAdjustment.receive;
   const calculatorGap =
     calculatorSendAssets.length && calculatorReceiveAssets.length
-      ? Math.abs(calculatorSendValue - calculatorReceiveValue) /
-        Math.max(1, calculatorReceiveValue)
+      ? Math.abs(calculatorAdjustedSendValue - calculatorAdjustedReceiveValue) /
+        Math.max(1, calculatorAdjustedSendValue, calculatorAdjustedReceiveValue)
       : 1;
   const calculatorMutual =
     calculatorYourAfter >= calculatorYourBefore &&
@@ -9143,7 +9181,7 @@ function TradeLab({
         : { strongGap: 0.25, workableGap: 0.4, partnerGain: -0.25, yourGain: -0.3, offerRatio: 0.86 };
   const calculatorOfferRatio =
     calculatorSendAssets.length && calculatorReceiveAssets.length
-      ? calculatorSendValue / Math.max(1, calculatorReceiveValue)
+      ? calculatorAdjustedSendValue / Math.max(1, calculatorAdjustedReceiveValue)
       : 0;
   const calculatorProfileFit =
     calculatorYourAfter - calculatorYourBefore >= calculatorProfile.yourGain &&
@@ -9247,12 +9285,12 @@ function TradeLab({
             <div className="calculator-package-summary">{calculatorSendAssets.length ? calculatorSendAssets.map((asset) => <span key={asset.id}><b>{asset.name}</b><small>{asset.position}</small></span>) : <p>No assets selected</p>}</div>
           </section>
           <div className="calculator-score">
-            <span>{calculatorSendAssets.length ? calculatorSendValue : "—"}</span>
+            <div><span>{calculatorSendAssets.length ? calculatorAdjustedSendValue : "—"}</span>{calculatorValueAdjustment.send > 0 && <em>+{calculatorValueAdjustment.send}</em>}</div>
             <i>↔</i>
-            <span>{calculatorReceiveAssets.length ? calculatorReceiveValue : "—"}</span>
+            <div><span>{calculatorReceiveAssets.length ? calculatorAdjustedReceiveValue : "—"}</span>{calculatorValueAdjustment.receive > 0 && <em>+{calculatorValueAdjustment.receive}</em>}</div>
             <small>
-              {calculatorGap < 1
-                ? `${Math.round(calculatorGap * 100)}% value gap`
+              {calculatorSendAssets.length && calculatorReceiveAssets.length
+                ? `${calculatorValueAdjustment.send || calculatorValueAdjustment.receive ? `Value adjustment +${Math.max(calculatorValueAdjustment.send, calculatorValueAdjustment.receive)} · ` : ""}${Math.round(calculatorGap * 100)}% adjusted gap`
                 : "Select both players"}
             </small>
           </div>

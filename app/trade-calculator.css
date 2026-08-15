@@ -93,3 +93,14 @@ html[data-theme="dark"] .trade-lab-status>b{color:var(--ink);background:#252a33;
   .trade-lab-page .calculator-impact{gap:5px;margin:8px}.trade-lab-page .calculator-impact>span{min-width:0;padding:7px 5px}.trade-lab-page .calculator-impact b{font-size:8px}
   .trade-lab-page .trade-board{grid-template-columns:minmax(0,1fr) 70px minmax(0,1fr);gap:5px}
 }
+
+/* Uneven packages compare adjusted totals while keeping the adjustment visible. */
+.calculator-score>div{position:relative;align-self:end}
+.calculator-score>div>span{display:block;color:#fff;font-size:27px;font-weight:950;line-height:1}
+.calculator-score>div>em{position:absolute;left:50%;top:100%;margin-top:3px;color:var(--gold-light);font-size:7px;font-style:normal;font-weight:950;transform:translateX(-50%);white-space:nowrap}
+.trade-lab-page .calculator-score>small{margin-top:12px;line-height:1.25}
+@media(max-width:700px){
+  .trade-lab-page .calculator-score>div>span{font-size:16px}
+  .trade-lab-page .calculator-score>div>em{font-size:5px}
+  .trade-lab-page .calculator-score>small{margin-top:10px;font-size:5.5px;line-height:1.2}
+}
