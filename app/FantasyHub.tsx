@@ -1408,8 +1408,17 @@ export default function FantasyHub({
         setMobileCategoryOpen(null);
       }
     };
+    const closeCategoryOnOutsidePress = (event: PointerEvent) => {
+      if (!mobileCategoryOpen || !(event.target instanceof Element)) return;
+      if (event.target.closest(".mobile-category-menu, .mobile-category-tray")) return;
+      setMobileCategoryOpen(null);
+    };
     document.addEventListener("keydown", closeOnEscape);
-    return () => document.removeEventListener("keydown", closeOnEscape);
+    document.addEventListener("pointerdown", closeCategoryOnOutsidePress, true);
+    return () => {
+      document.removeEventListener("keydown", closeOnEscape);
+      document.removeEventListener("pointerdown", closeCategoryOnOutsidePress, true);
+    };
   }, [mobileNavOpen, mobileCategoryOpen]);
 
   useEffect(() => {
