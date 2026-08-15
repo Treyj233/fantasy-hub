@@ -13,6 +13,8 @@ test("Team Rankings groups assets by position and removes mobile horizontal scro
   assert.match(rankings, /team-position-room/);
   assert.match(rankings, /data-position=\{position\}/);
   assert.match(rankings, /role="dialog" aria-modal="true"/);
+  assert.doesNotMatch(rankings, /document\.body\.style\.overflow/);
+  assert.doesNotMatch(rankings, /document\.documentElement\.style\.overflow/);
   assert.match(rankings, /className="team-assets-close"/);
   assert.match(rankings, /createPortal\(drawer, document\.body\)/);
   assert.match(rankings, /className="team-assets-modal-layer"/);

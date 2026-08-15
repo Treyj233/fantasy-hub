@@ -6939,18 +6939,6 @@ function TeamRankings({
     query.addEventListener("change", update);
     return () => query.removeEventListener("change", update);
   }, []);
-  useEffect(() => {
-    if (!expandedTeamId || !window.matchMedia("(max-width: 700px)").matches)
-      return;
-    const bodyOverflow = document.body.style.overflow;
-    const htmlOverflow = document.documentElement.style.overflow;
-    document.body.style.overflow = "hidden";
-    document.documentElement.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = bodyOverflow;
-      document.documentElement.style.overflow = htmlOverflow;
-    };
-  }, [expandedTeamId]);
   const rankingById = new Map(rankings.map((player) => [player.id, player]));
   const isDynasty = context?.format === "Dynasty";
   const positions = ["QB", "RB", "WR", "TE"];

@@ -26,6 +26,8 @@ test("all modal dialogs receive shared focus, escape, and scroll-lock behavior",
   assert.match(source, /aria-modal="true"/);
   assert.match(source, /event\.key !== "Escape"/);
   assert.match(source, /document\.body\.style\.overflow = dialog \? "hidden"/);
+  assert.match(source, /document\.documentElement\.style\.overflow = dialog \? "hidden"/);
+  assert.match(source, /document\.documentElement\.style\.overflow = previousHtmlOverflow/);
 });
 
 test("native navigation and league switching use restrained haptics", async () => {

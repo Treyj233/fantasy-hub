@@ -6,14 +6,19 @@ export function useOverlayGuard() {
   useEffect(() => {
     let activeDialog: HTMLElement | null = null;
     let previousOverflow = "";
+    let previousHtmlOverflow = "";
 
     const sync = () => {
       const dialog = document.querySelector<HTMLElement>('[role="dialog"][aria-modal="true"]');
       if (dialog === activeDialog) return;
-      if (!activeDialog && dialog) previousOverflow = document.body.style.overflow;
+      if (!activeDialog && dialog) {
+        previousOverflow = document.body.style.overflow;
+        previousHtmlOverflow = document.documentElement.style.overflow;
+      }
       activeDialog = dialog;
       document.documentElement.toggleAttribute("data-overlay-open", Boolean(dialog));
       document.body.style.overflow = dialog ? "hidden" : previousOverflow;
+      document.documentElement.style.overflow = dialog ? "hidden" : previousHtmlOverflow;
       if (dialog)
         window.requestAnimationFrame(() =>
           dialog?.querySelector<HTMLElement>('button[aria-label^="Close"], .close')?.focus(),
@@ -32,6 +37,7 @@ export function useOverlayGuard() {
       document.removeEventListener("keydown", onKeyDown);
       document.documentElement.removeAttribute("data-overlay-open");
       document.body.style.overflow = previousOverflow;
+      document.documentElement.style.overflow = previousHtmlOverflow;
     };
   }, []);
 }
