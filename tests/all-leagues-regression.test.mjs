@@ -53,12 +53,12 @@ test("Pro billing navigation lives in Utilities and replaces the simulator short
   assert.doesNotMatch(source, /season-roll" onClick=\{\(\) => setView\("Simulator"\)\}/);
 });
 
-test("Manage Leagues lives in Utilities and mobile navigation uses five destinations", async () => {
+test("Manage Leagues lives in Utilities and the mobile rail follows sidebar order", async () => {
   const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
   assert.match(source, /label: "Manage Leagues"[^\n]+group: "Utilities"/);
   assert.doesNotMatch(source, /label: "Manage Leagues"[^\n]+group: "Portfolio"/);
-  assert.match(source, /const mobileNavGroups:[\s\S]*?"Home"[\s\S]*?"Game Day"[\s\S]*?"Manage Team"[\s\S]*?"Analyze League"[\s\S]*?"Utilities"/);
-  assert.match(source, /\{mobileNavGroups\.map\(\(item\) => \(/);
+  assert.match(source, /const orderedMobileNav = navGroupOrder\.flatMap\(\(group\) =>\s*visibleNav\.filter\(\(item\) => item\.group === group\),\s*\);/);
+  assert.match(source, /\{orderedMobileNav\.map\(\(item\) => \(/);
 });
 
 test("League Stories leads Analyze League and Manager Report finishes Manage Team", async () => {
@@ -279,22 +279,25 @@ test("portfolio Scoreboard opens both Matchups and league scoreboards", async ()
   assert.match(source, />League scoreboard →<\/button>/);
 });
 
-test("mobile navigation provides five fixed destinations and an accessible page sheet", async () => {
+test("mobile navigation provides a sticky badge rail and accessible menu drawer", async () => {
   const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
   const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
   assert.match(source, /className="nav-label"/);
   assert.match(source, /className="platform-open-copy"/);
   assert.match(source, /Open ESPN/);
   assert.match(source, /Open Sleeper/);
-  assert.match(source, /className="mobile-destination-nav"/);
-  assert.match(source, /className="mobile-destination-sheet" role="dialog" aria-modal="true"/);
-  assert.match(source, /aria-label="Close navigation"/);
+  assert.match(source, /className="mobile-menu-toggle"/);
+  assert.match(source, /aria-controls="primary-sidebar"/);
+  assert.match(source, /className="mobile-nav-strip"/);
+  assert.match(source, /className="mobile-rail-theme"/);
   assert.match(source, /className="account-theme-customizer"/);
   assert.match(source, /className="account-theme-customizer"/);
   assert.match(source, /<strong>Theme Customizer<\/strong>/);
-  assert.match(styles, /\.mobile-destination-nav\{position:fixed/);
-  assert.match(styles, /grid-template-columns:repeat\(5,minmax\(0,1fr\)\)/);
-  assert.match(styles, /\.mobile-destination-sheet\{display:flex/);
+  assert.match(source, /className="mobile-drawer-backdrop"/);
+  assert.match(styles, /\.mobile-header-stack\{position:sticky/);
+  assert.match(styles, /\.mobile-nav-open \.sidebar\{transform:translateX\(0\)\}/);
+  assert.match(styles, /\.sidebar \.sidebar-bottom[^}]*position:static/);
+  assert.match(styles, /html\[data-theme="dark"\] \.sidebar \.sidebar-bottom\{background:transparent\}/);
 });
 
 test("Start Sit separates position and matchup badges", async () => {
