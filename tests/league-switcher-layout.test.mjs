@@ -24,3 +24,11 @@ test("mobile league switching moves into an accessible right-edge drawer", async
   assert.match(css, /\.league-edge-handle\{position:fixed;z-index:63;right:0;top:48%;[^}]*var\(--green\)[^}]*var\(--gold\)/);
   assert.match(css, /\.league-drawer\{position:absolute;z-index:1;top:max\(env\(safe-area-inset-top\),8px\);right:0;bottom:max\(env\(safe-area-inset-bottom\),8px\)/);
 });
+
+test("live matchup shortcut lives in the persistent active-team card", async () => {
+  const ui = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
+  const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  assert.doesNotMatch(ui, /className=\{`league-drawer-live/);
+  assert.match(ui, /className=\{`team-active-live[\s\S]*?setScoreboardScope\("all"\)[\s\S]*?setView\("Scoreboard"\)/);
+  assert.match(css, /\.team-active-live\{display:grid;[^}]*flex:0 0 auto/);
+});

@@ -2352,16 +2352,6 @@ export default function FantasyHub({
                 <div><small>MY LEAGUES</small><strong>Choose your league</strong></div>
                 <button type="button" aria-label="Close league switcher" onClick={() => setLeagueDrawerOpen(false)}>×</button>
               </header>
-              <button
-                className={`league-drawer-live ${liveMatchupCount && liveMatchupCount > 0 ? "live" : ""}`}
-                type="button"
-                onClick={() => {
-                  setLeagueDrawerOpen(false);
-                  setScoreboardScope("all");
-                  setView("Scoreboard");
-                  window.scrollTo({ top: 0, left: 0, behavior: "auto" });
-                }}
-              ><i aria-hidden="true" /><span><b>{liveMatchupCount === null ? "Checking matchups" : liveMatchupCount > 0 ? `${liveMatchupCount} matchups live` : "No matchups live"}</b><small>Open Fantasy Scoreboard</small></span><strong aria-hidden="true">›</strong></button>
               <div className="league-drawer-list">
                 {visibleLeagues.map((league) => (
                   <button
@@ -2536,6 +2526,17 @@ export default function FantasyHub({
                   : "Choose your fantasy team so another manager’s roster never replaces yours."}
               </small>
             </div>
+            <button
+              className={`team-active-live ${liveMatchupCount === null ? "checking" : liveMatchupCount > 0 ? "live" : "idle"}`}
+              type="button"
+              aria-label={liveMatchupCount && liveMatchupCount > 0 ? `Open Fantasy Scoreboard, ${liveMatchupCount} matchups live` : "Open Fantasy Scoreboard, no matchups live"}
+              onClick={() => {
+                void nativeImpact();
+                setScoreboardScope("all");
+                setView("Scoreboard");
+                window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+              }}
+            ><i aria-hidden="true" /><span><b>{liveMatchupCount === null ? "CHECKING" : liveMatchupCount > 0 ? `${liveMatchupCount} LIVE` : "NOT LIVE"}</b><small>Scoreboard</small></span><strong aria-hidden="true">›</strong></button>
             <label>
               Fantasy team
               <select
