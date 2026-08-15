@@ -7632,10 +7632,10 @@ function WeeklyPlayerRankings({
               {card.ranked.map((player, index) => (
                 <button key={player.id} onClick={() => setSelectedPlayer(player)}>
                   <b>#{index + 1}</b>
-                  <span><strong>{player.name}</strong><small>{player.team} · {player.opponent}</small></span>
+                  <span><strong>{player.name}</strong><small>{player.team}</small></span>
                   <div><b>{player.weeklyProjection.toFixed(1)}</b><small>PROJ</small></div>
                   <div><b>{player.weeklyCeiling.toFixed(1)}</b><small>CEIL</small></div>
-                  <em className={player.matchupStrength ? `matchup-${player.matchupStrength.label.toLowerCase()}` : "matchup-neutral"}>{player.matchupStrength?.label ?? "Neutral"}</em>
+                  <div className="weekly-matchup"><MatchupBadge player={player} /></div>
                   <div className="weekly-weather"><b>{(player.weatherAdjustment ?? 0) < -.08 ? "⚠" : player.weatherSummary ? "☁" : "—"}</b><small>{player.weatherSummary ?? "Weather pending"}</small></div>
                   <strong className="weekly-score">{player.weeklyScore.toFixed(1)}</strong>
                 </button>
