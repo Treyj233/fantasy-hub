@@ -4712,12 +4712,9 @@ function LeagueStories({ leagueId, setView }: { leagueId: string; setView: (view
   const [savingRivals, setSavingRivals] = useState(false);
   useEffect(() => {
     if (!draftOpen) return;
-    const previousOverflow = document.body.style.overflow;
     const closeOnEscape = (event: KeyboardEvent) => { if (event.key === "Escape") setDraftOpen(false); };
-    document.body.style.overflow = "hidden";
     document.addEventListener("keydown", closeOnEscape);
     return () => {
-      document.body.style.overflow = previousOverflow;
       document.removeEventListener("keydown", closeOnEscape);
     };
   }, [draftOpen]);
