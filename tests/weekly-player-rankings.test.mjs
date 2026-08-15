@@ -19,6 +19,11 @@ test("weekly player rankings are Pro-gated, week-aware, and position limited", a
   assert.match(rankings, /projectionScore \* \.45 \+ ceilingScore \* \.25 \+ matchupScore \* \.2 \+ weatherScore \* \.1/);
   assert.match(rankings, /const matchupScore = player\.matchupStrength\?\.score \?\? 50/);
   assert.match(rankings, /<div className="weekly-matchup"><MatchupBadge player=\{player\} \/><\/div>/);
+  assert.doesNotMatch(rankings, /<div><span>45%<\/span>/);
+  assert.doesNotMatch(rankings, /<div><span>25%<\/span>/);
+  assert.doesNotMatch(rankings, /<div><span>20%<\/span>/);
+  assert.doesNotMatch(rankings, /<div><span>10%<\/span>/);
+  assert.match(rankings, /<span>MATCHUP<\/span><strong>Opponent strength<\/strong>/);
   assert.match(source, /weatherAdjustment: Math\.max\(-\.22, windPenalty \+ rainPenalty \+ coldPenalty\)/);
   assert.match(styles, /\.weekly-matchup > \.matchup-team/);
   assert.match(styles, /\.weekly-position-grid\s*\{[^}]*grid-template-columns: 1fr 1fr/s);

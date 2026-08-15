@@ -7388,7 +7388,7 @@ function PlayerRanks({
           rankingMode === "weekly"
             ? "Position-by-position weekly ranks blending league projections, ceiling potential, opponent strength, and game-day weather."
             : context
-            ? `Composite market rank for your ${context.teams}-team ${context.format.toLowerCase()} league: 60% Underdog, 30% Sleeper, and 10% ESPN, organized into six draft tiers.`
+            ? `Composite market rank for your ${context.teams}-team ${context.format.toLowerCase()} league, blending Underdog, Sleeper, and ESPN into six draft tiers.`
             : "Import a league to build a six-tier composite from Underdog, Sleeper, and ESPN draft markets."
         }
       />
@@ -7437,17 +7437,17 @@ function PlayerRanks({
       )}
       <section className="ranking-method panel">
         <div>
-          <span>60% UNDERDOG</span>
+          <span>UNDERDOG</span>
           <strong>Sharp Best Ball market</strong>
           <small>{superflex ? "Superflex Half PPR" : context?.scoring === "PPR" ? "Single-QB Full PPR" : "Single-QB Half PPR"} ADP.</small>
         </div>
         <div>
-          <span>30% SLEEPER</span>
+          <span>SLEEPER</span>
           <strong>League-format market</strong>
           <small>{superflex ? "Superflex / 2QB" : "Single-QB"} ADP aligned to league reception scoring.</small>
         </div>
         <div>
-          <span>10% ESPN</span>
+          <span>ESPN</span>
           <strong>Home-league market</strong>
           <small>ESPN&apos;s Single-QB redraft ADP provides the final market signal.</small>
         </div>
@@ -7619,10 +7619,10 @@ function WeeklyPlayerRankings({
   return (
     <div className="weekly-rankings-view">
       <section className="weekly-ranking-method panel">
-        <div><span>45%</span><strong>League projection</strong></div>
-        <div><span>25%</span><strong>Ceiling potential</strong></div>
-        <div><span>20%</span><strong>Matchup quality</strong></div>
-        <div><span>10%</span><strong>Weather conditions</strong></div>
+        <div><span>PROJECTION</span><strong>League projection</strong></div>
+        <div><span>CEILING</span><strong>Ceiling potential</strong></div>
+        <div><span>MATCHUP</span><strong>Opponent strength</strong></div>
+        <div><span>WEATHER</span><strong>Game-day conditions</strong></div>
       </section>
       <div className="weekly-position-grid">
         {cards.map((card) => (

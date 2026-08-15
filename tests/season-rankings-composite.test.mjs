@@ -13,8 +13,11 @@ test("season-long Hub rankings use the requested ADP weights and six tiers", asy
   assert.match(playerRanks, /value: player\.adpBySite\?\.ESPN, weight: 0\.1/);
   assert.match(playerRanks, /source\.value \* source\.weight/);
   assert.match(playerRanks, /const tiers = \[1, 2, 3, 4, 5, 6\] as const/);
-  assert.match(playerRanks, /60% UNDERDOG/);
-  assert.match(playerRanks, /30% SLEEPER/);
-  assert.match(playerRanks, /10% ESPN/);
+  assert.doesNotMatch(playerRanks, /60% UNDERDOG/);
+  assert.doesNotMatch(playerRanks, /30% SLEEPER/);
+  assert.doesNotMatch(playerRanks, /10% ESPN/);
+  assert.match(playerRanks, /<span>UNDERDOG<\/span>/);
+  assert.match(playerRanks, /<span>SLEEPER<\/span>/);
+  assert.match(playerRanks, /<span>ESPN<\/span>/);
   assert.match(playerRanks, /Composite ADP/);
 });
