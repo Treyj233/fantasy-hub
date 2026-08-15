@@ -7,8 +7,10 @@ import { estimatedWinProbability, playerLeverage, rootingInterests, whatDoINeed 
 import { classifyFantasyPlay, findEspnPlayContext, matchupImpactText } from "./live-play-alerts.mjs";
 import { PRE_KICKOFF_VISUALS, PRE_KICKOFF_VISUALS_ENABLED } from "./pre-kickoff-visuals";
 import { DEFAULT_PUSH_PREFERENCES, type PushAlertKey, type PushPreferences } from "./push-preferences";
-import { disableNativePushNotifications, enableNativePushNotifications, initializeNativeRuntime, isNativeIosApp, nativeManageSubscriptions, nativePurchase, nativeRefreshPurchases, nativeRestorePurchases, nativeStoreProducts } from "./native-runtime";
+import { disableNativePushNotifications, enableNativePushNotifications, initializeNativeRuntime, isNativeIosApp, nativeImpact, nativeManageSubscriptions, nativePurchase, nativeRefreshPurchases, nativeRestorePurchases, nativeStoreProducts } from "./native-runtime";
 import { useOverflowAutoScroll } from "./use-overflow-auto-scroll";
+import { useOverlayGuard } from "./use-overlay-guard";
+import { useProductMonitoring } from "./use-product-monitoring";
 
 type View =
   | "Command Center"
@@ -658,28 +660,28 @@ type LeagueScan = {
   }[];
 };
 
-type NavGroup = "Portfolio" | "Live" | "Team Management" | "League Insights" | "Utilities";
-const navGroupOrder: NavGroup[] = ["Portfolio", "Live", "Team Management", "League Insights", "Utilities"];
+type NavGroup = "Home" | "Game Day" | "Manage Team" | "Analyze League" | "Utilities";
+const navGroupOrder: NavGroup[] = ["Home", "Game Day", "Manage Team", "Analyze League", "Utilities"];
 const nav: { label: View; displayLabel?: string; mark: string; tone: string; group: NavGroup }[] = [
-  { label: "All Leagues", displayLabel: "Mission Hub", mark: "◆", tone: "violet", group: "Portfolio" },
+  { label: "All Leagues", displayLabel: "Mission Hub", mark: "◆", tone: "violet", group: "Home" },
   { label: "Manage Leagues", mark: "⚙", tone: "slate", group: "Utilities" },
   { label: "Fantasy Hub Pro", displayLabel: "Manage Plans", mark: "P", tone: "gold", group: "Utilities" },
   { label: "My Account", mark: "J", tone: "blue", group: "Utilities" },
-  { label: "Command Center", mark: "★", tone: "amber", group: "Team Management" },
-  { label: "My Team", mark: "♟", tone: "blue", group: "Team Management" },
-  { label: "Start / Sit", mark: "⚡", tone: "orange", group: "Team Management" },
-  { label: "Waiver Wire", mark: "+", tone: "emerald", group: "Team Management" },
-  { label: "Trade Lab", mark: "↔", tone: "pink", group: "Team Management" },
-  { label: "Simulator", mark: "✦", tone: "indigo", group: "Team Management" },
-  { label: "Manager Report", mark: "✓", tone: "teal", group: "Team Management" },
-  { label: "League Stories", mark: "✎", tone: "violet", group: "League Insights" },
-  { label: "League Analytics", mark: "◈", tone: "purple", group: "League Insights" },
-  { label: "Team Rankings", mark: "↥", tone: "teal", group: "League Insights" },
-  { label: "Player Rankings", mark: "♛", tone: "gold", group: "League Insights" },
-  { label: "ADP", mark: "⌁", tone: "cyan", group: "League Insights" },
-  { label: "Scoreboard", displayLabel: "Fantasy Scoreboard", mark: "▣", tone: "red", group: "Live" },
-  { label: "NFL Games", mark: "🏈", tone: "football", group: "Live" },
-  { label: "Matchups", displayLabel: "Fantasy Matchups", mark: "◎", tone: "sky", group: "Live" },
+  { label: "Command Center", mark: "★", tone: "amber", group: "Manage Team" },
+  { label: "My Team", mark: "♟", tone: "blue", group: "Manage Team" },
+  { label: "Start / Sit", mark: "⚡", tone: "orange", group: "Manage Team" },
+  { label: "Waiver Wire", mark: "+", tone: "emerald", group: "Manage Team" },
+  { label: "Trade Lab", mark: "↔", tone: "pink", group: "Manage Team" },
+  { label: "Simulator", mark: "✦", tone: "indigo", group: "Manage Team" },
+  { label: "Manager Report", mark: "✓", tone: "teal", group: "Manage Team" },
+  { label: "League Stories", mark: "✎", tone: "violet", group: "Analyze League" },
+  { label: "League Analytics", mark: "◈", tone: "purple", group: "Analyze League" },
+  { label: "Team Rankings", mark: "↥", tone: "teal", group: "Analyze League" },
+  { label: "Player Rankings", mark: "♛", tone: "gold", group: "Analyze League" },
+  { label: "ADP", mark: "⌁", tone: "cyan", group: "Analyze League" },
+  { label: "Scoreboard", displayLabel: "Fantasy Scoreboard", mark: "▣", tone: "red", group: "Game Day" },
+  { label: "NFL Games", mark: "🏈", tone: "football", group: "Game Day" },
+  { label: "Matchups", displayLabel: "Fantasy Matchups", mark: "◎", tone: "sky", group: "Game Day" },
   { label: "Glossary", mark: "?", tone: "blue", group: "Utilities" },
 ];
 
@@ -1367,6 +1369,8 @@ export default function FantasyHub({
 
   useEffect(() => initializeNativeRuntime(), []);
   useOverflowAutoScroll();
+  useOverlayGuard();
+  useProductMonitoring(view, importState === "loading", accountError);
 
   useEffect(() => {
     const orientation = screen.orientation as ScreenOrientation & {
@@ -2008,6 +2012,7 @@ export default function FantasyHub({
                   key={item.label}
                   className={view === item.label ? "active" : ""}
                   onClick={() => {
+                    void nativeImpact();
                     if (item.label === "Matchups") setSelectedMatchupId(null);
                     if (item.label === "Scoreboard") setScoreboardScope("all");
                     if (item.label === "Waiver Wire") window.scrollTo({ top: 0, left: 0, behavior: "auto" });
@@ -2140,6 +2145,7 @@ export default function FantasyHub({
               aria-current={view === item.label ? "page" : undefined}
               title={item.displayLabel ?? item.label}
               onClick={() => {
+                void nativeImpact();
                 if (item.label === "Matchups") setSelectedMatchupId(null);
                 if (item.label === "Scoreboard") setScoreboardScope("all");
                 if (item.label === "Waiver Wire") window.scrollTo({ top: 0, left: 0, behavior: "auto" });
@@ -2168,6 +2174,15 @@ export default function FantasyHub({
           </button>
         </nav>
         </div>
+
+        {view !== "All Leagues" && view !== "Manage Leagues" && (
+          <section className="tool-context-bar" aria-label="Current tool context">
+            <span><b>{leagueName}</b><small>League</small></span>
+            <span><b>{rankingContext?.scoring ?? "Scoring pending"}</b><small>Format</small></span>
+            <span><b>{periodLabel}</b><small>Season</small></span>
+            <span className={importState === "loading" ? "refreshing" : "ready"}><i aria-hidden="true" /><b>{importState === "loading" ? "Updating" : leagueRefreshedAt ? `Updated ${new Date(leagueRefreshedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}` : "Ready"}</b><small>Data</small></span>
+          </section>
+        )}
 
         {accountError && view !== "Manage Leagues" && (
           <section className="app-status-banner" role="status">
@@ -2256,8 +2271,10 @@ export default function FantasyHub({
                     }
                   }}
                   onClick={() => {
-                    if (!leagueDragOccurred.current)
+                    if (!leagueDragOccurred.current) {
+                      void nativeImpact();
                       void openConnectedLeague(league);
+                    }
                   }}
                   disabled={importState === "loading"}
                   title="Drag to reorder · Alt+Left/Right also moves this league"
@@ -4029,8 +4046,8 @@ function AllLeagues({
     .map((item) => ({ ...item, priority: queuePriority(item.issue), score: 100 - priorityOrder[queuePriority(item.issue)] * 20 + (item.issue.severity === "critical" ? 15 : item.issue.severity === "warning" ? 7 : 0) + Math.max(0, 10 - item.scan.health / 10) }))
     .sort((a, b) => b.score - a.score)
     .filter((item, index, items) => index === items.findIndex((candidate) => candidate.scan.league.id === item.scan.league.id && candidate.priority === item.priority && candidate.issue.category === item.issue.category));
-  const topActions = prioritizedInbox.slice(0, 3);
-  const remainingActions = prioritizedInbox.slice(3);
+  const topActions = prioritizedInbox.slice(0, 5);
+  const remainingActions = prioritizedInbox.slice(5);
   const healthyLeagues = scans.filter((scan) => !scan.issues.length && !scan.preDraft);
   const playerExposure = Array.from(
     scans.reduce<
@@ -4159,7 +4176,7 @@ function AllLeagues({
         <>
           <section className="portfolio-section portfolio-inbox priority-inbox panel">
             <div className="portfolio-heading">
-              <div><span>PRIORITIZED INBOX</span><h3>The three things that matter most</h3></div>
+              <div><span>PRIORITIZED INBOX</span><h3>The decisions that matter most</h3></div>
               <b>{topActions.length ? `${topActions.length} TOP ACTIONS` : "ALL CLEAR"}</b>
             </div>
             <div className="portfolio-top-three portfolio-action-list">
@@ -4179,6 +4196,9 @@ function AllLeagues({
               {!topActions.length && <div className="portfolio-clear"><i>✓</i><p><strong>No action required right now</strong><small>Every connected lineup passed the current availability, projection, bye, weather, and waiver scan.</small></p></div>}
             </div>
           </section>
+          <details className="mission-deep-dive">
+            <summary><span><b>Explore the full portfolio</b><small>Action queue, matchup board, roster exposure, waivers, and weekly recap</small></span><i aria-hidden="true">⌄</i></summary>
+            <div className="mission-deep-dive-content">
           <section className="portfolio-section action-queue panel">
             <div className="portfolio-heading"><div><span>FULL ACTION QUEUE</span><h3>Everything else, organized by deadline</h3></div><b>{remainingActions.length} QUEUED</b></div>
             {remainingActions.length > 0 && <div className="action-queue-scroll-preview" aria-hidden="true"><span>Swipe for more</span><i>→</i></div>}
@@ -4217,6 +4237,8 @@ function AllLeagues({
             <div className="portfolio-heading"><div><span>WEEKLY CLUBHOUSE</span><h3>Your portfolio superlatives</h3></div></div>
             <div><article><i>🏆</i><span><small>BEST PREPARED</small><strong>{healthiest?.league.name}</strong><em>{healthiest?.health}/100 weekly readiness</em></span></article><article><i>🚀</i><span><small>BIGGEST LINEUP</small><strong>{biggestProjection?.teamName}</strong><em>{biggestProjection ? `${biggestProjection.league.name} · ${biggestProjection.projection.toFixed(1)} projected points` : "Projection unavailable"}</em></span></article><article><i>🎯</i><span><small>PORTFOLIO ANCHOR</small><strong>{playerExposure[0]?.player.name ?? "No repeat player"}</strong><em>{playerExposure[0] ? `Rostered in ${playerExposure[0].leagues.length} leagues` : "Diversified rosters"}</em></span></article></div>
           </section>
+            </div>
+          </details>
         </>
       )}
       {scanIsActive ? (

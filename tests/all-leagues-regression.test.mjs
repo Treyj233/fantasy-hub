@@ -48,7 +48,7 @@ test("new accounts start in light mode without changing saved account preference
 test("Pro billing navigation lives in Utilities and replaces the simulator shortcut", async () => {
   const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
   assert.match(source, /displayLabel: "Manage Plans"[^\n]+group: "Utilities"/);
-  assert.match(source, /"League Insights", "Utilities"/);
+  assert.match(source, /"Analyze League", "Utilities"/);
   assert.match(source, /pro-top-action[^\n]+setView\("Fantasy Hub Pro"\)/);
   assert.doesNotMatch(source, /season-roll" onClick=\{\(\) => setView\("Simulator"\)\}/);
 });
@@ -61,10 +61,10 @@ test("Manage Leagues lives in Utilities and the mobile rail follows sidebar orde
   assert.match(source, /\{orderedMobileNav\.map\(\(item\) => \(/);
 });
 
-test("League Stories leads League Insights and Manager Report finishes Team Management", async () => {
+test("League Stories leads Analyze League and Manager Report finishes Manage Team", async () => {
   const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
-  assert.match(source, /label: "League Stories"[^\n]+group: "League Insights"/);
-  assert.match(source, /label: "Manager Report"[^\n]+group: "Team Management"/);
+  assert.match(source, /label: "League Stories"[^\n]+group: "Analyze League"/);
+  assert.match(source, /label: "Manager Report"[^\n]+group: "Manage Team"/);
   assert.ok(source.indexOf('label: "Manager Report"') > source.indexOf('label: "Simulator"'));
   assert.ok(source.indexOf('label: "League Stories"') < source.indexOf('label: "League Analytics"'));
 });
