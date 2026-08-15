@@ -4274,8 +4274,8 @@ function AllLeagues({
     .map((item) => ({ ...item, priority: queuePriority(item.issue), score: 100 - priorityOrder[queuePriority(item.issue)] * 20 + (item.issue.severity === "critical" ? 15 : item.issue.severity === "warning" ? 7 : 0) + Math.max(0, 10 - item.scan.health / 10) }))
     .sort((a, b) => b.score - a.score)
     .filter((item, index, items) => index === items.findIndex((candidate) => candidate.scan.league.id === item.scan.league.id && candidate.priority === item.priority && candidate.issue.category === item.issue.category));
-  const topActions = prioritizedInbox.slice(0, 5);
-  const remainingActions = prioritizedInbox.slice(5);
+  const topActions = prioritizedInbox.slice(0, 3);
+  const remainingActions = prioritizedInbox.slice(3);
   const healthyLeagues = scans.filter((scan) => !scan.issues.length && !scan.preDraft);
   const playerExposure = Array.from(
     scans.reduce<
@@ -4488,11 +4488,11 @@ function AllLeagues({
       ) : (
         <section className="league-scan-list">
           {scans.map((scan) => (
-            <article
+            <details
               className={`league-scan-card ${scan.status}`}
               key={scan.league.id}
             >
-              <header>
+              <summary className="league-scan-summary">
                 <div>
                   <span>
                     {scan.preDraft ? "DRAFT PREP" : `WEEK ${scan.week}`} · {scan.league.format.toUpperCase()}
@@ -4514,7 +4514,8 @@ function AllLeagues({
                         ? "READY"
                         : "REFRESH"}
                 </b>
-              </header>
+                <i aria-hidden="true">⌄</i>
+              </summary>
               <div className="league-issue-list">
                 {scan.issues.length ? (
                   scan.issues.map((issue) => (
@@ -4552,7 +4553,7 @@ function AllLeagues({
                   <a className="platform-link" href={platformLeagueUrl(scan.league)} onClick={(event) => openPlatformLeagueOnMobile(event, scan.league)} target="_blank" rel="noopener noreferrer" aria-label={`Open league in ${scan.league.provider === "espn" ? "ESPN" : "Sleeper"} (opens in a new tab)`}><PlatformLogo provider={scan.league.provider === "espn" ? "ESPN" : "Sleeper"} /><b aria-hidden="true">↗</b></a>
                 </div>
               </footer>
-            </article>
+            </details>
           ))}
         </section>
       )}

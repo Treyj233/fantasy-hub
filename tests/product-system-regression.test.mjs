@@ -11,7 +11,7 @@ test("navigation is consolidated into five user-centered destinations", async ()
 
 test("Mission Hub prioritizes five decisions and progressively discloses depth", async () => {
   const source = await load("../app/FantasyHub.tsx");
-  assert.match(source, /prioritizedInbox\.slice\(0, 5\)/);
+  assert.match(source, /prioritizedInbox\.slice\(0, 3\)/);
   assert.match(source, /<details className="mission-deep-dive">/);
 });
 

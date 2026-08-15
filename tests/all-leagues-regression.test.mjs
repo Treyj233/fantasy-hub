@@ -137,6 +137,16 @@ test("extreme Fire and Ice statuses affect their player cards", async () => {
   assert.match(styles, /@media\(prefers-reduced-motion:reduce\)\{[^}]*\.temperature-card-fire,\.temperature-card-ice\{animation:none!important\}/);
 });
 
+test("Mission Hub is shorter and weekly league boxes start collapsed", async () => {
+  const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
+  const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  assert.match(source, /const topActions = prioritizedInbox\.slice\(0, 3\);[\s\S]*?const remainingActions = prioritizedInbox\.slice\(3\)/);
+  assert.match(source, /<details[\s\S]*?className=\{`league-scan-card \$\{scan\.status\}`\}[\s\S]*?<summary className="league-scan-summary">/);
+  assert.doesNotMatch(source, /<details[^>]*className=\{`league-scan-card[^>]*\sopen[=>]/);
+  assert.match(styles, /\.priority-inbox \.portfolio-action-list article\{[^}]*padding:11px 15px/);
+  assert.match(styles, /\.league-scan-card\[open\]>summary>i\{transform:rotate\(180deg\)\}/);
+});
+
 test("My Leagues exposes live matchup status and opens the Fantasy Scoreboard", async () => {
   const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
   const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
