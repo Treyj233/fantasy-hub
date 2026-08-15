@@ -2196,6 +2196,18 @@ export default function FantasyHub({
           })}
         </nav>
         {mobileCategoryOpen && (
+          <button
+            className="mobile-category-scrim"
+            type="button"
+            aria-label="Close category menu"
+            onPointerDown={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              setMobileCategoryOpen(null);
+            }}
+          />
+        )}
+        {mobileCategoryOpen && (
           <section className="mobile-category-menu" aria-label={`${mobileCategoryOpen} pages`}>
             <header><div><small>EXPLORE</small><strong>{mobileCategoryOpen}</strong></div><button type="button" aria-label="Close category menu" onClick={() => setMobileCategoryOpen(null)}>×</button></header>
             <div>

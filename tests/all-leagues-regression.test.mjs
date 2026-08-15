@@ -91,6 +91,15 @@ test("sidebar FH logo is an accessible Home button", async () => {
   assert.match(styles, /\.brand-logo:focus-visible\{outline:3px solid var\(--gold-light\);outline-offset:3px\}/);
 });
 
+test("open mobile category menu shields the page behind it", async () => {
+  const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
+  const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  assert.match(source, /mobileCategoryOpen && \([\s\S]*?className="mobile-category-scrim"[\s\S]*?event\.preventDefault\(\)[\s\S]*?event\.stopPropagation\(\)[\s\S]*?setMobileCategoryOpen\(null\)/);
+  assert.match(styles, /\.mobile-category-scrim\{position:fixed;z-index:2;inset:0;display:block;[^}]*touch-action:none\}/);
+  assert.match(styles, /\.mobile-category-menu\{position:absolute;z-index:3/);
+  assert.match(styles, /\.mobile-category-tray\{position:relative;z-index:3/);
+});
+
 test("League Stories leads Analyze League and Manager Report finishes Manage Team", async () => {
   const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
   assert.match(source, /label: "League Stories"[^\n]+group: "Analyze League"/);
