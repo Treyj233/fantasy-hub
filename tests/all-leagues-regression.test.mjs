@@ -61,6 +61,7 @@ test("Manage Leagues lives in Utilities and the mobile tray uses five categories
   assert.match(source, /const mobileCategoryNav:[\s\S]*?"Home"[\s\S]*?"Game Day"[\s\S]*?"Manage Team"[\s\S]*?"Analyze League"[\s\S]*?"Utilities"/);
   assert.match(source, /\{mobileCategoryNav\.map\(\(item\) => \{/);
   assert.match(source, /closeCategoryOnOutsidePress[\s\S]*?closest\("\.mobile-category-menu, \.mobile-category-tray"\)[\s\S]*?setMobileCategoryOpen\(null\)/);
+  assert.match(source, /closeCategoryOnOutsidePress[\s\S]*?event\.preventDefault\(\)[\s\S]*?event\.stopPropagation\(\)[\s\S]*?event\.stopImmediatePropagation\(\)[\s\S]*?setMobileCategoryOpen\(null\)/);
   assert.match(source, /addEventListener\("pointerdown", closeCategoryOnOutsidePress, true\)/);
   assert.match(source, /removeEventListener\("pointerdown", closeCategoryOnOutsidePress, true\)/);
   assert.match(styles, /\.mobile-category-tray>button \.nav-badge\{[^}]*width:29px;height:29px[^}]*border-radius:9px/);

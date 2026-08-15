@@ -1411,6 +1411,9 @@ export default function FantasyHub({
     const closeCategoryOnOutsidePress = (event: PointerEvent) => {
       if (!mobileCategoryOpen || !(event.target instanceof Element)) return;
       if (event.target.closest(".mobile-category-menu, .mobile-category-tray")) return;
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
       setMobileCategoryOpen(null);
     };
     document.addEventListener("keydown", closeOnEscape);
