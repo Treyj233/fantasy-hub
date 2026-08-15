@@ -5008,6 +5008,13 @@ function AllLeagueScoreboard({
         </label>
         <div className="live-refresh"><i />{loading ? "Refreshing" : `Updated ${updatedAt ? new Date(updatedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "—"}`}</div>
       </section>
+      <button
+        className="mobile-matchup-jump"
+        type="button"
+        onClick={() => document.getElementById("league-matchups")?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" })}
+      >
+        <span>League matchups</span><b aria-hidden="true">↓</b>
+      </button>
       <section className="sunday-pulse" aria-label="Sunday Pulse">
         <b><i /> SUNDAY PULSE</b>
         <div><span>{pulseItems.join("  •  ")}</span><span aria-hidden="true">{pulseItems.join("  •  ")}</span></div>
@@ -5075,7 +5082,7 @@ function AllLeagueScoreboard({
         <section className="panel rooting-interests"><header><div><span>ROOTING INTERESTS</span><h3>Who to cheer—and who to stop</h3></div><b>📣 GAME-DAY PULSE</b></header><div className="insight-scroll-window">{gameDay.interests.length ? gameDay.interests.map((interest) => <article className={`rooting-${interest.sentiment}`} key={interest.playerId}><div className="rooting-visual"><NflTeamLogo team={interest.nflTeam} /><PlayerHeadshot id={interest.playerId} position={interest.position} /><i aria-hidden="true">{interest.sentiment === "cheer" ? "📣" : interest.sentiment === "fade" ? "🛑" : "⚖️"}</i></div><p><span>{interest.sentiment === "cheer" ? "ROOT FOR" : interest.sentiment === "fade" ? "ROOT AGAINST" : "MIXED ROOTING INTEREST"}</span><strong>{interest.playerName}</strong><small>{interest.text}</small><span className="rooting-leagues">{interest.affectedLeagues.map((league) => <b className={league.impact} key={`${interest.playerId}-${league.id}`}>{league.impact === "helps" ? "↑" : "↓"} {league.name}</b>)}</span></p><em><small>{interest.level}</small>{interest.score}</em></article>) : <p className="game-day-empty">Rooting interests appear when weekly lineups and projections are available.</p>}</div></section>
         <section className={`panel sunday-swing ${!swingFeed.length && sundaySwingPreview.length ? "pre-kickoff" : ""}`} data-visual-source={!swingFeed.length && sundaySwingPreview.length ? "pre-kickoff" : "observed"}><header><div><span>SUNDAY SWING</span><h3>{swingFeed.length ? "Observed this session" : "Projected swing paths"}</h3></div>{!swingFeed.length && sundaySwingPreview.length && <b>SUNDAY OUTLOOK</b>}</header><div className="insight-scroll-window">{swingFeed.length ? swingFeed.map((item) => <article key={item.id}><b className={item.current >= item.previous ? "positive" : "negative"}>{item.current >= item.previous ? "↑" : "↓"} {Math.abs(item.current - item.previous)} pts</b><p><strong>{item.league}</strong><small>{item.text}</small></p><time>{item.at ? new Date(item.at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "Now"}</time></article>) : sundaySwingPreview.length ? <><p className="swing-preview-note">Potential win-probability movement based on your current lineups and matchup projections. Live plays replace these paths automatically.</p>{sundaySwingPreview.map((item, index) => <article className="swing-preview-card" key={item.id}><b className={item.current >= item.previous ? "positive" : "negative"}>{item.current >= item.previous ? "↑" : "↓"} {Math.abs(item.current - item.previous)} pts</b><p><strong>{item.league}</strong><small>{item.text}</small><span><i style={{ width: `${item.current}%` }} /></span></p><time>{PRE_KICKOFF_VISUALS.swingWindows[index] ?? "GAME WINDOW"}</time></article>)}</> : <p className="game-day-empty">Scoring swings will populate as matchup results change.</p>}</div></section>
       </div>
-      <div className="portfolio-scoreboard-grid">
+      <div className="portfolio-scoreboard-grid" id="league-matchups">
         {orderedLeagues.map((league) => {
           const data = scores[league.id];
           const matchup = data?.matchups.find((item) => item.teams.some((team) => team.isMine));

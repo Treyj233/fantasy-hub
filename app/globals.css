@@ -1530,3 +1530,12 @@ html[data-theme="dark"] .all-leagues-page .exposure-list>b,html[data-theme="dark
 /* Normal tool pages use a slim label rail; detailed copy remains in the tools. */
 .page-content>.section-intro.compact{display:block;min-height:0;margin:0 0 10px;padding:11px 16px}
 @media(max-width:700px){.page-content>.section-intro.compact{display:block;margin-bottom:7px;padding:8px 11px;border-left-width:3px}.page-content>.section-intro.compact>span{font-size:8px!important;line-height:1.1;white-space:normal}}
+
+/* Mobile Game Day shortcut to the detailed league matchup cards. */
+.mobile-matchup-jump{display:none}
+#league-matchups{scroll-margin-top:112px}
+@media(max-width:700px){
+  .mobile-matchup-jump{display:flex;width:100%;align-items:center;justify-content:center;gap:8px;padding:10px 13px;color:#fff;background:linear-gradient(120deg,var(--green),color-mix(in srgb,var(--green) 72%,var(--gold)));border:1px solid color-mix(in srgb,var(--gold) 42%,var(--green));border-radius:11px;box-shadow:0 7px 18px rgb(0 0 0 / .13);font-size:9px;font-weight:950;letter-spacing:.08em;text-transform:uppercase}
+  .mobile-matchup-jump b{display:grid;width:20px;height:20px;place-items:center;background:#ffffff20;border:1px solid #ffffff38;border-radius:50%;font-size:13px;line-height:1}
+  .mobile-matchup-jump:active{transform:translateY(1px)}
+}
