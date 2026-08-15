@@ -10224,6 +10224,17 @@ function PlayerPanel({
         (candidate.name === player.name && candidate.position === player.position),
     ),
   );
+  const adjustedRange = matchupAdjustedRange(player);
+  const projectionValue = platformProjection ?? player.projection;
+  const rangeWidth = Math.max(1, adjustedRange.ceiling - adjustedRange.floor);
+  const projectionPosition = Math.max(4, Math.min(96, ((projectionValue - adjustedRange.floor) / rangeWidth) * 100));
+  const statusRisk = /out|doubtful|ir|suspend/i.test(player.status);
+  const verdict = statusRisk ? "AVOID UNTIL ACTIVE" : projectionValue >= 18 ? "CONFIDENT START" : projectionValue >= 12 ? "LINEUP READY" : projectionValue >= 8 ? "MATCHUP FLEX" : "BENCH / WATCH";
+  const verdictTone = statusRisk ? "risk" : projectionValue >= 12 ? "strong" : projectionValue >= 8 ? "watch" : "risk";
+  const latestSeason = history?.seasons[0];
+  const recentAverage = history?.recentWeeks.length
+    ? history.recentWeeks.reduce((total, week) => total + week.points, 0) / history.recentWeeks.length
+    : null;
   return (
     <div className="player-modal-layer">
     <div
@@ -10248,56 +10259,37 @@ function PlayerPanel({
             <Status value={player.status} />
             </div>
           </div>
-          <button className="close" onClick={close}>
+          <button className="close" aria-label="Close player details" onClick={close}>
             ×
           </button>
         </header>
-        <section className="dossier-hero">
-          <div>
-            <span>{projectionPlatform.toUpperCase()} PROJECTION</span>
-            <strong>
-              {platformProjection !== null
-                ? platformProjection.toFixed(1)
-                : "—"}
-            </strong>
-            <small>Weekly estimate from {projectionPlatform}</small>
+        <section className="player-command-hero">
+          <div className="player-verdict">
+            <span>FANTASY HUB VERDICT</span>
+            <strong className={verdictTone}>{verdict}</strong>
+            <p>{statusRisk ? `${player.status} status overrides the current projection until availability is confirmed.` : `${projectionPlatform} projects ${projectionValue.toFixed(1)} points with a ${player.matchupStrength?.label.toLowerCase() ?? "neutral"} positional matchup.`}</p>
           </div>
-          <div className="outcome-range">
-            <span>
-              Status <b>{player.status}</b>
-            </span>
-            <span>
-              Slot <b>{formatRosterSlot(player.role)}</b>
-            </span>
-            <span>
-              Team <b>{player.team}</b>
-            </span>
+          <div className="player-projection-command">
+            <span>{projectionPlatform.toUpperCase()} PROJECTION</span>
+            <strong>{platformProjection !== null ? platformProjection.toFixed(1) : "—"}</strong>
+            <small>Expected fantasy points</small>
+          </div>
+          <div className="player-range-command">
+            <header><span>WEEKLY OUTCOME RANGE</span><small>{(adjustedRange.ceiling - adjustedRange.floor).toFixed(1)} point spread</small></header>
+            <div className="player-range-track"><i style={{ left: `${projectionPosition}%` }} /></div>
+            <footer><span><b>{adjustedRange.floor.toFixed(1)}</b> FLOOR</span><span><b>{projectionValue.toFixed(1)}</b> PROJ</span><span><b>{adjustedRange.ceiling.toFixed(1)}</b> CEILING</span></footer>
           </div>
         </section>
-        <section className="dossier-facts">
-          <div>
-            <span>Role</span>
-            <strong>{formatRosterSlot(player.role)}</strong>
-          </div>
-          <div>
-            <span>Trend</span>
-            <strong className={player.trend >= 0 ? "up" : "down"}>
-              {player.trend >= 0 ? "+" : ""}
-              {player.trend.toFixed(1)}
-            </strong>
-          </div>
-          <div>
-            <span>Experience</span>
-            <strong>
-              {history?.player.yearsExp != null
-                ? `${history.player.yearsExp} yrs`
-                : "—"}
-            </strong>
-          </div>
-          <div>
-            <span>Age</span>
-            <strong>{history?.player.age ?? "—"}</strong>
-          </div>
+        <section className="player-decision-rail">
+          <article><span>ROLE</span><strong>{formatRosterSlot(player.role)}</strong><small>{player.status}</small></article>
+          <article><span>RECENT FORM</span><strong>{recentAverage !== null ? recentAverage.toFixed(1) : "—"}</strong><small>recent PPG</small></article>
+          <article><span>SEASON</span><strong>{latestSeason?.pointsPerGame.toFixed(1) ?? "—"}</strong><small>{latestSeason?.positionRank ? `Pos. #${latestSeason.positionRank}` : "PPG"}</small></article>
+          <article><span>SNAP SHARE</span><strong>{typeof (history?.snapProfile?.averagePct ?? player.snapAverage) === "number" ? `${(history?.snapProfile?.averagePct ?? player.snapAverage)!.toFixed(0)}%` : "—"}</strong><small>season average</small></article>
+          <article><span>TREND</span><strong className={player.trend >= 0 ? "up" : "down"}>{player.trend >= 0 ? "+" : ""}{player.trend.toFixed(1)}</strong><small>market movement</small></article>
+        </section>
+        <section className="player-matchup-intel">
+          <header><div><span>MATCHUP INTELLIGENCE</span><h3>{player.opponent === "BYE" ? "No game scheduled" : `${player.team} ${player.opponent}`}</h3></div><MatchupBadge player={player} /></header>
+          <div><article><span>WEATHER</span><strong>{player.weatherSummary ?? "Forecast pending"}</strong></article><article><span>RANGE IMPACT</span><strong>{adjustedRange.edge > .08 ? "Ceiling boost" : adjustedRange.edge < -.08 ? "Added downside" : "Neutral range"}</strong></article><article><span>EXPERIENCE</span><strong>{history?.player.yearsExp != null ? `${history.player.yearsExp} seasons` : "—"}</strong></article><article><span>AGE</span><strong>{history?.player.age ?? "—"}</strong></article></div>
         </section>
         <section className="snap-usage-card">
           <header>
