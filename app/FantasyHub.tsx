@@ -4713,6 +4713,10 @@ function AllLeagueScoreboard({
   const previousPulseSnapshot = useRef<Record<string, { points: number; yards: number; touchdowns: number; receptions: number; offensiveTurnovers: number; defensiveTurnovers: number; returnTouchdowns: number; fieldGoals: number }>>({});
   const previousPulseOdds = useRef<Record<string, number | null>>({});
   const savedWinPathPayloads = useRef<Record<string, string>>({});
+  const matchupJumpTimers = useRef<number[]>([]);
+  useEffect(() => () => {
+    matchupJumpTimers.current.forEach((timer) => window.clearTimeout(timer));
+  }, []);
   useEffect(() => {
     if (!leagues.length) return;
     let active = true;
@@ -4983,6 +4987,20 @@ function AllLeagueScoreboard({
     if (!document.fullscreenElement) void document.documentElement.requestFullscreen?.();
     else void document.exitFullscreen?.();
   };
+  const scrollToLeagueMatchups = () => {
+    matchupJumpTimers.current.forEach((timer) => window.clearTimeout(timer));
+    matchupJumpTimers.current = [];
+    const scrollToTarget = (behavior: ScrollBehavior) => {
+      document.getElementById("league-matchups")?.scrollIntoView({ behavior, block: "start" });
+    };
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    scrollToTarget(reducedMotion ? "auto" : "smooth");
+    // Initial score data and deferred cards can expand above the anchor after
+    // the first tap. Re-anchor briefly while that first layout settles.
+    matchupJumpTimers.current = [150, 450, 900, 1500].map((delay) =>
+      window.setTimeout(() => scrollToTarget("auto"), delay),
+    );
+  };
   const scrollToLeagueScore = (leagueId: string) => {
     document.getElementById(`portfolio-matchup-${leagueId}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
@@ -5011,7 +5029,7 @@ function AllLeagueScoreboard({
       <button
         className="mobile-matchup-jump"
         type="button"
-        onClick={() => document.getElementById("league-matchups")?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" })}
+        onClick={scrollToLeagueMatchups}
       >
         <span>League matchups</span><b aria-hidden="true">↓</b>
       </button>

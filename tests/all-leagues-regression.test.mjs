@@ -176,7 +176,8 @@ test("hottest performers explains league help and harm in plain language", async
 test("mobile Game Day can jump directly to league matchups", async () => {
   const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
   const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
-  assert.match(source, /className="mobile-matchup-jump"[\s\S]*?getElementById\("league-matchups"\)\?\.scrollIntoView/);
+  assert.match(source, /className="mobile-matchup-jump"[\s\S]*?onClick=\{scrollToLeagueMatchups\}/);
+  assert.match(source, /const scrollToLeagueMatchups = \(\) => \{[\s\S]*?\[150, 450, 900, 1500\][\s\S]*?scrollToTarget\("auto"\)/);
   assert.match(source, /className="portfolio-scoreboard-grid" id="league-matchups"/);
   assert.match(styles, /\.mobile-matchup-jump\{display:none\}/);
   assert.match(styles, /@media\(max-width:700px\)\{[\s\S]*?\.mobile-matchup-jump\{display:flex/);
