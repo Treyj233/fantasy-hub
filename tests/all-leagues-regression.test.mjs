@@ -188,6 +188,14 @@ test("switching primary pages resets every app scroll container to the top", asy
   assert.match(source, /useEffect\(\(\) => \{[\s\S]*?window\.scrollTo\(\{ top: 0, left: 0, behavior: "auto" \}\)[\s\S]*?document\.documentElement\.scrollTop = 0[\s\S]*?document\.body\.scrollTop = 0[\s\S]*?querySelector<HTMLElement>\("\.workspace"\)\?\.scrollTo[\s\S]*?\}, \[view\]\)/);
 });
 
+test("Team Rankings uses the app typography instead of a separate display font", async () => {
+  const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  assert.match(styles, /\.team-rankings-page,\.team-assets-modal-layer\{font-family:var\(--font-geist-sans\),Arial,sans-serif\}/);
+  assert.match(styles, /\.rank-team-name strong\{[^}]*font-family:inherit[^}]*font-style:normal[^}]*text-transform:none/);
+  assert.match(styles, /\.room-rank b\{[^}]*font-family:inherit[^}]*font-style:normal/);
+  assert.match(styles, /\.team-assets-mobile-open\{[^}]*font-family:var\(--font-geist-sans\),Arial,sans-serif[^}]*font-style:normal[^}]*text-transform:none/);
+});
+
 test("League Stories leads Analyze League and Manager Report finishes Manage Team", async () => {
   const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
   assert.match(source, /label: "League Stories"[^\n]+group: "Analyze League"/);
