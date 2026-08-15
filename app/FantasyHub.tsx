@@ -173,7 +173,7 @@ const playerShell = (
 type RankedPlayer = Player & {
   overallRank: number;
   positionRank: number;
-  tier: 1 | 2 | 3 | 4;
+  tier: 1 | 2 | 3 | 4 | 5 | 6;
   outlook: string;
   adpBySite?: Record<string, number | null>;
 };
@@ -7276,19 +7276,41 @@ function PlayerRanks({
     roster.map((player) => player.name.toLowerCase()),
   );
   const teamCount = context?.teams ?? 12;
+  const superflex = (context?.positionDemand.QB ?? 0) > 1.4;
+  const sleeperAdpKey = `Sleeper ${superflex ? "Superflex" : "Single-QB"}`;
+  const underdogAdpKey = `Underdog ${superflex ? "Superflex Half PPR" : context?.scoring === "PPR" ? "Single-QB Full PPR" : "Single-QB Half PPR"}`;
+  const compositePool = leagueRankings
+    .map((player) => {
+      const sources = [
+        { value: player.adpBySite?.[underdogAdpKey], weight: 0.6 },
+        { value: player.adpBySite?.[sleeperAdpKey], weight: 0.3 },
+        { value: player.adpBySite?.ESPN, weight: 0.1 },
+      ].filter((source): source is { value: number; weight: number } => typeof source.value === "number");
+      const availableWeight = sources.reduce((total, source) => total + source.weight, 0);
+      const compositeAdp = availableWeight
+        ? sources.reduce((total, source) => total + source.value * source.weight, 0) / availableWeight
+        : null;
+      return { ...player, compositeAdp };
+    })
+    .sort((a, b) => (a.compositeAdp ?? Number.POSITIVE_INFINITY) - (b.compositeAdp ?? Number.POSITIVE_INFINITY) || a.overallRank - b.overallRank);
   const positionRanks = new Map<string, number>();
-  const personalizedPool: (RankedPlayer & Partial<LeagueRanking>)[] =
-    leagueRankings.map((player) => {
+  const personalizedPool: (RankedPlayer & Partial<LeagueRanking> & { compositeAdp: number | null })[] =
+    compositePool.map((player, index) => {
       const positionRank = (positionRanks.get(player.position) ?? 0) + 1;
       positionRanks.set(player.position, positionRank);
-      const tier: 1 | 2 | 3 | 4 =
-        player.overallRank <= teamCount
+      const overallRank = index + 1;
+      const tier: 1 | 2 | 3 | 4 | 5 | 6 =
+        overallRank <= teamCount
           ? 1
-          : player.overallRank <= teamCount * 3
+          : overallRank <= teamCount * 3
             ? 2
-            : player.overallRank <= teamCount * 8
+            : overallRank <= teamCount * 6
               ? 3
-              : 4;
+              : overallRank <= teamCount * 10
+                ? 4
+                : overallRank <= teamCount * 14
+                  ? 5
+                  : 6;
       const ageNote =
         context?.format === "Dynasty" && player.age
           ? `${player.age}-year-old ${player.ageAdjustment >= 0 ? "timeline boost" : "age adjustment"}`
@@ -7301,16 +7323,16 @@ function PlayerRanks({
             : "balanced positional demand";
       return {
         ...player,
+        overallRank,
         positionRank,
         tier,
         outlook: `${ageNote}; ${lineupNote} in this league.`,
       };
     });
-  const pool: (RankedPlayer & Partial<LeagueRanking>)[] =
+  const pool: (RankedPlayer & Partial<LeagueRanking> & { compositeAdp?: number | null })[] =
     personalizedPool.length ? personalizedPool : rankedPlayers;
   const statsSample = pool.find((player) => player.statsSourceSeason);
   const statsSeasonLabel = statsSample?.statsSourceSeason ?? new Date().getUTCFullYear() - 1;
-  const statsMethodLabel = statsSample?.statsBlended ? `${statsSeasonLabel} BLENDED` : String(statsSeasonLabel);
   const filtered = pool
     .filter(
       (player) =>
@@ -7333,12 +7355,14 @@ function PlayerRanks({
         return (b.snapAverage ?? -1) - (a.snapAverage ?? -1) || a.overallRank - b.overallRank;
       return a.overallRank - b.overallRank;
     });
-  const tiers = [1, 2, 3, 4] as const;
+  const tiers = [1, 2, 3, 4, 5, 6] as const;
   const tierLabels = {
-    1: "Elite difference-makers",
-    2: "Weekly advantages",
-    3: "Strong starters",
-    4: "Depth and emerging value",
+    1: "Elite first-round anchors",
+    2: "Premium weekly advantages",
+    3: "Core lineup starters",
+    4: "Flexible starters and upside",
+    5: "Bench depth and specialists",
+    6: "Late-round fliers and emerging value",
   };
   return (
     <div className="page-content">
@@ -7348,8 +7372,8 @@ function PlayerRanks({
         title="Tier-based rankings built for your league"
         text={
           context
-            ? `Annual player value calibrated for ${context.teams}-team ${context.format.toLowerCase()}, ${context.scoring}, positional demand, age curve, role, and your exact lineup.`
-            : "Import a league to personalize every tier for scoring, format, lineup demand, positional scarcity, and roster horizon."
+            ? `Composite market rank for your ${context.teams}-team ${context.format.toLowerCase()} league: 60% Underdog, 30% Sleeper, and 10% ESPN, organized into six draft tiers.`
+            : "Import a league to build a six-tier composite from Underdog, Sleeper, and ESPN draft markets."
         }
       />
       {context && (
@@ -7377,24 +7401,24 @@ function PlayerRanks({
       )}
       <section className="ranking-method panel">
         <div>
-          <span>{statsMethodLabel} FANTASY PPG</span>
-          <strong>Actual regular-season scoring</strong>
-          <small>Average points per game adjusted for this league&apos;s reception scoring.</small>
+          <span>60% UNDERDOG</span>
+          <strong>Sharp Best Ball market</strong>
+          <small>{superflex ? "Superflex Half PPR" : context?.scoring === "PPR" ? "Single-QB Full PPR" : "Single-QB Half PPR"} ADP.</small>
         </div>
         <div>
-          <span>TEAM OFFENSE</span>
-          <strong>NFL points-per-game rank</strong>
-          <small>The player&apos;s source-season team ranked by regular-season scoring.</small>
+          <span>30% SLEEPER</span>
+          <strong>League-format market</strong>
+          <small>{superflex ? "Superflex / 2QB" : "Single-QB"} ADP aligned to league reception scoring.</small>
         </div>
         <div>
-          <span>SEASON SNAP %</span>
-          <strong>Total participation share</strong>
-          <small>Season-long unit snaps, weighted by each game&apos;s available snaps.</small>
+          <span>10% ESPN</span>
+          <strong>Home-league market</strong>
+          <small>ESPN&apos;s Single-QB redraft ADP provides the final market signal.</small>
         </div>
         <div>
-          <span>HUB RANKS</span>
-          <strong>Overall and positional standing</strong>
-          <small>League-adjusted value remains separate from historical production.</small>
+          <span>6 HUB TIERS</span>
+          <strong>Draft-day decision bands</strong>
+          <small>Players are grouped by roster-building stage after composite ranking.</small>
         </div>
       </section>
       <section className="rank-controls ranking-page-controls panel">
@@ -7455,7 +7479,7 @@ function PlayerRanks({
                   <span>Fantasy PPG</span>
                   <span>{statsSeasonLabel} GP</span>
                   <span>Team offense</span>
-                  <span>Hub score</span>
+                  <span>Composite ADP</span>
                   <span>Season snap %</span>
                 </div>
                 {tierPlayers.map((player) => {
@@ -7492,8 +7516,8 @@ function PlayerRanks({
                         ) : "—"}
                       </span>
                       <strong className="hub-rank-score">
-                        {typeof player.rankingValue === "number"
-                          ? player.rankingValue.toFixed(1)
+                        {typeof player.compositeAdp === "number"
+                          ? player.compositeAdp.toFixed(1)
                           : "—"}
                       </strong>
                       <span className="rank-snap">
