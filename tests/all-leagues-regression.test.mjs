@@ -77,6 +77,13 @@ test("normal tool intros use a condensed label-only card", async () => {
   assert.match(styles, /\.section-intro\.compact\{[^}]*padding:11px 16px[^}]*border-radius:11px/);
 });
 
+test("mobile tool context stays inside the viewport without horizontal overscroll", async () => {
+  const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  assert.match(styles, /\.tool-context-bar\{display:grid;grid-template-columns:repeat\(4,minmax\(0,1fr\)\)[^}]*overflow:hidden;overscroll-behavior:contain;touch-action:pan-y/);
+  assert.match(styles, /\.tool-context-bar>span\{min-width:0;padding:7px 5px;scroll-snap-align:none\}/);
+  assert.doesNotMatch(styles, /\.tool-context-bar\{[^}]*overflow-x:auto;scroll-snap-type:x mandatory/);
+});
+
 test("League Stories leads Analyze League and Manager Report finishes Manage Team", async () => {
   const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
   assert.match(source, /label: "League Stories"[^\n]+group: "Analyze League"/);
