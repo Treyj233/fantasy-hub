@@ -1596,12 +1596,11 @@ html[data-theme="dark"] .player-verdict,html[data-theme="dark"] .player-range-co
    rules remain isolated below 700px, so this layer cannot alter iPhone builds. */
 @media (min-width:701px) and (max-width:1366px) and (pointer:coarse){
   html,body{min-height:100%;overscroll-behavior:none}
-  html[data-native-platform="ios"] body:before{position:fixed;z-index:190;inset:0 0 auto;height:max(24px,env(safe-area-inset-top));pointer-events:none;background:linear-gradient(90deg,var(--deep),color-mix(in srgb,var(--deep) 88%,var(--green)));box-shadow:0 1px 0 rgb(255 255 255 / .12);content:""}
   .app-shell{grid-template-columns:248px minmax(0,1fr)}
   .app-shell.sidebar-collapsed{grid-template-columns:84px minmax(0,1fr)}
-  .sidebar{height:100dvh;padding:max(18px,env(safe-area-inset-top)) 16px max(16px,env(safe-area-inset-bottom));overflow:hidden}
+  .sidebar{height:100dvh;padding:max(18px,env(safe-area-inset-top)) 16px max(16px,env(safe-area-inset-bottom));overflow:visible}
   .sidebar-collapsed .sidebar{padding-inline:11px}
-  .sidebar-collapse{display:grid;top:max(25px,calc(env(safe-area-inset-top) + 7px));width:34px;height:34px;touch-action:manipulation}
+  .sidebar-collapse{z-index:80;display:grid;top:max(25px,calc(env(safe-area-inset-top) + 7px));width:34px;height:34px;touch-action:manipulation}
   .brand{justify-content:flex-start;padding-bottom:18px}
   .sidebar-collapsed .brand{justify-content:center;padding:0 0 18px}
   .sidebar-collapsed .brand>div,.sidebar-collapsed .league-card,.sidebar-collapsed .sidebar .nav-group>span,.sidebar-collapsed .sidebar-bottom>div,.sidebar-collapsed .sidebar-bottom>small{display:none}
