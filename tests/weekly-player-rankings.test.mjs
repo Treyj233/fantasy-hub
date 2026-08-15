@@ -12,6 +12,7 @@ test("weekly player rankings are Pro-gated, week-aware, and position limited", a
   const adp = source.slice(end, adpEnd);
 
   assert.match(rankings, /useState<"season" \| "weekly">\("season"\)/);
+  assert.match(rankings, /className="page-content player-rankings-page"/);
   assert.match(rankings, /PRO · WEEK \{Math\.max\(1, week\)\}/);
   assert.match(rankings, /Weekly Player Rankings are a Pro experience/);
   assert.match(rankings, /\{ position: "QB", limit: 24/);
@@ -29,6 +30,7 @@ test("weekly player rankings are Pro-gated, week-aware, and position limited", a
   assert.match(source, /weatherAdjustment: Math\.max\(-\.22, windPenalty \+ rainPenalty \+ coldPenalty\)/);
   assert.match(styles, /\.weekly-matchup > \.matchup-team/);
   assert.match(styles, /\.weekly-position-grid\s*\{[^}]*grid-template-columns: 1fr 1fr/s);
+  assert.match(styles, /\.player-rankings-page \.ranking-context span\s*\{[^}]*min-height: 28px;[^}]*padding: 5px 9px;[^}]*font-size: 8px;/s);
   assert.match(styles, /@media \(max-width: 980px\)[\s\S]*?\.weekly-position-grid \{ grid-template-columns: 1fr; \}/);
   assert.match(rankings, /\{\["ALL", "QB", "RB", "WR", "TE"\]\.map/);
   assert.doesNotMatch(rankings, /\{\["ALL", "QB", "RB", "WR", "TE", "K", "DEF"\]\.map/);

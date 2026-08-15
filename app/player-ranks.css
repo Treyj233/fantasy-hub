@@ -242,6 +242,30 @@ html[data-theme="dark"] .market-gap.negative {
   }
 }
 
+/* Keep league settings compact so rankings remain the visual focus. */
+.player-rankings-page .ranking-context {
+  gap: 5px;
+  margin: 8px 0 12px;
+}
+.player-rankings-page .ranking-context span {
+  min-height: 28px;
+  padding: 5px 9px;
+  font-size: 8px;
+  line-height: 1.15;
+}
+.player-rankings-page .ranking-context b {
+  font-size: 8.5px;
+}
+@media (max-width: 620px) {
+  .player-rankings-page .ranking-context {
+    gap: 4px;
+  }
+  .player-rankings-page .ranking-context span {
+    min-height: 26px;
+    padding: 4px 7px;
+  }
+}
+
 .ranking-mode-toggle {
   display: grid;
   grid-template-columns: 1fr 1fr;

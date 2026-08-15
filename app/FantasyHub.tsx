@@ -7379,7 +7379,7 @@ function PlayerRanks({
     6: "Late-round fliers and emerging value",
   };
   return (
-    <div className="page-content">
+    <div className="page-content player-rankings-page">
       <SectionIntro
         compact
         kicker="FANTASY HUB RANKINGS"
