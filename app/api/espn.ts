@@ -106,12 +106,14 @@ export async function normalizeEspnLeague(payload: EspnPayload) {
   const rosterSlots = Object.entries(lineupCounts).flatMap(([slot, count]) => Array.from({ length: count }, () => slotById[Number(slot)] ?? "Bench"));
   const slotCounts = rosterSlots.reduce<Record<string, number>>((map, slot) => ({ ...map, [slot]: (map[slot] ?? 0) + 1 }), {});
   const format = (payload.settings?.keeperSettings?.keeperCount ?? 0) > 0 ? "Keeper" as const : "Redraft" as const;
-  const sleeperAdpKey = (slotCounts.SUPER_FLEX ?? 0) > 0 ? "adp_2qb" : receptionPoints >= .75 ? "adp_ppr" : receptionPoints >= .25 ? "adp_half_ppr" : "adp_std";
-  const [snapProfiles, seasonContext, offenseContext, sleeperAdp] = await Promise.all([
+  const sleeperSingleQbAdpKey = receptionPoints >= .75 ? "adp_ppr" : receptionPoints >= .25 ? "adp_half_ppr" : "adp_std";
+  const sleeperSuperflexAdpKey = "adp_2qb";
+  const [snapProfiles, seasonContext, offenseContext, sleeperSingleQbAdp, sleeperSuperflexAdp] = await Promise.all([
     loadCurrentSnapProfiles(leagueSeason, week),
     loadBlendedPlayerSeasonProfiles(leagueSeason, week),
     loadBlendedTeamOffenseProfiles(leagueSeason, week),
-    loadSleeperAdpByPlayerKey(leagueSeason, sleeperAdpKey),
+    loadSleeperAdpByPlayerKey(leagueSeason, sleeperSingleQbAdpKey),
+    loadSleeperAdpByPlayerKey(leagueSeason, sleeperSuperflexAdpKey),
   ]);
   const seasonProfiles = seasonContext.profiles;
   const teamOffenseProfiles = offenseContext.profiles;
@@ -130,7 +132,11 @@ export async function normalizeEspnLeague(payload: EspnPayload) {
       : null;
     const position = positionById[player.defaultPositionId ?? 0] ?? "FLEX";
     const espnAdp = player.ownership?.averageDraftPosition;
-    return { id: `espn-player:${player.id ?? 0}`, name, position, team: nflTeamById[player.proTeamId ?? 0] ?? "FA", opponent: "Matchup pending", projection: points, leagueProjection: points, floor: Number((points * .68).toFixed(1)), ceiling: Number((points * 1.38).toFixed(1)), trend: 0, status: player.injuryStatus || (player.injured ? "Questionable" : "Healthy"), role, rankingValue: Number((points * 3 + (player.ownership?.percentOwned ?? 0) * .35).toFixed(2)), ageAdjustment: 0, lineupAdjustment: 0, snapPct: snapProfile?.latestPct ?? null, snapAverage: snapProfile?.averagePct ?? null, snapWeek: snapProfile?.latestWeek ?? null, snapSeason: snapProfile?.season ?? null, statsSourceSeason: seasonContext.sourceSeason, statsBlended: seasonContext.blended || offenseContext.blended, fantasyPpg2025: seasonProfile?.games && historicalPoints != null ? Number((historicalPoints / seasonProfile.games).toFixed(1)) : null, gamesPlayed2025: seasonProfile?.games ?? null, team2025: seasonProfile?.team ?? null, teamOffenseRank2025: teamOffense?.rank ?? null, teamPointsPerGame2025: teamOffense?.pointsPerGame ?? null, adpBySite: { Sleeper: sleeperAdp.get(adpPlayerKey(name, position)) ?? null, ESPN: typeof espnAdp === "number" && espnAdp > 0 && espnAdp < 999 ? espnAdp : null } };
+    const sleeperKey = adpPlayerKey(name, position);
+    const sleeperSingleQb = sleeperSingleQbAdp.get(sleeperKey) ?? null;
+    const sleeperSuperflex = sleeperSuperflexAdp.get(sleeperKey) ?? null;
+    const sleeperLeagueFormat = (slotCounts.SUPER_FLEX ?? 0) > 0 ? sleeperSuperflex : sleeperSingleQb;
+    return { id: `espn-player:${player.id ?? 0}`, name, position, team: nflTeamById[player.proTeamId ?? 0] ?? "FA", opponent: "Matchup pending", projection: points, leagueProjection: points, floor: Number((points * .68).toFixed(1)), ceiling: Number((points * 1.38).toFixed(1)), trend: 0, status: player.injuryStatus || (player.injured ? "Questionable" : "Healthy"), role, rankingValue: Number((points * 3 + (player.ownership?.percentOwned ?? 0) * .35).toFixed(2)), ageAdjustment: 0, lineupAdjustment: 0, snapPct: snapProfile?.latestPct ?? null, snapAverage: snapProfile?.averagePct ?? null, snapWeek: snapProfile?.latestWeek ?? null, snapSeason: snapProfile?.season ?? null, statsSourceSeason: seasonContext.sourceSeason, statsBlended: seasonContext.blended || offenseContext.blended, fantasyPpg2025: seasonProfile?.games && historicalPoints != null ? Number((historicalPoints / seasonProfile.games).toFixed(1)) : null, gamesPlayed2025: seasonProfile?.games ?? null, team2025: seasonProfile?.team ?? null, teamOffenseRank2025: teamOffense?.rank ?? null, teamPointsPerGame2025: teamOffense?.pointsPerGame ?? null, adpBySite: { Sleeper: sleeperLeagueFormat, "Sleeper Single-QB": sleeperSingleQb, "Sleeper Superflex": sleeperSuperflex, ESPN: typeof espnAdp === "number" && espnAdp > 0 && espnAdp < 999 ? espnAdp : null } };
   };
   const rosteredIds = new Set(rosterPlayers.map((player) => player.id));
   const rankingPool = universe.map((player) => playerShape(player)).filter((player) => ["QB", "RB", "WR", "TE", "K", "DEF"].includes(player.position)).sort((a, b) => b.rankingValue - a.rankingValue).map((player, index) => ({ ...player, overallRank: index + 1 }));

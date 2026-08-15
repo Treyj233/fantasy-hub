@@ -7534,7 +7534,9 @@ function AdpPage({
   const [query, setQuery] = useState("");
   const [adpDirection, setAdpDirection] = useState<"asc" | "desc">("asc");
   const [adpSite, setAdpSite] = useState<"Sleeper" | "ESPN">("Sleeper");
-  const adpSourceLabel = adpSite === "ESPN" ? "ESPN (Single-QB)" : "Sleeper";
+  const [sleeperAdpFormat, setSleeperAdpFormat] = useState<"Single-QB" | "Superflex">("Single-QB");
+  const adpSourceLabel = adpSite === "ESPN" ? "ESPN (Single-QB)" : `Sleeper (${sleeperAdpFormat})`;
+  const adpDataKey = adpSite === "ESPN" ? "ESPN" : `Sleeper ${sleeperAdpFormat}`;
   const rosterNames = new Set(
     roster.map((player) => player.name.toLowerCase()),
   );
@@ -7576,8 +7578,8 @@ function AdpPage({
         player.name.toLowerCase().includes(query.trim().toLowerCase()),
     )
     .sort((a, b) => {
-      const aAdp = a.adpBySite?.[adpSite];
-      const bAdp = b.adpBySite?.[adpSite];
+      const aAdp = a.adpBySite?.[adpDataKey];
+      const bAdp = b.adpBySite?.[adpDataKey];
       if (typeof aAdp !== "number" && typeof bAdp !== "number")
         return a.overallRank - b.overallRank;
       if (typeof aAdp !== "number") return 1;
@@ -7593,7 +7595,7 @@ function AdpPage({
         text={
           context
             ? adpSite === "Sleeper"
-              ? `${context.format} Sleeper ADP aligned to ${context.scoring} and ${context.positionDemand.QB > 1.4 ? "superflex / 2QB" : "1QB"}.`
+              ? `${context.format} Sleeper ${sleeperAdpFormat} ADP aligned to ${context.scoring}.`
               : "ESPN Single-QB platform ADP reflects ESPN's redraft market and is shown separately for direct comparison."
             : "Import a league to compare platform-specific Sleeper and ESPN draft markets."
         }
@@ -7650,13 +7652,24 @@ function AdpPage({
           <span>ADP SOURCE</span>
           <strong>Direct platform draft-market data from {adpSourceLabel}</strong>
         </div>
-        <div className="adp-sites" role="group" aria-label="Select ADP source">
-          <button aria-pressed={adpSite === "Sleeper"} className={adpSite === "Sleeper" ? "active" : ""} onClick={() => { if (adpSite === "Sleeper") setAdpDirection((current) => current === "asc" ? "desc" : "asc"); else { setAdpSite("Sleeper"); setAdpDirection("asc"); } }}>
-            Sleeper {adpSite === "Sleeper" ? adpDirection === "asc" ? "↑" : "↓" : ""}
-          </button>
-          <button aria-pressed={adpSite === "ESPN"} className={adpSite === "ESPN" ? "active" : ""} onClick={() => { if (adpSite === "ESPN") setAdpDirection((current) => current === "asc" ? "desc" : "asc"); else { setAdpSite("ESPN"); setAdpDirection("asc"); } }}>
-            ESPN (Single-QB) {adpSite === "ESPN" ? adpDirection === "asc" ? "↑" : "↓" : ""}
-          </button>
+        <div className="adp-control-actions">
+          <div className="adp-sites" role="group" aria-label="Select ADP source">
+            <button aria-pressed={adpSite === "Sleeper"} className={adpSite === "Sleeper" ? "active" : ""} onClick={() => { if (adpSite === "Sleeper") setAdpDirection((current) => current === "asc" ? "desc" : "asc"); else { setAdpSite("Sleeper"); setAdpDirection("asc"); } }}>
+              Sleeper {adpSite === "Sleeper" ? adpDirection === "asc" ? "↑" : "↓" : ""}
+            </button>
+            <button aria-pressed={adpSite === "ESPN"} className={adpSite === "ESPN" ? "active" : ""} onClick={() => { if (adpSite === "ESPN") setAdpDirection((current) => current === "asc" ? "desc" : "asc"); else { setAdpSite("ESPN"); setAdpDirection("asc"); } }}>
+              ESPN (Single-QB) {adpSite === "ESPN" ? adpDirection === "asc" ? "↑" : "↓" : ""}
+            </button>
+          </div>
+          {adpSite === "Sleeper" && (
+            <div className="adp-formats" role="group" aria-label="Select Sleeper ADP format">
+              {(["Single-QB", "Superflex"] as const).map((format) => (
+                <button key={format} aria-pressed={sleeperAdpFormat === format} className={sleeperAdpFormat === format ? "active" : ""} onClick={() => { setSleeperAdpFormat(format); setAdpDirection("asc"); }}>
+                  {format}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
         <small>
           Lower ADP means the player is typically selected earlier. Select
@@ -7682,7 +7695,7 @@ function AdpPage({
           </div>
           {filtered.map((player) => {
             const onRoster = rosterNames.has(player.name.toLowerCase());
-            const adp = player.adpBySite?.[adpSite];
+            const adp = player.adpBySite?.[adpDataKey];
             const gap =
               typeof adp === "number"
                 ? Math.round(adp - player.overallRank)

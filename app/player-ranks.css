@@ -31,6 +31,32 @@
   gap: 5px;
   overflow-x: auto;
 }
+.adp-control-actions {
+  display: grid;
+  justify-items: end;
+  gap: 6px;
+}
+.adp-formats {
+  display: inline-flex;
+  gap: 3px;
+  padding: 3px;
+  background: color-mix(in srgb, var(--ink) 5%, var(--chalk));
+  border: 1px solid var(--line);
+  border-radius: 9px;
+}
+.adp-formats button {
+  padding: 5px 8px;
+  color: var(--muted);
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  font-size: 7.5px;
+  font-weight: 900;
+}
+.adp-formats button.active {
+  color: #fff;
+  background: var(--green);
+}
 .adp-sites button {
   padding: 8px 10px;
   color: var(--muted);
@@ -65,6 +91,9 @@ html[data-theme="dark"] .adp-sites button.active {
   }
   .adp-sites {
     justify-content: flex-start;
+  }
+  .adp-control-actions {
+    justify-items: start;
   }
   .adp-controls > small {
     grid-column: auto;

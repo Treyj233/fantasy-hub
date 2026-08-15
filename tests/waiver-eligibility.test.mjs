@@ -34,15 +34,18 @@ test("ADP offers direct Sleeper and ESPN sources without consensus or FantasyPro
 
   assert.doesNotMatch(route, /fantasypros/i);
   assert.doesNotMatch(route, /Consensus/);
-  assert.match(route, /const adpBySite = \{ Sleeper: directSleeperAdp, ESPN: directEspnAdp \}/);
+  assert.match(route, /"Sleeper Single-QB": directSleeperSingleQbAdp/);
+  assert.match(route, /"Sleeper Superflex": directSleeperSuperflexAdp/);
   assert.match(hub, /const \[adpSite, setAdpSite\] = useState<"Sleeper" \| "ESPN">\("Sleeper"\)/);
   assert.match(hub, /ESPN \(Single-QB\) \{adpSite === "ESPN" \? adpDirection === "asc" \? "↑" : "↓" : ""\}/);
   assert.match(hub, /ESPN Single-QB platform ADP reflects ESPN's redraft market/);
-  assert.match(hub, /adpSite === "ESPN" \? "ESPN \(Single-QB\)" : "Sleeper"/);
+  assert.match(hub, /const \[sleeperAdpFormat, setSleeperAdpFormat\] = useState<"Single-QB" \| "Superflex">\("Single-QB"\)/);
+  assert.match(hub, /adpSite === "ESPN" \? "ESPN" : `Sleeper \$\{sleeperAdpFormat\}`/);
+  assert.match(hub, /aria-label="Select Sleeper ADP format"/);
   assert.match(adpData, /leaguedefaults\/3\?view=kona_player_info/);
   assert.match(adpData, /averageDraftPosition/);
   assert.match(adpData, /loadSleeperAdpByPlayerKey/);
-  assert.match(espn, /adpBySite: \{ Sleeper: sleeperAdp\.get[\s\S]*?ESPN:/);
+  assert.match(espn, /adpBySite: \{ Sleeper: sleeperLeagueFormat, "Sleeper Single-QB": sleeperSingleQb, "Sleeper Superflex": sleeperSuperflex, ESPN:/);
   assert.doesNotMatch(hub, /"Consensus"/);
 });
 
