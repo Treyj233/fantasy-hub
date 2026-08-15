@@ -662,12 +662,12 @@ type LeagueScan = {
 
 type NavGroup = "Home" | "Game Day" | "Manage Team" | "Analyze League" | "Utilities";
 const navGroupOrder: NavGroup[] = ["Home", "Game Day", "Manage Team", "Analyze League", "Utilities"];
-const mobileCategoryNav: { group: NavGroup; mark: string; label: string }[] = [
-  { group: "Home", mark: "◆", label: "Home" },
-  { group: "Game Day", mark: "▣", label: "Game Day" },
-  { group: "Manage Team", mark: "⚡", label: "Manage" },
-  { group: "Analyze League", mark: "◈", label: "Analyze" },
-  { group: "Utilities", mark: "⚙", label: "Utilities" },
+const mobileCategoryNav: { group: NavGroup; lead: View; label: string }[] = [
+  { group: "Home", lead: "All Leagues", label: "Home" },
+  { group: "Game Day", lead: "Scoreboard", label: "Game Day" },
+  { group: "Manage Team", lead: "Command Center", label: "Manage" },
+  { group: "Analyze League", lead: "League Stories", label: "Analyze" },
+  { group: "Utilities", lead: "Manage Leagues", label: "Utilities" },
 ];
 const nav: { label: View; displayLabel?: string; mark: string; tone: string; group: NavGroup }[] = [
   { label: "All Leagues", displayLabel: "Mission Hub", mark: "◆", tone: "violet", group: "Home" },
@@ -2083,7 +2083,10 @@ export default function FantasyHub({
             aria-label={mobileNavOpen ? "Close navigation menu" : "Open navigation menu"}
             aria-controls="primary-sidebar"
             aria-expanded={mobileNavOpen}
-            onClick={() => setMobileNavOpen((current) => !current)}
+            onClick={() => {
+              setMobileCategoryOpen(null);
+              setMobileNavOpen((current) => !current);
+            }}
           >
             <span aria-hidden="true" />
             <span aria-hidden="true" />
@@ -2145,7 +2148,9 @@ export default function FantasyHub({
           </div>
         </header>
         <nav className="mobile-category-tray" aria-label="Fantasy Hub categories">
-          {mobileCategoryNav.map((item) => (
+          {mobileCategoryNav.map((item) => {
+            const leadPage = nav.find((page) => page.label === item.lead)!;
+            return (
             <button
               key={item.group}
               type="button"
@@ -2159,13 +2164,15 @@ export default function FantasyHub({
                   setView("All Leagues");
                   setMobileCategoryOpen(null);
                 } else {
+                  setMobileNavOpen(false);
                   setMobileCategoryOpen((current) => current === item.group ? null : item.group);
                 }
               }}
             >
-              <i aria-hidden="true">{item.mark}</i><span>{item.label}</span>
+              <i className={`nav-badge ${leadPage.tone}`} aria-hidden="true">{leadPage.mark}</i><span>{item.label}</span>
             </button>
-          ))}
+            );
+          })}
         </nav>
         {mobileCategoryOpen && (
           <section className="mobile-category-menu" aria-label={`${mobileCategoryOpen} pages`}>

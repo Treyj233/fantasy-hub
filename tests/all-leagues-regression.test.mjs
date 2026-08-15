@@ -58,7 +58,7 @@ test("Manage Leagues lives in Utilities and the mobile tray uses five categories
   assert.match(source, /label: "Manage Leagues"[^\n]+group: "Utilities"/);
   assert.doesNotMatch(source, /label: "Manage Leagues"[^\n]+group: "Portfolio"/);
   assert.match(source, /const mobileCategoryNav:[\s\S]*?"Home"[\s\S]*?"Game Day"[\s\S]*?"Manage Team"[\s\S]*?"Analyze League"[\s\S]*?"Utilities"/);
-  assert.match(source, /\{mobileCategoryNav\.map\(\(item\) => \(/);
+  assert.match(source, /\{mobileCategoryNav\.map\(\(item\) => \{/);
 });
 
 test("League Stories leads Analyze League and Manager Report finishes Manage Team", async () => {
@@ -291,6 +291,10 @@ test("mobile navigation preserves the sidebar and opens category pages from the 
   assert.match(source, /className="mobile-category-tray"/);
   assert.match(source, /className="mobile-category-menu"/);
   assert.match(source, /aria-label="Close category menu"/);
+  assert.match(source, /lead: "Scoreboard"/);
+  assert.match(source, /lead: "Command Center"/);
+  assert.match(source, /className=\{`nav-badge \$\{leadPage\.tone\}`\}/);
+  assert.match(source, /className=\{`nav-badge \$\{item\.tone\}`\}/);
   assert.match(source, /className="account-theme-customizer"/);
   assert.match(source, /className="account-theme-customizer"/);
   assert.match(source, /<strong>Theme Customizer<\/strong>/);
@@ -298,6 +302,7 @@ test("mobile navigation preserves the sidebar and opens category pages from the 
   assert.match(styles, /\.mobile-header-stack\{position:sticky/);
   assert.match(styles, /\.mobile-category-menu\{position:absolute[^}]*top:100%/);
   assert.doesNotMatch(styles, /\.sidebar,.mobile-drawer-backdrop[^}]*display:none!important/);
+  assert.match(styles, /\.mobile-nav-open \.sidebar\{z-index:150!important\}/);
   assert.match(styles, /\.mobile-nav-open \.sidebar\{transform:translateX\(0\)\}/);
   assert.match(styles, /\.sidebar \.sidebar-bottom[^}]*position:static/);
   assert.match(styles, /html\[data-theme="dark"\] \.sidebar \.sidebar-bottom\{background:transparent\}/);
