@@ -1439,7 +1439,12 @@ export default function FantasyHub({
 
   useEffect(() => {
     let edgeStart: { x: number; y: number } | null = null;
+    const drawerViewport = window.matchMedia("(max-width: 700px)");
     const onTouchStart = (event: TouchEvent) => {
+      if (!drawerViewport.matches) {
+        edgeStart = null;
+        return;
+      }
       const touch = event.touches[0];
       if (!touch || touch.clientX < window.innerWidth - 24) return;
       edgeStart = { x: touch.clientX, y: touch.clientY };
@@ -1450,17 +1455,25 @@ export default function FantasyHub({
       const horizontalTravel = edgeStart.x - touch.clientX;
       const verticalTravel = Math.abs(edgeStart.y - touch.clientY);
       edgeStart = null;
-      if (horizontalTravel > 48 && verticalTravel < 72) {
+      if (drawerViewport.matches && horizontalTravel > 48 && verticalTravel < 72) {
         setMobileCategoryOpen(null);
         setMobileNavOpen(false);
         setLeagueDrawerOpen(true);
       }
     };
+    const closeDrawerOutsideMobileLayout = (event: MediaQueryListEvent) => {
+      if (!event.matches) {
+        edgeStart = null;
+        setLeagueDrawerOpen(false);
+      }
+    };
     document.addEventListener("touchstart", onTouchStart, { passive: true });
     document.addEventListener("touchend", onTouchEnd, { passive: true });
+    drawerViewport.addEventListener("change", closeDrawerOutsideMobileLayout);
     return () => {
       document.removeEventListener("touchstart", onTouchStart);
       document.removeEventListener("touchend", onTouchEnd);
+      drawerViewport.removeEventListener("change", closeDrawerOutsideMobileLayout);
     };
   }, []);
 
