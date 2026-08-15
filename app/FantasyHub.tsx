@@ -1467,7 +1467,7 @@ export default function FantasyHub({
 
   useEffect(() => {
     let edgeStart: { x: number; y: number } | null = null;
-    const drawerViewport = window.matchMedia("(max-width: 700px)");
+    const drawerViewport = window.matchMedia("(max-width: 700px), (min-width: 701px) and (max-width: 1366px) and (pointer: coarse)");
     const onTouchStart = (event: TouchEvent) => {
       if (!drawerViewport.matches) {
         edgeStart = null;
@@ -1507,13 +1507,11 @@ export default function FantasyHub({
 
   useEffect(() => {
     if (!leagueDrawerOpen) return;
-    document.body.classList.add("league-drawer-open");
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") setLeagueDrawerOpen(false);
     };
     document.addEventListener("keydown", closeOnEscape);
     return () => {
-      document.body.classList.remove("league-drawer-open");
       document.removeEventListener("keydown", closeOnEscape);
     };
   }, [leagueDrawerOpen]);
