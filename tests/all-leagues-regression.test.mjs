@@ -523,6 +523,17 @@ test("portfolio Scoreboard keeps matchup status in scope", async () => {
   assert.match(component, /Waiting for live scoring/);
 });
 
+test("Game Day Command Center always orders leagues by drama without a display toggle", async () => {
+  const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
+  const start = source.indexOf("function AllLeagueScoreboard(");
+  const end = source.indexOf("function Scoreboard(", start);
+  const component = source.slice(start, end);
+
+  assert.match(component, /const orderedLeagues = \[\.\.\.leagues\]\.sort/);
+  assert.match(component, /dramaScore\(matchupByLeague\.get\(b\.id\)\) - dramaScore\(matchupByLeague\.get\(a\.id\)\)/);
+  assert.doesNotMatch(component, /viewMode|setViewMode|Drama first|League order|scoreboard-view-toggle/);
+});
+
 test("NFL game impact details open in an accessible popout", async () => {
   const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
   assert.match(source, /isExpanded \? "is-expanded"/);
@@ -564,13 +575,16 @@ test("player popouts retain connected-platform projections across page models", 
   assert.match(component, /platformProjection\.toFixed\(1\)/);
 });
 
-test("player game logs pin the Week column while stats scroll", async () => {
+test("player game logs pin every Week cell in a single-axis theme-aware stat rail", async () => {
   const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
   const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
 
   assert.match(source, /<th className="game-log-week" scope="col">WK<\/th>/);
   assert.match(source, /<td className="game-log-week">/);
   assert.match(styles, /\.game-log-scroll \.game-log-week\{position:sticky;left:0/);
+  assert.match(styles, /\.game-log-scroll\{max-height:none;overflow-x:auto;overflow-y:hidden/);
+  assert.match(styles, /\.game-log-scroll tbody \.game-log-week\{position:sticky/);
+  assert.match(styles, /\.game-log-scroll tbody tr:nth-child\(even\) \.game-log-week\{background:color-mix\(in srgb,var\(--green\) 4%,var\(--chalk\)\)/);
 });
 
 test("My Team player identities align as a badge and stacked copy block", async () => {

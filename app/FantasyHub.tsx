@@ -4718,7 +4718,6 @@ function AllLeagueScoreboard({
   const [scores, setScores] = useState<Record<string, ScoreboardData | null>>({});
   const [loading, setLoading] = useState(false);
   const [updatedAt, setUpdatedAt] = useState("");
-  const [viewMode, setViewMode] = useState<"all" | "drama">("drama");
   const [expandedNeeds, setExpandedNeeds] = useState<Set<string>>(new Set());
   const [swingFeed, setSwingFeed] = useState<{ id: string; league: string; text: string; previous: number; current: number; at: string }[]>([]);
   const [pulseEvents, setPulseEvents] = useState<{ id: string; text: string; impact: "helps" | "hurts"; at: string }[]>([]);
@@ -4959,9 +4958,9 @@ function AllLeagueScoreboard({
   const mostImportantLeagues = mostImportantPath ? winPathCandidates.filter((item) => item.target.id === mostImportantPath.target.id).filter((item, index, items) => items.findIndex((candidate) => candidate.league.id === item.league.id) === index) : [];
   const secondaryWinPaths = selectedWinPaths.slice(1, 5);
   const matchupByLeague = new Map(gameDay.matchups.map((item) => [item.league.id, item]));
-  const orderedLeagues = viewMode === "drama"
-    ? [...leagues].sort((a, b) => dramaScore(matchupByLeague.get(b.id)) - dramaScore(matchupByLeague.get(a.id)))
-    : leagues;
+  const orderedLeagues = [...leagues].sort(
+    (a, b) => dramaScore(matchupByLeague.get(b.id)) - dramaScore(matchupByLeague.get(a.id)),
+  );
   const projectedWins = gameDay.matchups.filter((item) => (item.winProbability ?? 0) >= 50).length;
   const closest = [...gameDay.matchups].sort((a, b) => Math.abs((a.winProbability ?? 50) - 50) - Math.abs((b.winProbability ?? 50) - 50))[0];
   const statusPulseItems = [
@@ -5053,7 +5052,7 @@ function AllLeagueScoreboard({
         </div>
       </section>
       <section className="game-day-command panel">
-        <header><div><span>GAME DAY COMMAND CENTER</span><h3>What matters across your portfolio</h3></div><div className="scoreboard-view-toggle"><button className={viewMode === "drama" ? "active" : ""} onClick={() => setViewMode("drama")}>Drama first</button><button className={viewMode === "all" ? "active" : ""} onClick={() => setViewMode("all")}>League order</button></div></header>
+        <header><div><span>GAME DAY COMMAND CENTER</span><h3>What matters across your portfolio</h3></div></header>
         <div className="game-day-metrics">
           <article><span>PROJECTED RECORD</span><strong>{gameDay.matchups.filter((item) => (item.winProbability ?? 0) >= 50).length}–{gameDay.matchups.filter((item) => (item.winProbability ?? 100) < 50).length}</strong><small>Based on estimated win probability</small></article>
           <article><span>CLOSE MATCHUPS</span><strong>{gameDay.matchups.filter((item) => Math.abs(item.mine.points + item.mineRemaining - item.opponent.points - item.opponentRemaining) <= 12).length}</strong><small>Projected margin within 12</small></article>
@@ -10485,19 +10484,6 @@ function PlayerPanel({
             </div>
           </section>
         )}
-        <section className="dossier-outlook">
-          <span>FANTASY HUB OUTLOOK</span>
-          <h3>
-            {player.ceiling - player.floor > 18
-              ? "High-variance matchup weapon"
-              : "Stable weekly lineup asset"}
-          </h3>
-          <p>
-            {player.ceiling - player.floor > 18
-              ? "The outcome range is wide enough that matchup posture should influence the decision. The ceiling is valuable when chasing an upset; the floor carries more risk when favored."
-              : "Role security and historical production provide context around the connected league platform’s weekly projection."}
-          </p>
-        </section>
       </aside>
     </div>
     </div>

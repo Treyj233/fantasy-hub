@@ -1596,3 +1596,38 @@ html[data-theme="dark"] .player-verdict,html[data-theme="dark"] .player-range-co
     scrollbar-gutter:auto!important;
   }
 }
+
+/* Command Center is always drama-first; keep its at-a-glance summary compact. */
+.game-day-command{padding:16px 18px;border-top-width:3px}
+.game-day-command>header{margin-bottom:9px}
+.game-day-command>header span{font-size:7px;letter-spacing:.13em}
+.game-day-command h3{margin-top:2px;font-size:18px;line-height:1.1}
+.game-day-metrics{gap:8px}
+.game-day-metrics article{padding:9px 10px;border-radius:9px}
+.game-day-metrics strong{margin:4px 0 2px;font-size:18px;line-height:1.05}
+.game-day-metrics small{font-size:7px;line-height:1.25}
+@media(max-width:700px){
+  .game-day-command{padding:11px 12px}
+  .game-day-command>header{margin-bottom:7px}
+  .game-day-command h3{font-size:15px}
+  .game-day-metrics{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+  .game-day-metrics article{padding:7px 8px}
+  .game-day-metrics strong{font-size:15px}
+}
+
+/* Player production uses one horizontal stat rail; the dossier owns vertical scroll. */
+.player-dossier .full-game-log{background:var(--chalk);border-color:var(--line)}
+.full-game-log .game-log-summary span{color:var(--muted);background:color-mix(in srgb,var(--green) 5%,var(--chalk))}
+.game-log-scroll{max-height:none;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;border-color:var(--line);background:var(--chalk)}
+.game-log-scroll th{position:static;color:var(--muted);background:color-mix(in srgb,var(--green) 8%,var(--chalk));border-color:var(--line)}
+.game-log-scroll td{background:var(--chalk);border-color:var(--line)}
+.game-log-scroll tbody tr:nth-child(even),
+.game-log-scroll tbody tr:nth-child(even) td{background:color-mix(in srgb,var(--green) 4%,var(--chalk))}
+.game-log-scroll tbody tr:hover,
+.game-log-scroll tbody tr:hover td{background:color-mix(in srgb,var(--gold) 13%,var(--chalk))}
+.game-log-scroll .game-log-week,
+.game-log-scroll tbody .game-log-week{position:sticky;inset-inline-start:0;left:0;z-index:4;background:var(--chalk);border-right-color:var(--line)}
+.game-log-scroll thead .game-log-week{z-index:5;background:color-mix(in srgb,var(--green) 8%,var(--chalk))}
+.game-log-scroll tbody tr:nth-child(even) .game-log-week{background:color-mix(in srgb,var(--green) 4%,var(--chalk))}
+.game-log-scroll tbody tr:hover .game-log-week{background:color-mix(in srgb,var(--gold) 13%,var(--chalk))}
+.game-log-scroll .game-log-points{background:var(--green)}

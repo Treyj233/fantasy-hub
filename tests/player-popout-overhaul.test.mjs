@@ -16,6 +16,7 @@ test("player popout presents a dense decision-first intelligence dashboard", asy
   assert.match(panel, /className="player-matchup-intel"/);
   assert.match(panel, /<MatchupBadge player=\{player\} \/>/);
   assert.match(panel, /aria-label="Close player details"/);
+  assert.doesNotMatch(panel, /FANTASY HUB OUTLOOK|dossier-outlook/);
   assert.match(styles, /\.player-dossier\{width:min\(920px,100%\)/);
   assert.match(styles, /\.player-decision-rail\{display:grid;grid-template-columns:repeat\(5,minmax\(0,1fr\)\)/);
   assert.match(styles, /@media\(max-width:700px\)[\s\S]*?\.player-command-hero\{grid-template-columns:minmax\(0,1fr\) 104px/);
