@@ -9195,6 +9195,26 @@ function TradeLab({
             : calculatorMutual && calculatorGap <= calculatorProfile.workableGap
               ? "Fair value, weak fit"
               : "Low viability";
+  const calculatorReady = Boolean(calculatorSendAssets.length && calculatorReceiveAssets.length);
+  const calculatorBalancePosition = calculatorReady
+    ? Math.max(8, Math.min(92, 50 + ((calculatorAdjustedReceiveValue - calculatorAdjustedSendValue) / Math.max(1, calculatorAdjustedSendValue, calculatorAdjustedReceiveValue)) * 50))
+    : 50;
+  const calculatorVerdict = !calculatorReady
+    ? "Build your deal"
+    : calculatorGap <= 0.1
+      ? "Balanced framework"
+      : calculatorGap <= 0.22
+        ? "Close enough to negotiate"
+        : calculatorAdjustedSendValue > calculatorAdjustedReceiveValue
+          ? `${partner.teamName} receives more value`
+          : `${yourTeam.teamName} receives more value`;
+  const assetMix = (assets: TradeAssetValue[]) => {
+    const counts = assets.reduce<Record<string, number>>((result, asset) => {
+      result[asset.position] = (result[asset.position] ?? 0) + 1;
+      return result;
+    }, {});
+    return Object.entries(counts).map(([position, count]) => `${count} ${position}`).join(" · ");
+  };
   return (
     <div className="page-content trade-lab-page">
       <SectionIntro
@@ -9274,28 +9294,33 @@ function TradeLab({
             </b>
           </div>
         </header>
-        <div className="calculator-grid">
-          <section className="calculator-assets">
-            <div className="calculator-side-heading"><i>SEND</i><span>You send</span></div>
-            <button className="asset-selector-trigger" type="button" onClick={() => setAssetSelectorSide("send")}><span><b>{yourTeam.teamName}</b><small>{calculatorSendAssets.length} selected · Choose assets</small></span></button>
-            <div className="calculator-package-summary">{calculatorSendAssets.length ? calculatorSendAssets.map((asset) => <span key={asset.id}><b>{asset.name}</b><small>{asset.position}</small></span>) : <p>No assets selected</p>}</div>
-          </section>
-          <div className="calculator-score">
-            <div><span>{calculatorSendAssets.length ? calculatorAdjustedSendValue : "—"}</span>{calculatorValueAdjustment.send > 0 && <em>+{calculatorValueAdjustment.send}</em>}</div>
-            <i>↔</i>
-            <div><span>{calculatorReceiveAssets.length ? calculatorAdjustedReceiveValue : "—"}</span>{calculatorValueAdjustment.receive > 0 && <em>+{calculatorValueAdjustment.receive}</em>}</div>
-            <small>
-              {calculatorSendAssets.length && calculatorReceiveAssets.length
-                ? `${calculatorValueAdjustment.send || calculatorValueAdjustment.receive ? `Value adjustment +${Math.max(calculatorValueAdjustment.send, calculatorValueAdjustment.receive)} · ` : ""}${Math.round(calculatorGap * 100)}% adjusted gap`
-                : "Select both players"}
-            </small>
-          </div>
-          <section className="calculator-assets">
-            <div className="calculator-side-heading receive"><span>You receive</span><i>GET</i></div>
-            <button className="asset-selector-trigger" type="button" onClick={() => setAssetSelectorSide("receive")}><span><b>{partner.teamName}</b><small>{calculatorReceiveAssets.length} selected · Choose assets</small></span></button>
-            <div className="calculator-package-summary">{calculatorReceiveAssets.length ? calculatorReceiveAssets.map((asset) => <span key={asset.id}><b>{asset.name}</b><small>{asset.position}</small></span>) : <p>No assets selected</p>}</div>
-          </section>
+        <div className="deal-desk">
+          {(["send", "receive"] as const).map((side) => {
+            const assets = side === "send" ? calculatorSendAssets : calculatorReceiveAssets;
+            const adjustment = side === "send" ? calculatorValueAdjustment.send : calculatorValueAdjustment.receive;
+            const total = side === "send" ? calculatorAdjustedSendValue : calculatorAdjustedReceiveValue;
+            const teamName = side === "send" ? yourTeam.teamName : partner.teamName;
+            return <section className={`deal-package ${side}`} key={side}>
+              <header><div><span>{side === "send" ? "YOU SEND" : "YOU RECEIVE"}</span><h4>{teamName}</h4></div><b>{assets.length} {assets.length === 1 ? "asset" : "assets"}</b></header>
+              <button className="deal-add-assets" type="button" onClick={() => setAssetSelectorSide(side)}><i>+</i><span><strong>{assets.length ? "Edit package" : "Choose players and picks"}</strong><small>Select up to six league assets</small></span></button>
+              <div className="deal-asset-list">
+                {assets.length ? assets.map((asset) => <article key={asset.id}>
+                  <span className={`pos pos-${asset.position.toLowerCase()}`}>{asset.position}</span>
+                  <p><strong>{asset.name}</strong><small>{asset.position === "PICK" ? asset.meta : `${asset.team} · ${tradeFormat}`}</small></p>
+                  <b>{asset.value}</b>
+                  <button type="button" aria-label={`Remove ${asset.name}`} onClick={() => toggleCalculatorAsset(side, asset.id)}>×</button>
+                </article>) : <div className="deal-empty"><b>{side === "send" ? "Nothing leaving your roster" : "Nothing coming back yet"}</b><small>Tap above to build this side of the deal.</small></div>}
+              </div>
+              {adjustment > 0 && <div className="deal-adjustment"><span><b>Package adjustment</b><small>Consolidated-asset premium</small></span><strong>+{adjustment}</strong></div>}
+              <footer><span><b>{assets.length} total {assets.length === 1 ? "piece" : "pieces"}</b><small>{assets.length ? assetMix(assets) : "No positions selected"}</small></span><strong>{assets.length ? total : "—"}</strong></footer>
+            </section>;
+          })}
         </div>
+        <section className={`deal-verdict ${calculatorReady ? "ready" : "empty"}`} aria-live="polite">
+          <header><span>{calculatorSendAssets.length ? calculatorAdjustedSendValue : "—"}<small>You send</small></span><div><b>{calculatorVerdict}</b><small>{calculatorReady ? `${Math.round(calculatorGap * 100)}% adjusted value gap · ${calculatorViability}` : "Choose assets on both sides to compare the packages."}</small></div><span>{calculatorReceiveAssets.length ? calculatorAdjustedReceiveValue : "—"}<small>You receive</small></span></header>
+          <div className="deal-balance-rail"><i style={{ left: `${calculatorBalancePosition}%` }} /><span /></div>
+          <footer><small>MORE VALUE SENT</small><b>FANTASY HUB DEAL BALANCE</b><small>MORE VALUE RECEIVED</small></footer>
+        </section>
         {assetSelectorSide && (() => {
           const selectorAssets = assetSelectorSide === "send" ? yourTradeAssets : partnerTradeAssets;
           const selectorIds = assetSelectorSide === "send" ? effectiveSendIds : effectiveReceiveIds;

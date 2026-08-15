@@ -317,10 +317,12 @@ test("Trade Lab applies a visible consolidation adjustment to uneven packages", 
   assert.match(source, /const depthMultiplier = rosterDepth <= 18 \? 1\.15 : rosterDepth >= 28 \? 0\.8 : 1/);
   assert.match(source, /calculatorAdjustedSendValue = calculatorSendValue \+ calculatorValueAdjustment\.send/);
   assert.match(source, /calculatorAdjustedReceiveValue = calculatorReceiveValue \+ calculatorValueAdjustment\.receive/);
-  assert.match(source, /Value adjustment \+\$\{Math\.max\(calculatorValueAdjustment\.send, calculatorValueAdjustment\.receive\)\}/);
+  assert.match(source, /adjustment > 0 && <div className="deal-adjustment">/);
+  assert.match(source, /<strong>\+\{adjustment\}<\/strong>/);
   assert.match(source, /<h3>Value adjustment<\/h3>/);
   assert.match(source, /Fantasy Hub adds a consolidation premium to the side receiving fewer assets/);
-  assert.match(styles, /\.calculator-score>div>em\{/);
+  assert.match(styles, /\.deal-adjustment\{/);
+  assert.match(source, /<b>Package adjustment<\/b>/);
 });
 
 test("Start Sit scoring settings use one compact scrollable row", async () => {
