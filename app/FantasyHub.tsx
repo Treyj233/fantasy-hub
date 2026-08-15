@@ -2634,7 +2634,11 @@ export default function FantasyHub({
 }
 
 function Glossary({ onNavigate }: { onNavigate: (view: View) => void }) {
-  const groups: NavGroup[] = ["Portfolio", "Team Management", "League Insights", "Live", "Utilities"];
+  const categories = mobileCategoryNav.map((category) => ({
+    ...category,
+    leadPage: nav.find((item) => item.label === category.lead)!,
+    pages: nav.filter((item) => item.group === category.group),
+  }));
   return (
     <div className="page-content glossary-page">
       <SectionIntro
@@ -2644,14 +2648,19 @@ function Glossary({ onNavigate }: { onNavigate: (view: View) => void }) {
         text="Every page has a distinct job. Browse by purpose, then jump directly into the tool you need."
       />
       <nav className="glossary-jump" aria-label="Glossary sections">
-        {groups.map((group) => <a key={group} href={`#glossary-${group.toLowerCase().replaceAll(" ", "-")}`}>{group}</a>)}
+        {categories.map((category) => (
+          <a key={category.group} href={`#glossary-${category.group.toLowerCase().replaceAll(" ", "-")}`}>
+            <i className={`nav-badge ${category.leadPage.tone}`} aria-hidden="true">{category.leadPage.mark}</i>
+            <span>{category.label}</span>
+          </a>
+        ))}
       </nav>
       <div className="glossary-groups">
-        {groups.map((group) => (
-          <section className="panel glossary-group" id={`glossary-${group.toLowerCase().replaceAll(" ", "-")}`} key={group}>
-            <header><span>{group.toUpperCase()}</span><small>{nav.filter((item) => item.group === group).length} pages</small></header>
+        {categories.map((category) => (
+          <section className="panel glossary-group" id={`glossary-${category.group.toLowerCase().replaceAll(" ", "-")}`} key={category.group}>
+            <header><div><i className={`nav-badge ${category.leadPage.tone}`} aria-hidden="true">{category.leadPage.mark}</i><span>{category.label.toUpperCase()}</span></div><small>{category.pages.length} {category.pages.length === 1 ? "page" : "pages"}</small></header>
             <div className="glossary-grid">
-              {nav.filter((item) => item.group === group).map((item) => {
+              {category.pages.map((item) => {
                 const details = glossaryDetails[item.label];
                 return (
                   <button type="button" className="glossary-card" key={item.label} onClick={() => onNavigate(item.label)}>

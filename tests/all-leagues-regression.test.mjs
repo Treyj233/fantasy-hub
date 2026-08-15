@@ -100,6 +100,17 @@ test("open mobile category menu shields the page behind it", async () => {
   assert.match(styles, /\.mobile-category-tray\{position:relative;z-index:3/);
 });
 
+test("Glossary mirrors the five-category header layout", async () => {
+  const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
+  const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  assert.match(source, /const categories = mobileCategoryNav\.map/);
+  assert.match(source, /pages: nav\.filter\(\(item\) => item\.group === category\.group\)/);
+  assert.match(source, /category\.leadPage\.tone/);
+  assert.match(source, /category\.pages\.map\(\(item\) =>/);
+  assert.doesNotMatch(source, /const groups: NavGroup\[\] = \["Portfolio", "Team Management", "League Insights", "Live", "Utilities"\]/);
+  assert.match(styles, /\.glossary-jump\{[^}]*grid-template-columns:repeat\(5,minmax\(0,1fr\)\)/);
+});
+
 test("League Stories leads Analyze League and Manager Report finishes Manage Team", async () => {
   const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
   assert.match(source, /label: "League Stories"[^\n]+group: "Analyze League"/);
