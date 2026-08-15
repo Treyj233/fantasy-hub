@@ -363,6 +363,19 @@ html[data-theme="dark"] .game-day-metrics article,html[data-theme="dark"] .game-
   .priority-inbox .portfolio-action-buttons .platform-link>span,.priority-inbox .portfolio-action-buttons .platform-link>b{display:none}
 }
 
+/* Team Rankings uses weight sparingly; color and scale carry the hierarchy. */
+.team-rankings-page :is(strong,b),
+.team-assets-modal-layer :is(strong,b){font-weight:700!important}
+.team-rankings-page :is(button,.room-rank small),
+.team-assets-modal-layer button{font-weight:650!important}
+.team-assets-drawer>header span,
+.team-position-room>header small{font-weight:750!important}
+@media(max-width:700px){
+  .team-rank-row .room-rank:before,
+  .team-rank-row .draft-rank:before{font-weight:700!important}
+  .team-assets-mobile-open{font-weight:700!important}
+}
+
 /* Position-aware NFL opponent matchup grades. */
 .matchup-team{--matchup-hue:60;--matchup-position:50%;display:inline-grid;grid-template-columns:auto minmax(86px,1fr);align-items:center;gap:8px;min-width:150px;padding:6px 8px;color:var(--ink);background:color-mix(in srgb,hsl(var(--matchup-hue) 63% 44%) 9%,var(--chalk));border:1px solid color-mix(in srgb,hsl(var(--matchup-hue) 63% 40%) 40%,var(--line));border-radius:9px}.matchup-team>b{font-size:11px;white-space:nowrap}.matchup-team>span{position:relative;display:block;padding-top:7px;color:var(--muted);background:linear-gradient(90deg,#d34a45,#e4b545 50%,#2e9b5d);background-position:left top;background-repeat:no-repeat;background-size:100% 4px;border-radius:99px;font-size:8px;font-weight:900;white-space:nowrap}.matchup-team>span>i{position:absolute;left:var(--matchup-position);top:-2px;width:8px;height:8px;background:#fff;border:2px solid hsl(var(--matchup-hue) 63% 37%);border-radius:50%;box-shadow:0 1px 3px #0004;transform:translateX(-50%)}.matchup-team.neutral,.matchup-team.bye{display:inline-flex;min-width:0;background:var(--chalk);border-color:var(--line)}.matchup-team.bye{color:var(--muted)}.roster-weather{display:block;max-width:240px;margin-top:5px;color:var(--muted);font-size:8px;line-height:1.35}.head-to-head-matchup{display:flex!important;align-items:center;gap:7px;margin-top:7px}.head-to-head-matchup>.matchup-team{min-width:144px}.head-to-head-matchup>small{max-width:190px;margin:0!important;font-size:7px!important;line-height:1.35}.head-to-head-player{align-items:start}.head-to-head-player>b{padding-top:7px}
 html[data-theme="dark"] .matchup-team{color:var(--ink);background:color-mix(in srgb,hsl(var(--matchup-hue) 58% 38%) 15%,var(--chalk));border-color:color-mix(in srgb,hsl(var(--matchup-hue) 58% 48%) 45%,var(--line))}html[data-theme="dark"] .matchup-team.neutral,html[data-theme="dark"] .matchup-team.bye{background:var(--chalk);border-color:var(--line)}
