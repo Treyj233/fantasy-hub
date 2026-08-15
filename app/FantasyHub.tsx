@@ -1588,6 +1588,9 @@ export default function FantasyHub({
     if (!accountUser) return;
     void (async () => {
       try {
+        // StoreKit currentEntitlements is a prompt-free renewal/revocation
+        // backstop when a server notification was delayed or missed.
+        if (isNativeIosApp()) await nativeRestorePurchases().catch(() => false);
         const response = await fetch("/api/account");
         if (!response.ok) throw new Error("Account unavailable");
         const data = (await response.json()) as {

@@ -64,13 +64,15 @@ test("account deletion cancels active Stripe billing before deleting user data",
 });
 
 test("Apple billing uses one canonical provider and supports legacy records", async () => {
-  const [appleRoute, portalRoute, entitlements] = await Promise.all([
+  const [appleRoute, appleSync, portalRoute, entitlements] = await Promise.all([
     readFile(new URL("../app/api/billing/apple/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/apple-entitlement-sync.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/billing/portal/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/entitlements.ts", import.meta.url), "utf8"),
   ]);
 
-  assert.match(appleRoute, /provider: "apple"/);
+  assert.match(appleRoute, /persistAppleEntitlement/);
+  assert.match(appleSync, /provider: "apple"/);
   assert.match(appleRoute, /\["apple", "app_store"\]/);
   assert.match(portalRoute, /record\.provider === "app_store"/);
   assert.match(entitlements, /record\?\.provider === "app_store" \? "apple"/);
@@ -89,4 +91,19 @@ test("Apple verification performs request-scoped authenticated API calls", async
   assert.match(source, /payload\.bundleId !== config\.bundleId/);
   assert.match(source, /payload\.transactionId !== transactionId/);
   assert.match(source, /APP_STORE_PRODUCTS\.has\(productId\)/);
+});
+
+test("Apple renewals reconcile from server notifications and native app launch", async () => {
+  const [webhook, sync, dashboard] = await Promise.all([
+    readFile(new URL("../app/api/webhooks/apple/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/apple-entitlement-sync.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8"),
+  ]);
+  assert.match(webhook, /signedPayload/);
+  assert.match(webhook, /verifyAppleTransaction\(transactionId\)/);
+  assert.match(webhook, /claimedAppleSubscription/);
+  assert.match(webhook, /persistAppleEntitlement/);
+  assert.match(sync, /currentPeriodEnd: verified\.expiresAt/);
+  assert.match(sync, /active \? "pro" : "free"/);
+  assert.match(dashboard, /isNativeIosApp\(\)\) await nativeRestorePurchases\(\)/);
 });

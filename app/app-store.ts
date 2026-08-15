@@ -4,6 +4,15 @@ export const APP_STORE_PRODUCTS = new Set([
   "com.fantasyhubapp.pro.annual",
 ]);
 
+export type VerifiedAppleTransaction = {
+  transactionId: string;
+  originalTransactionId: string;
+  productId: string;
+  environment: string;
+  expiresAt: string | null;
+  revokedAt: string | null;
+};
+
 type AppleRuntimeConfig = {
   issuerId: string;
   keyId: string;
@@ -27,7 +36,7 @@ async function runtimeConfig(): Promise<AppleRuntimeConfig | null> {
   return config.issuerId && config.keyId && config.privateKey ? config : null;
 }
 
-function decodeJwsPayload(value: string) {
+export function decodeAppleJwsPayload(value: string) {
   const payload = value.split(".")[1];
   if (!payload) throw new Error("Apple returned an invalid signed transaction");
   const normalized = payload.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(payload.length / 4) * 4, "=");
@@ -111,7 +120,7 @@ export async function verifyAppleTransaction(transactionId: string) {
     response = await getTransactionInfo(config, transactionId, true);
   }
   if (!response.signedTransactionInfo) throw new Error("Apple did not return signed transaction information");
-  const payload = decodeJwsPayload(response.signedTransactionInfo);
+  const payload = decodeAppleJwsPayload(response.signedTransactionInfo);
   if (payload.bundleId !== config.bundleId || payload.transactionId !== transactionId)
     throw new Error("Apple transaction identity does not match Fantasy Hub");
   const productId = String(payload.productId ?? "");
@@ -123,5 +132,5 @@ export async function verifyAppleTransaction(transactionId: string) {
     environment: String(payload.environment ?? environment),
     expiresAt: typeof payload.expiresDate === "number" ? new Date(payload.expiresDate).toISOString() : null,
     revokedAt: typeof payload.revocationDate === "number" ? new Date(payload.revocationDate).toISOString() : null,
-  };
+  } satisfies VerifiedAppleTransaction;
 }

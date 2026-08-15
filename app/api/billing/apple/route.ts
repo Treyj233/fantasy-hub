@@ -2,6 +2,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { getDb } from "../../../../db";
 import { appStoreTransactions, subscriptions } from "../../../../db/schema";
 import { verifyAppleTransaction } from "../../../app-store";
+import { persistAppleEntitlement } from "../../../apple-entitlement-sync";
 import { getChatGPTUser } from "../../../chatgpt-auth";
 
 export const runtime = "nodejs";
@@ -21,29 +22,8 @@ export async function POST(request: Request) {
       .where(eq(appStoreTransactions.originalTransactionId, verified.originalTransactionId)).limit(1);
     if (claimed && claimed.userId !== user.userId)
       return Response.json({ error: "This App Store subscription belongs to another Fantasy Hub account" }, { status: 409 });
-    const now = new Date();
-    const active = !verified.revokedAt && (!verified.expiresAt || new Date(verified.expiresAt) > now);
-    const transactionRecord = { ...verified, userId: user.userId, updatedAt: now.toISOString() };
-    await db.insert(appStoreTransactions).values(transactionRecord).onConflictDoUpdate({
-      target: appStoreTransactions.originalTransactionId,
-      set: transactionRecord,
-    });
-    const subscriptionRecord = {
-      userId: user.userId,
-      email: user.email,
-      plan: active ? "pro" : "free",
-      status: active ? "active" : "canceled",
-      provider: "apple",
-      providerCustomerId: null,
-      providerSubscriptionId: verified.originalTransactionId,
-      currentPeriodEnd: verified.expiresAt,
-      updatedAt: now.toISOString(),
-    };
-    await db.insert(subscriptions).values(subscriptionRecord).onConflictDoUpdate({
-      target: subscriptions.userId,
-      set: subscriptionRecord,
-    });
-    return Response.json({ verified: true, active, productId: verified.productId, currentPeriodEnd: verified.expiresAt });
+    const entitlement = await persistAppleEntitlement(verified, user.userId, user.email);
+    return Response.json({ verified: true, active: entitlement.active, productId: verified.productId, currentPeriodEnd: entitlement.currentPeriodEnd });
   } catch (error) {
     console.error("App Store transaction verification failed", error);
     return Response.json({ error: error instanceof Error ? error.message : "Unable to verify App Store purchase" }, { status: 503 });
