@@ -95,8 +95,8 @@ test("sidebar FH logo is an accessible Home button", async () => {
 test("open mobile category menu shields the page behind it", async () => {
   const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
   const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
-  assert.match(source, /mobileCategoryOpen && \([\s\S]*?className="mobile-category-scrim"[\s\S]*?event\.preventDefault\(\)[\s\S]*?event\.stopPropagation\(\)[\s\S]*?setMobileCategoryOpen\(null\)/);
-  assert.match(styles, /\.mobile-category-scrim\{position:fixed;z-index:2;inset:0;display:block;[^}]*touch-action:none\}/);
+  assert.match(source, /mobileCategoryOpen && createPortal\([\s\S]*?className="mobile-category-scrim"[\s\S]*?event\.preventDefault\(\)[\s\S]*?event\.stopPropagation\(\)[\s\S]*?setMobileCategoryOpen\(null\)[\s\S]*?document\.body/);
+  assert.match(styles, /\.mobile-category-scrim\{position:fixed;z-index:64;inset:0;display:block;[^}]*pointer-events:auto;touch-action:none;overscroll-behavior:contain\}/);
   assert.match(styles, /\.mobile-category-menu\{position:absolute;z-index:3/);
   assert.match(styles, /\.mobile-category-tray\{position:relative;z-index:3/);
 });

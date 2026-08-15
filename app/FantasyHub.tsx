@@ -2236,7 +2236,7 @@ export default function FantasyHub({
             );
           })}
         </nav>
-        {mobileCategoryOpen && (
+        {mobileCategoryOpen && createPortal(
           <button
             className="mobile-category-scrim"
             type="button"
@@ -2246,7 +2246,8 @@ export default function FantasyHub({
               event.stopPropagation();
               setMobileCategoryOpen(null);
             }}
-          />
+          />,
+          document.body,
         )}
         {mobileCategoryOpen && (
           <section className="mobile-category-menu" aria-label={`${mobileCategoryOpen} pages`}>
