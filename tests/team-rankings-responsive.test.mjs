@@ -41,6 +41,8 @@ test("Team Rankings groups assets by position and removes mobile horizontal scro
   assert.match(styles, /\.room-rank\.rank-trailing b/);
   assert.match(styles, /\.team-rank-row \.room-rank\{[^}]*background:rgb\(var\(--brand-primary-rgb,11 134 80\) \/ \.14\)/);
   assert.match(styles, /\.team-rank-row \.core-assets button\{background:rgb\(var\(--brand-primary-rgb,11 134 80\) \/ \.14\)/);
+  assert.match(styles, /\.team-rankings-page \.team-rank-row \.core-assets button\{font-size:8px!important\}/);
+  assert.match(styles, /@media\(max-width:700px\)[\s\S]*?\.team-rankings-page \.team-rank-row \.core-assets button\{font-size:9px!important\}/);
   assert.doesNotMatch(rankings, /<i>\{expanded \? "−" : "\+"\}<\/i>/);
 });
 
