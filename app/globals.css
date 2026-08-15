@@ -1618,7 +1618,7 @@ html[data-theme="dark"] .player-verdict,html[data-theme="dark"] .player-range-co
 /* Player production uses one horizontal stat rail; the dossier owns vertical scroll. */
 .player-dossier .full-game-log{background:var(--chalk);border-color:var(--line)}
 .full-game-log .game-log-summary span{color:var(--muted);background:color-mix(in srgb,var(--green) 5%,var(--chalk))}
-.game-log-scroll{max-height:none;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;border-color:var(--line);background:var(--chalk)}
+.game-log-scroll{position:relative;max-height:none;overflow-x:auto;overflow-y:clip;overscroll-behavior-x:contain;border-color:var(--line);background:var(--chalk);isolation:isolate;-webkit-overflow-scrolling:touch}
 .game-log-scroll th{position:static;color:var(--muted);background:color-mix(in srgb,var(--green) 8%,var(--chalk));border-color:var(--line)}
 .game-log-scroll td{background:var(--chalk);border-color:var(--line)}
 .game-log-scroll tbody tr:nth-child(even),
@@ -1626,8 +1626,8 @@ html[data-theme="dark"] .player-verdict,html[data-theme="dark"] .player-range-co
 .game-log-scroll tbody tr:hover,
 .game-log-scroll tbody tr:hover td{background:color-mix(in srgb,var(--gold) 13%,var(--chalk))}
 .game-log-scroll .game-log-week,
-.game-log-scroll tbody .game-log-week{position:sticky;inset-inline-start:0;left:0;z-index:4;background:var(--chalk);border-right-color:var(--line)}
-.game-log-scroll thead .game-log-week{z-index:5;background:color-mix(in srgb,var(--green) 8%,var(--chalk))}
+.game-log-scroll tbody .game-log-week{position:-webkit-sticky;position:sticky!important;inset-inline-start:0;left:0!important;z-index:4;width:52px;min-width:52px;max-width:52px;background:var(--chalk);background-clip:padding-box;border-right-color:var(--line);box-shadow:7px 0 10px -9px rgb(0 0 0 / .65)}
+.game-log-scroll thead .game-log-week{position:-webkit-sticky;position:sticky!important;inset-inline-start:0;left:0!important;z-index:6;width:52px;min-width:52px;max-width:52px;background:color-mix(in srgb,var(--green) 8%,var(--chalk));background-clip:padding-box}
 .game-log-scroll tbody tr:nth-child(even) .game-log-week{background:color-mix(in srgb,var(--green) 4%,var(--chalk))}
 .game-log-scroll tbody tr:hover .game-log-week{background:color-mix(in srgb,var(--gold) 13%,var(--chalk))}
 .game-log-scroll .game-log-points{background:var(--green)}

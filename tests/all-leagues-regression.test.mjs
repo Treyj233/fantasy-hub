@@ -582,8 +582,9 @@ test("player game logs pin every Week cell in a single-axis theme-aware stat rai
   assert.match(source, /<th className="game-log-week" scope="col">WK<\/th>/);
   assert.match(source, /<td className="game-log-week">/);
   assert.match(styles, /\.game-log-scroll \.game-log-week\{position:sticky;left:0/);
-  assert.match(styles, /\.game-log-scroll\{max-height:none;overflow-x:auto;overflow-y:hidden/);
-  assert.match(styles, /\.game-log-scroll tbody \.game-log-week\{position:sticky/);
+  assert.match(styles, /\.game-log-scroll\{position:relative;max-height:none;overflow-x:auto;overflow-y:clip/);
+  assert.match(styles, /\.game-log-scroll tbody \.game-log-week\{position:-webkit-sticky;position:sticky!important;[^}]*left:0!important/);
+  assert.match(styles, /\.game-log-scroll thead \.game-log-week\{position:-webkit-sticky;position:sticky!important;[^}]*left:0!important/);
   assert.match(styles, /\.game-log-scroll tbody tr:nth-child\(even\) \.game-log-week\{background:color-mix\(in srgb,var\(--green\) 4%,var\(--chalk\)\)/);
 });
 

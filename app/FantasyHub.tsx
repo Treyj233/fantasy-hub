@@ -274,6 +274,7 @@ type LeagueRanking = Player & {
   ageAdjustment: number;
   lineupAdjustment: number;
 };
+type CompositeLeagueRanking = LeagueRanking & { compositeAdp: number | null };
 type WaiverPlayer = LeagueRanking & {
   waiverProjection?: number;
   normalizedProjectionScore?: number;
@@ -7250,6 +7251,50 @@ function TeamRankings({
   );
 }
 
+function buildSeasonCompositeRankings(
+  rankings: LeagueRanking[],
+  context: RankingContext | null,
+): CompositeLeagueRanking[] {
+  const superflex = (context?.positionDemand.QB ?? 0) > 1.4;
+  const sleeperAdpKey = `Sleeper ${superflex ? "Superflex" : "Single-QB"}`;
+  const underdogAdpKey = `Underdog ${
+    superflex
+      ? "Superflex Half PPR"
+      : context?.scoring === "PPR"
+        ? "Single-QB Full PPR"
+        : "Single-QB Half PPR"
+  }`;
+  return rankings
+    .map((player) => {
+      const sources = [
+        { value: player.adpBySite?.[underdogAdpKey], weight: 0.6 },
+        { value: player.adpBySite?.[sleeperAdpKey], weight: 0.3 },
+        { value: player.adpBySite?.ESPN, weight: 0.1 },
+      ].filter(
+        (source): source is { value: number; weight: number } =>
+          typeof source.value === "number" && source.value > 0,
+      );
+      const availableWeight = sources.reduce(
+        (total, source) => total + source.weight,
+        0,
+      );
+      const compositeAdp = availableWeight
+        ? sources.reduce(
+            (total, source) => total + source.value * source.weight,
+            0,
+          ) / availableWeight
+        : null;
+      return { ...player, compositeAdp };
+    })
+    .sort(
+      (a, b) =>
+        (a.compositeAdp ?? Number.POSITIVE_INFINITY) -
+          (b.compositeAdp ?? Number.POSITIVE_INFINITY) ||
+        a.overallRank - b.overallRank,
+    )
+    .map((player, index) => ({ ...player, overallRank: index + 1 }));
+}
+
 function PlayerRanks({
   roster,
   leagueRankings,
@@ -7274,23 +7319,7 @@ function PlayerRanks({
     roster.map((player) => player.name.toLowerCase()),
   );
   const teamCount = context?.teams ?? 12;
-  const superflex = (context?.positionDemand.QB ?? 0) > 1.4;
-  const sleeperAdpKey = `Sleeper ${superflex ? "Superflex" : "Single-QB"}`;
-  const underdogAdpKey = `Underdog ${superflex ? "Superflex Half PPR" : context?.scoring === "PPR" ? "Single-QB Full PPR" : "Single-QB Half PPR"}`;
-  const compositePool = leagueRankings
-    .map((player) => {
-      const sources = [
-        { value: player.adpBySite?.[underdogAdpKey], weight: 0.6 },
-        { value: player.adpBySite?.[sleeperAdpKey], weight: 0.3 },
-        { value: player.adpBySite?.ESPN, weight: 0.1 },
-      ].filter((source): source is { value: number; weight: number } => typeof source.value === "number");
-      const availableWeight = sources.reduce((total, source) => total + source.weight, 0);
-      const compositeAdp = availableWeight
-        ? sources.reduce((total, source) => total + source.value * source.weight, 0) / availableWeight
-        : null;
-      return { ...player, compositeAdp };
-    })
-    .sort((a, b) => (a.compositeAdp ?? Number.POSITIVE_INFINITY) - (b.compositeAdp ?? Number.POSITIVE_INFINITY) || a.overallRank - b.overallRank);
+  const compositePool = buildSeasonCompositeRankings(leagueRankings, context);
   const positionRanks = new Map<string, number>();
   const personalizedPool: (RankedPlayer & Partial<LeagueRanking> & { compositeAdp: number | null })[] =
     compositePool.map((player, index) => {
@@ -8493,21 +8522,16 @@ function fantasyTradeProfile(
       roleGrade * 0.1,
   );
   const age = ranking?.age;
-  const peakAge: Record<string, number> = { QB: 29, RB: 24, WR: 26, TE: 27 };
-  const peak = peakAge[position] ?? 27;
   const provenYoungPlayer =
     games >= 8 && trueTalent >= 80 && rawProductionGrade >= 78;
-  const ageAdjustment =
-    typeof age !== "number"
-      ? 0
-      : age <= peak
-        ? provenYoungPlayer
-          ? Math.min(4, (peak - age) * 0.65)
-          : 0
-        : -(age - peak) * (position === "RB" ? 2.6 : position === "WR" ? 1.65 : position === "TE" ? 1.25 : 0.75);
+  const ageAdjustment = dynastyAgeCurve(
+    position,
+    age,
+    provenYoungPlayer,
+  );
   const futureOverall = clampTradeRating(trueTalent + ageAdjustment);
   const dynastyOverall = clampTradeRating(
-    trueTalent * 0.55 + futureOverall * 0.35 + availabilityGrade * 0.1,
+    trueTalent * 0.4 + futureOverall * 0.5 + availabilityGrade * 0.1,
   );
   const evidencePoints =
     Math.min(2, games / 7) + (typeof snap === "number" ? 1 : 0) + (ranking ? 1 : 0);
@@ -8516,20 +8540,92 @@ function fantasyTradeProfile(
   return { trueTalent, currentOverall, dynastyOverall, confidence };
 }
 
+function dynastyAgeCurve(
+  position: string,
+  age: number | null | undefined,
+  provenYoungPlayer: boolean,
+) {
+  if (typeof age !== "number") return 0;
+  const youngBonus = provenYoungPlayer ? 2 : 0;
+  if (position === "QB") {
+    if (age <= 27) return Math.min(6, (28 - age) * 0.8 + youngBonus);
+    if (age <= 32) return 2;
+    if (age <= 35) return -(age - 32) * 2;
+    return -7 - (age - 36) * 4.5;
+  }
+  if (position === "RB") {
+    if (age <= 22) return 8 + youngBonus;
+    if (age <= 24) return 6 - (age - 23) + youngBonus;
+    if (age === 25) return 1;
+    if (age === 26) return -4;
+    return -10 - (age - 27) * 6;
+  }
+  if (position === "WR") {
+    if (age <= 23) return 7 + youngBonus;
+    if (age <= 26) return 5 - (age - 24) + youngBonus;
+    if (age <= 28) return 1 - (age - 27);
+    if (age === 29) return -4;
+    return -9 - (age - 30) * 4.5;
+  }
+  if (position === "TE") {
+    if (age <= 24) return 5 + youngBonus;
+    if (age <= 27) return 4 - (age - 25) + youngBonus;
+    if (age <= 29) return 0;
+    if (age === 30) return -4;
+    return -8 - (age - 31) * 4;
+  }
+  return 0;
+}
+
+function tradePositionAdjustment(
+  player: Player,
+  ranking: LeagueRanking | undefined,
+  context: RankingContext | null,
+) {
+  const baselineDemand: Record<string, number> = { QB: 1, RB: 2, WR: 2, TE: 1 };
+  const demand = context?.positionDemand[player.position] ?? baselineDemand[player.position] ?? 1;
+  const demandDelta = demand - (baselineDemand[player.position] ?? 1);
+  const format = context?.format ?? "Redraft";
+  const demandWeight = format === "Dynasty" ? 5 : format === "Keeper" ? 4 : 3.25;
+  const superflexBoost = player.position === "QB" && demand >= 1.4
+    ? 7 + Math.min(4, (demand - 1.4) * 5)
+    : 0;
+  const tightEndPremiumBoost = player.position === "TE"
+    ? Math.min(7, Math.max(0, context?.tePremium ?? 0) * 6)
+    : 0;
+  const passingBoost = player.position === "QB"
+    ? Math.max(0, (context?.passTouchdown ?? 4) - 4) * 1.5
+    : 0;
+  const lineupSignal = (ranking?.lineupAdjustment ?? 0) *
+    (format === "Dynasty" ? 0.8 : format === "Keeper" ? 0.65 : 0.5);
+  return Math.max(
+    -8,
+    Math.min(
+      16,
+      demandDelta * demandWeight +
+        superflexBoost +
+        tightEndPremiumBoost +
+        passingBoost +
+        lineupSignal,
+    ),
+  );
+}
+
 function tradeAsset(
   player: Player,
   rankingById: Map<string, LeagueRanking>,
-  format: "Dynasty" | "Keeper" | "Redraft" = "Redraft",
+  context: RankingContext | null,
 ): TradeAssetValue {
   const ranking = rankingForPlayer(player, rankingById);
   const profile = fantasyTradeProfile(player, ranking);
+  const format = context?.format ?? "Redraft";
   const formatOverall =
     format === "Dynasty"
       ? profile.dynastyOverall
       : format === "Keeper"
         ? profile.currentOverall * 0.6 + profile.dynastyOverall * 0.4
         : profile.currentOverall;
-  const scarcityAdjustment = (ranking?.lineupAdjustment ?? 0) * 0.3;
+  const scarcityAdjustment = tradePositionAdjustment(player, ranking, context);
   const value = Math.max(
     8,
     Math.min(99, Math.round((formatOverall - 55) * 2.25 + scarcityAdjustment)),
@@ -8587,7 +8683,7 @@ function tradeRosterStrength(
       ? tradeAsset(
           player,
           rankingById,
-          context?.format ?? "Redraft",
+          context,
         ).value
       : player.projection * 3;
   };
@@ -8692,10 +8788,11 @@ function buildTradeSuggestions(
     partnerNeeds.map((need, index) => [need.position, index]),
   );
   const eligible = (player: Player) =>
-    !["K", "DEF"].includes(player.position) && rankingById.has(player.id);
+    !["K", "DEF"].includes(player.position) &&
+    Boolean(rankingForPlayer(player, rankingById));
   const partnerAssets = partner.roster
     .filter(eligible)
-    .map((player) => tradeAsset(player, rankingById, format))
+    .map((player) => tradeAsset(player, rankingById, context))
     .sort(
       (a, b) =>
         (yourNeedOrder.get(a.position) ?? 9) -
@@ -8703,7 +8800,7 @@ function buildTradeSuggestions(
     );
   const yourAssets = yourTeam.roster
     .filter(eligible)
-    .map((player) => tradeAsset(player, rankingById, format));
+    .map((player) => tradeAsset(player, rankingById, context));
   const yourBefore = tradeRosterStrength(yourTeam.roster, rankingById, context);
   const partnerBefore = tradeRosterStrength(
     partner.roster,
@@ -8927,12 +9024,13 @@ function TradeLab({
   const partner =
     opponents.find((team) => team.id === selectedId) ?? opponents[0];
   const partnerStyle = partner ? (styles[partner.id] ?? "Neutral") : "Neutral";
+  const tradeRankings = buildSeasonCompositeRankings(rankings, context);
   const suggestions =
     isPro && yourTeam && partner
       ? buildTradeSuggestions(
           yourTeam,
           partner,
-          rankings,
+          tradeRankings,
           context,
           partnerStyle,
         )
@@ -8977,7 +9075,7 @@ function TradeLab({
         </section>
       </div>
     );
-  const rankingById = buildRankingLookup(rankings);
+  const rankingById = buildRankingLookup(tradeRankings);
   const tradeFormat = context?.format ?? "Redraft";
   const eligibleYourPlayers = yourTeam.roster.filter(
     (player) => !["K", "DEF"].includes(player.position),
@@ -8998,11 +9096,11 @@ function TradeLab({
     confidence: "High",
   });
   const yourTradeAssets = [
-    ...eligibleYourPlayers.map((player) => tradeAsset(player, rankingById, tradeFormat)),
+    ...eligibleYourPlayers.map((player) => tradeAsset(player, rankingById, context)),
     ...(yourTeam.draftCapital?.picks ?? []).map(pickAsset),
   ];
   const partnerTradeAssets = [
-    ...eligiblePartnerPlayers.map((player) => tradeAsset(player, rankingById, tradeFormat)),
+    ...eligiblePartnerPlayers.map((player) => tradeAsset(player, rankingById, context)),
     ...(partner.draftCapital?.picks ?? []).map(pickAsset),
   ];
   const effectiveSendIds = calculatorSendIds ?? suggestion?.send.map((asset) => asset.id) ?? eligibleYourPlayers.slice(0, 1).map((player) => player.id);
