@@ -16,8 +16,10 @@ test("season-long Hub rankings use the requested ADP weights and six tiers", asy
   assert.doesNotMatch(playerRanks, /60% UNDERDOG/);
   assert.doesNotMatch(playerRanks, /30% SLEEPER/);
   assert.doesNotMatch(playerRanks, /10% ESPN/);
-  assert.match(playerRanks, /<span>UNDERDOG<\/span>/);
-  assert.match(playerRanks, /<span>SLEEPER<\/span>/);
-  assert.match(playerRanks, /<span>ESPN<\/span>/);
+  assert.doesNotMatch(playerRanks, /className="ranking-method panel"/);
+  assert.doesNotMatch(playerRanks, /<span>UNDERDOG<\/span>/);
+  assert.doesNotMatch(playerRanks, /<span>SLEEPER<\/span>/);
+  assert.doesNotMatch(playerRanks, /<span>ESPN<\/span>/);
+  assert.doesNotMatch(playerRanks, /<span>6 HUB TIERS<\/span>/);
   assert.match(playerRanks, /Composite ADP/);
 });

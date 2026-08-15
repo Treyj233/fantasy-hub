@@ -100,42 +100,6 @@ html[data-theme="dark"] .adp-sites button.active {
   }
 }
 
-.ranking-method {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 0;
-  margin-bottom: 15px;
-  padding: 0;
-  overflow: hidden;
-}
-.ranking-method > div {
-  padding: 16px 17px;
-  border-right: 1px solid var(--line);
-}
-.ranking-method > div:last-child {
-  border: 0;
-}
-.ranking-method span,
-.ranking-method strong,
-.ranking-method small {
-  display: block;
-}
-.ranking-method span {
-  color: var(--green);
-  font-size: 8px;
-  font-weight: 950;
-  letter-spacing: 0.12em;
-}
-.ranking-method strong {
-  margin-top: 5px;
-  font-size: 12px;
-}
-.ranking-method small {
-  margin-top: 4px;
-  color: var(--muted);
-  font-size: 9px;
-  line-height: 1.45;
-}
 .ranking-page-controls {
   grid-template-columns: auto minmax(180px, 1fr) 150px auto;
 }
@@ -187,9 +151,6 @@ html[data-theme="dark"] .adp-sites button.active {
 .adp-market-table > header {
   border-left-color: var(--green);
 }
-html[data-theme="dark"] .ranking-method > div {
-  border-color: color-mix(in srgb, var(--green) 35%, #3b3b3b);
-}
 html[data-theme="dark"] .ranking-page-controls select {
   color: var(--ink);
   background: color-mix(in srgb, var(--deep) 48%, #303030);
@@ -204,15 +165,6 @@ html[data-theme="dark"] .market-gap.negative {
   color: #ff8e94;
 }
 @media (max-width: 1000px) {
-  .ranking-method {
-    grid-template-columns: 1fr 1fr;
-  }
-  .ranking-method > div:nth-child(2) {
-    border-right: 0;
-  }
-  .ranking-method > div:nth-child(-n + 2) {
-    border-bottom: 1px solid var(--line);
-  }
   .ranking-page-controls {
     grid-template-columns: 1fr 1fr;
   }
@@ -224,13 +176,6 @@ html[data-theme="dark"] .market-gap.negative {
   }
 }
 @media (max-width: 620px) {
-  .ranking-method {
-    grid-template-columns: 1fr;
-  }
-  .ranking-method > div {
-    border-right: 0;
-    border-bottom: 1px solid var(--line);
-  }
   .ranking-page-controls {
     grid-template-columns: 1fr;
   }

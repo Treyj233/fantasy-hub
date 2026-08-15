@@ -7423,28 +7423,6 @@ function PlayerRanks({
           )}
         </section>
       )}
-      <section className="ranking-method panel">
-        <div>
-          <span>UNDERDOG</span>
-          <strong>Sharp Best Ball market</strong>
-          <small>{superflex ? "Superflex Half PPR" : context?.scoring === "PPR" ? "Single-QB Full PPR" : "Single-QB Half PPR"} ADP.</small>
-        </div>
-        <div>
-          <span>SLEEPER</span>
-          <strong>League-format market</strong>
-          <small>{superflex ? "Superflex / 2QB" : "Single-QB"} ADP aligned to league reception scoring.</small>
-        </div>
-        <div>
-          <span>ESPN</span>
-          <strong>Home-league market</strong>
-          <small>ESPN&apos;s Single-QB redraft ADP provides the final market signal.</small>
-        </div>
-        <div>
-          <span>6 HUB TIERS</span>
-          <strong>Draft-day decision bands</strong>
-          <small>Players are grouped by roster-building stage after composite ranking.</small>
-        </div>
-      </section>
       <section className="rank-controls ranking-page-controls panel">
         <div
           className="position-filters"
