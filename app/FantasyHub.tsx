@@ -2330,6 +2330,20 @@ export default function FantasyHub({
           </section>
         )}
 
+        {!leagueDrawerOpen && view !== "Manage Leagues" && visibleLeagues.length > 0 && createPortal(
+          <button
+            className="league-edge-handle"
+            type="button"
+            aria-label="Swipe or tap to switch leagues"
+            onClick={() => {
+              void nativeImpact();
+              setMobileCategoryOpen(null);
+              setLeagueDrawerOpen(true);
+            }}
+          ><span aria-hidden="true" /></button>,
+          document.body,
+        )}
+
         {leagueDrawerOpen && createPortal(
           <div className="league-drawer-layer" role="presentation">
             <button className="league-drawer-scrim" type="button" aria-label="Close league switcher" onClick={() => setLeagueDrawerOpen(false)} />

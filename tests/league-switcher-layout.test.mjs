@@ -20,5 +20,7 @@ test("mobile league switching moves into an accessible right-edge drawer", async
   assert.match(ui, /clientX < window\.innerWidth - 24[\s\S]*?horizontalTravel > 48[\s\S]*?setLeagueDrawerOpen\(true\)/);
   assert.match(ui, /leagueDrawerOpen && createPortal\([\s\S]*?className="league-drawer"[\s\S]*?visibleLeagues\.map[\s\S]*?openConnectedLeague\(league\)[\s\S]*?document\.body/);
   assert.match(css, /@media\(max-width:700px\)\{\s*\.league-switcher\{display:none\}/);
-  assert.match(css, /\.league-drawer\{position:absolute;z-index:1;top:0;right:0;bottom:0;[^}]*env\(safe-area-inset-top\)/);
+  assert.match(ui, /className="league-edge-handle"[\s\S]*?aria-label="Swipe or tap to switch leagues"/);
+  assert.match(css, /\.league-edge-handle\{position:fixed;z-index:63;right:0;top:48%;[^}]*var\(--green\)[^}]*var\(--gold\)/);
+  assert.match(css, /\.league-drawer\{position:absolute;z-index:1;top:max\(env\(safe-area-inset-top\),8px\);right:0;bottom:max\(env\(safe-area-inset-bottom\),8px\)/);
 });
