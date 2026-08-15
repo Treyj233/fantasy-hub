@@ -240,6 +240,53 @@ html[data-theme="dark"] .market-gap.negative {
   .ranking-page-controls > span {
     text-align: left;
   }
+  .player-rankings-page .ranking-tier-list .rank-table {
+    width: 100%;
+    overflow-x: hidden;
+  }
+  .player-rankings-page .ranking-detail-row {
+    grid-template-columns: 34px minmax(0, 1fr) 34px 43px 48px;
+    gap: 4px;
+    min-width: 0;
+    padding: 8px 7px;
+  }
+  .player-rankings-page .ranking-detail-row > :nth-child(n + 6) {
+    display: none;
+  }
+  .player-rankings-page .ranking-detail-row > :first-child,
+  .player-rankings-page .position-rank,
+  .player-rankings-page .fantasy-ppg {
+    font-size: 9px;
+  }
+  .player-rankings-page .ranking-detail-row > span:nth-child(3) {
+    min-width: 0;
+  }
+  .player-rankings-page .ranking-detail-row .rank-player {
+    min-width: 0;
+  }
+  .player-rankings-page .ranking-detail-row .rank-player strong,
+  .player-rankings-page .ranking-detail-row .rank-player small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .player-rankings-page .ranking-detail-row .rank-player strong {
+    font-size: 10px;
+  }
+  .player-rankings-page .ranking-detail-row .rank-player small {
+    font-size: 7px;
+  }
+  .player-rankings-page .ranking-detail-row.rank-head {
+    font-size: 6px;
+    letter-spacing: 0;
+  }
+  .player-rankings-page .ranking-detail-row.rank-head > span:nth-child(5) {
+    font-size: 0!important;
+  }
+  .player-rankings-page .ranking-detail-row.rank-head > span:nth-child(5)::after {
+    content: "PPG";
+    font-size: 6px;
+  }
 }
 
 /* Keep league settings compact so rankings remain the visual focus. */

@@ -31,6 +31,9 @@ test("weekly player rankings are Pro-gated, week-aware, and position limited", a
   assert.match(styles, /\.weekly-matchup > \.matchup-team/);
   assert.match(styles, /\.weekly-position-grid\s*\{[^}]*grid-template-columns: 1fr 1fr/s);
   assert.match(styles, /\.player-rankings-page \.ranking-context span\s*\{[^}]*min-height: 28px;[^}]*padding: 5px 9px;[^}]*font-size: 8px;/s);
+  assert.match(styles, /\.player-rankings-page \.ranking-detail-row\s*\{[^}]*grid-template-columns: 34px minmax\(0, 1fr\) 34px 43px 48px;[^}]*min-width: 0;/s);
+  assert.match(styles, /\.player-rankings-page \.ranking-detail-row > :nth-child\(n \+ 6\)\s*\{\s*display: none;/s);
+  assert.match(styles, /\.player-rankings-page \.ranking-tier-list \.rank-table\s*\{[^}]*overflow-x: hidden;/s);
   assert.match(styles, /@media \(max-width: 980px\)[\s\S]*?\.weekly-position-grid \{ grid-template-columns: 1fr; \}/);
   assert.match(rankings, /\{\["ALL", "QB", "RB", "WR", "TE"\]\.map/);
   assert.doesNotMatch(rankings, /\{\["ALL", "QB", "RB", "WR", "TE", "K", "DEF"\]\.map/);
