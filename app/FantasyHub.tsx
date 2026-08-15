@@ -2536,7 +2536,7 @@ export default function FantasyHub({
                 setView("Scoreboard");
                 window.scrollTo({ top: 0, left: 0, behavior: "auto" });
               }}
-            ><i aria-hidden="true" /><span><b>{liveMatchupCount === null ? "CHECKING" : liveMatchupCount > 0 ? `${liveMatchupCount} LIVE` : "NOT LIVE"}</b><small>Scoreboard</small></span><strong aria-hidden="true">›</strong></button>
+            ><i aria-hidden="true" /><span><b>{liveMatchupCount === null ? "CHECKING" : liveMatchupCount > 0 ? `${liveMatchupCount} LIVE` : "NOT LIVE"}</b><small>Open scoreboard</small></span><strong aria-hidden="true">›</strong></button>
             <label>
               Fantasy team
               <select
