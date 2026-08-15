@@ -127,6 +127,16 @@ test("League Analytics uses the shared dashboard typography", async () => {
   assert.doesNotMatch(styles, /\.dynasty-page[^\n]*font-family:Impact/);
 });
 
+test("extreme Fire and Ice statuses affect their player cards", async () => {
+  const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
+  const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  assert.match(source, /<tr className=\{temperature\.state === "fire" \? "temperature-card-fire" : temperature\.state === "ice" \? "temperature-card-ice"/);
+  assert.match(source, /className=\{`head-to-head-player \$\{temperature\.state === "fire" \? "temperature-card-fire" : temperature\.state === "ice" \? "temperature-card-ice"/);
+  assert.match(styles, /\.temperature-card-fire\{[^}]*box-shadow:inset 3px 0 #ef493f[^}]*animation:temperature-card-fire/);
+  assert.match(styles, /\.temperature-card-ice\{[^}]*box-shadow:inset 3px 0 #49b8ef[^}]*animation:temperature-card-ice/);
+  assert.match(styles, /@media\(prefers-reduced-motion:reduce\)\{[^}]*\.temperature-card-fire,\.temperature-card-ice\{animation:none!important\}/);
+});
+
 test("My Leagues exposes live matchup status and opens the Fantasy Scoreboard", async () => {
   const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
   const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");

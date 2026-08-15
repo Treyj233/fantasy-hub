@@ -6821,7 +6821,7 @@ function RosterSection({
               const live = livePlayers.get(player.id);
               const temperature = live ? playerTemperature(live.player, live.status) : { value: 50, label: "Waiting for kickoff", state: "steady" };
               return (
-              <tr key={player.id} onClick={() => setSelectedPlayer(player)}>
+              <tr className={temperature.state === "fire" ? "temperature-card-fire" : temperature.state === "ice" ? "temperature-card-ice" : undefined} key={player.id} onClick={() => setSelectedPlayer(player)}>
                 <td className="roster-player-cell">
                   <span className={`pos pos-${player.position.toLowerCase()}`}>
                     {player.position}
@@ -9312,7 +9312,7 @@ function HeadToHeadMatchup({
         const enriched = matchupPlayer(player);
         const temperature = playerTemperature(player, matchup?.status ?? "");
         return (
-        <article className="head-to-head-player" key={player.id}>
+        <article className={`head-to-head-player ${temperature.state === "fire" ? "temperature-card-fire" : temperature.state === "ice" ? "temperature-card-ice" : ""}`} key={player.id}>
           <PlayerHeadshot id={player.id} position={player.position} />
           <p>
             <button
