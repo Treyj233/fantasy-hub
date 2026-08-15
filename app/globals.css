@@ -1590,6 +1590,51 @@ html[data-theme="dark"] .all-leagues-page .exposure-list>b,html[data-theme="dark
 @media(max-width:700px){.rivalry-week-banner>span{padding:5px 7px;border-radius:7px}}
 @media(max-width:700px){.rivalry-week-active .workspace:before{border-width:2px;box-shadow:inset 0 0 5px rgb(255 214 69 / .52),inset 0 0 9px rgb(255 77 28 / .16),0 0 8px rgb(255 105 21 / .52)}}
 html[data-theme="dark"] .player-verdict,html[data-theme="dark"] .player-range-command,html[data-theme="dark"] .player-decision-rail,html[data-theme="dark"] .player-matchup-intel,html[data-theme="dark"] .player-matchup-intel article,html[data-theme="dark"] .player-dossier>.snap-usage-card,html[data-theme="dark"] .player-dossier>.portfolio-player-footprint{background:#22272f;border-color:#414954}
+
+/* iPadOS/tablet workspace: retain the desktop information architecture while
+   giving the content a compact navigation rail and touch-safe spacing. Phone
+   rules remain isolated below 700px, so this layer cannot alter iPhone builds. */
+@media (min-width:701px) and (max-width:1366px) and (pointer:coarse){
+  html,body{min-height:100%;overscroll-behavior:none}
+  .app-shell,.app-shell.sidebar-collapsed{grid-template-columns:84px minmax(0,1fr)}
+  .sidebar,.sidebar-collapsed .sidebar{height:100dvh;padding:max(18px,env(safe-area-inset-top)) 11px max(16px,env(safe-area-inset-bottom));overflow:hidden}
+  .sidebar-collapse{display:none}
+  .brand,.sidebar-collapsed .brand{justify-content:center;padding:0 0 18px}
+  .brand>div,.league-card,.sidebar .nav-group>span,.sidebar-bottom>div,.sidebar-bottom>small{display:none}
+  .brand-logo{width:48px;height:48px;flex-basis:48px}
+  .sidebar nav,.sidebar-collapsed .sidebar nav{min-height:0;overflow-x:hidden;overflow-y:auto;padding:0;overscroll-behavior:contain;scrollbar-width:none}
+  .sidebar nav::-webkit-scrollbar{display:none}
+  .sidebar nav .nav-group+.nav-group{margin-top:6px;padding-top:6px}
+  .sidebar nav button,.sidebar nav button.active,.sidebar nav button:not(.active),.sidebar-collapsed .sidebar nav button{min-height:46px;justify-content:center;gap:0;padding:7px;font-size:0;touch-action:manipulation}
+  .sidebar nav button .nav-badge{width:32px;height:32px;font-size:14px}
+  .sidebar .nav-label,.sidebar .nav-pro-tag{display:none}
+  .sidebar-bottom,.sidebar-collapsed .sidebar-bottom{padding:10px 0 0}
+  .sidebar .theme-toggle,.sidebar-collapsed .sidebar .theme-toggle{grid-template-columns:1fr;justify-items:center;width:100%;padding:9px}
+  .sidebar .theme-toggle>b,.sidebar .theme-toggle>i{display:none}
+  .workspace{min-width:0;min-height:100dvh;overflow-x:hidden}
+  .topbar{min-height:76px;padding:calc(13px + env(safe-area-inset-top)) 22px 13px}
+  .topbar h1{font-size:20px}.top-actions{gap:8px}.account-utility-row{gap:6px}
+  .account-theme-customizer{min-width:0;grid-template-columns:29px auto;padding:7px 9px}.account-theme-customizer .theme-customizer-copy,.account-theme-customizer>em{display:none}
+  .page-content{max-width:1280px;padding:20px 22px calc(30px + env(safe-area-inset-bottom))}
+  .tool-context-bar{margin:10px 22px 0}.league-switcher{margin:14px 22px 0;grid-template-columns:190px minmax(0,1fr);gap:14px}
+  .league-pills button{min-width:175px}
+  .hero{min-height:230px;padding:30px 32px}.hero h2{font-size:36px}
+  .metric-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .main-grid,.lower-grid{grid-template-columns:minmax(0,1fr)}
+  .panel{min-width:0}
+  .player-modal-layer,.team-assets-modal-layer,.asset-selector-backdrop,.draft-history-backdrop{padding:max(24px,calc(env(safe-area-inset-top) + 14px)) max(24px,calc(env(safe-area-inset-right) + 18px)) max(24px,calc(env(safe-area-inset-bottom) + 14px)) max(24px,calc(env(safe-area-inset-left) + 18px))}
+  :is(.player-panel,.team-assets-drawer,.asset-selector-dialog,.draft-history-dialog){width:min(920px,100%);max-height:calc(100dvh - max(48px,calc(env(safe-area-inset-top) + env(safe-area-inset-bottom) + 28px)))}
+  :is(button,a,[role="button"]){touch-action:manipulation}
+  .table-panel{max-width:100%;overscroll-behavior-x:contain}
+}
+
+@media (min-width:701px) and (max-width:900px) and (pointer:coarse){
+  .topbar{padding-inline:16px}.page-content{padding-inline:16px}.tool-context-bar,.league-switcher{margin-inline:16px}
+  .topbar .platform-open-copy,.topbar .account-theme-customizer{display:none}
+  .topbar .platform-open{min-width:42px;padding-inline:8px}
+  .compare-grid,.waiver-grid,.matchup-grid,.plan-grid{grid-template-columns:1fr}
+  .trade-board{grid-template-columns:1fr}.trade-balance{min-height:130px}
+}
 @media(max-width:700px){
   .player-dossier>header{padding:14px 12px 11px}.player-dossier>header h2{font-size:22px}.player-dossier>header .close{width:38px;height:38px}
   .player-command-hero{grid-template-columns:minmax(0,1fr) 104px;gap:7px;margin:9px 8px 7px}.player-verdict,.player-projection-command,.player-range-command{padding:10px}.player-verdict>strong{font-size:13px}.player-verdict p{font-size:7px}.player-projection-command>strong{font-size:29px}.player-range-command{grid-column:1/-1}.player-range-command>header small{display:none}
