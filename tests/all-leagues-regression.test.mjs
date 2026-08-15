@@ -55,10 +55,13 @@ test("Pro billing navigation lives in Utilities and replaces the simulator short
 
 test("Manage Leagues lives in Utilities and the mobile tray uses five categories", async () => {
   const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
+  const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
   assert.match(source, /label: "Manage Leagues"[^\n]+group: "Utilities"/);
   assert.doesNotMatch(source, /label: "Manage Leagues"[^\n]+group: "Portfolio"/);
   assert.match(source, /const mobileCategoryNav:[\s\S]*?"Home"[\s\S]*?"Game Day"[\s\S]*?"Manage Team"[\s\S]*?"Analyze League"[\s\S]*?"Utilities"/);
   assert.match(source, /\{mobileCategoryNav\.map\(\(item\) => \{/);
+  assert.match(styles, /\.mobile-category-tray>button \.nav-badge\{[^}]*width:29px;height:29px[^}]*border-radius:9px/);
+  assert.match(styles, /data-badge-theme="minimal"[^}]*\.mobile-category-tray \.nav-badge[^}]*border-radius:50%/);
 });
 
 test("League Stories leads Analyze League and Manager Report finishes Manage Team", async () => {
