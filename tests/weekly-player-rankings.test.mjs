@@ -35,7 +35,8 @@ test("weekly player rankings are Pro-gated, week-aware, and position limited", a
   assert.match(source, /weatherAdjustment: Math\.max\(-\.22, windPenalty \+ rainPenalty \+ coldPenalty\)/);
   assert.match(styles, /\.weekly-matchup > \.matchup-team/);
   assert.match(styles, /\.weekly-position-grid\s*\{[^}]*grid-template-columns: 1fr/s);
-  assert.match(styles, /grid-template-areas: "rank player player player score" "\. projection ceiling matchup matchup"/);
+  assert.match(styles, /grid-template-columns: 22px minmax\(0,1fr\) 34px 34px minmax\(100px,112px\) 32px;/);
+  assert.doesNotMatch(styles, /grid-template-areas: "rank player player player score"/);
   assert.match(styles, /\.weekly-matchup > \.matchup-team > span \{[^}]*font-size: 8px!important/s);
   assert.match(styles, /\.player-rankings-page \.ranking-context span\s*\{[^}]*min-height: 28px;[^}]*padding: 5px 9px;[^}]*font-size: 8px;/s);
   assert.match(styles, /\.player-rankings-page \.ranking-detail-row\s*\{[^}]*grid-template-columns: 32px minmax\(0, 1fr\) 36px 46px 46px;[^}]*gap: 3px;[^}]*min-width: 0;/s);
