@@ -25,12 +25,10 @@ class FantasyHubStoreKitPlugin: CAPPlugin, CAPBridgedPlugin {
 
     private func validateProduct(_ product: Product) throws {
         guard product.id == seasonProductId else { return }
-        guard product.price == Decimal(string: "24.99"),
-              product.priceFormatStyle.currencyCode == "USD",
-              let period = product.subscription?.subscriptionPeriod,
+        guard let period = product.subscription?.subscriptionPeriod,
               period.unit == .month,
               period.value == 6 else {
-            throw StoreKitConfigurationError.invalidSeasonProduct
+            throw StoreKitConfigurationError.invalidSeasonPeriod
         }
     }
 
@@ -203,10 +201,10 @@ class FantasyHubStoreKitPlugin: CAPPlugin, CAPBridgedPlugin {
 }
 
 private enum StoreKitConfigurationError: LocalizedError {
-    case invalidSeasonProduct
+    case invalidSeasonPeriod
 
     var errorDescription: String? {
-        "The Fantasy Hub season subscription is temporarily unavailable because its App Store price is not configured as $24.99 USD for six months."
+        "The Fantasy Hub season subscription is temporarily unavailable because its App Store duration is not configured for six months."
     }
 }
 

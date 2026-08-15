@@ -19,15 +19,15 @@ test("Stripe Checkout only accepts server-mapped Fantasy Hub plans", async () =>
   assert.match(source, /createCheckout\(\)/);
 });
 
-test("Apple StoreKit guards the $24.99 six-month season subscription", async () => {
+test("Apple StoreKit accepts localized prices while guarding the six-month season period", async () => {
   const [source, runtime, plans] = await Promise.all([
     readFile(new URL("../ios/App/App/SceneDelegate.swift", import.meta.url), "utf8"),
     readFile(new URL("../app/native-runtime.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8"),
   ]);
   assert.match(source, /seasonProductId = "com\.fantasyhubapp\.pro\.season"/);
-  assert.match(source, /product\.price == Decimal\(string: "24\.99"\)/);
-  assert.match(source, /product\.priceFormatStyle\.currencyCode == "USD"/);
+  assert.doesNotMatch(source, /product\.price == Decimal\(string: "24\.99"\)/);
+  assert.doesNotMatch(source, /product\.priceFormatStyle\.currencyCode == "USD"/);
   assert.match(source, /period\.unit == \.month/);
   assert.match(source, /period\.value == 6/);
   assert.match(source, /try validateProduct\(product\)/);
@@ -39,6 +39,8 @@ test("Apple StoreKit guards the $24.99 six-month season subscription", async () 
   assert.match(plans, /Another purchase is pending/);
   assert.match(plans, /setInterval\(.*5_000/);
   assert.match(plans, /restore-purchases-link/);
+  assert.match(plans, /nativePrices\[`com\.fantasyhubapp\.pro\.\$\{plan\}`\]/);
+  assert.match(plans, /\{seasonPrice\} <small>\/ 6 months<\/small>/);
   assert.doesNotMatch(plans, /native-billing-note[^\n]*Restore Purchases/);
 });
 
