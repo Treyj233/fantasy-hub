@@ -101,16 +101,7 @@ html[data-theme="dark"] .adp-sites button.active {
 }
 
 .ranking-page-controls {
-  grid-template-columns: auto minmax(180px, 1fr) 150px auto;
-}
-.ranking-page-controls select {
-  padding: 10px 30px 10px 10px;
-  color: var(--ink);
-  background: var(--chalk);
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  font-size: 10px;
-  font-weight: 800;
+  grid-template-columns: auto minmax(180px, 1fr) auto;
 }
 .ranking-detail-row {
   grid-template-columns: 58px minmax(170px, 1.15fr) 58px 70px 88px 62px minmax(125px, .9fr) 82px 92px;
@@ -150,11 +141,6 @@ html[data-theme="dark"] .adp-sites button.active {
 }
 .adp-market-table > header {
   border-left-color: var(--green);
-}
-html[data-theme="dark"] .ranking-page-controls select {
-  color: var(--ink);
-  background: color-mix(in srgb, var(--deep) 48%, #303030);
-  border-color: color-mix(in srgb, var(--green) 35%, #4a4a4a);
 }
 html[data-theme="dark"] .fit-adjustment.positive,
 html[data-theme="dark"] .market-gap.positive {

@@ -7271,9 +7271,6 @@ function PlayerRanks({
   const [rankingMode, setRankingMode] = useState<"season" | "weekly">("season");
   const [position, setPosition] = useState("ALL");
   const [query, setQuery] = useState("");
-  const [sortBy, setSortBy] = useState<
-    "overall" | "position" | "ppg" | "games" | "offense" | "snaps"
-  >("overall");
   const rosterNames = new Set(
     roster.map((player) => player.name.toLowerCase()),
   );
@@ -7341,22 +7338,7 @@ function PlayerRanks({
         (position === "ALL" || player.position === position) &&
         player.name.toLowerCase().includes(query.trim().toLowerCase()),
     )
-    .sort((a, b) => {
-      if (sortBy === "position")
-        return (
-          a.position.localeCompare(b.position) ||
-          a.positionRank - b.positionRank
-        );
-      if (sortBy === "ppg")
-        return (b.fantasyPpg2025 ?? -1) - (a.fantasyPpg2025 ?? -1) || a.overallRank - b.overallRank;
-      if (sortBy === "games")
-        return (b.gamesPlayed2025 ?? -1) - (a.gamesPlayed2025 ?? -1) || a.overallRank - b.overallRank;
-      if (sortBy === "offense")
-        return (a.teamOffenseRank2025 ?? 99) - (b.teamOffenseRank2025 ?? 99) || a.overallRank - b.overallRank;
-      if (sortBy === "snaps")
-        return (b.snapAverage ?? -1) - (a.snapAverage ?? -1) || a.overallRank - b.overallRank;
-      return a.overallRank - b.overallRank;
-    });
+    .sort((a, b) => a.overallRank - b.overallRank);
   const tiers = [1, 2, 3, 4, 5, 6] as const;
   const tierLabels = {
     1: "Elite first-round anchors",
@@ -7445,18 +7427,6 @@ function PlayerRanks({
           placeholder="Search all ranked players"
           aria-label="Search player rankings"
         />
-        <select
-          value={sortBy}
-          onChange={(event) => setSortBy(event.target.value as typeof sortBy)}
-          aria-label="Sort player rankings"
-        >
-          <option value="overall">Sort: Hub rank</option>
-          <option value="position">Sort: Position rank</option>
-          <option value="ppg">Sort: {statsSeasonLabel} fantasy PPG</option>
-          <option value="games">Sort: {statsSeasonLabel} games played</option>
-          <option value="offense">Sort: Team offense rank</option>
-          <option value="snaps">Sort: Season snap %</option>
-        </select>
         <span>{filtered.length} players</span>
       </section>
       <div className="tier-list ranking-tier-list">

@@ -13,6 +13,8 @@ test("weekly player rankings are Pro-gated, week-aware, and position limited", a
 
   assert.match(rankings, /useState<"season" \| "weekly">\("season"\)/);
   assert.match(rankings, /className="page-content player-rankings-page"/);
+  assert.doesNotMatch(rankings, /aria-label="Sort player rankings"/);
+  assert.doesNotMatch(rankings, /const \[sortBy, setSortBy\]/);
   assert.match(rankings, /PRO · WEEK \{Math\.max\(1, week\)\}/);
   assert.match(rankings, /Weekly Player Rankings are a Pro experience/);
   assert.match(rankings, /\{ position: "QB", limit: 24/);
