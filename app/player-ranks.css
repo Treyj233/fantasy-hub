@@ -18,6 +18,7 @@
 }
 .adp-controls > div:first-child strong {
   margin-top: 4px;
+  min-height: 30px;
   font-size: 12px;
 }
 .adp-controls > small {
@@ -26,24 +27,34 @@
   font-size: 9px;
 }
 .adp-sites {
-  display: flex;
-  justify-content: flex-end;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 5px;
-  overflow-x: auto;
+  width: min(100%, 390px);
 }
 .adp-control-actions {
   display: grid;
   justify-items: end;
   gap: 6px;
+  width: 100%;
+}
+.adp-format-slot {
+  display: grid;
+  width: min(100%, 390px);
+  min-height: 34px;
 }
 .adp-formats {
-  display: inline-flex;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 3px;
   padding: 3px;
-  background: color-mix(in srgb, var(--ink) 5%, var(--chalk));
-  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--green) 7%, var(--chalk));
+  border: 1px solid color-mix(in srgb, var(--green) 22%, var(--line));
   border-radius: 9px;
 }
+.adp-formats.underdog { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.adp-formats.espn { grid-template-columns: 1fr; place-items: center; }
+.adp-formats.espn span { color: var(--muted); font-size: 7.5px; font-weight: 900; }
 .adp-formats button {
   padding: 5px 8px;
   color: var(--muted);
@@ -55,23 +66,34 @@
 }
 .adp-formats button.active {
   color: #fff;
-  background: var(--green);
+  background: linear-gradient(135deg, var(--green), color-mix(in srgb, var(--green) 72%, var(--deep)));
+  box-shadow: inset 0 -2px var(--gold);
 }
 .adp-sites button {
-  padding: 8px 10px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 16px;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  min-height: 34px;
+  padding: 8px 7px;
   color: var(--muted);
-  background: var(--cream);
-  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--green) 4%, var(--chalk));
+  border: 1px solid color-mix(in srgb, var(--green) 18%, var(--line));
   border-radius: 8px;
   font-size: 9px;
   font-weight: 900;
   white-space: nowrap;
 }
+.adp-sites button span { overflow: hidden; text-overflow: ellipsis; }
+.adp-sites button i { color: color-mix(in srgb, var(--muted) 60%, transparent); font-size: 10px; font-style: normal; }
 .adp-sites button.active {
   color: #fff;
-  background: var(--green);
+  background: linear-gradient(135deg, var(--green), color-mix(in srgb, var(--green) 72%, var(--deep)));
   border-color: var(--green);
+  box-shadow: inset 0 -3px var(--gold), 0 5px 14px color-mix(in srgb, var(--green) 20%, transparent);
 }
+.adp-sites button.active i { color: var(--gold-light); }
 .rank-adp {
   color: var(--green);
   font-size: 15px;
@@ -90,11 +112,13 @@ html[data-theme="dark"] .adp-sites button.active {
     grid-template-columns: 1fr;
   }
   .adp-sites {
-    justify-content: flex-start;
+    width: 100%;
   }
   .adp-control-actions {
     justify-items: start;
   }
+  .adp-format-slot { width: 100%; }
+  .adp-formats button { min-width: 0; padding: 5px 4px; font-size: 6.5px; }
   .adp-controls > small {
     grid-column: auto;
   }

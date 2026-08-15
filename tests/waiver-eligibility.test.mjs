@@ -24,13 +24,14 @@ test("league snapshots refresh when waiver eligibility rules change", async () =
   assert.match(source, /payloadVersion: LEAGUE_PAYLOAD_VERSION/);
 });
 
-test("ADP offers Sleeper, ESPN, and official Underdog format sources without consensus or FantasyPros data", async () => {
-  const [route, hub, adpData, espn, underdogSnapshotText] = await Promise.all([
+test("ADP offers stable theme-aware Sleeper, ESPN, and official Underdog format sources without consensus or FantasyPros data", async () => {
+  const [route, hub, adpData, espn, underdogSnapshotText, playerRanks] = await Promise.all([
     readFile(new URL("../app/api/league/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/adp-data.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/espn.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/underdog-adp-snapshot.json", import.meta.url), "utf8"),
+    readFile(new URL("../app/player-ranks.css", import.meta.url), "utf8"),
   ]);
   const underdogSnapshot = JSON.parse(underdogSnapshotText);
 
@@ -39,12 +40,17 @@ test("ADP offers Sleeper, ESPN, and official Underdog format sources without con
   assert.match(route, /"Sleeper Single-QB": directSleeperSingleQbAdp/);
   assert.match(route, /"Sleeper Superflex": directSleeperSuperflexAdp/);
   assert.match(hub, /const \[adpSite, setAdpSite\] = useState<"Sleeper" \| "ESPN" \| "Underdog">\("Sleeper"\)/);
-  assert.match(hub, /ESPN \(Single-QB\) \{adpSite === "ESPN" \? adpDirection === "asc" \? "↑" : "↓" : ""\}/);
+  assert.match(hub, /<span>ESPN<\/span><i aria-hidden="true">\{adpSite === "ESPN" \? adpDirection === "asc" \? "↑" : "↓" : "↕"\}<\/i>/);
   assert.match(hub, /ESPN Single-QB platform ADP reflects ESPN's redraft market/);
   assert.match(hub, /const \[sleeperAdpFormat, setSleeperAdpFormat\] = useState<"Single-QB" \| "Superflex">\("Single-QB"\)/);
   assert.match(hub, /adpSite === "Underdog" \? `Underdog \$\{underdogAdpFormat\}` : `Sleeper \$\{sleeperAdpFormat\}`/);
   assert.match(hub, /aria-label="Select Sleeper ADP format"/);
   assert.match(hub, /aria-label="Select Underdog Best Ball ADP format"/);
+  assert.match(hub, /className="adp-formats espn" aria-label="ESPN ADP format"/);
+  assert.match(playerRanks, /\.adp-sites \{[\s\S]*?grid-template-columns: repeat\(3, minmax\(0, 1fr\)\)/);
+  assert.match(playerRanks, /\.adp-format-slot \{[\s\S]*?min-height: 34px/);
+  assert.match(playerRanks, /background: linear-gradient\(135deg, var\(--green\)/);
+  assert.doesNotMatch(playerRanks, /\.adp-sites button \{[\s\S]*?background: var\(--cream\)/);
   assert.match(hub, /"Single-QB Half PPR", "Single-QB Full PPR", "Superflex Half PPR"/);
   assert.match(adpData, /leaguedefaults\/3\?view=kona_player_info/);
   assert.match(adpData, /averageDraftPosition/);

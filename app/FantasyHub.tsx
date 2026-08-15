@@ -7761,33 +7761,30 @@ function AdpPage({
         <div className="adp-control-actions">
           <div className="adp-sites" role="group" aria-label="Select ADP source">
             <button aria-pressed={adpSite === "Sleeper"} className={adpSite === "Sleeper" ? "active" : ""} onClick={() => { if (adpSite === "Sleeper") setAdpDirection((current) => current === "asc" ? "desc" : "asc"); else { setAdpSite("Sleeper"); setAdpDirection("asc"); } }}>
-              Sleeper {adpSite === "Sleeper" ? adpDirection === "asc" ? "↑" : "↓" : ""}
+              <span>Sleeper</span><i aria-hidden="true">{adpSite === "Sleeper" ? adpDirection === "asc" ? "↑" : "↓" : "↕"}</i>
             </button>
             <button aria-pressed={adpSite === "ESPN"} className={adpSite === "ESPN" ? "active" : ""} onClick={() => { if (adpSite === "ESPN") setAdpDirection((current) => current === "asc" ? "desc" : "asc"); else { setAdpSite("ESPN"); setAdpDirection("asc"); } }}>
-              ESPN (Single-QB) {adpSite === "ESPN" ? adpDirection === "asc" ? "↑" : "↓" : ""}
+              <span>ESPN</span><i aria-hidden="true">{adpSite === "ESPN" ? adpDirection === "asc" ? "↑" : "↓" : "↕"}</i>
             </button>
             <button aria-pressed={adpSite === "Underdog"} className={adpSite === "Underdog" ? "active" : ""} onClick={() => { if (adpSite === "Underdog") setAdpDirection((current) => current === "asc" ? "desc" : "asc"); else { setAdpSite("Underdog"); setAdpDirection("asc"); } }}>
-              Underdog {adpSite === "Underdog" ? adpDirection === "asc" ? "↑" : "↓" : ""}
+              <span>Underdog</span><i aria-hidden="true">{adpSite === "Underdog" ? adpDirection === "asc" ? "↑" : "↓" : "↕"}</i>
             </button>
           </div>
-          {adpSite === "Sleeper" && (
-            <div className="adp-formats" role="group" aria-label="Select Sleeper ADP format">
+          <div className="adp-format-slot">
+            {adpSite === "Sleeper" ? <div className="adp-formats" role="group" aria-label="Select Sleeper ADP format">
               {(["Single-QB", "Superflex"] as const).map((format) => (
                 <button key={format} aria-pressed={sleeperAdpFormat === format} className={sleeperAdpFormat === format ? "active" : ""} onClick={() => { setSleeperAdpFormat(format); setAdpDirection("asc"); }}>
                   {format}
                 </button>
               ))}
-            </div>
-          )}
-          {adpSite === "Underdog" && (
-            <div className="adp-formats" role="group" aria-label="Select Underdog Best Ball ADP format">
+            </div> : adpSite === "Underdog" ? <div className="adp-formats underdog" role="group" aria-label="Select Underdog Best Ball ADP format">
               {(["Single-QB Half PPR", "Single-QB Full PPR", "Superflex Half PPR"] as const).map((format) => (
                 <button key={format} aria-pressed={underdogAdpFormat === format} className={underdogAdpFormat === format ? "active" : ""} onClick={() => { setUnderdogAdpFormat(format); setAdpDirection("asc"); }}>
                   {format}
                 </button>
               ))}
-            </div>
-          )}
+            </div> : <div className="adp-formats espn" aria-label="ESPN ADP format"><span>Single-QB market</span></div>}
+          </div>
         </div>
         <small>
           Lower ADP means the player is typically selected earlier. Select
