@@ -119,6 +119,14 @@ test("League Stories uses its own native badge color", async () => {
   assert.match(styles, /\.nav-badge\.story\{background:linear-gradient\(145deg,#f97316,#9333ea\)\}/);
 });
 
+test("League Analytics uses the shared dashboard typography", async () => {
+  const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  assert.match(styles, /\.dynasty-page :is\(\.dynasty-hero h2,\.panel-header h3,\.window-score strong,\.dynasty-metrics \.metric strong\)\{font-family:var\(--font-geist-sans\),Arial,sans-serif;font-style:normal;font-weight:850\}/);
+  assert.match(styles, /\.dynasty-page \.panel-header h3\{[^}]*font-size:16px;letter-spacing:-\.03em;line-height:1\.15/);
+  assert.match(styles, /\.dynasty-page \.window-score strong\{font-variant-numeric:tabular-nums;letter-spacing:-\.045em/);
+  assert.doesNotMatch(styles, /\.dynasty-page[^\n]*font-family:Impact/);
+});
+
 test("My Leagues exposes live matchup status and opens the Fantasy Scoreboard", async () => {
   const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
   const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");

@@ -52,7 +52,7 @@ test("League Analytics typography stays scoped and collision-safe", async () => 
   const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
   assert.match(styles, /\.dynasty-page :is\(\.dynasty-hero h2,\.panel-header h3,\.window-score strong,\.dynasty-metrics \.metric strong\)/);
   assert.match(styles, /\.dynasty-page \.panel-header h3\{[^}]*text-overflow:ellipsis;white-space:nowrap/);
-  assert.match(styles, /\.dynasty-page \.panel-header h3\{font-style:normal\}/);
+  assert.match(styles, /\.dynasty-page :is\(\.dynasty-hero h2,\.panel-header h3,\.window-score strong,\.dynasty-metrics \.metric strong\)\{[^}]*font-style:normal/);
   assert.match(styles, /\.dynasty-page :is\(\.allocation-grid article>span,[^}]*white-space:nowrap/);
 });
 
