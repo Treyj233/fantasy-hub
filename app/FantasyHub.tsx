@@ -7804,7 +7804,6 @@ function AdpPage({
             <span>Pos.</span>
             <span>Hub rank</span>
             <span>Market gap</span>
-            <span>Availability</span>
           </div>
           {filtered.map((player) => {
             const onRoster = rosterNames.has(player.name.toLowerCase());
@@ -7832,7 +7831,6 @@ function AdpPage({
                 <span>
                   <i className={`pos pos-${player.position.toLowerCase()}`}>
                     {player.position}
-                    {player.positionRank}
                   </i>
                 </span>
                 <b>#{player.overallRank}</b>
@@ -7841,11 +7839,6 @@ function AdpPage({
                 >
                   {gap == null ? "—" : `${gap > 0 ? "+" : ""}${gap}`}
                 </span>
-                <p>
-                  {typeof adp === "number"
-                    ? `Typically selected near pick ${Math.round(adp)} on ${adpSourceLabel}.`
-                    : `${adpSourceLabel} ADP is not available for this player and format.`}
-                </p>
               </button>
             );
           })}
@@ -8994,33 +8987,9 @@ function TradeLab({
   const [selectedId, setSelectedId] = useState(opponents[0]?.id ?? "");
   const [styles, setStyles] = useState<Record<string, TradeStyle>>({});
   const [activeSuggestionId, setActiveSuggestionId] = useState("");
-  const [calculatorSendIds, setCalculatorSendIds] = useState<string[] | null>(null);
-  const [calculatorReceiveIds, setCalculatorReceiveIds] = useState<string[] | null>(null);
+  const [calculatorSendIds, setCalculatorSendIds] = useState<string[]>([]);
+  const [calculatorReceiveIds, setCalculatorReceiveIds] = useState<string[]>([]);
   const [assetSelectorSide, setAssetSelectorSide] = useState<"send" | "receive" | null>(null);
-  useEffect(() => {
-    if (!assetSelectorSide) return;
-    const scrollY = window.scrollY;
-    const previous = {
-      bodyOverflow: document.body.style.overflow,
-      bodyPosition: document.body.style.position,
-      bodyTop: document.body.style.top,
-      bodyWidth: document.body.style.width,
-      htmlOverflow: document.documentElement.style.overflow,
-    };
-    document.documentElement.style.overflow = "hidden";
-    document.body.style.overflow = "hidden";
-    document.body.style.position = "fixed";
-    document.body.style.top = `-${scrollY}px`;
-    document.body.style.width = "100%";
-    return () => {
-      document.documentElement.style.overflow = previous.htmlOverflow;
-      document.body.style.overflow = previous.bodyOverflow;
-      document.body.style.position = previous.bodyPosition;
-      document.body.style.top = previous.bodyTop;
-      document.body.style.width = previous.bodyWidth;
-      window.scrollTo(0, scrollY);
-    };
-  }, [assetSelectorSide]);
   const partner =
     opponents.find((team) => team.id === selectedId) ?? opponents[0];
   const partnerStyle = partner ? (styles[partner.id] ?? "Neutral") : "Neutral";
@@ -9042,8 +9011,8 @@ function TradeLab({
   function selectPartner(id: string) {
     setSelectedId(id);
     setActiveSuggestionId("");
-    setCalculatorSendIds(null);
-    setCalculatorReceiveIds(null);
+    setCalculatorSendIds([]);
+    setCalculatorReceiveIds([]);
   }
   function updateStyle(style: TradeStyle) {
     if (!partner) return;
@@ -9103,8 +9072,8 @@ function TradeLab({
     ...eligiblePartnerPlayers.map((player) => tradeAsset(player, rankingById, context)),
     ...(partner.draftCapital?.picks ?? []).map(pickAsset),
   ];
-  const effectiveSendIds = calculatorSendIds ?? suggestion?.send.map((asset) => asset.id) ?? eligibleYourPlayers.slice(0, 1).map((player) => player.id);
-  const effectiveReceiveIds = calculatorReceiveIds ?? suggestion?.receive.map((asset) => asset.id) ?? eligiblePartnerPlayers.slice(0, 1).map((player) => player.id);
+  const effectiveSendIds = calculatorSendIds;
+  const effectiveReceiveIds = calculatorReceiveIds;
   const calculatorSendAssets = yourTradeAssets.filter((asset) => effectiveSendIds.includes(asset.id));
   const calculatorReceiveAssets = partnerTradeAssets.filter((asset) => effectiveReceiveIds.includes(asset.id));
   const calculatorSendPlayers = yourTeam.roster.filter((player) => effectiveSendIds.includes(player.id));
@@ -9337,8 +9306,8 @@ function TradeLab({
               <button
                 key={item.id}
                 role="tab"
-                aria-selected={suggestion.id === item.id}
-                className={suggestion.id === item.id ? "active" : ""}
+                aria-selected={activeSuggestionId === item.id}
+                className={activeSuggestionId === item.id ? "active" : ""}
                 onClick={() => {
                   setActiveSuggestionId(item.id);
                   setCalculatorSendIds(item.send.map((asset) => asset.id));

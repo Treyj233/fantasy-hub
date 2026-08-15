@@ -133,11 +133,8 @@ html[data-theme="dark"] .adp-sites button.active {
   color: #b13a42;
 }
 .adp-market-row {
-  grid-template-columns: 70px minmax(190px, 1.2fr) 62px 72px 82px minmax(
-      220px,
-      1.4fr
-    );
-  min-width: 800px;
+  grid-template-columns: 70px minmax(170px, 1fr) 62px 72px 82px;
+  min-width: 520px;
 }
 .adp-market-table > header {
   border-left-color: var(--green);
@@ -379,6 +376,55 @@ html[data-theme="dark"] .weekly-rank-list > button { background: #20242b; }
   font-size: 7.5px;
 }
 @media (max-width: 620px) {
+  .adp-page,
+  .adp-market-table,
+  .adp-market-table .rank-table {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+  .adp-market-row {
+    grid-template-columns: 46px minmax(0, 1fr) 38px 48px 56px;
+    gap: 3px;
+    width: 100%;
+    min-width: 0;
+    padding: 8px 6px;
+  }
+  .adp-market-row > * {
+    min-width: 0;
+  }
+  .adp-market-row > :not(:nth-child(2)) {
+    justify-self: center;
+    text-align: center;
+  }
+  .adp-market-row.rank-head {
+    font-size: 6px;
+    letter-spacing: .025em;
+  }
+  .adp-market-row .rank-adp,
+  .adp-market-row > b,
+  .adp-market-row .market-gap {
+    font-size: 9px;
+  }
+  .adp-market-row .rank-player {
+    overflow: hidden;
+  }
+  .adp-market-row .rank-player strong {
+    overflow: hidden;
+    font-size: 9px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .adp-market-row .rank-player small {
+    display: none;
+  }
+  .adp-market-row .pos {
+    min-width: 30px;
+    padding: 4px 3px;
+    font-size: 7px!important;
+    text-align: center;
+  }
   .adp-page .ranking-context {
     gap: 4px;
   }

@@ -68,6 +68,23 @@ test("ADP league settings use compact page-scoped badges", async () => {
   assert.match(styles, /\.adp-page \.ranking-context span\s*\{[^}]*min-height:\s*26px;[^}]*padding:\s*4px 8px;[^}]*font-size:\s*7px;/s);
 });
 
+test("mobile ADP uses five phone-width columns without horizontal scrolling", async () => {
+  const [hub, styles] = await Promise.all([
+    readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/player-ranks.css", import.meta.url), "utf8"),
+  ]);
+  const start = hub.indexOf('className="tier-section adp-market-table"');
+  const end = hub.indexOf("function StartSit(", start);
+  const adpTable = hub.slice(start, end);
+
+  assert.match(adpTable, /<span>ADP<\/span>[\s\S]*?<span>Player<\/span>[\s\S]*?<span>Pos\.<\/span>[\s\S]*?<span>Hub rank<\/span>[\s\S]*?<span>Market gap<\/span>/);
+  assert.doesNotMatch(adpTable, /Availability|Typically selected near pick/);
+  assert.doesNotMatch(adpTable, /\{player\.positionRank\}/);
+  assert.match(styles, /\.adp-market-row \{[\s\S]*?grid-template-columns: 70px minmax\(170px, 1fr\) 62px 72px 82px;[\s\S]*?min-width: 520px;/);
+  assert.match(styles, /@media \(max-width: 620px\)[\s\S]*?\.adp-market-row \{[\s\S]*?grid-template-columns: 46px minmax\(0, 1fr\) 38px 48px 56px;[\s\S]*?min-width: 0;/);
+  assert.match(styles, /\.adp-market-table \.rank-table \{[\s\S]*?overflow-x: hidden;/);
+});
+
 test("waiver order and recommendations use position-normalized projections with league-filtered trends", async () => {
   const route = await readFile(new URL("../app/api/league/route.ts", import.meta.url), "utf8");
   const hub = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");

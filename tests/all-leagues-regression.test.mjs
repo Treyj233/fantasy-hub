@@ -257,11 +257,29 @@ test("Trade Lab uses a compact page-intro heading", async () => {
 test("Trade Calculator Clear All leaves both asset packages empty", async () => {
   const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
   const styles = await readFile(new URL("../app/trade-calculator.css", import.meta.url), "utf8");
-  assert.match(source, /useState<string\[\] \| null>\(null\)/);
-  assert.match(source, /const effectiveSendIds = calculatorSendIds \?\?/);
+  assert.match(source, /const \[calculatorSendIds, setCalculatorSendIds\] = useState<string\[\]>\(\[\]\)/);
+  assert.match(source, /const \[calculatorReceiveIds, setCalculatorReceiveIds\] = useState<string\[\]>\(\[\]\)/);
+  assert.match(source, /const effectiveSendIds = calculatorSendIds;/);
+  assert.match(source, /const effectiveReceiveIds = calculatorReceiveIds;/);
+  assert.doesNotMatch(source, /suggestion\?\.send\.map|eligibleYourPlayers\.slice\(0, 1\)/);
   assert.match(source, /const clearCalculator = \(\) => \{\s*setCalculatorSendIds\(\[\]\);\s*setCalculatorReceiveIds\(\[\]\);/);
+  assert.match(source, /setCalculatorSendIds\(item\.send\.map\(\(asset\) => asset\.id\)\)/);
+  assert.match(source, /aria-selected=\{activeSuggestionId === item\.id\}/);
   assert.match(source, />Clear all<\/button>/);
   assert.match(styles, /\.trade-calculator-header-actions>button/);
+});
+
+test("Trade Lab asset selection never mutates global document scrolling", async () => {
+  const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
+  const styles = await readFile(new URL("../app/trade-calculator.css", import.meta.url), "utf8");
+  const start = source.indexOf("function TradeLab(");
+  const end = source.indexOf("function TradeAsset(", start);
+  const tradeLab = source.slice(start, end);
+
+  assert.doesNotMatch(tradeLab, /document\.body\.style|document\.documentElement\.style|window\.scrollTo/);
+  assert.match(tradeLab, /className="asset-selector-backdrop"/);
+  assert.match(styles, /\.asset-selector-backdrop\{[^}]*position:fixed;[^}]*inset:0;[^}]*overscroll-behavior:contain;[^}]*touch-action:none/);
+  assert.match(styles, /\.asset-selector-list\{[^}]*overflow-y:auto;[^}]*overscroll-behavior:contain/);
 });
 
 test("Start Sit scoring settings use one compact scrollable row", async () => {
