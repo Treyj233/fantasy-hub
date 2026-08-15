@@ -662,6 +662,13 @@ type LeagueScan = {
 
 type NavGroup = "Home" | "Game Day" | "Manage Team" | "Analyze League" | "Utilities";
 const navGroupOrder: NavGroup[] = ["Home", "Game Day", "Manage Team", "Analyze League", "Utilities"];
+const mobileNavGroups: { group: NavGroup; mark: string; label: string }[] = [
+  { group: "Home", mark: "◆", label: "Home" },
+  { group: "Game Day", mark: "▣", label: "Game Day" },
+  { group: "Manage Team", mark: "⚡", label: "Manage" },
+  { group: "Analyze League", mark: "◈", label: "Analyze" },
+  { group: "Utilities", mark: "⚙", label: "Utilities" },
+];
 const nav: { label: View; displayLabel?: string; mark: string; tone: string; group: NavGroup }[] = [
   { label: "All Leagues", displayLabel: "Mission Hub", mark: "◆", tone: "violet", group: "Home" },
   { label: "Manage Leagues", mark: "⚙", tone: "slate", group: "Utilities" },
@@ -1359,6 +1366,7 @@ export default function FantasyHub({
   const effectiveBadgeTheme: BadgeTheme = entitlement.pro ? badgeTheme : "arcade";
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [mobileNavGroup, setMobileNavGroup] = useState<NavGroup | null>(null);
   const [draggedLeagueId, setDraggedLeagueId] = useState("");
   const [leagueDropTarget, setLeagueDropTarget] = useState<{
     id: string;
@@ -1932,9 +1940,7 @@ export default function FantasyHub({
     (league) => !hiddenLeagueIds.includes(league.id),
   );
   const visibleNav = nav;
-  const orderedMobileNav = navGroupOrder.flatMap((group) =>
-    visibleNav.filter((item) => item.group === group),
-  );
+  const activeNavGroup = nav.find((item) => item.label === view)?.group ?? "Home";
   const proViews = new Set<View>(["Command Center", "League Stories", "Manager Report", "League Analytics", "Trade Lab", "Simulator"]);
   const rosterReady = players.length > 0;
   const periodLabel =
@@ -2135,45 +2141,58 @@ export default function FantasyHub({
             </div>
           </div>
         </header>
-        <nav className="mobile-nav-strip" aria-label="Quick Fantasy Hub navigation" draggable={false} onDragStart={(event) => event.preventDefault()}>
-          {orderedMobileNav.map((item) => (
+        <nav className="mobile-destination-nav" aria-label="Fantasy Hub destinations">
+          {mobileNavGroups.map((item) => (
             <button
-              key={item.label}
+              key={item.group}
               type="button"
-              className={view === item.label ? "active" : ""}
-              aria-label={item.displayLabel ?? item.label}
-              aria-current={view === item.label ? "page" : undefined}
-              title={item.displayLabel ?? item.label}
+              className={activeNavGroup === item.group ? "active" : ""}
+              aria-label={item.group}
+              aria-current={activeNavGroup === item.group ? "page" : undefined}
+              aria-expanded={mobileNavGroup === item.group}
               onClick={() => {
                 void nativeImpact();
-                if (item.label === "Matchups") setSelectedMatchupId(null);
-                if (item.label === "Scoreboard") setScoreboardScope("all");
-                if (item.label === "Waiver Wire") window.scrollTo({ top: 0, left: 0, behavior: "auto" });
-                setView(item.label);
+                if (item.group === "Home") {
+                  setView("All Leagues");
+                  setMobileNavGroup(null);
+                } else {
+                  setMobileNavGroup(item.group);
+                }
               }}
             >
-              <i className={`nav-badge ${item.tone}`} aria-hidden="true">{item.mark}</i>
+              <i aria-hidden="true">{item.mark}</i>
+              <span>{item.label}</span>
             </button>
           ))}
-          <button
-            className="mobile-rail-theme"
-            type="button"
-            role="switch"
-            aria-checked={theme === "dark"}
-            aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
-            title={theme === "dark" ? "Dark mode" : "Light mode"}
-            onClick={() =>
-              setTheme((current) => {
-                const next = current === "light" ? "dark" : "light";
-                void saveAccountPreferences({ colorMode: next });
-                return next;
-              })
-            }
-          >
-            <i className="nav-badge theme-rail-badge" aria-hidden="true">{theme === "dark" ? "☾" : "☀"}</i>
-          </button>
         </nav>
         </div>
+
+        {mobileNavGroup && (
+          <div className="mobile-destination-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setMobileNavGroup(null); }}>
+            <section className="mobile-destination-sheet" role="dialog" aria-modal="true" aria-labelledby="mobile-destination-title">
+              <header>
+                <div><small>FANTASY HUB</small><h2 id="mobile-destination-title">{mobileNavGroup}</h2><p>{nav.find((item) => item.label === view)?.group === mobileNavGroup ? `Currently viewing ${viewTitle}` : "Choose where you want to go."}</p></div>
+                <button type="button" aria-label="Close navigation" onClick={() => setMobileNavGroup(null)}>×</button>
+              </header>
+              <div className="mobile-destination-pages">
+                {visibleNav.filter((item) => item.group === mobileNavGroup).map((item) => (
+                  <button key={item.label} type="button" className={view === item.label ? "active" : ""} aria-current={view === item.label ? "page" : undefined} onClick={() => {
+                    void nativeImpact();
+                    if (item.label === "Matchups") setSelectedMatchupId(null);
+                    if (item.label === "Scoreboard") setScoreboardScope("all");
+                    if (item.label === "Waiver Wire") window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+                    setView(item.label);
+                    setMobileNavGroup(null);
+                  }}>
+                    <i className={`nav-badge ${item.tone}`} aria-hidden="true">{item.mark}</i>
+                    <span><b>{item.displayLabel ?? item.label}</b><small>{glossaryDetails[item.label].summary}</small></span>
+                    {proViews.has(item.label) && !entitlement.pro ? <em>PRO</em> : <strong aria-hidden="true">›</strong>}
+                  </button>
+                ))}
+              </div>
+            </section>
+          </div>
+        )}
 
         {view !== "All Leagues" && view !== "Manage Leagues" && (
           <section className="tool-context-bar" aria-label="Current tool context">
