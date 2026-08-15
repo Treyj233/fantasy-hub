@@ -1540,3 +1540,22 @@ html[data-theme="dark"] .all-leagues-page .exposure-list>b,html[data-theme="dark
   .mobile-matchup-jump b{display:grid;width:20px;height:20px;place-items:center;background:#ffffff20;border:1px solid #ffffff38;border-radius:50%;font-size:13px;line-height:1}
   .mobile-matchup-jump:active{transform:translateY(1px)}
 }
+
+/* On mobile, the page owns vertical scrolling. Full-screen overlays, drawers,
+   navigation trays, and intentional horizontal carousels remain independent. */
+@media(max-width:700px){
+  .ranking-tier-list .rank-table,
+  .adp-market-table .rank-table,
+  .portfolio-score-scroll,
+  .portfolio-score-rail>div,
+  .insight-scroll-window,
+  .manager-activity-scroll,
+  .completed-trades-list,
+  .all-leagues-page :is(.health-list,.portfolio-matchups,.exposure-list,.waiver-opportunity-list),
+  .all-leagues-page .action-queue-groups>section{
+    max-height:none!important;
+    overflow-y:visible!important;
+    overscroll-behavior-y:auto!important;
+    scrollbar-gutter:auto!important;
+  }
+}

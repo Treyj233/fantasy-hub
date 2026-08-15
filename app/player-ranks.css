@@ -415,6 +415,11 @@ html[data-theme="dark"] .weekly-rank-list > button { background: #20242b; }
   .weekly-ranking-method { grid-template-columns: 1fr 1fr; }
   .weekly-ranking-method > div:nth-child(2) { border-right: 0; }
   .weekly-ranking-method > div:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
+  .weekly-rank-list {
+    max-height: none;
+    overflow-y: visible;
+    overscroll-behavior: auto;
+  }
   .weekly-rank-list > button { grid-template-columns: 24px minmax(0,1fr) 36px 36px 76px 30px; gap: 4px; padding: 7px 8px; }
   .weekly-matchup > .matchup-team > span { font-size: 5.5px!important; }
   .weekly-weather { display: none; }
