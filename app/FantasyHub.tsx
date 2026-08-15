@@ -945,7 +945,11 @@ function applyWeather(player: Player, weather: WeatherData | null) {
     item.teams.includes(normalizeNflTeam(player.team)),
   );
   if (!game) return player;
-  return { ...player, weatherAdjustment: 0, weatherSummary: game.summary };
+  const passCatcher = ["QB", "WR", "TE"].includes(player.position);
+  const windPenalty = game.indoor ? 0 : (game.windMph ?? 0) >= 25 ? (passCatcher ? -.16 : -.05) : (game.windMph ?? 0) >= 18 ? (passCatcher ? -.1 : -.03) : 0;
+  const rainPenalty = game.indoor ? 0 : (game.precipitationProbability ?? 0) >= 60 ? (player.position === "RB" ? -.02 : -.06) : 0;
+  const coldPenalty = game.indoor ? 0 : (game.temperatureF ?? 60) <= 25 ? -.04 : 0;
+  return { ...player, weatherAdjustment: Math.max(-.22, windPenalty + rainPenalty + coldPenalty), weatherSummary: game.summary };
 }
 
 function applyOpponent(
@@ -2684,6 +2688,9 @@ export default function FantasyHub({
             roster={players}
             leagueRankings={leagueRankings}
             context={rankingContext}
+            isPro={entitlement.pro}
+            week={defaultGameWeek}
+            onUpgrade={() => setView("Fantasy Hub Pro")}
             setSelectedPlayer={setSelectedPlayer}
           />
         )}
@@ -7260,13 +7267,20 @@ function PlayerRanks({
   roster,
   leagueRankings,
   context,
+  isPro,
+  week,
+  onUpgrade,
   setSelectedPlayer,
 }: {
   roster: Player[];
   leagueRankings: LeagueRanking[];
   context: RankingContext | null;
+  isPro: boolean;
+  week: number;
+  onUpgrade: () => void;
   setSelectedPlayer: (player: Player) => void;
 }) {
+  const [rankingMode, setRankingMode] = useState<"season" | "weekly">("season");
   const [position, setPosition] = useState("ALL");
   const [query, setQuery] = useState("");
   const [sortBy, setSortBy] = useState<
@@ -7369,13 +7383,35 @@ function PlayerRanks({
       <SectionIntro
         compact
         kicker="FANTASY HUB RANKINGS"
-        title="Tier-based rankings built for your league"
+        title={rankingMode === "weekly" ? `Week ${Math.max(1, week)} player rankings` : "Tier-based rankings built for your league"}
         text={
-          context
+          rankingMode === "weekly"
+            ? "Position-by-position weekly ranks blending league projections, ceiling potential, opponent strength, and game-day weather."
+            : context
             ? `Composite market rank for your ${context.teams}-team ${context.format.toLowerCase()} league: 60% Underdog, 30% Sleeper, and 10% ESPN, organized into six draft tiers.`
             : "Import a league to build a six-tier composite from Underdog, Sleeper, and ESPN draft markets."
         }
       />
+      <section className="ranking-mode-toggle panel" role="group" aria-label="Select player ranking horizon">
+        <button className={rankingMode === "season" ? "active" : ""} aria-pressed={rankingMode === "season"} onClick={() => setRankingMode("season")}>
+          <span>SEASON</span><strong>Season-long tiers</strong>
+        </button>
+        <button className={rankingMode === "weekly" ? "active" : ""} aria-pressed={rankingMode === "weekly"} onClick={() => setRankingMode("weekly")}>
+          <span>PRO · WEEK {Math.max(1, week)}</span><strong>Current weekly ranks</strong>
+        </button>
+      </section>
+      {rankingMode === "weekly" ? (
+        isPro ? (
+          <WeeklyPlayerRankings players={leagueRankings} week={Math.max(1, week)} setSelectedPlayer={setSelectedPlayer} />
+        ) : (
+          <section className="weekly-rankings-gate panel">
+            <span>FANTASY HUB PRO</span><div className="pro-lock"><FHLogo label="Fantasy Hub" /></div>
+            <h2>Weekly Player Rankings are a Pro experience.</h2>
+            <p>Unlock projection, ceiling, matchup, and weather-adjusted rankings for every current NFL week.</p>
+            <button onClick={onUpgrade}>Explore Fantasy Hub Pro →</button>
+          </section>
+        )
+      ) : (<>
       {context && (
         <section className="ranking-context">
           <span>
@@ -7538,6 +7574,75 @@ function PlayerRanks({
             No players match this filter.
           </section>
         )}
+      </div>
+      </>)}
+    </div>
+  );
+}
+
+function WeeklyPlayerRankings({
+  players,
+  week,
+  setSelectedPlayer,
+}: {
+  players: LeagueRanking[];
+  week: number;
+  setSelectedPlayer: (player: Player) => void;
+}) {
+  const positionConfig = [
+    { position: "QB", limit: 24, label: "Quarterbacks" },
+    { position: "RB", limit: 24, label: "Running backs" },
+    { position: "WR", limit: 36, label: "Wide receivers" },
+    { position: "TE", limit: 24, label: "Tight ends" },
+  ] as const;
+  const cards = positionConfig.map((config) => {
+    const positionPlayers = players.filter((player) => player.position === config.position && player.opponent !== "BYE");
+    const ranges = new Map(positionPlayers.map((player) => [player.id, matchupAdjustedRange(player)]));
+    const maxProjection = Math.max(1, ...positionPlayers.map((player) => Math.max(0, player.leagueProjection ?? player.projection)));
+    const maxCeiling = Math.max(1, ...positionPlayers.map((player) => ranges.get(player.id)?.ceiling ?? player.ceiling));
+    const ranked = positionPlayers
+      .map((player) => {
+        const projection = Math.max(0, player.leagueProjection ?? player.projection);
+        const range = ranges.get(player.id) ?? matchupAdjustedRange(player);
+        const projectionScore = (projection / maxProjection) * 100;
+        const ceilingScore = (range.ceiling / maxCeiling) * 100;
+        const matchupScore = player.matchupStrength?.score ?? 50;
+        const weatherScore = Math.max(35, Math.min(100, 100 + (player.weatherAdjustment ?? 0) * 400));
+        const availabilityFactor = /out|doubtful|ir|suspend/i.test(player.status) ? .35 : /questionable/i.test(player.status) ? .88 : 1;
+        const weeklyScore = (projectionScore * .45 + ceilingScore * .25 + matchupScore * .2 + weatherScore * .1) * availabilityFactor;
+        return { ...player, weeklyProjection: projection, weeklyCeiling: range.ceiling, weeklyScore };
+      })
+      .sort((a, b) => b.weeklyScore - a.weeklyScore || b.weeklyProjection - a.weeklyProjection)
+      .slice(0, config.limit);
+    return { ...config, ranked };
+  });
+  return (
+    <div className="weekly-rankings-view">
+      <section className="weekly-ranking-method panel">
+        <div><span>45%</span><strong>League projection</strong></div>
+        <div><span>25%</span><strong>Ceiling potential</strong></div>
+        <div><span>20%</span><strong>Matchup quality</strong></div>
+        <div><span>10%</span><strong>Weather conditions</strong></div>
+      </section>
+      <div className="weekly-position-grid">
+        {cards.map((card) => (
+          <section className={`weekly-position-card panel weekly-${card.position.toLowerCase()}`} key={card.position}>
+            <header><div><span>WEEK {week} · TOP {card.limit}</span><h3>{card.label}</h3></div><i className={`pos pos-${card.position.toLowerCase()}`}>{card.position}</i></header>
+            <div className="weekly-rank-list">
+              {card.ranked.map((player, index) => (
+                <button key={player.id} onClick={() => setSelectedPlayer(player)}>
+                  <b>#{index + 1}</b>
+                  <span><strong>{player.name}</strong><small>{player.team} · {player.opponent}</small></span>
+                  <div><b>{player.weeklyProjection.toFixed(1)}</b><small>PROJ</small></div>
+                  <div><b>{player.weeklyCeiling.toFixed(1)}</b><small>CEIL</small></div>
+                  <em className={player.matchupStrength ? `matchup-${player.matchupStrength.label.toLowerCase()}` : "matchup-neutral"}>{player.matchupStrength?.label ?? "Neutral"}</em>
+                  <div className="weekly-weather"><b>{(player.weatherAdjustment ?? 0) < -.08 ? "⚠" : player.weatherSummary ? "☁" : "—"}</b><small>{player.weatherSummary ?? "Weather pending"}</small></div>
+                  <strong className="weekly-score">{player.weeklyScore.toFixed(1)}</strong>
+                </button>
+              ))}
+            </div>
+          </section>
+        ))}
       </div>
     </div>
   );

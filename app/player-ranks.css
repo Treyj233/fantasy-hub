@@ -242,6 +242,111 @@ html[data-theme="dark"] .market-gap.negative {
   }
 }
 
+.ranking-mode-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px;
+  margin-bottom: 14px;
+  padding: 5px;
+}
+.ranking-mode-toggle button {
+  padding: 10px 12px;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  text-align: left;
+}
+.ranking-mode-toggle button span,
+.ranking-mode-toggle button strong {
+  display: block;
+}
+.ranking-mode-toggle button span {
+  font-size: 7px;
+  font-weight: 950;
+  letter-spacing: .12em;
+}
+.ranking-mode-toggle button strong {
+  margin-top: 3px;
+  font-size: 10px;
+}
+.ranking-mode-toggle button.active {
+  color: #fff;
+  background: var(--green);
+  border-color: var(--green);
+}
+.weekly-rankings-gate {
+  display: grid;
+  justify-items: center;
+  max-width: 620px;
+  margin: 30px auto;
+  padding: 34px;
+  text-align: center;
+}
+.weekly-rankings-gate > span { color: var(--green); font-size: 8px; font-weight: 950; letter-spacing: .16em; }
+.weekly-rankings-gate .pro-lock { margin: 14px 0 8px; }
+.weekly-rankings-gate h2 { margin: 6px 0; font-size: 22px; }
+.weekly-rankings-gate p { max-width: 430px; color: var(--muted); font-size: 10px; line-height: 1.6; }
+.weekly-rankings-gate > button { margin-top: 14px; padding: 10px 14px; color: #fff; background: var(--green); border: 0; border-radius: 8px; font-size: 9px; font-weight: 900; }
+.weekly-ranking-method {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  margin-bottom: 14px;
+  overflow: hidden;
+}
+.weekly-ranking-method > div { padding: 12px 14px; border-right: 1px solid var(--line); }
+.weekly-ranking-method > div:last-child { border-right: 0; }
+.weekly-ranking-method span,
+.weekly-ranking-method strong { display: block; }
+.weekly-ranking-method span { color: var(--green); font-size: 11px; font-weight: 950; }
+.weekly-ranking-method strong { margin-top: 3px; font-size: 8px; }
+.weekly-position-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 13px; align-items: start; }
+.weekly-position-card { padding: 0; overflow: hidden; }
+.weekly-position-card > header { display: flex; align-items: center; justify-content: space-between; padding: 13px 14px; color: #fff; background: linear-gradient(120deg,var(--deep),var(--green)); }
+.weekly-position-card > header span { color: var(--gold-light); font-size: 7px; font-weight: 950; letter-spacing: .12em; }
+.weekly-position-card > header h3 { margin: 3px 0 0; font-size: 15px; }
+.weekly-position-card > header .pos { color: var(--deep); background: var(--gold-light); }
+.weekly-rank-list { max-height: 610px; overflow-y: auto; overscroll-behavior: contain; }
+.weekly-rank-list > button { display: grid; grid-template-columns: 28px minmax(100px,1fr) 42px 42px 54px minmax(68px,88px) 38px; align-items: center; gap: 6px; width: 100%; min-height: 58px; padding: 8px 10px; color: var(--ink); background: var(--chalk); border: 0; border-bottom: 1px solid var(--line); text-align: left; }
+.weekly-rank-list > button:last-child { border-bottom: 0; }
+.weekly-rank-list > button:hover { background: color-mix(in srgb,var(--green) 7%,var(--chalk)); }
+.weekly-rank-list > button > b { color: var(--green); font-size: 12px; }
+.weekly-rank-list > button > span { min-width: 0; }
+.weekly-rank-list > button > span strong,
+.weekly-rank-list > button > span small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.weekly-rank-list > button > span strong { font-size: 10px; }
+.weekly-rank-list > button > span small { margin-top: 3px; color: var(--muted); font-size: 7px; }
+.weekly-rank-list > button > div b,
+.weekly-rank-list > button > div small { display: block; text-align: center; }
+.weekly-rank-list > button > div b { font-size: 9px; }
+.weekly-rank-list > button > div small { margin-top: 2px; color: var(--muted); font-size: 5.5px; }
+.weekly-rank-list > button > em { padding: 4px 5px; color: var(--muted); background: color-mix(in srgb,var(--ink) 5%,var(--chalk)); border-radius: 99px; font-size: 6px; font-style: normal; font-weight: 900; text-align: center; }
+.weekly-rank-list > button > em.matchup-great,
+.weekly-rank-list > button > em.matchup-favorable { color: #177245; background: #e4f5ea; }
+.weekly-rank-list > button > em.matchup-tough,
+.weekly-rank-list > button > em.matchup-avoid { color: #a52f39; background: #fde8ea; }
+.weekly-weather { min-width: 0; }
+.weekly-weather small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.weekly-score { color: var(--green); font-size: 10px; text-align: right; }
+html[data-theme="dark"] .weekly-rank-list > button { background: #20242b; }
+html[data-theme="dark"] .weekly-rank-list > button > em.matchup-great,
+html[data-theme="dark"] .weekly-rank-list > button > em.matchup-favorable { color: #9be0b6; background: #1d4430; }
+html[data-theme="dark"] .weekly-rank-list > button > em.matchup-tough,
+html[data-theme="dark"] .weekly-rank-list > button > em.matchup-avoid { color: #ffb6bd; background: #512029; }
+@media (max-width: 980px) {
+  .weekly-position-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 620px) {
+  .ranking-mode-toggle button { padding: 8px; }
+  .ranking-mode-toggle button strong { font-size: 8px; }
+  .weekly-ranking-method { grid-template-columns: 1fr 1fr; }
+  .weekly-ranking-method > div:nth-child(2) { border-right: 0; }
+  .weekly-ranking-method > div:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
+  .weekly-rank-list > button { grid-template-columns: 24px minmax(0,1fr) 36px 36px 44px 30px; gap: 4px; padding: 7px 8px; }
+  .weekly-weather { display: none; }
+  .weekly-rank-list > button > span strong { font-size: 9px; }
+}
+
 /* Keep ADP league context useful without letting its badges dominate the page. */
 .adp-page .ranking-context {
   gap: 5px;
