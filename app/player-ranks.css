@@ -212,3 +212,28 @@ html[data-theme="dark"] .market-gap.negative {
     text-align: left;
   }
 }
+
+/* Keep ADP league context useful without letting its badges dominate the page. */
+.adp-page .ranking-context {
+  gap: 5px;
+  margin: 8px 0 12px;
+}
+.adp-page .ranking-context span {
+  min-height: 26px;
+  padding: 4px 8px;
+  font-size: 7px;
+  line-height: 1.15;
+}
+.adp-page .ranking-context b {
+  font-size: 7.5px;
+}
+@media (max-width: 620px) {
+  .adp-page .ranking-context {
+    gap: 4px;
+  }
+  .adp-page .ranking-context span {
+    min-height: 24px;
+    padding: 3px 7px;
+    font-size: 6.5px;
+  }
+}

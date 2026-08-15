@@ -45,6 +45,16 @@ test("ADP offers direct Sleeper and ESPN sources without consensus or FantasyPro
   assert.doesNotMatch(hub, /"Consensus"/);
 });
 
+test("ADP league settings use compact page-scoped badges", async () => {
+  const [hub, styles] = await Promise.all([
+    readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/player-ranks.css", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(hub, /className="page-content adp-page"/);
+  assert.match(styles, /\.adp-page \.ranking-context span\s*\{[^}]*min-height:\s*26px;[^}]*padding:\s*4px 8px;[^}]*font-size:\s*7px;/s);
+});
+
 test("waiver order and recommendations use position-normalized projections with league-filtered trends", async () => {
   const route = await readFile(new URL("../app/api/league/route.ts", import.meta.url), "utf8");
   const hub = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");

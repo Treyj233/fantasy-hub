@@ -7584,7 +7584,7 @@ function AdpPage({
       return adpDirection === "asc" ? aAdp - bAdp : bAdp - aAdp;
     });
   return (
-    <div className="page-content">
+    <div className="page-content adp-page">
       <SectionIntro
         compact
         kicker="DRAFT MARKET"
