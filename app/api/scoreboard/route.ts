@@ -10,6 +10,41 @@ type SourcePlayer = { full_name?: string; first_name?: string; last_name?: strin
 type PlayerStats = { player_id?: string; stats?: Record<string, number> };
 type PlayerProjection = { player_id?: string; stats?: Record<string, number> };
 
+type EspnNflScoreboard = {
+  events?: { status?: { type?: { state?: string } } }[];
+};
+
+async function nflWeekHasGameInProgress(season: string, week: number) {
+  try {
+    const response = await fetchCachedUpstream(
+      `https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates=${encodeURIComponent(season)}&seasontype=2&week=${week}`,
+      20,
+    );
+    if (!response.ok) return false;
+    const payload = await response.json() as EspnNflScoreboard;
+    return (payload.events ?? []).some(
+      (event) => event.status?.type?.state === "in",
+    );
+  } catch {
+    // A missing live scoreboard must never create a false LIVE indicator.
+    return false;
+  }
+}
+
+function withCurrentNflStatus<T extends { status: string }>(
+  matchups: T[],
+  week: number,
+  currentWeek: number,
+  nflGameInProgress: boolean,
+) {
+  const status = week < currentWeek
+    ? "Final"
+    : week === currentWeek && nflGameInProgress
+      ? "Live"
+      : "Scheduled";
+  return matchups.map((matchup) => ({ ...matchup, status }));
+}
+
 export async function GET(request: Request) {
   const user = await getChatGPTUser();
   if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
@@ -23,7 +58,17 @@ export async function GET(request: Request) {
     const [record] = await db.select().from(managedLeagues).where(and(eq(managedLeagues.userId, user.userId), eq(managedLeagues.provider, "espn"), eq(managedLeagues.identifier, sourceLeagueId))).limit(1);
     if (!record?.rosterId) return Response.json({ error: "Select your ESPN team in Manage Leagues" }, { status: 409 });
     try {
-      return Response.json(normalizeEspnScoreboard(await fetchEspnLeagueForUser(user.userId, sourceLeagueId, Number(season)), record.rosterId, requestedWeek));
+      const scoreboard = normalizeEspnScoreboard(await fetchEspnLeagueForUser(user.userId, sourceLeagueId, Number(season)), record.rosterId, requestedWeek);
+      const nflGameInProgress = await nflWeekHasGameInProgress(season, scoreboard.week);
+      return Response.json({
+        ...scoreboard,
+        matchups: withCurrentNflStatus(
+          scoreboard.matchups,
+          scoreboard.week,
+          scoreboard.league.currentWeek,
+          nflGameInProgress,
+        ),
+      });
     } catch (error) {
       return Response.json({ error: error instanceof Error ? error.message : "ESPN scores unavailable" }, { status: 502 });
     }
@@ -38,13 +83,14 @@ export async function GET(request: Request) {
   const league = await leagueResponse.json() as { name?: string; season?: string; leg?: number; total_rosters?: number; roster_positions?: string[]; scoring_settings?: Record<string, number> };
   const week = Number.isInteger(requestedWeek) && requestedWeek >= 1 && requestedWeek <= 18 ? requestedWeek : Math.max(1, league.leg ?? 1);
   const season = league.season ?? String(new Date().getUTCFullYear());
-  const [matchupsResponse, rostersResponse, usersResponse, playersResponse, statsResponse, projectionsResponse] = await Promise.all([
+  const [matchupsResponse, rostersResponse, usersResponse, playersResponse, statsResponse, projectionsResponse, nflGameInProgress] = await Promise.all([
     fetch(`https://api.sleeper.app/v1/league/${leagueId}/matchups/${week}`, { cache: "no-store" }),
     fetch(`https://api.sleeper.app/v1/league/${leagueId}/rosters`, { cache: "no-store" }),
     fetch(`https://api.sleeper.app/v1/league/${leagueId}/users`, { cache: "no-store" }),
     fetchCachedUpstream("https://api.sleeper.app/v1/players/nfl?active=true", 86400),
     fetchCachedUpstream(`https://api.sleeper.com/stats/nfl/regular/${season}/${week}`, 30).catch(() => null),
     fetchCachedUpstream(`https://api.sleeper.com/projections/nfl/${season}/${week}?season_type=regular`, 900).catch(() => null),
+    nflWeekHasGameInProgress(season, week),
   ]);
   if (!matchupsResponse.ok || !rostersResponse.ok || !usersResponse.ok || !playersResponse.ok) return Response.json({ error: "Weekly scores unavailable" }, { status: 502 });
   const matchupRows = await matchupsResponse.json() as MatchupRow[];
@@ -88,6 +134,11 @@ export async function GET(request: Request) {
   };
   const grouped = new Map<number, MatchupRow[]>();
   matchupRows.forEach((row, index) => { const key = row.matchup_id ?? 1000 + index; grouped.set(key, [...(grouped.get(key) ?? []), row]); });
-  const matchups = [...grouped.entries()].map(([matchupId, rows]) => ({ matchupId, teams: rows.map(teamFromRow).sort((a, b) => Number(b.isMine) - Number(a.isMine)), status: week < (league.leg ?? week) ? "Final" : week === (league.leg ?? week) ? "Live" : "Scheduled" })).sort((a, b) => Number(b.teams.some((team) => team.isMine)) - Number(a.teams.some((team) => team.isMine)));
+  const matchups = withCurrentNflStatus(
+    [...grouped.entries()].map(([matchupId, rows]) => ({ matchupId, teams: rows.map(teamFromRow).sort((a, b) => Number(b.isMine) - Number(a.isMine)), status: "Scheduled" })).sort((a, b) => Number(b.teams.some((team) => team.isMine)) - Number(a.teams.some((team) => team.isMine))),
+    week,
+    league.leg ?? week,
+    nflGameInProgress,
+  );
   return Response.json({ league: { id: leagueId, name: league.name ?? "League", season, currentWeek: league.leg ?? week, provider: "Sleeper", projectionSource: "Sleeper Projections", scoring: league.scoring_settings ?? {} }, week, updatedAt: new Date().toISOString(), matchups });
 }

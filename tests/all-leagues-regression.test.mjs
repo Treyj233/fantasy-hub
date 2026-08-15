@@ -151,10 +151,18 @@ test("My Leagues exposes live matchup status and opens the Fantasy Scoreboard", 
   const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
   const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
   assert.match(source, /const \[liveMatchupCount, setLiveMatchupCount\] = useState<number \| null>\(null\)/);
-  assert.match(source, /\/api\/scoreboard\?leagueId=.*?matchup && !\["Final", "Scheduled"\]\.includes\(matchup\.status\)/s);
+  assert.match(source, /\/api\/scoreboard\?leagueId=.*?matchup\?\.status === "Live"/s);
   assert.match(source, /className=\{`league-live-link[\s\S]*?setScoreboardScope\("all"\)[\s\S]*?setView\("Scoreboard"\)/);
   assert.match(source, /liveMatchupCount > 0 \? `\$\{liveMatchupCount\} LIVE` : "NOT LIVE"/);
   assert.match(styles, /\.league-live-link\.live\{[^}]*background:#fff3f2/);
+});
+
+test("scoreboard only reports live matchups while ESPN has an NFL game in progress", async () => {
+  const source = await readFile(new URL("../app/api/scoreboard/route.ts", import.meta.url), "utf8");
+  assert.match(source, /event\.status\?\.type\?\.state === "in"/);
+  assert.match(source, /week === currentWeek && nflGameInProgress[\s\S]*?\? "Live"[\s\S]*?: "Scheduled"/);
+  assert.match(source, /A missing live scoreboard must never create a false LIVE indicator/);
+  assert.doesNotMatch(source, /week === \(league\.leg \?\? week\) \? "Live"/);
 });
 
 test("League Stories leads Analyze League and Manager Report finishes Manage Team", async () => {

@@ -1488,7 +1488,7 @@ export default function FantasyHub({
           const matchup = data.matchups.find((item) =>
             item.teams.some((team) => team.isMine),
           );
-          return Boolean(matchup && !["Final", "Scheduled"].includes(matchup.status));
+          return matchup?.status === "Live";
         } catch {
           return false;
         }
