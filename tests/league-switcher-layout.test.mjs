@@ -32,4 +32,5 @@ test("live matchup shortcut lives in the persistent active-team card", async () 
   assert.doesNotMatch(ui, /className=\{`league-drawer-live/);
   assert.match(ui, /className=\{`team-active-live[\s\S]*?setScoreboardScope\("all"\)[\s\S]*?setView\("Scoreboard"\)/);
   assert.match(css, /\.team-active-live\{display:grid;[^}]*flex:0 0 auto/);
+  assert.match(css, /\.team-picker-strip>div\{padding-right:92px\}[\s\S]*?\.team-picker-strip \.team-active-live\{position:absolute;top:11px;right:11px;width:auto;[^}]*padding:6px 7px/);
 });
