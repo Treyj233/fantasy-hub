@@ -245,8 +245,8 @@ html[data-theme="dark"] .market-gap.negative {
     overflow-x: hidden;
   }
   .player-rankings-page .ranking-detail-row {
-    grid-template-columns: 34px minmax(0, 1fr) 34px 43px 48px;
-    gap: 4px;
+    grid-template-columns: 32px minmax(0, 1fr) 36px 46px 46px;
+    gap: 3px;
     min-width: 0;
     padding: 8px 7px;
   }
@@ -260,6 +260,13 @@ html[data-theme="dark"] .market-gap.negative {
   }
   .player-rankings-page .ranking-detail-row > span:nth-child(3) {
     min-width: 0;
+    transform: translateX(-5px);
+  }
+  .player-rankings-page .ranking-detail-row > :nth-child(3),
+  .player-rankings-page .ranking-detail-row > :nth-child(4),
+  .player-rankings-page .ranking-detail-row > :nth-child(5) {
+    justify-self: center;
+    text-align: center;
   }
   .player-rankings-page .ranking-detail-row .rank-player {
     min-width: 0;
