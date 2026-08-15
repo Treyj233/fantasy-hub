@@ -2005,9 +2005,21 @@ export default function FantasyHub({
           <span aria-hidden="true">{sidebarCollapsed ? "›" : "‹"}</span>
         </button>
         <div className="brand">
-          <span className="brand-logo" aria-hidden="true">
+          <button
+            className="brand-logo"
+            type="button"
+            aria-label="Go to Fantasy Hub home"
+            title="Home"
+            onClick={() => {
+              void nativeImpact();
+              setView("All Leagues");
+              setMobileNavOpen(false);
+              setMobileCategoryOpen(null);
+              window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+            }}
+          >
             <FHLogo />
-          </span>
+          </button>
           <div>
             <strong>Fantasy Hub</strong>
             <small>Make every week count.</small>

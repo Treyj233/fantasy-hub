@@ -84,6 +84,13 @@ test("mobile tool context stays inside the viewport without horizontal overscrol
   assert.doesNotMatch(styles, /\.tool-context-bar\{[^}]*overflow-x:auto;scroll-snap-type:x mandatory/);
 });
 
+test("sidebar FH logo is an accessible Home button", async () => {
+  const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
+  const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  assert.match(source, /<button[\s\S]*?className="brand-logo"[\s\S]*?aria-label="Go to Fantasy Hub home"[\s\S]*?setView\("All Leagues"\)[\s\S]*?setMobileNavOpen\(false\)[\s\S]*?<FHLogo \/>[\s\S]*?<\/button>/);
+  assert.match(styles, /\.brand-logo:focus-visible\{outline:3px solid var\(--gold-light\);outline-offset:3px\}/);
+});
+
 test("League Stories leads Analyze League and Manager Report finishes Manage Team", async () => {
   const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
   assert.match(source, /label: "League Stories"[^\n]+group: "Analyze League"/);
