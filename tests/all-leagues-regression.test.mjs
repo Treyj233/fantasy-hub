@@ -53,12 +53,12 @@ test("Pro billing navigation lives in Utilities and replaces the simulator short
   assert.doesNotMatch(source, /season-roll" onClick=\{\(\) => setView\("Simulator"\)\}/);
 });
 
-test("Manage Leagues lives in Utilities and the mobile rail follows sidebar order", async () => {
+test("Manage Leagues lives in Utilities and the mobile tray uses five categories", async () => {
   const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
   assert.match(source, /label: "Manage Leagues"[^\n]+group: "Utilities"/);
   assert.doesNotMatch(source, /label: "Manage Leagues"[^\n]+group: "Portfolio"/);
-  assert.match(source, /const orderedMobileNav = navGroupOrder\.flatMap\(\(group\) =>\s*visibleNav\.filter\(\(item\) => item\.group === group\),\s*\);/);
-  assert.match(source, /\{orderedMobileNav\.map\(\(item\) => \(/);
+  assert.match(source, /const mobileCategoryNav:[\s\S]*?"Home"[\s\S]*?"Game Day"[\s\S]*?"Manage Team"[\s\S]*?"Analyze League"[\s\S]*?"Utilities"/);
+  assert.match(source, /\{mobileCategoryNav\.map\(\(item\) => \(/);
 });
 
 test("League Stories leads Analyze League and Manager Report finishes Manage Team", async () => {
@@ -279,7 +279,7 @@ test("portfolio Scoreboard opens both Matchups and league scoreboards", async ()
   assert.match(source, />League scoreboard →<\/button>/);
 });
 
-test("mobile navigation provides a sticky badge rail and accessible menu drawer", async () => {
+test("mobile navigation preserves the sidebar and opens category pages from the top", async () => {
   const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
   const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
   assert.match(source, /className="nav-label"/);
@@ -288,13 +288,16 @@ test("mobile navigation provides a sticky badge rail and accessible menu drawer"
   assert.match(source, /Open Sleeper/);
   assert.match(source, /className="mobile-menu-toggle"/);
   assert.match(source, /aria-controls="primary-sidebar"/);
-  assert.match(source, /className="mobile-nav-strip"/);
-  assert.match(source, /className="mobile-rail-theme"/);
+  assert.match(source, /className="mobile-category-tray"/);
+  assert.match(source, /className="mobile-category-menu"/);
+  assert.match(source, /aria-label="Close category menu"/);
   assert.match(source, /className="account-theme-customizer"/);
   assert.match(source, /className="account-theme-customizer"/);
   assert.match(source, /<strong>Theme Customizer<\/strong>/);
   assert.match(source, /className="mobile-drawer-backdrop"/);
   assert.match(styles, /\.mobile-header-stack\{position:sticky/);
+  assert.match(styles, /\.mobile-category-menu\{position:absolute[^}]*top:100%/);
+  assert.doesNotMatch(styles, /\.sidebar,.mobile-drawer-backdrop[^}]*display:none!important/);
   assert.match(styles, /\.mobile-nav-open \.sidebar\{transform:translateX\(0\)\}/);
   assert.match(styles, /\.sidebar \.sidebar-bottom[^}]*position:static/);
   assert.match(styles, /html\[data-theme="dark"\] \.sidebar \.sidebar-bottom\{background:transparent\}/);

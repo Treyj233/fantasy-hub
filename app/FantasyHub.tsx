@@ -662,6 +662,13 @@ type LeagueScan = {
 
 type NavGroup = "Home" | "Game Day" | "Manage Team" | "Analyze League" | "Utilities";
 const navGroupOrder: NavGroup[] = ["Home", "Game Day", "Manage Team", "Analyze League", "Utilities"];
+const mobileCategoryNav: { group: NavGroup; mark: string; label: string }[] = [
+  { group: "Home", mark: "◆", label: "Home" },
+  { group: "Game Day", mark: "▣", label: "Game Day" },
+  { group: "Manage Team", mark: "⚡", label: "Manage" },
+  { group: "Analyze League", mark: "◈", label: "Analyze" },
+  { group: "Utilities", mark: "⚙", label: "Utilities" },
+];
 const nav: { label: View; displayLabel?: string; mark: string; tone: string; group: NavGroup }[] = [
   { label: "All Leagues", displayLabel: "Mission Hub", mark: "◆", tone: "violet", group: "Home" },
   { label: "Manage Leagues", mark: "⚙", tone: "slate", group: "Utilities" },
@@ -1359,6 +1366,7 @@ export default function FantasyHub({
   const effectiveBadgeTheme: BadgeTheme = entitlement.pro ? badgeTheme : "arcade";
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [mobileCategoryOpen, setMobileCategoryOpen] = useState<NavGroup | null>(null);
   const [draggedLeagueId, setDraggedLeagueId] = useState("");
   const [leagueDropTarget, setLeagueDropTarget] = useState<{
     id: string;
@@ -1393,13 +1401,16 @@ export default function FantasyHub({
   }, [view]);
 
   useEffect(() => {
-    if (!mobileNavOpen) return;
+    if (!mobileNavOpen && !mobileCategoryOpen) return;
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setMobileNavOpen(false);
+      if (event.key === "Escape") {
+        setMobileNavOpen(false);
+        setMobileCategoryOpen(null);
+      }
     };
     document.addEventListener("keydown", closeOnEscape);
     return () => document.removeEventListener("keydown", closeOnEscape);
-  }, [mobileNavOpen]);
+  }, [mobileNavOpen, mobileCategoryOpen]);
 
   useEffect(() => {
     const savedTheme = window.localStorage.getItem("fantasy-hub-theme");
@@ -1932,9 +1943,7 @@ export default function FantasyHub({
     (league) => !hiddenLeagueIds.includes(league.id),
   );
   const visibleNav = nav;
-  const orderedMobileNav = navGroupOrder.flatMap((group) =>
-    visibleNav.filter((item) => item.group === group),
-  );
+  const activeNavGroup = nav.find((item) => item.label === view)?.group ?? "Home";
   const proViews = new Set<View>(["Command Center", "League Stories", "Manager Report", "League Analytics", "Trade Lab", "Simulator"]);
   const rosterReady = players.length > 0;
   const periodLabel =
@@ -2135,44 +2144,48 @@ export default function FantasyHub({
             </div>
           </div>
         </header>
-        <nav className="mobile-nav-strip" aria-label="Quick Fantasy Hub navigation" draggable={false} onDragStart={(event) => event.preventDefault()}>
-          {orderedMobileNav.map((item) => (
+        <nav className="mobile-category-tray" aria-label="Fantasy Hub categories">
+          {mobileCategoryNav.map((item) => (
             <button
-              key={item.label}
+              key={item.group}
               type="button"
-              className={view === item.label ? "active" : ""}
-              aria-label={item.displayLabel ?? item.label}
-              aria-current={view === item.label ? "page" : undefined}
-              title={item.displayLabel ?? item.label}
+              className={activeNavGroup === item.group ? "active" : ""}
+              aria-label={item.group}
+              aria-current={activeNavGroup === item.group ? "page" : undefined}
+              aria-expanded={mobileCategoryOpen === item.group}
               onClick={() => {
                 void nativeImpact();
-                if (item.label === "Matchups") setSelectedMatchupId(null);
-                if (item.label === "Scoreboard") setScoreboardScope("all");
-                if (item.label === "Waiver Wire") window.scrollTo({ top: 0, left: 0, behavior: "auto" });
-                setView(item.label);
+                if (item.group === "Home") {
+                  setView("All Leagues");
+                  setMobileCategoryOpen(null);
+                } else {
+                  setMobileCategoryOpen((current) => current === item.group ? null : item.group);
+                }
               }}
             >
-              <i className={`nav-badge ${item.tone}`} aria-hidden="true">{item.mark}</i>
+              <i aria-hidden="true">{item.mark}</i><span>{item.label}</span>
             </button>
           ))}
-          <button
-            className="mobile-rail-theme"
-            type="button"
-            role="switch"
-            aria-checked={theme === "dark"}
-            aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
-            title={theme === "dark" ? "Dark mode" : "Light mode"}
-            onClick={() =>
-              setTheme((current) => {
-                const next = current === "light" ? "dark" : "light";
-                void saveAccountPreferences({ colorMode: next });
-                return next;
-              })
-            }
-          >
-            <i className="nav-badge theme-rail-badge" aria-hidden="true">{theme === "dark" ? "☾" : "☀"}</i>
-          </button>
         </nav>
+        {mobileCategoryOpen && (
+          <section className="mobile-category-menu" aria-label={`${mobileCategoryOpen} pages`}>
+            <header><div><small>EXPLORE</small><strong>{mobileCategoryOpen}</strong></div><button type="button" aria-label="Close category menu" onClick={() => setMobileCategoryOpen(null)}>×</button></header>
+            <div>
+              {visibleNav.filter((item) => item.group === mobileCategoryOpen).map((item) => (
+                <button key={item.label} type="button" className={view === item.label ? "active" : ""} aria-current={view === item.label ? "page" : undefined} onClick={() => {
+                  void nativeImpact();
+                  if (item.label === "Matchups") setSelectedMatchupId(null);
+                  if (item.label === "Scoreboard") setScoreboardScope("all");
+                  if (item.label === "Waiver Wire") window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+                  setView(item.label);
+                  setMobileCategoryOpen(null);
+                }}>
+                  <i className={`nav-badge ${item.tone}`} aria-hidden="true">{item.mark}</i><span><b>{item.displayLabel ?? item.label}</b><small>{glossaryDetails[item.label].use}</small></span>{proViews.has(item.label) && !entitlement.pro ? <em>PRO</em> : <strong aria-hidden="true">›</strong>}
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
         </div>
 
         {view !== "All Leagues" && view !== "Manage Leagues" && (
