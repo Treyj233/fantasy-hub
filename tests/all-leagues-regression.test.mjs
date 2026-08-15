@@ -454,7 +454,9 @@ test("pre-kickoff visuals are centralized and removable", async () => {
   assert.match(fixtures, /PRE_KICKOFF_VISUALS_ENABLED = true/);
   assert.match(fixtures, /Set this one flag to false/);
   assert.match(source, /data-visual-source=/);
-  assert.match(source, /PRE_KICKOFF_VISUALS\.performerLines/);
+  assert.match(source, /Live stats available after kickoff/);
+  assert.match(source, /item\.player\.projection \?\? 0/);
+  assert.doesNotMatch(fixtures, /yards:|touchdowns:|receptions:|targets:/);
   assert.match(source, /players\s*\.filter\(\(player\) => gameTeamCodes\.includes/);
   assert.doesNotMatch(source, />TEST MODE</);
   assert.doesNotMatch(source, /· DEMO</);

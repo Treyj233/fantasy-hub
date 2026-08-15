@@ -4900,15 +4900,17 @@ function AllLeagueScoreboard({
     ? gameDay.matchups
         .flatMap((item) => item.mineStarters.map((player) => ({ player, league: item.league })))
         .filter((item, index, items) => items.findIndex((candidate) => candidate.player.id === item.player.id) === index)
-        .slice(0, PRE_KICKOFF_VISUALS.performerLines.length)
+        .filter((item) => (item.player.projection ?? 0) > 0)
+        .sort((a, b) => (b.player.projection ?? 0) - (a.player.projection ?? 0))
+        .slice(0, 5)
         .map((item, index) => {
-          const line = PRE_KICKOFF_VISUALS.performerLines[index];
+          const projectedPoints = item.player.projection ?? 0;
           return {
-            player: { ...item.player, points: line.points, yards: line.yards, touchdowns: line.touchdowns, receptions: line.receptions, targets: line.targets },
+            player: { ...item.player, points: projectedPoints },
             status: "Projected",
             leagues: [{ id: item.league.id, name: item.league.name, side: "helps" as const }],
-            temperature: { value: line.heat, label: index < 2 ? "Projected breakout" : "Projected impact", state: index < 2 ? "hot" : "warm" },
-            performanceScore: line.points,
+            temperature: { value: Math.max(55, 82 - index * 6), label: index < 2 ? "Projected leader" : "Projected impact", state: index < 2 ? "hot" : "warm" },
+            performanceScore: projectedPoints,
           };
         })
     : [];
@@ -5064,8 +5066,8 @@ function AllLeagueScoreboard({
           const hurts = item.leagues.length - helps;
           return <button type="button" key={item.player.id} onClick={() => openPlayer(playerShell(item.player))}>
             <em>#{index + 1}</em><div className="fire-player-visual"><NflTeamLogo team={item.player.nflTeam} /><PlayerHeadshot id={item.player.id} position={item.player.position} /><i aria-hidden="true">🔥</i></div>
-            <p><span>{item.temperature.label}</span><strong>{item.player.name}</strong><small>{item.player.nflTeam} · {item.player.position} · {item.player.yards} YDS{item.player.touchdowns ? ` · ${item.player.touchdowns} TD` : ""}{item.player.targets ? ` · ${item.player.receptions}/${item.player.targets} REC` : ""}</small><span className="fire-leagues">{item.leagues.slice(0, 3).map((league) => <b className={league.side} key={`${item.player.id}-${league.id}`}>{league.side === "helps" ? "↑" : "↓"} {league.name}</b>)}</span></p>
-            <div className="fire-score"><strong>{item.player.points.toFixed(1)}</strong><small>PTS</small><span><i style={{ width: `${item.temperature.value}%` }} /></span><em>{helps ? `${helps} help` : ""}{helps && hurts ? " · " : ""}{hurts ? `${hurts} hurt` : ""}</em></div>
+            <p><span>{item.temperature.label}</span><strong>{item.player.name}</strong><small>{item.status === "Projected" ? `${item.player.nflTeam} · ${item.player.position} · Live stats available after kickoff` : `${item.player.nflTeam} · ${item.player.position} · ${item.player.yards} YDS${item.player.touchdowns ? ` · ${item.player.touchdowns} TD` : ""}${item.player.targets ? ` · ${item.player.receptions}/${item.player.targets} REC` : ""}`}</small><span className="fire-leagues">{item.leagues.slice(0, 3).map((league) => <b className={league.side} key={`${item.player.id}-${league.id}`}>{league.side === "helps" ? "↑" : "↓"} {league.name}</b>)}</span></p>
+            <div className="fire-score"><strong>{item.player.points.toFixed(1)}</strong><small>{item.status === "Projected" ? "PROJ PTS" : "PTS"}</small><span><i style={{ width: `${item.temperature.value}%` }} /></span><em>{helps ? `${helps} help` : ""}{helps && hurts ? " · " : ""}{hurts ? `${hurts} hurt` : ""}</em></div>
           </button>;
         })}</div> : <p className="game-day-empty">Current weekly leaders will ignite here as players begin scoring.</p>}
       </section>
