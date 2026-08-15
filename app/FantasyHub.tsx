@@ -7533,10 +7533,11 @@ function AdpPage({
   const [position, setPosition] = useState("ALL");
   const [query, setQuery] = useState("");
   const [adpDirection, setAdpDirection] = useState<"asc" | "desc">("asc");
-  const [adpSite, setAdpSite] = useState<"Sleeper" | "ESPN">("Sleeper");
+  const [adpSite, setAdpSite] = useState<"Sleeper" | "ESPN" | "Underdog">("Sleeper");
   const [sleeperAdpFormat, setSleeperAdpFormat] = useState<"Single-QB" | "Superflex">("Single-QB");
-  const adpSourceLabel = adpSite === "ESPN" ? "ESPN (Single-QB)" : `Sleeper (${sleeperAdpFormat})`;
-  const adpDataKey = adpSite === "ESPN" ? "ESPN" : `Sleeper ${sleeperAdpFormat}`;
+  const [underdogAdpFormat, setUnderdogAdpFormat] = useState<"Single-QB Half PPR" | "Single-QB Full PPR" | "Superflex Half PPR">("Single-QB Half PPR");
+  const adpSourceLabel = adpSite === "ESPN" ? "ESPN (Single-QB)" : adpSite === "Underdog" ? `Underdog (${underdogAdpFormat})` : `Sleeper (${sleeperAdpFormat})`;
+  const adpDataKey = adpSite === "ESPN" ? "ESPN" : adpSite === "Underdog" ? `Underdog ${underdogAdpFormat}` : `Sleeper ${sleeperAdpFormat}`;
   const rosterNames = new Set(
     roster.map((player) => player.name.toLowerCase()),
   );
@@ -7596,8 +7597,10 @@ function AdpPage({
           context
             ? adpSite === "Sleeper"
               ? `${context.format} Sleeper ${sleeperAdpFormat} ADP aligned to ${context.scoring}.`
-              : "ESPN Single-QB platform ADP reflects ESPN's redraft market and is shown separately for direct comparison."
-            : "Import a league to compare platform-specific Sleeper and ESPN draft markets."
+              : adpSite === "Underdog"
+                ? `Official Underdog 2026 Best Ball ${underdogAdpFormat} draft market, updated August 14.`
+                : "ESPN Single-QB platform ADP reflects ESPN's redraft market and is shown separately for direct comparison."
+            : "Import a league to compare platform-specific Sleeper, ESPN, and Underdog draft markets."
         }
       />
       {context && (
@@ -7660,11 +7663,23 @@ function AdpPage({
             <button aria-pressed={adpSite === "ESPN"} className={adpSite === "ESPN" ? "active" : ""} onClick={() => { if (adpSite === "ESPN") setAdpDirection((current) => current === "asc" ? "desc" : "asc"); else { setAdpSite("ESPN"); setAdpDirection("asc"); } }}>
               ESPN (Single-QB) {adpSite === "ESPN" ? adpDirection === "asc" ? "↑" : "↓" : ""}
             </button>
+            <button aria-pressed={adpSite === "Underdog"} className={adpSite === "Underdog" ? "active" : ""} onClick={() => { if (adpSite === "Underdog") setAdpDirection((current) => current === "asc" ? "desc" : "asc"); else { setAdpSite("Underdog"); setAdpDirection("asc"); } }}>
+              Underdog {adpSite === "Underdog" ? adpDirection === "asc" ? "↑" : "↓" : ""}
+            </button>
           </div>
           {adpSite === "Sleeper" && (
             <div className="adp-formats" role="group" aria-label="Select Sleeper ADP format">
               {(["Single-QB", "Superflex"] as const).map((format) => (
                 <button key={format} aria-pressed={sleeperAdpFormat === format} className={sleeperAdpFormat === format ? "active" : ""} onClick={() => { setSleeperAdpFormat(format); setAdpDirection("asc"); }}>
+                  {format}
+                </button>
+              ))}
+            </div>
+          )}
+          {adpSite === "Underdog" && (
+            <div className="adp-formats" role="group" aria-label="Select Underdog Best Ball ADP format">
+              {(["Single-QB Half PPR", "Single-QB Full PPR", "Superflex Half PPR"] as const).map((format) => (
+                <button key={format} aria-pressed={underdogAdpFormat === format} className={underdogAdpFormat === format ? "active" : ""} onClick={() => { setUnderdogAdpFormat(format); setAdpDirection("asc"); }}>
                   {format}
                 </button>
               ))}

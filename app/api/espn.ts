@@ -117,6 +117,9 @@ export async function normalizeEspnLeague(payload: EspnPayload) {
   ]);
   const seasonProfiles = seasonContext.profiles;
   const teamOffenseProfiles = offenseContext.profiles;
+  const underdogSingleQbHalfPprAdp = loadUnderdogAdpByPlayerKey("Single-QB Half PPR");
+  const underdogSingleQbFullPprAdp = loadUnderdogAdpByPlayerKey("Single-QB Full PPR");
+  const underdogSuperflexHalfPprAdp = loadUnderdogAdpByPlayerKey("Superflex Half PPR");
   const members = new Map((payload.members ?? []).flatMap((member) => member.id ? [[member.id, member]] : []));
   const allPoolPlayers = (payload.players ?? []).flatMap((entry) => entry.player ? [{ ...entry.player, onTeamId: entry.onTeamId ?? 0 }] : []);
   const rosterPlayers = (payload.teams ?? []).flatMap((team) => (team.roster?.entries ?? []).flatMap((entry) => entry.playerPoolEntry?.player ? [{ ...entry.playerPoolEntry.player, onTeamId: team.id ?? 0 }] : []));
@@ -136,7 +139,7 @@ export async function normalizeEspnLeague(payload: EspnPayload) {
     const sleeperSingleQb = sleeperSingleQbAdp.get(sleeperKey) ?? null;
     const sleeperSuperflex = sleeperSuperflexAdp.get(sleeperKey) ?? null;
     const sleeperLeagueFormat = (slotCounts.SUPER_FLEX ?? 0) > 0 ? sleeperSuperflex : sleeperSingleQb;
-    return { id: `espn-player:${player.id ?? 0}`, name, position, team: nflTeamById[player.proTeamId ?? 0] ?? "FA", opponent: "Matchup pending", projection: points, leagueProjection: points, floor: Number((points * .68).toFixed(1)), ceiling: Number((points * 1.38).toFixed(1)), trend: 0, status: player.injuryStatus || (player.injured ? "Questionable" : "Healthy"), role, rankingValue: Number((points * 3 + (player.ownership?.percentOwned ?? 0) * .35).toFixed(2)), ageAdjustment: 0, lineupAdjustment: 0, snapPct: snapProfile?.latestPct ?? null, snapAverage: snapProfile?.averagePct ?? null, snapWeek: snapProfile?.latestWeek ?? null, snapSeason: snapProfile?.season ?? null, statsSourceSeason: seasonContext.sourceSeason, statsBlended: seasonContext.blended || offenseContext.blended, fantasyPpg2025: seasonProfile?.games && historicalPoints != null ? Number((historicalPoints / seasonProfile.games).toFixed(1)) : null, gamesPlayed2025: seasonProfile?.games ?? null, team2025: seasonProfile?.team ?? null, teamOffenseRank2025: teamOffense?.rank ?? null, teamPointsPerGame2025: teamOffense?.pointsPerGame ?? null, adpBySite: { Sleeper: sleeperLeagueFormat, "Sleeper Single-QB": sleeperSingleQb, "Sleeper Superflex": sleeperSuperflex, ESPN: typeof espnAdp === "number" && espnAdp > 0 && espnAdp < 999 ? espnAdp : null } };
+    return { id: `espn-player:${player.id ?? 0}`, name, position, team: nflTeamById[player.proTeamId ?? 0] ?? "FA", opponent: "Matchup pending", projection: points, leagueProjection: points, floor: Number((points * .68).toFixed(1)), ceiling: Number((points * 1.38).toFixed(1)), trend: 0, status: player.injuryStatus || (player.injured ? "Questionable" : "Healthy"), role, rankingValue: Number((points * 3 + (player.ownership?.percentOwned ?? 0) * .35).toFixed(2)), ageAdjustment: 0, lineupAdjustment: 0, snapPct: snapProfile?.latestPct ?? null, snapAverage: snapProfile?.averagePct ?? null, snapWeek: snapProfile?.latestWeek ?? null, snapSeason: snapProfile?.season ?? null, statsSourceSeason: seasonContext.sourceSeason, statsBlended: seasonContext.blended || offenseContext.blended, fantasyPpg2025: seasonProfile?.games && historicalPoints != null ? Number((historicalPoints / seasonProfile.games).toFixed(1)) : null, gamesPlayed2025: seasonProfile?.games ?? null, team2025: seasonProfile?.team ?? null, teamOffenseRank2025: teamOffense?.rank ?? null, teamPointsPerGame2025: teamOffense?.pointsPerGame ?? null, adpBySite: { Sleeper: sleeperLeagueFormat, "Sleeper Single-QB": sleeperSingleQb, "Sleeper Superflex": sleeperSuperflex, ESPN: typeof espnAdp === "number" && espnAdp > 0 && espnAdp < 999 ? espnAdp : null, "Underdog Single-QB Half PPR": underdogSingleQbHalfPprAdp.get(sleeperKey) ?? null, "Underdog Single-QB Full PPR": underdogSingleQbFullPprAdp.get(sleeperKey) ?? null, "Underdog Superflex Half PPR": underdogSuperflexHalfPprAdp.get(sleeperKey) ?? null } };
   };
   const rosteredIds = new Set(rosterPlayers.map((player) => player.id));
   const rankingPool = universe.map((player) => playerShape(player)).filter((player) => ["QB", "RB", "WR", "TE", "K", "DEF"].includes(player.position)).sort((a, b) => b.rankingValue - a.rankingValue).map((player, index) => ({ ...player, overallRank: index + 1 }));
@@ -206,4 +209,4 @@ import { getDb } from "../../db";
 import { espnLeagueSnapshots } from "../../db/schema";
 import { loadBlendedPlayerSeasonProfiles, loadBlendedTeamOffenseProfiles, playerSeasonProfileFor } from "../season-history";
 import { loadCurrentSnapProfiles, snapProfileFor } from "../snap-data";
-import { adpPlayerKey, loadSleeperAdpByPlayerKey } from "../adp-data";
+import { adpPlayerKey, loadSleeperAdpByPlayerKey, loadUnderdogAdpByPlayerKey } from "../adp-data";

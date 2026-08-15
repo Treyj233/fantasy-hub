@@ -1,13 +1,19 @@
 import { fetchCachedUpstream } from "./api/upstream-cache";
+import underdogAdpSnapshot from "./underdog-adp-snapshot.json";
 
 type EspnAdpPlayer = { fullName?: string; defaultPositionId?: number; ownership?: { averageDraftPosition?: number } };
 type SleeperAdpPlayer = { full_name?: string; first_name?: string; last_name?: string; position?: string };
 type SleeperAdpRow = { player_id?: string; stats?: Record<string, number> };
 
 const espnPositionById: Record<number, string> = { 1: "QB", 2: "RB", 3: "WR", 4: "TE", 5: "K", 16: "DEF" };
+export type UnderdogAdpFormat = "Single-QB Half PPR" | "Single-QB Full PPR" | "Superflex Half PPR";
 
 export const adpPlayerKey = (name: string, position: string) =>
   `${name.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\b(jr|sr|ii|iii|iv)\b/g, "").replace(/[^a-z0-9]/g, "")}|${position.toUpperCase()}`;
+
+export const underdogAdpUpdatedAt = underdogAdpSnapshot.updatedAt;
+export const loadUnderdogAdpByPlayerKey = (format: UnderdogAdpFormat) =>
+  new Map<string, number>(Object.entries(underdogAdpSnapshot.formats[format]));
 
 export async function loadEspnAdpByPlayerKey(season: number) {
   const filter = JSON.stringify({ players: { limit: 2000, sortDraftRanks: { sortPriority: 1, sortAsc: true, value: "STANDARD" } } });
