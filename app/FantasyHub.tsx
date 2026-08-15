@@ -7555,6 +7555,7 @@ function WeeklyPlayerRankings({
   week: number;
   setSelectedPlayer: (player: Player) => void;
 }) {
+  const [expandedPositions, setExpandedPositions] = useState<Set<string>>(() => new Set());
   const positionConfig = [
     { position: "QB", limit: 24, label: "Quarterbacks" },
     { position: "RB", limit: 24, label: "Running backs" },
@@ -7591,11 +7592,14 @@ function WeeklyPlayerRankings({
         <div><span>WEATHER</span><strong>Game-day conditions</strong></div>
       </section>
       <div className="weekly-position-grid">
-        {cards.map((card) => (
+        {cards.map((card) => {
+          const expanded = expandedPositions.has(card.position);
+          const visiblePlayers = expanded ? card.ranked : card.ranked.slice(0, 12);
+          return (
           <section className={`weekly-position-card panel weekly-${card.position.toLowerCase()}`} key={card.position}>
-            <header><div><span>WEEK {week} · TOP {card.limit}</span><h3>{card.label}</h3></div><i className={`pos pos-${card.position.toLowerCase()}`}>{card.position}</i></header>
+            <header><div><span>WEEK {week} · {expanded ? `TOP ${card.limit}` : "TOP 12"}</span><h3>{card.label}</h3></div><div className="weekly-position-actions"><button type="button" aria-expanded={expanded} onClick={() => setExpandedPositions((current) => { const next = new Set(current); if (expanded) next.delete(card.position); else next.add(card.position); return next; })}>{expanded ? "Show top 12" : `Show all ${card.ranked.length}`}</button><i className={`pos pos-${card.position.toLowerCase()}`}>{card.position}</i></div></header>
             <div className="weekly-rank-list">
-              {card.ranked.map((player, index) => (
+              {visiblePlayers.map((player, index) => (
                 <button key={player.id} onClick={() => setSelectedPlayer(player)}>
                   <b>#{index + 1}</b>
                   <span><strong>{player.name}</strong><small>{player.team}</small></span>
@@ -7608,7 +7612,8 @@ function WeeklyPlayerRankings({
               ))}
             </div>
           </section>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

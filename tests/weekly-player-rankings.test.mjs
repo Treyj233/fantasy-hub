@@ -19,6 +19,9 @@ test("weekly player rankings are Pro-gated, week-aware, and position limited", a
   assert.match(rankings, /\{ position: "RB", limit: 24/);
   assert.match(rankings, /\{ position: "WR", limit: 36/);
   assert.match(rankings, /\{ position: "TE", limit: 24/);
+  assert.match(rankings, /card\.ranked\.slice\(0, 12\)/);
+  assert.match(rankings, /expandedPositions\.has\(card\.position\)/);
+  assert.match(rankings, /\{expanded \? "Show top 12" : `Show all \$\{card\.ranked\.length\}`\}/);
   assert.match(rankings, /projectionScore \* \.45 \+ ceilingScore \* \.25 \+ matchupScore \* \.2 \+ weatherScore \* \.1/);
   assert.match(rankings, /const matchupScore = player\.matchupStrength\?\.score \?\? 50/);
   assert.match(rankings, /<div className="weekly-matchup"><MatchupBadge player=\{player\} \/><\/div>/);
@@ -29,7 +32,9 @@ test("weekly player rankings are Pro-gated, week-aware, and position limited", a
   assert.match(rankings, /<span>MATCHUP<\/span><strong>Opponent strength<\/strong>/);
   assert.match(source, /weatherAdjustment: Math\.max\(-\.22, windPenalty \+ rainPenalty \+ coldPenalty\)/);
   assert.match(styles, /\.weekly-matchup > \.matchup-team/);
-  assert.match(styles, /\.weekly-position-grid\s*\{[^}]*grid-template-columns: 1fr 1fr/s);
+  assert.match(styles, /\.weekly-position-grid\s*\{[^}]*grid-template-columns: 1fr/s);
+  assert.match(styles, /grid-template-areas: "rank player player player score" "\. projection ceiling matchup matchup"/);
+  assert.match(styles, /\.weekly-matchup > \.matchup-team > span \{[^}]*font-size: 8px!important/s);
   assert.match(styles, /\.player-rankings-page \.ranking-context span\s*\{[^}]*min-height: 28px;[^}]*padding: 5px 9px;[^}]*font-size: 8px;/s);
   assert.match(styles, /\.player-rankings-page \.ranking-detail-row\s*\{[^}]*grid-template-columns: 32px minmax\(0, 1fr\) 36px 46px 46px;[^}]*gap: 3px;[^}]*min-width: 0;/s);
   assert.match(styles, /\.player-rankings-page \.ranking-detail-row > span:nth-child\(3\)\s*\{[^}]*transform: translateX\(-5px\)/s);
