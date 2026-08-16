@@ -141,6 +141,7 @@ const APP_ORIGINS = new Set([
 function routeFromAppUrl(value: string) {
   const url = new URL(value);
   if (url.protocol === "fantasyhub:") {
+    if (url.hostname === "auth" && url.pathname === "/complete") return "/";
     const nativePath = [url.hostname, url.pathname].filter(Boolean).join("/");
     return `/${nativePath}${url.search}${url.hash}`;
   }
