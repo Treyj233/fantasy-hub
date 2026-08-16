@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { and, eq, sql } from "drizzle-orm";
 import { getDb } from "../db";
-import { accountIdentities, sleeperConnections, userPreferences } from "../db/schema";
+import { accountIdentities, sleeperConnections, subscriptions, userPreferences } from "../db/schema";
 import { getClerkRuntimeKeys } from "./clerk-config";
 
 export type ChatGPTUser = {
@@ -80,11 +80,15 @@ async function resolveCanonicalUserId(provider: "clerk" | "chatgpt", providerUse
   if (existingIdentity) return existingIdentity.canonicalUserId;
 
   const normalizedEmail = email.trim().toLowerCase();
+  const [emailIdentity] = await db.select({ canonicalUserId: accountIdentities.canonicalUserId }).from(accountIdentities)
+    .where(sql`lower(${accountIdentities.verifiedEmail}) = ${normalizedEmail}`).limit(1);
   const [connection] = await db.select({ userId: sleeperConnections.userId }).from(sleeperConnections)
     .where(sql`lower(${sleeperConnections.email}) = ${normalizedEmail}`).limit(1);
-  const preferenceRows = connection ? [] : await db.select({ userId: userPreferences.userId }).from(userPreferences)
+  const preferenceRows = emailIdentity || connection ? [] : await db.select({ userId: userPreferences.userId }).from(userPreferences)
     .where(sql`lower(${userPreferences.email}) = ${normalizedEmail}`).limit(1);
-  const canonicalUserId = connection?.userId ?? preferenceRows[0]?.userId ?? `${provider}:${providerUserId}`;
+  const subscriptionRows = emailIdentity || connection || preferenceRows[0] ? [] : await db.select({ userId: subscriptions.userId }).from(subscriptions)
+    .where(sql`lower(${subscriptions.email}) = ${normalizedEmail}`).limit(1);
+  const canonicalUserId = emailIdentity?.canonicalUserId ?? connection?.userId ?? preferenceRows[0]?.userId ?? subscriptionRows[0]?.userId ?? `${provider}:${providerUserId}`;
   await db.insert(accountIdentities).values({
     id: crypto.randomUUID(), provider, providerUserId, canonicalUserId,
     verifiedEmail: normalizedEmail, updatedAt: new Date().toISOString(),
