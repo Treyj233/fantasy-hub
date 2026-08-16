@@ -889,7 +889,7 @@ html[data-overlay-open] body{overflow:hidden!important}.player-panel,.team-asset
   html,body{scrollbar-width:none}
   html::-webkit-scrollbar,body::-webkit-scrollbar{display:none;width:0;height:0}
   .league-switcher{display:none}
-  .league-edge-handle{position:fixed;z-index:220;right:max(0px,env(safe-area-inset-right));top:48%;display:grid;width:44px;height:54px;padding:0;place-items:center;background:transparent;border:0;transform:translateY(-50%)}.league-edge-handle:before{position:absolute;right:0;width:12px;height:44px;background:linear-gradient(180deg,var(--green),var(--gold));border:1px solid color-mix(in srgb,var(--gold) 65%,var(--green));border-right:0;border-radius:9px 0 0 9px;box-shadow:-4px 2px 11px rgb(0 0 0 / .3);content:""}.league-edge-handle:after{position:absolute;right:3px;display:block;width:3px;height:22px;background:#fff;border-radius:99px;box-shadow:0 0 5px #fff,0 0 2px rgb(0 0 0 / .5);content:""}.league-edge-handle>span{display:none}
+  .league-edge-handle{position:fixed;z-index:220;right:max(0px,env(safe-area-inset-right));top:48%;display:grid;width:44px;height:70px;padding:0;place-items:center;background:transparent;border:0;transform:translateY(-50%)}.league-edge-handle:before{position:absolute;right:0;width:12px;height:60px;background:linear-gradient(180deg,var(--green),var(--gold));border:1px solid color-mix(in srgb,var(--gold) 65%,var(--green));border-right:0;border-radius:9px 0 0 9px;box-shadow:-4px 2px 11px rgb(0 0 0 / .3);content:"";animation:league-handle-glow 3.2s ease-in-out infinite}.league-edge-handle:after{position:absolute;right:1px;display:grid;width:10px;height:24px;place-items:center;color:#fff;font-size:14px;font-weight:950;line-height:1;text-shadow:0 1px 3px rgb(0 0 0 / .7);content:"‹";animation:league-handle-preview 3.2s cubic-bezier(.22,1,.36,1) infinite}.league-edge-handle>span{display:none}
   .league-drawer-layer{position:fixed;z-index:170;inset:0;display:block}
   .league-drawer-scrim{position:absolute;inset:0;width:100%;height:100%;padding:0;background:rgb(3 12 8 / .58);border:0;touch-action:none}
   .league-drawer{position:absolute;z-index:1;top:max(54px,calc(env(safe-area-inset-top) + 10px));right:0;bottom:max(20px,calc(env(safe-area-inset-bottom) + 8px));display:flex;width:min(88vw,370px);flex-direction:column;padding:12px;color:var(--ink);background:var(--chalk);border:1px solid var(--line);border-right:0;border-radius:16px 0 0 16px;box-shadow:-24px 0 60px rgb(0 0 0 / .34);animation:league-drawer-enter var(--motion-standard) ease-out}
@@ -899,6 +899,9 @@ html[data-overlay-open] body{overflow:hidden!important}.player-panel,.team-asset
   .league-drawer-manage{margin-top:11px;padding:11px;color:var(--green);background:transparent;border:1px solid color-mix(in srgb,var(--green) 38%,var(--line));border-radius:10px;font-size:9px;font-weight:900}
 }
 @keyframes league-drawer-enter{from{transform:translateX(100%)}to{transform:translateX(0)}}
+@keyframes league-handle-preview{0%,68%,100%{opacity:.78;transform:translateX(0)}76%{opacity:1;transform:translateX(-5px)}84%{opacity:1;transform:translateX(-2px)}}
+@keyframes league-handle-glow{0%,68%,100%{box-shadow:-4px 2px 11px rgb(0 0 0 / .3)}76%{box-shadow:-8px 2px 18px rgb(var(--brand-secondary-rgb) / .55)}}
+@media(prefers-reduced-motion:reduce){.league-edge-handle:before,.league-edge-handle:after{animation:none}.league-edge-handle:after{opacity:1}}
 
 /* Mobile category tray replaces only the horizontal page-icon rail. */
 .mobile-category-tray,.mobile-category-menu,.mobile-category-scrim{display:none}
