@@ -1,6 +1,8 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { useAuth } from "@clerk/nextjs";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 function InitialLoadingShell() {
@@ -44,5 +46,16 @@ export default function FantasyHubLoader({
 }: {
   accountUser: { displayName: string; email: string; provider: "clerk" | "chatgpt"; signOutPath: string } | null;
 }) {
+  const { isLoaded, isSignedIn } = useAuth();
+  const router = useRouter();
+  const [sessionRefreshRequested, setSessionRefreshRequested] = useState(false);
+
+  useEffect(() => {
+    if (accountUser || !isLoaded || !isSignedIn || sessionRefreshRequested) return;
+    setSessionRefreshRequested(true);
+    router.refresh();
+  }, [accountUser, isLoaded, isSignedIn, router, sessionRefreshRequested]);
+
+  if (!accountUser && (!isLoaded || isSignedIn)) return <InitialLoadingShell />;
   return <FantasyHub accountUser={accountUser} />;
 }
