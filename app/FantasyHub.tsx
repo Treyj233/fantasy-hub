@@ -2311,7 +2311,7 @@ export default function FantasyHub({
             <button
               key={item.group}
               type="button"
-              className={activeNavGroup === item.group ? "active" : ""}
+              className={`${activeNavGroup === item.group ? "active" : ""}${item.group === "Home" ? " all-leagues-tray-button" : ""}`}
               aria-label={item.group}
               aria-current={activeNavGroup === item.group ? "page" : undefined}
               aria-expanded={mobileCategoryOpen === item.group}
