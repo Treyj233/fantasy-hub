@@ -1,10 +1,11 @@
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { auth, currentUser } from "@clerk/nextjs/server";
+import { auth, clerkClient, currentUser } from "@clerk/nextjs/server";
 import { and, eq, sql } from "drizzle-orm";
 import { getDb } from "../db";
 import { accountIdentities, sleeperConnections, subscriptions, userPreferences } from "../db/schema";
 import { getClerkRuntimeKeys } from "./clerk-config";
+import { verifyNativeSession } from "./native-session";
 
 export type ChatGPTUser = {
   userId: string;
@@ -52,10 +53,21 @@ export async function getChatGPTUser(): Promise<ChatGPTUser | null> {
 }
 
 async function getClerkUser(): Promise<ChatGPTUser | null> {
-  if (!await getClerkRuntimeKeys()) return null;
+  const keys = await getClerkRuntimeKeys();
+  if (!keys) return null;
   const session = await auth();
-  if (!session.userId) return null;
-  const user = await currentUser();
+  let user = session.userId ? await currentUser() : null;
+  if (!user) {
+    const nativeCookie = (await cookies()).get("fh_native_session")?.value;
+    const nativeSession = nativeCookie ? await verifyNativeSession(nativeCookie, keys.secretKey) : null;
+    if (nativeSession) {
+      try {
+        user = await (await clerkClient()).users.getUser(nativeSession.sub);
+      } catch {
+        user = null;
+      }
+    }
+  }
   if (!user) return null;
   const primaryEmail = user.emailAddresses.find((entry) => entry.id === user.primaryEmailAddressId);
   const verifiedEmail = primaryEmail?.verification?.status === "verified" ? primaryEmail.emailAddress : null;

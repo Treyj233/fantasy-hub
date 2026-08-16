@@ -47,10 +47,11 @@ class FantasyHubAppleAuthPlugin: CAPPlugin, CAPBridgedPlugin {
                 }
                 sessionToken = newToken
             }
-            let ticket = try await exchangeForBrowserTicket(sessionToken)
+            let nativeSession = try await exchangeForNativeSession(sessionToken)
+            try await installNativeSessionCookie(nativeSession)
             call.resolve([
                 "authenticated": true,
-                "redirect": "/native-auth-ticket?ticket=\(ticket.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ticket)",
+                "redirect": "/",
             ])
         } catch let authorizationError as ASAuthorizationError where authorizationError.code == .canceled {
             call.resolve(["cancelled": true])
@@ -75,7 +76,7 @@ class FantasyHubAppleAuthPlugin: CAPPlugin, CAPBridgedPlugin {
         pendingCall = nil
     }
 
-    private func exchangeForBrowserTicket(_ token: String) async throws -> String {
+    private func exchangeForNativeSession(_ token: String) async throws -> String {
         guard let url = URL(string: "https://fantasyhubapp.com/api/native-auth/exchange") else {
             throw NativeAppleAuthError.exchangeFailed
         }
@@ -86,15 +87,35 @@ class FantasyHubAppleAuthPlugin: CAPPlugin, CAPBridgedPlugin {
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200,
               let payload = try? JSONDecoder().decode(NativeAuthExchange.self, from: data),
-              !payload.ticket.isEmpty else {
+              !payload.session.isEmpty else {
             throw NativeAppleAuthError.exchangeFailed
         }
-        return payload.ticket
+        return payload.session
+    }
+
+    @MainActor
+    private func installNativeSessionCookie(_ session: String) async throws {
+        guard let origin = URL(string: "https://fantasyhubapp.com"),
+              let cookie = HTTPCookie(properties: [
+                .originURL: origin,
+                .domain: "fantasyhubapp.com",
+                .path: "/",
+                .name: "fh_native_session",
+                .value: session,
+                .secure: "TRUE",
+                .init("HttpOnly"): "TRUE",
+                .sameSitePolicy: "Lax",
+                .expires: Date().addingTimeInterval(60 * 60 * 24 * 30),
+              ]),
+              let cookieStore = bridge?.webView?.configuration.websiteDataStore.httpCookieStore else {
+            throw NativeAppleAuthError.exchangeFailed
+        }
+        await cookieStore.setCookie(cookie)
     }
 }
 
 private struct NativeAuthExchange: Decodable {
-    let ticket: String
+    let session: String
 }
 
 private enum NativeAppleAuthError: LocalizedError {
