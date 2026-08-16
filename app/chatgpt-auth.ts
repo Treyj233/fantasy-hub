@@ -77,18 +77,24 @@ async function resolveCanonicalUserId(provider: "clerk" | "chatgpt", providerUse
     eq(accountIdentities.provider, provider),
     eq(accountIdentities.providerUserId, providerUserId),
   )).limit(1);
-  if (existingIdentity) return existingIdentity.canonicalUserId;
 
   const normalizedEmail = email.trim().toLowerCase();
-  const [emailIdentity] = await db.select({ canonicalUserId: accountIdentities.canonicalUserId }).from(accountIdentities)
-    .where(sql`lower(${accountIdentities.verifiedEmail}) = ${normalizedEmail}`).limit(1);
   const [connection] = await db.select({ userId: sleeperConnections.userId }).from(sleeperConnections)
     .where(sql`lower(${sleeperConnections.email}) = ${normalizedEmail}`).limit(1);
-  const preferenceRows = emailIdentity || connection ? [] : await db.select({ userId: userPreferences.userId }).from(userPreferences)
+  const preferenceRows = connection ? [] : await db.select({ userId: userPreferences.userId }).from(userPreferences)
     .where(sql`lower(${userPreferences.email}) = ${normalizedEmail}`).limit(1);
-  const subscriptionRows = emailIdentity || connection || preferenceRows[0] ? [] : await db.select({ userId: subscriptions.userId }).from(subscriptions)
+  const subscriptionRows = connection || preferenceRows[0] ? [] : await db.select({ userId: subscriptions.userId }).from(subscriptions)
     .where(sql`lower(${subscriptions.email}) = ${normalizedEmail}`).limit(1);
-  const canonicalUserId = emailIdentity?.canonicalUserId ?? connection?.userId ?? preferenceRows[0]?.userId ?? subscriptionRows[0]?.userId ?? `${provider}:${providerUserId}`;
+  const emailIdentityRows = connection || preferenceRows[0] || subscriptionRows[0] ? [] : await db.select({ canonicalUserId: accountIdentities.canonicalUserId }).from(accountIdentities)
+    .where(sql`lower(${accountIdentities.verifiedEmail}) = ${normalizedEmail}`).limit(1);
+  const canonicalUserId = connection?.userId ?? preferenceRows[0]?.userId ?? subscriptionRows[0]?.userId ?? emailIdentityRows[0]?.canonicalUserId ?? existingIdentity?.canonicalUserId ?? `${provider}:${providerUserId}`;
+  if (existingIdentity) {
+    if (existingIdentity.canonicalUserId !== canonicalUserId || existingIdentity.verifiedEmail !== normalizedEmail) {
+      await db.update(accountIdentities).set({ canonicalUserId, verifiedEmail: normalizedEmail, updatedAt: new Date().toISOString() })
+        .where(eq(accountIdentities.id, existingIdentity.id));
+    }
+    return canonicalUserId;
+  }
   await db.insert(accountIdentities).values({
     id: crypto.randomUUID(), provider, providerUserId, canonicalUserId,
     verifiedEmail: normalizedEmail, updatedAt: new Date().toISOString(),
