@@ -2399,7 +2399,7 @@ export default function FantasyHub({
               setMobileCategoryOpen(null);
               setLeagueDrawerOpen(true);
             }}
-          ><span aria-hidden="true" /></button>,
+          />,
           document.body,
         )}
 
