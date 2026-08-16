@@ -889,7 +889,7 @@ html[data-overlay-open] body{overflow:hidden!important}.player-panel,.team-asset
   html,body{scrollbar-width:none}
   html::-webkit-scrollbar,body::-webkit-scrollbar{display:none;width:0;height:0}
   .league-switcher{display:none}
-  .league-edge-handle{position:fixed;z-index:220;right:max(0px,env(safe-area-inset-right));top:48%;display:grid;width:44px;height:70px;padding:0;place-items:center;background:transparent;border:0;transform:translateY(-50%)}.league-edge-handle:before{position:absolute;right:0;width:12px;height:60px;background:linear-gradient(180deg,var(--green),var(--gold));border:1px solid color-mix(in srgb,var(--gold) 65%,var(--green));border-right:0;border-radius:9px 0 0 9px;box-shadow:-4px 2px 11px rgb(0 0 0 / .3);content:"";animation:league-handle-glow 3.2s ease-in-out infinite}.league-edge-handle:after{position:absolute;right:1px;display:grid;width:10px;height:24px;place-items:center;color:#fff;font-size:14px;font-weight:950;line-height:1;text-shadow:0 1px 3px rgb(0 0 0 / .7);content:"‹";animation:league-handle-preview 3.2s cubic-bezier(.22,1,.36,1) infinite}.league-edge-handle>span{display:none}
+  .league-edge-handle{position:fixed;z-index:220;right:max(0px,env(safe-area-inset-right));top:48%;display:grid;width:44px;height:70px;padding:0;place-items:center;background:transparent;border:0;transform:translateY(-50%)}.league-edge-handle:before{position:absolute;right:0;width:12px;height:60px;background:linear-gradient(180deg,var(--green),var(--gold));border:1px solid color-mix(in srgb,var(--gold) 65%,var(--green));border-right:0;border-radius:9px 0 0 9px;box-shadow:-4px 2px 11px rgb(0 0 0 / .3);content:""}.league-edge-handle:after{position:absolute;right:1px;display:grid;width:10px;height:24px;place-items:center;color:#fff;font-size:14px;font-weight:950;line-height:1;text-shadow:0 1px 3px rgb(0 0 0 / .7);content:"‹"}.league-edge-handle.previewing:before{animation:league-handle-glow 1.1s ease-out 1}.league-edge-handle.previewing:after{animation:league-handle-preview 1.1s cubic-bezier(.22,1,.36,1) 1}.league-edge-handle>span{display:none}
   .league-drawer-layer{position:fixed;z-index:170;inset:0;display:block}
   .league-drawer-scrim{position:absolute;inset:0;width:100%;height:100%;padding:0;background:rgb(3 12 8 / .58);border:0;touch-action:none}
   .league-drawer{position:absolute;z-index:1;top:max(54px,calc(env(safe-area-inset-top) + 10px));right:0;bottom:max(20px,calc(env(safe-area-inset-bottom) + 8px));display:flex;width:min(88vw,370px);flex-direction:column;padding:12px;color:var(--ink);background:var(--chalk);border:1px solid var(--line);border-right:0;border-radius:16px 0 0 16px;box-shadow:-24px 0 60px rgb(0 0 0 / .34);animation:league-drawer-enter var(--motion-standard) ease-out}
@@ -899,8 +899,8 @@ html[data-overlay-open] body{overflow:hidden!important}.player-panel,.team-asset
   .league-drawer-manage{margin-top:11px;padding:11px;color:var(--green);background:transparent;border:1px solid color-mix(in srgb,var(--green) 38%,var(--line));border-radius:10px;font-size:9px;font-weight:900}
 }
 @keyframes league-drawer-enter{from{transform:translateX(100%)}to{transform:translateX(0)}}
-@keyframes league-handle-preview{0%,68%,100%{opacity:.78;transform:translateX(0)}76%{opacity:1;transform:translateX(-5px)}84%{opacity:1;transform:translateX(-2px)}}
-@keyframes league-handle-glow{0%,68%,100%{box-shadow:-4px 2px 11px rgb(0 0 0 / .3)}76%{box-shadow:-8px 2px 18px rgb(var(--brand-secondary-rgb) / .55)}}
+@keyframes league-handle-preview{0%,100%{opacity:.78;transform:translateX(0)}38%{opacity:1;transform:translateX(-5px)}68%{opacity:1;transform:translateX(-2px)}}
+@keyframes league-handle-glow{0%,100%{box-shadow:-4px 2px 11px rgb(0 0 0 / .3)}42%{box-shadow:-8px 2px 18px rgb(var(--brand-secondary-rgb) / .55)}}
 @media(prefers-reduced-motion:reduce){.league-edge-handle:before,.league-edge-handle:after{animation:none}.league-edge-handle:after{opacity:1}}
 
 /* Mobile category tray replaces only the horizontal page-icon rail. */
@@ -1602,8 +1602,8 @@ html[data-theme="dark"] .player-verdict,html[data-theme="dark"] .player-range-co
   html,body{min-height:100%;overscroll-behavior:none}
   .app-shell{grid-template-columns:248px minmax(0,1fr)}
   .app-shell.sidebar-collapsed{grid-template-columns:84px minmax(0,1fr)}
-  .sidebar{height:100svh;padding:max(18px,env(safe-area-inset-top)) 16px max(16px,env(safe-area-inset-bottom));overflow:visible}
-  .sidebar-collapsed .sidebar{padding-inline:11px}
+  .sidebar{position:fixed;inset:0 auto 0 0;width:248px;height:100svh;padding:max(18px,env(safe-area-inset-top)) 16px max(16px,env(safe-area-inset-bottom));overflow:visible;transform:none}
+  .sidebar-collapsed .sidebar{width:84px;padding-inline:11px}
   .sidebar-collapse{z-index:80;display:grid;top:max(25px,calc(env(safe-area-inset-top) + 7px));width:34px;height:34px;touch-action:manipulation}
   .brand{justify-content:flex-start;padding-bottom:18px}
   .sidebar-collapsed .brand{justify-content:center;padding:0 0 18px}
@@ -1646,7 +1646,7 @@ html[data-theme="dark"] .player-verdict,html[data-theme="dark"] .player-range-co
    that previously happened halfway through the grid-column transition. */
 @media (min-width:701px) and (max-width:1366px) and (pointer:coarse){
   .app-shell{transition:grid-template-columns .34s cubic-bezier(.22,1,.36,1)}
-  .sidebar{transition:padding .34s cubic-bezier(.22,1,.36,1)}
+  .sidebar{transition:width .34s cubic-bezier(.22,1,.36,1),padding .34s cubic-bezier(.22,1,.36,1)}
   .brand,.brand-logo,.league-card,.sidebar nav button,.sidebar nav .nav-group>span,.sidebar .nav-label,.sidebar .nav-pro-tag,.sidebar-bottom,.sidebar-bottom>div,.sidebar-bottom>small,.theme-toggle,.theme-toggle>b,.theme-toggle>i{transition:opacity .16s ease,max-width .34s cubic-bezier(.22,1,.36,1),max-height .34s cubic-bezier(.22,1,.36,1),margin .34s cubic-bezier(.22,1,.36,1),padding .34s cubic-bezier(.22,1,.36,1),gap .34s cubic-bezier(.22,1,.36,1),transform .34s cubic-bezier(.22,1,.36,1)}
   .brand>div{display:block;max-width:170px;overflow:hidden;opacity:1;white-space:nowrap}
   .league-card{display:block;max-height:82px;overflow:hidden;opacity:1}

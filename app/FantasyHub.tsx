@@ -1397,6 +1397,7 @@ export default function FantasyHub({
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [mobileCategoryOpen, setMobileCategoryOpen] = useState<NavGroup | null>(null);
   const [leagueDrawerOpen, setLeagueDrawerOpen] = useState(false);
+  const [leagueHandlePreviewing, setLeagueHandlePreviewing] = useState(false);
   const [draggedLeagueId, setDraggedLeagueId] = useState("");
   const [leagueDropTarget, setLeagueDropTarget] = useState<{
     id: string;
@@ -1406,6 +1407,23 @@ export default function FantasyHub({
   const leagueDragOccurred = useRef(false);
 
   useEffect(() => initializeNativeRuntime(), []);
+
+  useEffect(() => {
+    let secondFrame = 0;
+    let timer = 0;
+    const firstFrame = window.requestAnimationFrame(() => {
+      setLeagueHandlePreviewing(false);
+      secondFrame = window.requestAnimationFrame(() => {
+        setLeagueHandlePreviewing(true);
+        timer = window.setTimeout(() => setLeagueHandlePreviewing(false), 1_300);
+      });
+    });
+    return () => {
+      window.cancelAnimationFrame(firstFrame);
+      window.cancelAnimationFrame(secondFrame);
+      window.clearTimeout(timer);
+    };
+  }, [view]);
   useOverflowAutoScroll();
   useOverlayGuard();
   useProductMonitoring(view, importState === "loading", accountError);
@@ -2388,7 +2406,7 @@ export default function FantasyHub({
 
         {!leagueDrawerOpen && view !== "Manage Leagues" && visibleLeagues.length > 0 && createPortal(
           <button
-            className="league-edge-handle"
+            className={`league-edge-handle${leagueHandlePreviewing ? " previewing" : ""}`}
             type="button"
             aria-label="Swipe or tap to switch leagues"
             onClick={() => {

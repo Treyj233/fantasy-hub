@@ -19,9 +19,10 @@ test("mobile league switching moves into an accessible right-edge drawer", async
   assert.match(ui, /className="context-league-button"[\s\S]*?aria-expanded=\{leagueDrawerOpen\}/);
   assert.match(ui, /clientX < window\.innerWidth - 24[\s\S]*?horizontalTravel > 48[\s\S]*?setLeagueDrawerOpen\(true\)/);
   assert.match(ui, /leagueDrawerOpen && createPortal\([\s\S]*?className="league-drawer"[\s\S]*?visibleLeagues\.map[\s\S]*?openConnectedLeague\(league\)[\s\S]*?document\.body/);
-  assert.match(css, /@media\(max-width:700px\)\{\s*\.league-switcher\{display:none\}/);
-  assert.match(ui, /className="league-edge-handle"[\s\S]*?aria-label="Swipe or tap to switch leagues"/);
-  assert.match(css, /\.league-edge-handle\{position:fixed;z-index:63;right:0;top:48%;[^}]*var\(--green\)[^}]*var\(--gold\)/);
+  assert.match(css, /@media\(max-width:700px\), \(min-width:701px\) and \(max-width:1366px\) and \(pointer:coarse\)\{[\s\S]*?\.league-switcher\{display:none\}/);
+  assert.match(ui, /className=\{`league-edge-handle\$\{leagueHandlePreviewing[\s\S]*?aria-label="Swipe or tap to switch leagues"/);
+  assert.match(css, /\.league-edge-handle\{position:fixed;z-index:220;right:max\(0px,env\(safe-area-inset-right\)\);top:48%/);
+  assert.match(css, /@media \(min-width:701px\) and \(max-width:1366px\) and \(pointer:coarse\)\{[\s\S]*?\.sidebar\{position:fixed;inset:0 auto 0 0;width:248px/);
   assert.match(css, /\.league-drawer\{position:absolute;z-index:1;top:max\(54px,calc\(env\(safe-area-inset-top\) \+ 10px\)\);right:0;bottom:max\(20px,calc\(env\(safe-area-inset-bottom\) \+ 8px\)\)/);
   assert.match(css, /html\[data-native-platform="ios"\] \.league-drawer\{top:max\(64px,calc\(env\(safe-area-inset-top\) \+ 18px\)\)\}/);
 });
