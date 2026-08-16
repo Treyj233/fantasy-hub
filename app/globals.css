@@ -1602,7 +1602,7 @@ html[data-theme="dark"] .player-verdict,html[data-theme="dark"] .player-range-co
   html,body{min-height:100%;overscroll-behavior:none}
   .app-shell{grid-template-columns:248px minmax(0,1fr)}
   .app-shell.sidebar-collapsed{grid-template-columns:84px minmax(0,1fr)}
-  .sidebar{position:fixed;inset:0 auto 0 0;width:248px;height:100svh;padding:max(18px,env(safe-area-inset-top)) 16px max(16px,env(safe-area-inset-bottom));overflow:visible;transform:none}
+  .sidebar{position:sticky;top:0;align-self:start;width:248px;height:100dvh;min-height:100vh;padding:max(18px,env(safe-area-inset-top)) 16px max(16px,env(safe-area-inset-bottom));overflow:visible;transform:none}
   .sidebar-collapsed .sidebar{width:84px;padding-inline:11px}
   .sidebar-collapse{z-index:80;display:grid;top:max(25px,calc(env(safe-area-inset-top) + 7px));width:34px;height:34px;touch-action:manipulation}
   .brand{justify-content:flex-start;padding-bottom:18px}
