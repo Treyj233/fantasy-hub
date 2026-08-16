@@ -2311,7 +2311,7 @@ export default function FantasyHub({
             <button
               key={item.group}
               type="button"
-              className={`${activeNavGroup === item.group ? "active" : ""}${item.group === "Home" ? " all-leagues-tray-button" : ""}`}
+              className={activeNavGroup === item.group ? "active" : ""}
               aria-label={item.group}
               aria-current={activeNavGroup === item.group ? "page" : undefined}
               aria-expanded={mobileCategoryOpen === item.group}
@@ -2326,7 +2326,7 @@ export default function FantasyHub({
                 }
               }}
             >
-              <i className={`nav-badge ${leadPage.tone}${item.group === "Home" ? " all-leagues-tray-badge" : ""}`} aria-hidden="true">{leadPage.mark}</i><span>{item.label}</span>
+              <i className={`nav-badge ${leadPage.tone}`} aria-hidden="true">{leadPage.mark}</i><span>{item.label}</span>
             </button>
             );
           })}
