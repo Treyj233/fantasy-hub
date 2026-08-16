@@ -141,7 +141,10 @@ const APP_ORIGINS = new Set([
 function routeFromAppUrl(value: string) {
   const url = new URL(value);
   if (url.protocol === "fantasyhub:") {
-    if (url.hostname === "auth" && url.pathname === "/complete") return "/";
+    if (url.hostname === "auth" && url.pathname === "/complete") {
+      const ticket = url.searchParams.get("ticket");
+      return ticket ? `/native-auth-ticket?ticket=${encodeURIComponent(ticket)}` : "/sign-in?native=ios";
+    }
     const nativePath = [url.hostname, url.pathname].filter(Boolean).join("/");
     return `/${nativePath}${url.search}${url.hash}`;
   }

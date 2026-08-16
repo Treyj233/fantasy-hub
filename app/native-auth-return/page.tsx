@@ -1,17 +1,19 @@
-"use client";
+import { auth, clerkClient } from "@clerk/nextjs/server";
+import { redirect } from "next/navigation";
+import NativeAuthReturnClient from "./return-client";
 
-import { useEffect } from "react";
+export const dynamic = "force-dynamic";
 
-export default function NativeAuthReturn() {
-  useEffect(() => {
-    window.location.replace("fantasyhub://auth/complete");
-  }, []);
+export default async function NativeAuthReturn() {
+  const { userId } = await auth();
+  if (!userId) redirect("/sign-in?native=ios");
 
-  return <main className="launch-splash" role="status" aria-live="polite">
-    <section className="launch-splash-lockup">
-      <div className="launch-splash-logo"><span aria-hidden="true" /><img src="/marketing/app-store/fh-blue-app-mark.png" alt="Fantasy Hub" /></div>
-      <p>Returning to Fantasy Hub</p>
-      <a className="native-auth-return-link" href="fantasyhub://auth/complete">Open the Fantasy Hub app</a>
-    </section>
-  </main>;
+  const client = await clerkClient();
+  const signInToken = await client.signInTokens.createSignInToken({
+    userId,
+    expiresInSeconds: 60,
+  });
+  const appUrl = `fantasyhub://auth/complete?ticket=${encodeURIComponent(signInToken.token)}`;
+
+  return <NativeAuthReturnClient appUrl={appUrl} />;
 }
