@@ -4648,7 +4648,7 @@ function AllLeagues({
   );
 }
 
-type LeagueStoryData = {
+export type LeagueStoryData = {
   league: { name: string; season: string; currentWeek: number; completedWeek: number; provider: string };
   updatedAt: string;
   recap: { available: boolean; week: number; highScore: { teamName: string; points: number } | null; closestGame: { teams: { teamName: string; points: number }[] } | null; biggestWin: { teams: { teamName: string; points: number }[] } | null; biggestUpset: { winner: { teamName: string; points: number }; loser: { teamName: string; points: number }; seedGap: number } | null; lineupOutcomes: { teamName: string; benchPoints: number; topBenchPlayer: string | null; topBenchPoints: number }[] };
@@ -4747,11 +4747,24 @@ function LeagueStories({ leagueId, setView }: { leagueId: string; setView: (view
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
   }, [leagueId]);
-  const shareStory = async (id: string, text: string) => {
+  const shareStory = async (requestOrId: import("./league-story-pdf").LeagueStoryReportRequest | string, legacyText = "") => {
     try {
-      if (navigator.share) await navigator.share({ title: story?.league.name ?? "Fantasy Hub League Story", text });
-      else await navigator.clipboard.writeText(text);
-      setShared(id); window.setTimeout(() => setShared(""), 1800);
+      if (!story) return;
+      const request: import("./league-story-pdf").LeagueStoryReportRequest = typeof requestOrId === "string"
+        ? { id: requestOrId, shareText: legacyText, kind: requestOrId === "recap" ? "recap" : requestOrId === "wrapped" ? "wrapped" : "trade", tradeId: requestOrId }
+        : requestOrId;
+      const { generateLeagueStoryPdf } = await import("./league-story-pdf");
+      const report = await generateLeagueStoryPdf(story, request);
+      const file = new File([report.blob], report.fileName, { type: "application/pdf" });
+      if (navigator.share && (!navigator.canShare || navigator.canShare({ files: [file] }))) {
+        await navigator.share({ title: report.title, text: request.shareText, files: [file] });
+      } else {
+        const url = URL.createObjectURL(report.blob);
+        const link = document.createElement("a");
+        link.href = url; link.download = report.fileName; link.click();
+        window.setTimeout(() => URL.revokeObjectURL(url), 2_000);
+      }
+      setShared(request.id); window.setTimeout(() => setShared(""), 1800);
     } catch { /* A canceled share sheet should leave the page unchanged. */ }
   };
   const saveRivals = async (rosterIds: number[]) => {
@@ -4780,12 +4793,12 @@ function LeagueStories({ leagueId, setView }: { leagueId: string; setView: (view
   const highScoreText = story.recap.highScore ? `${story.recap.highScore.teamName} led ${story.league.name} in Week ${story.recap.week} with ${story.recap.highScore.points.toFixed(1)} points.` : "";
   const biggestMargin = story.recap.biggestWin ? Math.abs(story.recap.biggestWin.teams[0].points - story.recap.biggestWin.teams[1].points) : 0;
   return <><div className="page-content league-stories-page">
-    <section className="league-stories-hero"><div><span>THE {story.league.season} LEAGUE STORY</span><h2>{story.league.name}</h2><p>Recaps, rivalries and the moments your group will actually talk about.</p></div><button onClick={() => void shareStory("league", `${story.league.name}: ${story.playoff.summary} ${highScoreText}`)}>{shared === "league" ? "Copied!" : "Share league pulse"}</button></section>
+    <section className="league-stories-hero"><div><span>THE {story.league.season} LEAGUE STORY</span><h2>{story.league.name}</h2><p>Recaps, rivalries and the moments your group will actually talk about.</p></div><button onClick={() => void shareStory({ id: "league", kind: "league", shareText: `${story.league.name}: ${story.playoff.summary} ${highScoreText}` })}>{shared === "league" ? "PDF ready!" : "Share league report"}</button></section>
     <section className="story-ticker panel"><span>WEEK {story.league.currentWeek}</span><strong>{story.playoff.summary}</strong><small>Updated {new Date(story.updatedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</small></section>
     <section className="panel rivalry-reports">
       <header><div><span>RIVALRY REPORTS</span><h3>Your league. Your grudges.</h3><p>Track up to three rivals and unlock a share-ready reaction when you beat them or they lose.</p></div><button type="button" aria-expanded={rivalPickerOpen} onClick={() => setRivalPickerOpen((open) => !open)}>{rivalPickerOpen ? "Done" : story.rivalries.selectedRosterIds.length ? "Edit rivals" : "Choose rivals"}</button></header>
       {rivalPickerOpen && <div className="rival-picker" aria-label="Choose up to three league rivals"><div><strong>{story.rivalries.selectedRosterIds.length}/3 selected</strong><small>Selections are saved to this league.</small></div><div>{story.rivalries.candidates.map((candidate) => { const selected = story.rivalries.selectedRosterIds.includes(candidate.rosterId); const disabled = savingRivals || (!selected && story.rivalries.selectedRosterIds.length >= 3); return <button type="button" key={candidate.rosterId} className={selected ? "selected" : ""} aria-pressed={selected} disabled={disabled} onClick={() => void saveRivals(selected ? story.rivalries.selectedRosterIds.filter((id) => id !== candidate.rosterId) : [...story.rivalries.selectedRosterIds, candidate.rosterId])}><i aria-hidden="true">{selected ? "✓" : "+"}</i><span><b>{candidate.teamName}</b><small>{candidate.managerName}</small></span></button>; })}</div></div>}
-      {story.rivalries.reports.length ? <div className="rival-report-grid">{story.rivalries.reports.map((report) => <article className={report.event} key={report.rosterId}><div className="rival-report-head"><span><small>RIVAL #{story.rivalries.selectedRosterIds.indexOf(report.rosterId) + 1}</small><strong>{report.teamName}</strong><em>{report.managerName}</em></span><b>{report.wins}–{report.losses}{report.ties ? `–${report.ties}` : ""}</b></div><div className="rival-report-stats"><span><b>{report.meetings}</b><small>MEETINGS</small></span><span><b>{report.pointsFor.toFixed(1)}</b><small>YOUR PTS</small></span><span><b>{report.pointsAgainst.toFixed(1)}</b><small>THEIR PTS</small></span></div><p>{report.weeklyNote}</p>{report.latest && <small className="rival-latest">Latest H2H: Week {report.latest.week} · {report.latest.yourPoints.toFixed(1)}–{report.latest.rivalPoints.toFixed(1)}</small>}<blockquote>{report.smackTalk}</blockquote><button type="button" onClick={() => void shareStory(`rival-${report.rosterId}`, report.smackTalk)}>{shared === `rival-${report.rosterId}` ? "Copied!" : report.event === "beat-rival" ? "Share victory lap" : report.event === "rival-lost" ? "Share the receipts" : "Share rivalry card"}</button></article>)}</div> : <p className="story-empty rivalry-empty">Choose your biggest rivals to start building their reports.</p>}
+      {story.rivalries.reports.length ? <div className="rival-report-grid">{story.rivalries.reports.map((report) => <article className={report.event} key={report.rosterId}><div className="rival-report-head"><span><small>RIVAL #{story.rivalries.selectedRosterIds.indexOf(report.rosterId) + 1}</small><strong>{report.teamName}</strong><em>{report.managerName}</em></span><b>{report.wins}–{report.losses}{report.ties ? `–${report.ties}` : ""}</b></div><div className="rival-report-stats"><span><b>{report.meetings}</b><small>MEETINGS</small></span><span><b>{report.pointsFor.toFixed(1)}</b><small>YOUR PTS</small></span><span><b>{report.pointsAgainst.toFixed(1)}</b><small>THEIR PTS</small></span></div><p>{report.weeklyNote}</p>{report.latest && <small className="rival-latest">Latest H2H: Week {report.latest.week} · {report.latest.yourPoints.toFixed(1)}–{report.latest.rivalPoints.toFixed(1)}</small>}<blockquote>{report.smackTalk}</blockquote><button type="button" onClick={() => void shareStory({ id: `rival-${report.rosterId}`, kind: "rivalry", rivalryRosterId: report.rosterId, shareText: report.smackTalk })}>{shared === `rival-${report.rosterId}` ? "PDF ready!" : report.event === "beat-rival" ? "Share victory report" : report.event === "rival-lost" ? "Share the receipts" : "Share rivalry report"}</button></article>)}</div> : <p className="story-empty rivalry-empty">Choose your biggest rivals to start building their reports.</p>}
     </section>
     <div className="story-feature-grid">
       <section className="panel weekly-recap"><header><div><span>WEEK {story.recap.week} RECAP</span><h3>The week that was</h3></div><button disabled={!story.recap.available} onClick={() => void shareStory("recap", highScoreText)}>{shared === "recap" ? "Copied!" : "Share recap"}</button></header>{story.recap.available ? <><article className="story-lead"><b>🏆 HIGH SCORE</b><strong>{story.recap.highScore?.teamName}</strong><em>{story.recap.highScore?.points.toFixed(1)} PTS</em></article><div className="story-awards"><article><span>PHOTO FINISH</span><strong>{story.recap.closestGame?.teams.map((team) => team.teamName).join(" vs ")}</strong><small>{story.recap.closestGame ? Math.abs(story.recap.closestGame.teams[0].points - story.recap.closestGame.teams[1].points).toFixed(1) : "—"}-point margin</small></article><article><span>STATEMENT WIN</span><strong>{story.recap.biggestWin?.teams.sort((a, b) => b.points - a.points)[0]?.teamName}</strong><small>{biggestMargin.toFixed(1)}-point margin</small></article>{story.recap.biggestUpset && <article><span>BIGGEST UPSET</span><strong>{story.recap.biggestUpset.winner.teamName}</strong><small>Beat a team ranked {story.recap.biggestUpset.seedGap} spot{story.recap.biggestUpset.seedGap === 1 ? "" : "s"} higher entering the week</small></article>}</div></> : <p className="story-empty">A recap will appear after the league records completed matchup scoring.</p>}</section>
