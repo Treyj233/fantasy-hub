@@ -16,9 +16,10 @@ export function useOverlayGuard() {
         previousHtmlOverflow = document.documentElement.style.overflow;
       }
       activeDialog = dialog;
+      const preservePageScroll = dialog?.hasAttribute("data-preserve-page-scroll") ?? false;
       document.documentElement.toggleAttribute("data-overlay-open", Boolean(dialog));
-      document.body.style.overflow = dialog ? "hidden" : previousOverflow;
-      document.documentElement.style.overflow = dialog ? "hidden" : previousHtmlOverflow;
+      document.body.style.overflow = dialog && !preservePageScroll ? "hidden" : previousOverflow;
+      document.documentElement.style.overflow = dialog && !preservePageScroll ? "hidden" : previousHtmlOverflow;
       if (dialog)
         window.requestAnimationFrame(() =>
           dialog?.querySelector<HTMLElement>('button[aria-label^="Close"], .close')?.focus(),

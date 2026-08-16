@@ -2421,7 +2421,7 @@ export default function FantasyHub({
         {leagueDrawerOpen && createPortal(
           <div className="league-drawer-layer" role="presentation">
             <button className="league-drawer-scrim" type="button" aria-label="Close league switcher" onClick={() => setLeagueDrawerOpen(false)} />
-            <aside className="league-drawer" role="dialog" aria-modal="true" aria-label="Switch leagues">
+            <aside className="league-drawer" role="dialog" aria-modal="true" aria-label="Switch leagues" data-preserve-page-scroll>
               <header>
                 <div><small>MY LEAGUES</small><strong>Choose your league</strong></div>
                 <button type="button" aria-label="Close league switcher" onClick={() => setLeagueDrawerOpen(false)}>×</button>

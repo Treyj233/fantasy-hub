@@ -21,12 +21,13 @@ test("tools share one compact league and freshness context", async () => {
   assert.match(source, /leagueRefreshedAt/);
 });
 
-test("all modal dialogs receive shared focus, escape, and scroll-lock behavior", async () => {
+test("modal dialogs receive shared focus and escape behavior with an iPad-safe scroll-lock exemption", async () => {
   const source = await load("../app/use-overlay-guard.ts");
   assert.match(source, /aria-modal="true"/);
   assert.match(source, /event\.key !== "Escape"/);
-  assert.match(source, /document\.body\.style\.overflow = dialog \? "hidden"/);
-  assert.match(source, /document\.documentElement\.style\.overflow = dialog \? "hidden"/);
+  assert.match(source, /hasAttribute\("data-preserve-page-scroll"\)/);
+  assert.match(source, /document\.body\.style\.overflow = dialog && !preservePageScroll \? "hidden"/);
+  assert.match(source, /document\.documentElement\.style\.overflow = dialog && !preservePageScroll \? "hidden"/);
   assert.match(source, /document\.documentElement\.style\.overflow = previousHtmlOverflow/);
 });
 
