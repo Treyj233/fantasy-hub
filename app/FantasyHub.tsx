@@ -2344,7 +2344,7 @@ export default function FantasyHub({
               event.stopPropagation();
               setMobileCategoryOpen(null);
             }}
-          />,
+          ><span aria-hidden="true" /></button>,
           document.body,
         )}
         {mobileCategoryOpen && (
