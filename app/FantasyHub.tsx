@@ -11,6 +11,7 @@ import { disableNativePushNotifications, enableNativePushNotifications, initiali
 import { useOverflowAutoScroll } from "./use-overflow-auto-scroll";
 import { useOverlayGuard } from "./use-overlay-guard";
 import { useProductMonitoring } from "./use-product-monitoring";
+import LaunchSplash from "./LaunchSplash";
 
 type View =
   | "Command Center"
@@ -2980,42 +2981,7 @@ function SignInScreen() {
 }
 
 function AccountLoading() {
-  const progress = useEstimatedLoadingProgress(true);
-  const roundedProgress = Math.round(progress);
-  return (
-    <main className="auth-shell account-loading-shell">
-      <section className="auth-card auth-loading">
-        <span>FANTASY HUB</span>
-        <h1>Loading your leagues…</h1>
-        <p>Pulling together your saved account and league workspace.</p>
-        <div className="load-progress" role="progressbar" aria-label="Loading connected leagues" aria-valuemin={0} aria-valuemax={100} aria-valuenow={roundedProgress}>
-          <span style={{ width: `${roundedProgress}%` }} />
-        </div>
-        <small className="load-progress-label">Connecting to your league portfolio… {roundedProgress}%</small>
-        <i />
-        <i />
-        <i />
-      </section>
-    </main>
-  );
-}
-
-function useEstimatedLoadingProgress(active: boolean) {
-  const [progress, setProgress] = useState(8);
-  useEffect(() => {
-    if (!active) return;
-    const reset = window.setTimeout(() => setProgress(8), 0);
-    const timer = window.setInterval(() => {
-      setProgress((current) =>
-        Math.min(99, current + Math.max(0.7, (99 - current) * 0.07)),
-      );
-    }, 350);
-    return () => {
-      window.clearTimeout(reset);
-      window.clearInterval(timer);
-    };
-  }, [active]);
-  return progress;
+  return <LaunchSplash />;
 }
 
 function EmptyRoster({
