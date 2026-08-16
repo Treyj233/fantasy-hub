@@ -11,6 +11,7 @@ class FantasyHubAppleAuthPlugin: CAPPlugin, CAPBridgedPlugin {
     let jsName = "FantasyHubAppleAuth"
     let pluginMethods: [CAPPluginMethod] = [
         CAPPluginMethod(name: "signIn", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "signOut", returnType: CAPPluginReturnPromise),
     ]
 
     private var pendingCall: CAPPluginCall?
@@ -19,6 +20,18 @@ class FantasyHubAppleAuthPlugin: CAPPlugin, CAPBridgedPlugin {
     @objc func signIn(_ call: CAPPluginCall) {
         Task { @MainActor [weak self] in
             await self?.beginSignIn(call)
+        }
+    }
+
+    @objc func signOut(_ call: CAPPluginCall) {
+        Task { @MainActor in
+            Clerk.configure(publishableKey: Self.clerkPublishableKey)
+            do {
+                try await Clerk.shared.auth.signOut()
+                call.resolve(["signedOut": true])
+            } catch {
+                call.reject("Fantasy Hub could not clear the native session", nil, error)
+            }
         }
     }
 

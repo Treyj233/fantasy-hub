@@ -2,6 +2,7 @@
 
 import { useClerk } from "@clerk/nextjs";
 import { useEffect, useState } from "react";
+import { isNativeIosApp, nativeAppleSignOut } from "../native-runtime";
 
 export default function SignOutPage() {
   const { signOut } = useClerk();
@@ -9,19 +10,28 @@ export default function SignOutPage() {
   const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
-    // Clerk performs the redirect only after the active session is invalidated.
-    // Never race it with a timer: an early redirect lets the existing session
-    // auto-complete sign-in and sends the user straight back into the app.
-    void signOut({ redirectUrl: "/sign-in" }).catch((signOutError) => {
-      console.error("Fantasy Hub sign-out failed", signOutError);
-      setError(true);
-    });
+    void (async () => {
+      try {
+        const response = await fetch("/api/native-auth/session", { method: "DELETE" });
+        if (!response.ok) throw new Error("Fantasy Hub session cleanup failed");
+        if (isNativeIosApp()) {
+          await nativeAppleSignOut();
+          window.location.replace("/native-sign-in");
+          return;
+        }
+        await signOut({ redirectUrl: "/sign-in" });
+      } catch (signOutError) {
+        console.error("Fantasy Hub sign-out failed", signOutError);
+        setError(true);
+      }
+    })();
   }, [attempt, signOut]);
 
   return (
-    <main className="clerk-auth-shell">
+    <main className="clerk-auth-shell chargers-entry-shell">
       {error ? (
-        <section className="clerk-auth-card" role="alert">
+        <section className="auth-card" role="alert">
+          <span>FANTASY HUB</span>
           <h1>Sign out did not finish</h1>
           <p>Your session is still protected. Try signing out again.</p>
           <button type="button" onClick={() => {
@@ -32,7 +42,11 @@ export default function SignOutPage() {
           </button>
         </section>
       ) : (
-        <p aria-live="polite">Signing you out…</p>
+        <section className="auth-card" aria-live="polite">
+          <span>FANTASY HUB</span>
+          <h1>Securing your exit.</h1>
+          <p>Signing you out and clearing this device session…</p>
+        </section>
       )}
     </main>
   );

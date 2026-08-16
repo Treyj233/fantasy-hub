@@ -18,11 +18,17 @@ const StoreKit = registerPlugin<{
 
 const AppleAuth = registerPlugin<{
   signIn(): Promise<{ authenticated?: boolean; cancelled?: boolean; redirect?: string }>;
+  signOut(): Promise<{ signedOut?: boolean }>;
 }>("FantasyHubAppleAuth");
 
 export async function nativeAppleCredential() {
   if (!isNativeIosApp()) throw new Error("Native Apple sign-in requires the iOS app");
   return AppleAuth.signIn();
+}
+
+export async function nativeAppleSignOut() {
+  if (!isNativeIosApp()) return;
+  await AppleAuth.signOut();
 }
 
 export async function nativeStoreProducts() {
