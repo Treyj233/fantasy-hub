@@ -16,7 +16,8 @@ export default function NativeSignInPage() {
       const result = await nativeAppleCredential();
       if (result.cancelled) return;
       if (!result.authenticated) throw new Error("Clerk did not create a secure session.");
-      window.location.replace("/");
+      if (!result.redirect) throw new Error("Fantasy Hub did not receive a secure browser session.");
+      window.location.replace(result.redirect);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Apple sign-in could not be completed.");
     } finally {

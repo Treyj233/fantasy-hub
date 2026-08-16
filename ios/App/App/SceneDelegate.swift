@@ -1,6 +1,113 @@
 import UIKit
+import AuthenticationServices
 import Capacitor
+import ClerkKit
 import StoreKit
+import WebKit
+
+@objc(FantasyHubAppleAuthPlugin)
+class FantasyHubAppleAuthPlugin: CAPPlugin, CAPBridgedPlugin {
+    let identifier = "FantasyHubAppleAuthPlugin"
+    let jsName = "FantasyHubAppleAuth"
+    let pluginMethods: [CAPPluginMethod] = [
+        CAPPluginMethod(name: "signIn", returnType: CAPPluginReturnPromise),
+    ]
+
+    private var pendingCall: CAPPluginCall?
+    private static let clerkPublishableKey = "pk_test_aW5ub2NlbnQtZmFsY29uLTIwLmNsZXJrLmFjY291bnRzLmRldiQ"
+
+    @objc func signIn(_ call: CAPPluginCall) {
+        Task { @MainActor [weak self] in
+            await self?.beginSignIn(call)
+        }
+    }
+
+    @MainActor
+    private func beginSignIn(_ call: CAPPluginCall) async {
+        guard pendingCall == nil else {
+            call.reject("Apple sign-in is already in progress")
+            return
+        }
+        guard let window = activePresentationWindow() else {
+            call.reject("Fantasy Hub is not ready to present secure sign-in. Please try again.")
+            return
+        }
+        _ = window
+        pendingCall = call
+        Clerk.configure(publishableKey: Self.clerkPublishableKey)
+        defer { finishRequest() }
+        do {
+            let sessionToken: String
+            if let existingToken = try await Clerk.shared.auth.getToken(.init(skipCache: true)) {
+                sessionToken = existingToken
+            } else {
+                _ = try await Clerk.shared.auth.signInWithApple()
+                guard let newToken = try await Clerk.shared.auth.getToken(.init(skipCache: true)) else {
+                    throw NativeAppleAuthError.missingClerkSession
+                }
+                sessionToken = newToken
+            }
+            let ticket = try await exchangeForBrowserTicket(sessionToken)
+            call.resolve([
+                "authenticated": true,
+                "redirect": "/native-auth-ticket?ticket=\(ticket.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ticket)",
+            ])
+        } catch let authorizationError as ASAuthorizationError where authorizationError.code == .canceled {
+            call.resolve(["cancelled": true])
+        } catch {
+            call.reject("Clerk could not complete Apple sign-in: \(error.localizedDescription)", nil, error)
+        }
+    }
+
+    private func activePresentationWindow() -> UIWindow? {
+        if let window = bridge?.viewController?.viewIfLoaded?.window,
+           window.windowScene?.activationState == .foregroundActive {
+            return window
+        }
+        return UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .filter { $0.activationState == .foregroundActive }
+            .flatMap(\.windows)
+            .first(where: \.isKeyWindow)
+    }
+
+    private func finishRequest() {
+        pendingCall = nil
+    }
+
+    private func exchangeForBrowserTicket(_ token: String) async throws -> String {
+        guard let url = URL(string: "https://fantasyhubapp.com/api/native-auth/exchange") else {
+            throw NativeAppleAuthError.exchangeFailed
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200,
+              let payload = try? JSONDecoder().decode(NativeAuthExchange.self, from: data),
+              !payload.ticket.isEmpty else {
+            throw NativeAppleAuthError.exchangeFailed
+        }
+        return payload.ticket
+    }
+}
+
+private struct NativeAuthExchange: Decodable {
+    let ticket: String
+}
+
+private enum NativeAppleAuthError: LocalizedError {
+    case missingClerkSession
+    case exchangeFailed
+
+    var errorDescription: String? {
+        switch self {
+        case .missingClerkSession: "Clerk did not create a native session."
+        case .exchangeFailed: "Fantasy Hub could not initialize the browser session."
+        }
+    }
+}
 
 @objc(FantasyHubStoreKitPlugin)
 class FantasyHubStoreKitPlugin: CAPPlugin, CAPBridgedPlugin {
@@ -211,9 +318,68 @@ private enum StoreKitConfigurationError: LocalizedError {
 class FantasyHubBridgeViewController: CAPBridgeViewController {
     override func capacitorDidLoad() {
         bridge?.registerPluginInstance(FantasyHubStoreKitPlugin())
-        bridge?.webView?.scrollView.showsVerticalScrollIndicator = false
-        bridge?.webView?.scrollView.showsHorizontalScrollIndicator = false
+        bridge?.registerPluginInstance(FantasyHubAppleAuthPlugin())
+        guard let webView = bridge?.webView else { return }
+        webView.scrollView.showsVerticalScrollIndicator = false
+        webView.scrollView.showsHorizontalScrollIndicator = false
+
+        // Run before the remote React bundle paints. Fantasy Hub remains a
+        // server-backed app, but these launch-critical tablet rules ship in the
+        // IPA so iPadOS does not show an intermediate theme or dynamic-height
+        // layout while the signed-in workspace initializes.
+        let launchStabilizer = WKUserScript(
+            source: Self.launchStabilizerScript,
+            injectionTime: .atDocumentStart,
+            forMainFrameOnly: true
+        )
+        webView.configuration.userContentController.addUserScript(launchStabilizer)
+        webView.evaluateJavaScript(Self.launchStabilizerScript)
     }
+
+    private static let launchStabilizerScript = #"""
+    (() => {
+      const root = document.documentElement;
+      const savedTheme = localStorage.getItem('fantasy-hub-theme');
+      const theme = savedTheme === 'dark' || savedTheme === 'light'
+        ? savedTheme
+        : (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+      root.dataset.theme = theme;
+      root.style.colorScheme = theme;
+      const background = theme === 'dark' ? '#181b22' : '#f4f7f5';
+      root.style.backgroundColor = background;
+
+      const style = document.createElement('style');
+      style.id = 'fantasy-hub-native-ipad-stabilizer';
+      style.textContent = `
+        @media (min-width:701px) and (max-width:1366px) and (pointer:coarse) {
+          html, body { min-height:100%; background-color:${background}; }
+          .sidebar { height:100svh !important; }
+          .workspace { min-height:100svh !important; }
+          .app-shell { transition:grid-template-columns .34s cubic-bezier(.22,1,.36,1) !important; }
+          .sidebar { transition:padding .34s cubic-bezier(.22,1,.36,1) !important; }
+          .brand, .brand-logo, .league-card, .sidebar nav button,
+          .sidebar nav .nav-group > span, .sidebar .nav-label,
+          .sidebar .nav-pro-tag, .sidebar-bottom, .sidebar-bottom > div,
+          .sidebar-bottom > small, .theme-toggle, .theme-toggle > b,
+          .theme-toggle > i {
+            transition:opacity .16s ease,max-width .34s cubic-bezier(.22,1,.36,1),max-height .34s cubic-bezier(.22,1,.36,1),margin .34s cubic-bezier(.22,1,.36,1),padding .34s cubic-bezier(.22,1,.36,1),gap .34s cubic-bezier(.22,1,.36,1),transform .34s cubic-bezier(.22,1,.36,1) !important;
+          }
+          .sidebar-collapse > span { transition:transform .34s cubic-bezier(.22,1,.36,1) !important; }
+          .sidebar-collapsed .sidebar-collapse > span { transform:translateY(-1px) rotate(180deg) !important; }
+        }
+        @media (min-width:701px) and (max-width:1366px) and (pointer:coarse) and (prefers-reduced-motion:reduce) {
+          .app-shell, .sidebar, .brand, .brand-logo, .league-card,
+          .sidebar nav button, .sidebar nav .nav-group > span,
+          .sidebar .nav-label, .sidebar .nav-pro-tag, .sidebar-bottom,
+          .sidebar-bottom > div, .sidebar-bottom > small, .theme-toggle,
+          .theme-toggle > b, .theme-toggle > i, .sidebar-collapse > span {
+            transition:none !important;
+          }
+        }
+      `;
+      (document.head || root).appendChild(style);
+    })();
+    """#
 }
 
 class SceneDelegate: UIResponder, UIWindowSceneDelegate {

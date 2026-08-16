@@ -17,7 +17,7 @@ const StoreKit = registerPlugin<{
 }>("FantasyHubStoreKit");
 
 const AppleAuth = registerPlugin<{
-  signIn(): Promise<{ authenticated?: boolean; cancelled?: boolean }>;
+  signIn(): Promise<{ authenticated?: boolean; cancelled?: boolean; redirect?: string }>;
 }>("FantasyHubAppleAuth");
 
 export async function nativeAppleCredential() {
