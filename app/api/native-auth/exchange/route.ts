@@ -12,7 +12,9 @@ export async function POST(request: Request) {
     if (!payload.sub) return Response.json({ error: "Secure native session required" }, { status: 401 });
     const client = await clerkClient();
     const signInToken = await client.signInTokens.createSignInToken({ userId: payload.sub, expiresInSeconds: 60 });
-    return Response.json({ ticket: signInToken.token });
+    const acceptanceUrl = new URL(signInToken.url);
+    acceptanceUrl.searchParams.set("redirect_url", "https://fantasyhubapp.com/");
+    return Response.json({ ticket: acceptanceUrl.toString() });
   } catch {
     return Response.json({ error: "Native session could not be verified" }, { status: 401 });
   }

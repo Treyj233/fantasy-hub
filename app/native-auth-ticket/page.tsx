@@ -13,7 +13,20 @@ export default function NativeAuthTicket() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (!isLoaded || attempted.current) return;
+    if (attempted.current) return;
+    if (ticket) {
+      try {
+        const acceptanceUrl = new URL(ticket);
+        if (acceptanceUrl.protocol === "https:" && acceptanceUrl.hostname.endsWith(".clerk.accounts.dev")) {
+          attempted.current = true;
+          window.location.replace(acceptanceUrl.toString());
+          return;
+        }
+      } catch {
+        // Legacy raw tickets continue through the embedded Clerk flow below.
+      }
+    }
+    if (!isLoaded) return;
     attempted.current = true;
     if (!ticket) return;
 
