@@ -16,6 +16,15 @@ const StoreKit = registerPlugin<{
   manageSubscriptions(): Promise<void>;
 }>("FantasyHubStoreKit");
 
+const AppleAuth = registerPlugin<{
+  signIn(): Promise<{ identityToken?: string; cancelled?: boolean; email?: string; givenName?: string; familyName?: string }>;
+}>("FantasyHubAppleAuth");
+
+export async function nativeAppleCredential() {
+  if (!isNativeIosApp()) throw new Error("Native Apple sign-in requires the iOS app");
+  return AppleAuth.signIn();
+}
+
 export async function nativeStoreProducts() {
   return isNativeIosApp() ? (await StoreKit.products()).products : [];
 }

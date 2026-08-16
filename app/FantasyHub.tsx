@@ -2958,7 +2958,7 @@ function SignInScreen() {
           Sign in to save your Fantasy Hub profile, connect your Sleeper
           username, and open every league from one personalized dashboard.
         </p>
-        <Link className="auth-primary" href={isNativeIosApp() ? "/sign-in?native=ios" : "/sign-in"}>
+        <Link className="auth-primary" href={isNativeIosApp() ? "/native-sign-in" : "/sign-in"}>
           Continue with Google, Apple, or email
         </Link>
         <a className="auth-secondary chatgpt-web-only" href="/signin-with-chatgpt?return_to=/">
