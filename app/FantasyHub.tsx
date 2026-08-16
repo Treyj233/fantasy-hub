@@ -1373,12 +1373,27 @@ export default function FantasyHub({
   const [entitlement, setEntitlement] = useState<AccountEntitlement>({ plan: "free", status: "inactive", pro: false, currentPeriodEnd: null, provider: null });
   const [rivalryWeek, setRivalryWeek] = useState<RivalryWeek | null>(null);
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
-  const [theme, setTheme] = useState<Theme>("light");
+  const [theme, setTheme] = useState<Theme>(() => {
+    if (typeof window === "undefined") return "light";
+    const savedTheme = window.localStorage.getItem("fantasy-hub-theme");
+    if (savedTheme === "light" || savedTheme === "dark") return savedTheme;
+    return window.matchMedia("(prefers-color-scheme: dark)").matches
+      ? "dark"
+      : "light";
+  });
   const [teamTheme, setTeamTheme] = useState("LAC");
   const [badgeTheme, setBadgeTheme] = useState<BadgeTheme>("arcade");
   const effectiveTeamTheme = entitlement.pro ? teamTheme : "LAC";
   const effectiveBadgeTheme: BadgeTheme = entitlement.pro ? badgeTheme : "arcade";
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    if (typeof window === "undefined") return false;
+    const isIPadLayout = window.matchMedia(
+      "(min-width: 701px) and (max-width: 1366px) and (pointer: coarse)",
+    ).matches;
+    return isIPadLayout
+      ? false
+      : window.localStorage.getItem("fantasy-hub-sidebar-collapsed") === "true";
+  });
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [mobileCategoryOpen, setMobileCategoryOpen] = useState<NavGroup | null>(null);
   const [leagueDrawerOpen, setLeagueDrawerOpen] = useState(false);
@@ -1425,7 +1440,10 @@ export default function FantasyHub({
     const orientation = screen.orientation as ScreenOrientation & {
       lock?: (mode: "portrait") => Promise<void>;
     };
-    if (!orientation?.lock || !window.matchMedia("(pointer: coarse)").matches) return;
+    if (
+      !orientation?.lock ||
+      !window.matchMedia("(max-width: 700px) and (pointer: coarse)").matches
+    ) return;
     void orientation.lock("portrait").catch(() => {
       // Regular browser tabs may reject orientation locking. The installed PWA
       // manifest and native iOS plist remain the authoritative constraints.
@@ -1552,27 +1570,6 @@ export default function FantasyHub({
       stopPolling();
     };
   }, [availableLeagues, hiddenLeagueIds, leagueStatus, leagueWeek]);
-
-  useEffect(() => {
-    const savedTheme = window.localStorage.getItem("fantasy-hub-theme");
-    const savedSidebarState = window.localStorage.getItem(
-      "fantasy-hub-sidebar-collapsed",
-    );
-    const initialTheme: Theme =
-      savedTheme === "light" || savedTheme === "dark"
-        ? savedTheme
-        : window.matchMedia("(prefers-color-scheme: dark)").matches
-          ? "dark"
-          : "light";
-    const isIPadLayout = window.matchMedia(
-      "(min-width: 701px) and (max-width: 1366px) and (pointer: coarse)",
-    ).matches;
-    const timer = window.setTimeout(() => {
-      setTheme(initialTheme);
-      setSidebarCollapsed(isIPadLayout ? false : savedSidebarState === "true");
-    }, 0);
-    return () => window.clearTimeout(timer);
-  }, []);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -2329,7 +2326,7 @@ export default function FantasyHub({
                 }
               }}
             >
-              <i className={`nav-badge ${leadPage.tone}`} aria-hidden="true">{leadPage.mark}</i><span>{item.label}</span>
+              <i className={`nav-badge ${leadPage.tone}${item.group === "Home" ? " all-leagues-tray-badge" : ""}`} aria-hidden="true">{leadPage.mark}</i><span>{item.label}</span>
             </button>
             );
           })}
