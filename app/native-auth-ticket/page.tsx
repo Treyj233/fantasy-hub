@@ -13,11 +13,21 @@ export default function NativeAuthTicket() {
   const [error, setError] = useState("");
 
   useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      if (!attempted.current) setError("Secure sign-in could not start. Please try again.");
+    }, 8000);
+    return () => window.clearTimeout(timeout);
+  }, []);
+
+  useEffect(() => {
     if (attempted.current) return;
     if (ticket) {
       try {
         const acceptanceUrl = new URL(ticket);
-        if (acceptanceUrl.protocol === "https:" && acceptanceUrl.hostname.endsWith(".clerk.accounts.dev")) {
+        const clerkHosted = acceptanceUrl.hostname === "clerk.com" ||
+          acceptanceUrl.hostname.endsWith(".clerk.com") ||
+          acceptanceUrl.hostname.endsWith(".accounts.dev");
+        if (acceptanceUrl.protocol === "https:" && clerkHosted) {
           attempted.current = true;
           window.location.replace(acceptanceUrl.toString());
           return;

@@ -17,5 +17,7 @@ test("native Apple auth exchanges its token for a real Clerk browser session", a
   assert.match(swift, /api\/native-auth\/exchange/);
   assert.doesNotMatch(swift, /name: "__session"/);
   assert.match(signInPage, /window\.location\.replace\(result\.redirect\)/);
-  assert.match(ticketPage, /hostname\.endsWith\("\.clerk\.accounts\.dev"\)/);
+  assert.match(ticketPage, /hostname\.endsWith\("\.accounts\.dev"\)/);
+  assert.match(ticketPage, /hostname\.endsWith\("\.clerk\.com"\)/);
+  assert.match(ticketPage, /setTimeout/);
 });
