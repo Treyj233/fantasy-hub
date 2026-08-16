@@ -211,6 +211,8 @@ private enum StoreKitConfigurationError: LocalizedError {
 class FantasyHubBridgeViewController: CAPBridgeViewController {
     override func capacitorDidLoad() {
         bridge?.registerPluginInstance(FantasyHubStoreKitPlugin())
+        bridge?.webView?.scrollView.showsVerticalScrollIndicator = false
+        bridge?.webView?.scrollView.showsHorizontalScrollIndicator = false
     }
 }
 
