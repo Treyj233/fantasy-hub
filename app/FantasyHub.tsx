@@ -249,7 +249,25 @@ type PlayerHistory = {
 };
 type TradeStyle = "Aggressive" | "Neutral" | "Strict";
 type Theme = "light" | "dark";
-type BadgeTheme = "arcade" | "team" | "neon" | "minimal";
+type BadgeTheme = "arcade" | "team" | "neon" | "minimal" | "stadium" | "broadcast" | "playbook" | "varsity" | "championship" | "gridiron" | "neon-sunday" | "retro" | "glass" | "carbon" | "helmet" | "trading-cards";
+const badgeThemeOptions: { id: BadgeTheme; name: string; detail: string; preview: string[] }[] = [
+  { id: "arcade", name: "Arcade", detail: "Colorful page-by-page gradients", preview: ["★", "⚡", "↔"] },
+  { id: "team", name: "Team Colors", detail: "Your NFL palette across every badge", preview: ["♟", "+", "◈"] },
+  { id: "neon", name: "Neon Night", detail: "Electric badges built for dark mode", preview: ["◆", "🏈", "♛"] },
+  { id: "minimal", name: "Minimal", detail: "Clean, quiet outlined page markers", preview: ["✓", "◎", "⌁"] },
+  { id: "stadium", name: "Stadium Lights", detail: "Floodlit navy badges with gold edges", preview: ["✦", "★", "⚡"] },
+  { id: "broadcast", name: "Broadcast", detail: "Bold sports-TV score-bug graphics", preview: ["LIVE", "▣", "↗"] },
+  { id: "playbook", name: "Playbook", detail: "Chalk routes on tactical dark tiles", preview: ["○", "↗", "×"] },
+  { id: "varsity", name: "Varsity", detail: "Embroidered letterman patch styling", preview: ["FH", "V", "★"] },
+  { id: "championship", name: "Championship", detail: "Polished medal and trophy finishes", preview: ["♛", "★", "1"] },
+  { id: "gridiron", name: "Gridiron", detail: "Leather, turf, yard lines, and stitching", preview: ["🏈", "10", "◆"] },
+  { id: "neon-sunday", name: "Neon Sunday", detail: "Five-color game-day neon energy", preview: ["●", "▲", "⚡"] },
+  { id: "retro", name: "Retro Arcade", detail: "Pixel-era fantasy football color", preview: ["1UP", "★", "+"] },
+  { id: "glass", name: "Minimal Glass", detail: "Translucent tiles with crisp symbols", preview: ["◇", "◎", "+"] },
+  { id: "carbon", name: "Carbon Pro", detail: "Black carbon with metallic accents", preview: ["PRO", "◆", "↗"] },
+  { id: "helmet", name: "Team Helmet", detail: "Helmet-inspired category color shells", preview: ["H", "G", "M"] },
+  { id: "trading-cards", name: "Trading Cards", detail: "Collectible frames with rarity shine", preview: ["R", "SR", "★"] },
+];
 type DraftPick = {
   season: number;
   round: number;
@@ -3420,12 +3438,7 @@ function ManageLeagues({
   const selectedProvider = providers.find((item) => item.id === provider)!;
   const selectedNflTheme =
     nflThemes.find((team) => team.id === teamTheme) ?? nflThemes[0];
-  const badgeThemes: { id: BadgeTheme; name: string; detail: string; preview: string[] }[] = [
-    { id: "arcade", name: "Arcade", detail: "Colorful page-by-page gradients", preview: ["★", "⚡", "↔"] },
-    { id: "team", name: "Team Colors", detail: "Your NFL palette across every badge", preview: ["♟", "+", "◈"] },
-    { id: "neon", name: "Neon Night", detail: "Electric badges built for dark mode", preview: ["◆", "🏈", "♛"] },
-    { id: "minimal", name: "Minimal", detail: "Clean, quiet outlined page markers", preview: ["✓", "◎", "⌁"] },
-  ];
+  const selectedBadgeTheme = badgeThemeOptions.find((pack) => pack.id === badgeTheme) ?? badgeThemeOptions[0];
 
   async function addLeague() {
     if (!identifier.trim()) return;
@@ -3563,12 +3576,15 @@ function ManageLeagues({
           ))}
         </div>
         <div className="badge-theme-builder">
-          <header><div><span>SIDEBAR BADGE PACK</span><h4>Choose your navigation style</h4></div><small>Saved on this device</small></header>
-          <div className="badge-theme-grid" role="radiogroup" aria-label="Sidebar badge theme">
-            {badgeThemes.map((pack) => <button type="button" role="radio" aria-checked={badgeTheme === pack.id} disabled={!isPro} className={`${pack.id} ${badgeTheme === pack.id ? "active" : ""}`} key={pack.id} onClick={() => onBadgeThemeChange(pack.id)}><span>{pack.preview.map((icon, index) => <i key={`${icon}-${index}`}>{icon}</i>)}</span><strong>{pack.name}</strong><small>{pack.detail}</small></button>)}
-          </div>
+          <header><div><span>NAVIGATION ICON PACK</span><h4>Choose your navigation style</h4></div><small>16 Pro looks</small></header>
+          <details className="badge-theme-picker">
+            <summary><span className={`badge-pack-preview ${selectedBadgeTheme.id}`}>{selectedBadgeTheme.preview.map((icon, index) => <i key={`${icon}-${index}`}>{icon}</i>)}</span><span><strong>{selectedBadgeTheme.name}</strong><small>{selectedBadgeTheme.detail}</small></span><b>Change pack</b></summary>
+            <div className="badge-theme-grid" role="radiogroup" aria-label="Navigation icon pack">
+              {badgeThemeOptions.map((pack) => <button type="button" role="radio" aria-checked={badgeTheme === pack.id} disabled={!isPro} className={`${pack.id} ${badgeTheme === pack.id ? "active" : ""}`} key={pack.id} onClick={() => onBadgeThemeChange(pack.id)}><span>{pack.preview.map((icon, index) => <i key={`${icon}-${index}`}>{icon}</i>)}</span><strong>{pack.name}</strong><small>{pack.detail}</small></button>)}
+            </div>
+          </details>
         </div>
-        {!isPro && <div className="appearance-pro-callout"><span>FANTASY HUB PRO</span><strong>Make the Hub yours.</strong><p>Unlock every NFL-inspired dashboard palette and all four sidebar badge packs.</p><button onClick={onUpgrade}>Explore Pro themes →</button></div>}
+        {!isPro && <div className="appearance-pro-callout"><span>FANTASY HUB PRO</span><strong>Make the Hub yours.</strong><p>Unlock every NFL-inspired dashboard palette and all 16 navigation icon packs.</p><button onClick={onUpgrade}>Explore Pro themes →</button></div>}
       </section>
       <section className="provider-grid" aria-label="Fantasy providers">
         {providers.map((item) => (
