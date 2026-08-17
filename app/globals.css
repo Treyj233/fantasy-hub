@@ -1773,7 +1773,10 @@ html[data-theme="dark"] .player-verdict,html[data-theme="dark"] .player-range-co
 .score-with-projection>small{color:#a9bbb0;font-size:7px!important;font-weight:900;letter-spacing:.06em;line-height:1;text-transform:uppercase}
 .score-bug>div>.score-with-projection{justify-self:end}
 .score-bug>div>.score-with-projection>b{font-size:24px}
-.portfolio-score-bug>div>.score-with-projection{grid-column:2;justify-self:start}
+.portfolio-score-bug>div{grid-template-columns:30px minmax(0,1fr) auto}
+.portfolio-score-bug>div>span{grid-column:1;grid-row:1/3}
+.portfolio-score-bug>div>p{grid-column:2;grid-row:1/3;align-self:center}
+.portfolio-score-bug>div>.score-with-projection{grid-column:3;grid-row:1/3;align-self:center;justify-self:end;flex-direction:column;align-items:flex-end;gap:2px}
 .portfolio-score-bug>div>.score-with-projection>b{font-size:20px}
 .portfolio-score-rail button>p>.score-with-projection{justify-self:end}
 .portfolio-score-rail button>p>.score-with-projection>b{font-size:14px}
@@ -1786,4 +1789,4 @@ html[data-theme="dark"] .player-verdict,html[data-theme="dark"] .player-range-co
 .head-to-head-team>header>.score-with-projection>b{font-size:29px}
 .head-to-head-team>header>.score-with-projection>small{color:var(--muted);font-size:7px!important}
 @media(max-width:950px){.head-to-head-team>header>.score-with-projection{right:10px;top:17px;gap:4px}.head-to-head-team>header>.score-with-projection>b{font-size:20px}.head-to-head-team>header>.score-with-projection>small{font-size:6px!important}}
-@media(max-width:650px){.league-scoreboard-page .score-bug>div>.score-with-projection,.portfolio-score-bug>div>.score-with-projection{grid-column:1;justify-self:center}.score-with-projection{gap:4px}.score-bug>div>.score-with-projection>b{font-size:20px}.score-with-projection>small{font-size:6px!important}}
+@media(max-width:650px){.league-scoreboard-page .score-bug>div>.score-with-projection{grid-column:1;justify-self:center}.portfolio-score-bug>div{grid-template-columns:minmax(0,1fr) auto}.portfolio-score-bug>div>p{grid-column:1;grid-row:1}.portfolio-score-bug>div>.score-with-projection{grid-column:2;grid-row:1;justify-self:end}.portfolio-score-rail button>p>.score-with-projection{flex-direction:column;align-items:flex-end;gap:2px}.score-with-projection{gap:4px}.score-bug>div>.score-with-projection>b{font-size:20px}.score-with-projection>small{font-size:6px!important}}
