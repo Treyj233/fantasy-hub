@@ -4823,9 +4823,27 @@ function AllLeagueScoreboard({
 }) {
   const openPlayer = useContext(PlayerOpenContext);
   const [week, setWeek] = useState(defaultWeek >= 1 && defaultWeek <= 18 ? defaultWeek : 1);
-  const [scores, setScores] = useState<Record<string, ScoreboardData | null>>({});
+  const portfolioCacheKey = useMemo(
+    () => `fantasy-hub:scoreboard:${week}:${leagues.map((league) => league.id).sort().join(",")}`,
+    [leagues, week],
+  );
+  const initialPortfolioSnapshot = useMemo(() => {
+    if (typeof window === "undefined") return null;
+    try {
+      const cached = window.localStorage.getItem(portfolioCacheKey);
+      if (!cached) return null;
+      const snapshot = JSON.parse(cached) as {
+        scores?: Record<string, ScoreboardData | null>;
+        updatedAt?: string;
+      };
+      return snapshot.scores && typeof snapshot.scores === "object" ? snapshot : null;
+    } catch {
+      return null;
+    }
+  }, [portfolioCacheKey]);
+  const [scores, setScores] = useState<Record<string, ScoreboardData | null>>(() => initialPortfolioSnapshot?.scores ?? {});
   const [loading, setLoading] = useState(false);
-  const [updatedAt, setUpdatedAt] = useState("");
+  const [updatedAt, setUpdatedAt] = useState(() => initialPortfolioSnapshot?.updatedAt ?? "");
   const [expandedNeeds, setExpandedNeeds] = useState<Set<string>>(new Set());
   const [swingFeed, setSwingFeed] = useState<{ id: string; league: string; text: string; previous: number; current: number; at: string }[]>([]);
   const [pulseEvents, setPulseEvents] = useState<{ id: string; text: string; impact: "helps" | "hurts"; at: string }[]>([]);
@@ -4840,10 +4858,33 @@ function AllLeagueScoreboard({
   useEffect(() => {
     if (!leagues.length) return;
     let active = true;
+    let hydrationTimer: number | undefined;
     previousPulseSnapshot.current = {};
     previousPulseOdds.current = {};
+    let hasCachedScores = Boolean(initialPortfolioSnapshot?.scores);
+    if (initialPortfolioSnapshot?.scores) {
+      hydrationTimer = window.setTimeout(() => {
+        if (!active) return;
+        setScores(initialPortfolioSnapshot.scores ?? {});
+        setUpdatedAt(initialPortfolioSnapshot.updatedAt ?? "");
+      }, 0);
+    }
+    try {
+      const cached = window.localStorage.getItem(portfolioCacheKey);
+      if (cached) {
+        const snapshot = JSON.parse(cached) as {
+          scores?: Record<string, ScoreboardData | null>;
+          updatedAt?: string;
+        };
+        if (snapshot.scores && typeof snapshot.scores === "object") {
+          hasCachedScores = true;
+        }
+      }
+    } catch {
+      // A corrupt or unavailable browser cache should never block live scoring.
+    }
     const refresh = async () => {
-      setLoading(true);
+      if (!hasCachedScores) setLoading(true);
       const [results, espnPlays] = await Promise.all([
         mapWithConcurrency(
           leagues,
@@ -4915,17 +4956,29 @@ function AllLeagueScoreboard({
       previousPulseOdds.current = nextOdds;
       if (scoringEvents.length) setPulseEvents((current) => [...scoringEvents.sort((a, b) => b.delta - a.delta), ...current].slice(0, 12));
       else if (!hadPulseBaseline) setPulseEvents([]);
-      setScores(Object.fromEntries(results));
-      setUpdatedAt(new Date().toISOString());
+      const nextScores = Object.fromEntries(results);
+      const nextUpdatedAt = new Date().toISOString();
+      setScores(nextScores);
+      setUpdatedAt(nextUpdatedAt);
+      hasCachedScores = true;
+      try {
+        window.localStorage.setItem(portfolioCacheKey, JSON.stringify({
+          scores: nextScores,
+          updatedAt: nextUpdatedAt,
+        }));
+      } catch {
+        // Storage limits and private browsing must not interrupt scoreboard use.
+      }
       setLoading(false);
     };
     void refresh();
     const stopPolling = startVisiblePolling(refresh);
     return () => {
       active = false;
+      if (hydrationTimer !== undefined) window.clearTimeout(hydrationTimer);
       stopPolling();
     };
-  }, [leagues, week]);
+  }, [initialPortfolioSnapshot, leagues, portfolioCacheKey, week]);
   const gameDay = useMemo(() => {
     const matchups = leagues.flatMap((league) => {
       const data = scores[league.id];

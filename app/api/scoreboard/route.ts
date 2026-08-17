@@ -78,15 +78,19 @@ export async function GET(request: Request) {
   const [connection] = await db.select().from(sleeperConnections).where(eq(sleeperConnections.userId, user.userId)).limit(1);
   if (!connection) return Response.json({ error: "Connect a Sleeper account first" }, { status: 409 });
 
-  const leagueResponse = await fetch(`https://api.sleeper.app/v1/league/${leagueId}`, { cache: "no-store" });
+  // League configuration, rosters, and managers change far less frequently than
+  // live scoring. Keep those inputs warm at the edge while the matchup payload
+  // retains a game-day-safe TTL. This reduces provider fan-out without making
+  // live points or win-path calculations stale for longer than one poll cycle.
+  const leagueResponse = await fetchCachedUpstream(`https://api.sleeper.app/v1/league/${leagueId}`, 900);
   if (!leagueResponse.ok) return Response.json({ error: "League unavailable" }, { status: 404 });
   const league = await leagueResponse.json() as { name?: string; season?: string; leg?: number; total_rosters?: number; roster_positions?: string[]; scoring_settings?: Record<string, number> };
   const week = Number.isInteger(requestedWeek) && requestedWeek >= 1 && requestedWeek <= 18 ? requestedWeek : Math.max(1, league.leg ?? 1);
   const season = league.season ?? String(new Date().getUTCFullYear());
   const [matchupsResponse, rostersResponse, usersResponse, playersResponse, statsResponse, projectionsResponse, nflGameInProgress] = await Promise.all([
-    fetch(`https://api.sleeper.app/v1/league/${leagueId}/matchups/${week}`, { cache: "no-store" }),
-    fetch(`https://api.sleeper.app/v1/league/${leagueId}/rosters`, { cache: "no-store" }),
-    fetch(`https://api.sleeper.app/v1/league/${leagueId}/users`, { cache: "no-store" }),
+    fetchCachedUpstream(`https://api.sleeper.app/v1/league/${leagueId}/matchups/${week}`, 20),
+    fetchCachedUpstream(`https://api.sleeper.app/v1/league/${leagueId}/rosters`, 300),
+    fetchCachedUpstream(`https://api.sleeper.app/v1/league/${leagueId}/users`, 900),
     fetchCachedUpstream("https://api.sleeper.app/v1/players/nfl?active=true", 86400),
     fetchCachedUpstream(`https://api.sleeper.com/stats/nfl/regular/${season}/${week}`, 30).catch(() => null),
     fetchCachedUpstream(`https://api.sleeper.com/projections/nfl/${season}/${week}?season_type=regular`, 900).catch(() => null),
