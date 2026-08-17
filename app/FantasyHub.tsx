@@ -3360,7 +3360,7 @@ function ProPlans({ entitlement }: { entitlement: AccountEntitlement }) {
 }
 
 function ProFeatureArtwork({ type }: { type: "sim" | "trade" | "start" }) {
-  const asset = type === "sim" ? "pro-simulator-horizontal.jpg" : type === "trade" ? "pro-trade-horizontal.jpg" : "pro-start-sit-horizontal.jpg";
+  const asset = type === "sim" ? "pro-season-commanded-ipad.jpg" : type === "trade" ? "pro-winning-move-ipad.jpg" : "pro-own-matchup-ipad.jpg";
   const label = type === "sim" ? "Fantasy Hub Season Simulator" : type === "trade" ? "Fantasy Hub Trade Intelligence" : "Fantasy Hub Start Sit Decision Advantage";
   return <div className={`pro-feature-art ${type}`} role="img" aria-label={label} style={{ backgroundImage: `url(/marketing/app-store/${asset})` }} />;
 }
