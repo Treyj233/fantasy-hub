@@ -1771,7 +1771,7 @@ html[data-theme="dark"] .player-verdict,html[data-theme="dark"] .player-range-co
 .score-with-projection{display:inline-flex;align-items:baseline;justify-content:flex-end;gap:6px;white-space:nowrap}
 .score-with-projection>b{font-size:inherit;line-height:1}
 .score-with-projection>small{color:#a9bbb0;font-size:7px!important;font-weight:900;letter-spacing:.06em;line-height:1;text-transform:uppercase}
-.score-bug>div>.score-with-projection{justify-self:end}
+.score-bug>div>.score-with-projection{width:auto;height:auto;min-width:0;padding:0;justify-self:end;color:#fff!important;background:transparent!important;border:0;border-radius:0;box-shadow:none!important}
 .score-bug>div>.score-with-projection>b{font-size:24px}
 .portfolio-score-bug>div{grid-template-columns:30px minmax(0,1fr) auto}
 .portfolio-score-bug>div>span{grid-column:1;grid-row:1/3}
