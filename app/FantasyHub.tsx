@@ -3348,9 +3348,9 @@ function ProPlans({ entitlement }: { entitlement: AccountEntitlement }) {
   return <div className="page-content pro-plans-page">
     <section className="pro-plans-hero"><div className="pro-hero-copy"><span>FANTASY HUB PRO</span><h2>Turn every league into<br/><em>a better Sunday.</em></h2><p>Live game-day energy meets original strategy tools, simulations, storytelling, and accountability—built around every team you manage.</p><div className="pro-hero-pills"><b>∞ LEAGUES</b><b>LIVE GAME DAY</b><b>32 TEAM THEMES</b></div></div><div className="pro-hero-mark"><FHLogo label="Fantasy Hub Pro"/><strong>PRO</strong></div><b className="pro-status-badge">{entitlement.pro ? "PRO ACTIVE" : `7 DAYS FREE · THEN ${monthlyPrice}/MO`}</b>{canManageBilling && <button className="billing-manage" disabled={billingBusy === "portal"} onClick={() => void openBilling("/api/billing/portal")}>{billingBusy === "portal" ? "Opening billing…" : nativeIos ? "Manage in App Store" : "Manage billing"}</button>}{entitlement.pro && billingProvider === "manual" && <p className="billing-access-note">Owner access is active. There is no recurring subscription or billing account to manage.</p>}{entitlement.pro && billingProvider === "apple" && !nativeIos && <p className="billing-access-note">This membership is billed through Apple. Manage it from Subscriptions on your Apple device.</p>}</section>
     <section className="pro-showcase">
-      <article className="pro-feature-card"><div><span>SEASON SIMULATOR</span><h3>See the range, not just one prediction.</h3><p>Monte Carlo seasons model roster moves, injuries, playoff odds, and player-specific best and worst cases.</p></div><ProFeatureArtwork type="sim" /></article>
-      <article className="pro-feature-card reverse"><div><span>TRADE INTELLIGENCE</span><h3>Packages built for both rosters.</h3><p>Pro finds mutual needs, applies manager negotiation profiles, and explains why each side should engage.</p></div><ProFeatureArtwork type="trade" /></article>
-      <article className="pro-feature-card"><div><span>DECISION ADVANTAGE</span><h3>Make the call your matchup needs.</h3><p>Unlock the Start/Sit floor-to-ceiling slider, decision memory, and your season-long manager report card.</p></div><ProFeatureArtwork type="start" /></article>
+      <article className="pro-feature-card"><div><span>TRADE INTELLIGENCE</span><h3>Find the deal that fits.</h3><p>Model value, roster impact, partner fit, and acceptance before you send the offer.</p></div><ProFeatureArtwork type="trade" /></article>
+      <article className="pro-feature-card reverse"><div><span>START / SIT</span><h3>Turn close calls into confidence.</h3><p>Balance floor, ceiling, matchup, and the way you want to play before locking your lineup.</p></div><ProFeatureArtwork type="start" /></article>
+      <article className="pro-feature-card"><div><span>SUNDAY PULSE</span><h3>Know what you need—live.</h3><p>Follow win paths, hot performers, and every Sunday swing across all your leagues.</p></div><ProFeatureArtwork type="pulse" /></article>
     </section>
     <section className="pro-theme-gallery panel"><header><div><span>PRO THEME LOCKER</span><h3>Your leagues. Your Sunday look.</h3></div><p>Choose any NFL-inspired palette and four sidebar badge packs.</p></header><div>{[{name:"Midway Night",colors:["#0b162a","#c83803"]},{name:"South Beach",colors:["#008e97","#fc4c02"]},{name:"Purple Reign",colors:["#241773","#9e7c0c"]},{name:"Gold Rush",colors:["#aa0000","#b3995d"]}].map((theme) => <article key={theme.name} style={{"--preview-primary":theme.colors[0],"--preview-secondary":theme.colors[1]} as CSSProperties}><i/><b>{theme.name}</b><small>Dashboard + badge pack</small></article>)}</div></section>
     {billingError && <p className="billing-error" role="alert">{billingError}</p>}
@@ -3359,9 +3359,9 @@ function ProPlans({ entitlement }: { entitlement: AccountEntitlement }) {
   </div>;
 }
 
-function ProFeatureArtwork({ type }: { type: "sim" | "trade" | "start" }) {
-  const asset = type === "sim" ? "pro-season-commanded-ipad.jpg" : type === "trade" ? "pro-winning-move-ipad.jpg" : "pro-own-matchup-ipad.jpg";
-  const label = type === "sim" ? "Fantasy Hub Season Simulator" : type === "trade" ? "Fantasy Hub Trade Intelligence" : "Fantasy Hub Start Sit Decision Advantage";
+function ProFeatureArtwork({ type }: { type: "trade" | "start" | "pulse" }) {
+  const asset = type === "trade" ? "pro-trade-lab-themed.jpg" : type === "start" ? "pro-start-sit-themed.jpg" : "pro-sunday-pulse-themed.jpg";
+  const label = type === "trade" ? "Fantasy Hub Trade Lab" : type === "start" ? "Fantasy Hub Start Sit" : "Fantasy Hub Sunday Pulse";
   return <div className={`pro-feature-art ${type}`} role="img" aria-label={label} style={{ backgroundImage: `url(/marketing/app-store/${asset})` }} />;
 }
 
