@@ -4,13 +4,10 @@ import { managedLeagues, sleeperConnections } from "../../../db/schema";
 import { getChatGPTUser } from "../../chatgpt-auth";
 import { fetchEspnLeagueForUser, normalizeEspnScoreboard } from "../espn";
 import { fetchCachedUpstream } from "../upstream-cache";
+import { getSleeperPlayerDirectory, getSleeperWeeklyProjections, getSleeperWeeklyStats } from "../sleeper-shared-data";
 import { liveTeamPoints, sleeperFantasyPoints } from "../../sleeper-live-scoring.mjs";
 
 type MatchupRow = { roster_id?: number; matchup_id?: number | null; points?: number; custom_points?: number | null; players?: string[]; starters?: string[]; players_points?: Record<string, number> };
-type SourcePlayer = { full_name?: string; first_name?: string; last_name?: string; position?: string; team?: string };
-type PlayerStats = { player_id?: string; stats?: Record<string, number> };
-type PlayerProjection = { player_id?: string; stats?: Record<string, number> };
-
 type EspnNflScoreboard = {
   events?: { status?: { type?: { state?: string } } }[];
 };
@@ -88,31 +85,27 @@ export async function GET(request: Request) {
   const league = await leagueResponse.json() as { name?: string; season?: string; leg?: number; total_rosters?: number; roster_positions?: string[]; scoring_settings?: Record<string, number> };
   const week = Number.isInteger(requestedWeek) && requestedWeek >= 1 && requestedWeek <= 18 ? requestedWeek : Math.max(1, league.leg ?? 1);
   const season = league.season ?? String(new Date().getUTCFullYear());
-  const [matchupsResponse, rostersResponse, usersResponse, playersResponse, statsResponse, projectionsResponse, nflGameInProgress] = await Promise.all([
+  const [matchupsResponse, rostersResponse, usersResponse, playerDirectory, statsSnapshot, projectionsSnapshot, nflGameInProgress] = await Promise.all([
     fetchCachedUpstream(`https://api.sleeper.app/v1/league/${leagueId}/matchups/${week}`, 900),
     fetchCachedUpstream(`https://api.sleeper.app/v1/league/${leagueId}/rosters`, 300),
     fetchCachedUpstream(`https://api.sleeper.app/v1/league/${leagueId}/users`, 900),
-    fetchCachedUpstream("https://api.sleeper.app/v1/players/nfl?active=true", 86400),
-    fetchCachedUpstream(`https://api.sleeper.com/stats/nfl/regular/${season}/${week}`, 30).catch(() => null),
-    fetchCachedUpstream(`https://api.sleeper.com/projections/nfl/${season}/${week}?season_type=regular`, 900).catch(() => null),
+    getSleeperPlayerDirectory(),
+    getSleeperWeeklyStats(season, week).catch(() => null),
+    getSleeperWeeklyProjections(season, week).catch(() => null),
     nflWeekHasGameInProgress(season, week),
   ]);
-  if (!matchupsResponse.ok || !rostersResponse.ok || !usersResponse.ok || !playersResponse.ok) return Response.json({ error: "Weekly scores unavailable" }, { status: 502 });
+  if (!matchupsResponse.ok || !rostersResponse.ok || !usersResponse.ok) return Response.json({ error: "Weekly scores unavailable" }, { status: 502 });
   const matchupRows = await matchupsResponse.json() as MatchupRow[];
   const rosters = await rostersResponse.json() as { roster_id?: number; owner_id?: string }[];
   const users = await usersResponse.json() as { user_id?: string; display_name?: string; metadata?: { team_name?: string } }[];
-  const players = await playersResponse.json() as Record<string, SourcePlayer>;
-  const statsPayload: unknown = statsResponse?.ok ? await statsResponse.json().catch(() => []) : [];
-  const statsRows: PlayerStats[] = Array.isArray(statsPayload) ? statsPayload : Object.entries(statsPayload && typeof statsPayload === "object" ? statsPayload as Record<string, { stats?: Record<string, number> }> : {}).map(([playerId, value]) => ({ player_id: playerId, stats: value.stats ?? value as Record<string, number> }));
-  const statsByPlayer = new Map(statsRows.flatMap((row) => row.player_id ? [[row.player_id, row.stats ?? {}]] : []));
+  const players = playerDirectory.value;
+  const statsByPlayer = statsSnapshot?.value ?? new Map<string, Record<string, number>>();
   const useCalculatedLiveScoring = nflGameInProgress && statsByPlayer.size > 0;
-  const projectionPayload: unknown = projectionsResponse?.ok ? await projectionsResponse.json().catch(() => []) : [];
-  const projectionRows: PlayerProjection[] = Array.isArray(projectionPayload) ? projectionPayload : [];
   const receptionValue = league.scoring_settings?.rec ?? 1;
   const projectionKey = receptionValue >= .75 ? "pts_ppr" : receptionValue >= .25 ? "pts_half_ppr" : "pts_std";
-  const projectionsByPlayer = new Map(projectionRows.flatMap((row) => {
-    const value = row.stats?.[projectionKey];
-    return row.player_id && typeof value === "number" ? [[row.player_id, Number(value.toFixed(2))]] : [];
+  const projectionsByPlayer = new Map([...(projectionsSnapshot?.value ?? new Map<string, Record<string, number>>()).entries()].flatMap(([playerId, stats]) => {
+    const value = stats[projectionKey];
+    return typeof value === "number" ? [[playerId, Number(value.toFixed(2))] as const] : [];
   }));
   const rosterById = new Map(rosters.flatMap((roster) => roster.roster_id ? [[roster.roster_id, roster]] : []));
   const userById = new Map(users.flatMap((manager) => manager.user_id ? [[manager.user_id, manager]] : []));
@@ -130,7 +123,7 @@ export async function GET(request: Request) {
       (row.players ?? []).map((playerId, index) => [playerId, index]),
     );
     const topPlayers = (row.players ?? []).map((playerId) => {
-      const player = players[playerId];
+      const player = players.get(playerId);
       const stats = statsByPlayer.get(playerId) ?? {};
       const starterIndex = starterOrder.get(playerId);
       const isStarter = starterIndex !== undefined;
@@ -138,7 +131,7 @@ export async function GET(request: Request) {
       const points = useCalculatedLiveScoring
         ? sleeperFantasyPoints(stats, league.scoring_settings ?? {}, position)
         : Number((scoring[playerId] ?? 0).toFixed(2));
-      return { id: playerId, name: (player?.full_name ?? `${player?.first_name ?? ""} ${player?.last_name ?? ""}`.trim()) || "Unknown player", position, lineupSlot: isStarter ? (starterSlots[starterIndex] ?? position) : "BN", lineupOrder: isStarter ? starterIndex : starterSlots.length + (rosterOrder.get(playerId) ?? 999), nflTeam: player?.team ?? "FA", points, projection: projectionsByPlayer.get(playerId) ?? null, isStarter, yards: Math.round((stats.pass_yd ?? 0) + (stats.rush_yd ?? 0) + (stats.rec_yd ?? 0)), touchdowns: (stats.pass_td ?? 0) + (stats.rush_td ?? 0) + (stats.rec_td ?? 0), receptions: stats.rec ?? 0, targets: stats.rec_tgt ?? 0, offensiveTurnovers: (stats.pass_int ?? 0) + (stats.fum_lost ?? 0), defensiveTurnovers: (stats.def_int ?? 0) + (stats.def_fum_rec ?? 0), returnTouchdowns: (stats.kick_ret_td ?? 0) + (stats.punt_ret_td ?? 0) + (stats.st_td ?? 0), fieldGoals: stats.fgm ?? 0 };
+      return { id: playerId, name: player?.name ?? "Unknown player", position, lineupSlot: isStarter ? (starterSlots[starterIndex] ?? position) : "BN", lineupOrder: isStarter ? starterIndex : starterSlots.length + (rosterOrder.get(playerId) ?? 999), nflTeam: player?.team ?? "FA", points, projection: projectionsByPlayer.get(playerId) ?? null, isStarter, yards: Math.round((stats.pass_yd ?? 0) + (stats.rush_yd ?? 0) + (stats.rec_yd ?? 0)), touchdowns: (stats.pass_td ?? 0) + (stats.rush_td ?? 0) + (stats.rec_td ?? 0), receptions: stats.rec ?? 0, targets: stats.rec_tgt ?? 0, offensiveTurnovers: (stats.pass_int ?? 0) + (stats.fum_lost ?? 0), defensiveTurnovers: (stats.def_int ?? 0) + (stats.def_fum_rec ?? 0), returnTouchdowns: (stats.kick_ret_td ?? 0) + (stats.punt_ret_td ?? 0) + (stats.st_td ?? 0), fieldGoals: stats.fgm ?? 0 };
     }).sort((a, b) => a.lineupOrder - b.lineupOrder);
     const officialPoints = Number((row.custom_points ?? row.points ?? 0).toFixed(2));
     const points = useCalculatedLiveScoring
@@ -154,5 +147,5 @@ export async function GET(request: Request) {
     league.leg ?? week,
     nflGameInProgress,
   );
-  return Response.json({ league: { id: leagueId, name: league.name ?? "League", season, currentWeek: league.leg ?? week, provider: "Sleeper", projectionSource: "Sleeper Projections", scoring: league.scoring_settings ?? {} }, week, updatedAt: new Date().toISOString(), scoringSource: useCalculatedLiveScoring ? "calculated_live" : "sleeper_official", reconciliationIntervalSeconds: 900, matchups });
+  return Response.json({ league: { id: leagueId, name: league.name ?? "League", season, currentWeek: league.leg ?? week, provider: "Sleeper", projectionSource: "Sleeper Projections", scoring: league.scoring_settings ?? {} }, week, updatedAt: new Date().toISOString(), scoringSource: useCalculatedLiveScoring ? "calculated_live" : "sleeper_official", sharedStatsRefreshedAt: statsSnapshot?.refreshedAt ?? null, playerDirectoryRefreshedAt: playerDirectory.refreshedAt, reconciliationIntervalSeconds: 900, matchups });
 }

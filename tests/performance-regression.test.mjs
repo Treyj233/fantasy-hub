@@ -20,9 +20,10 @@ test("portfolio scans preserve saved results while weather requests use a bounde
 });
 
 test("launch traffic is bounded and public provider data is edge cached", async () => {
-  const [client, scoreboard, league, cache, loadTest] = await Promise.all([
+  const [client, scoreboard, sharedSleeper, league, cache, loadTest] = await Promise.all([
     readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/api/scoreboard/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/sleeper-shared-data.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/league/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/upstream-cache.ts", import.meta.url), "utf8"),
     readFile(new URL("../loadtest/k6-smoke.js", import.meta.url), "utf8"),
@@ -33,7 +34,10 @@ test("launch traffic is bounded and public provider data is edge cached", async 
   assert.match(league, /fetchCachedUpstream/);
   assert.match(scoreboard, /matchups\/\$\{week\}`, 900/);
   assert.match(scoreboard, /sleeperFantasyPoints/);
-  assert.match(scoreboard, /stats\/nfl\/regular\/\$\{season\}\/\$\{week\}`, 30/);
+  assert.match(scoreboard, /getSleeperWeeklyStats/);
+  assert.match(sharedSleeper, /stats\/nfl\/regular\/\$\{season\}\/\$\{week\}`/);
+  assert.match(sharedSleeper, /weeklyStatsRequest/);
+  assert.match(sharedSleeper, /playerDirectoryRequest/);
   assert.match(league, /traded_picks[^\n]+cache: "no-store"/);
   assert.match(cache, /cacheEverything: true/);
   assert.match(cache, /"500-599": 0/);
