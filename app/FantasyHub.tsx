@@ -7358,6 +7358,7 @@ function TeamRankings({
               {positions.map((position) => (
                 <div className={`room-rank ${roomRankTone(roomRanks[position].get(team.id) ?? teams.length)}`} data-position={position} key={position}>
                   <b>#{roomRanks[position].get(team.id)}</b>
+                  <small className="room-position-label">{position}</small>
                 </div>
               ))}
               {isDynasty && (

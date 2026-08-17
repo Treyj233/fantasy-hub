@@ -12,6 +12,7 @@ test("Team Rankings groups assets by position and removes mobile horizontal scro
   assert.match(rankings, /\[\.\.\.positions, "OTHER"\]/);
   assert.match(rankings, /team-position-room/);
   assert.match(rankings, /data-position=\{position\}/);
+  assert.match(rankings, /className="room-position-label">\{position\}<\/small>/);
   assert.match(rankings, /role="dialog" aria-modal="true"/);
   assert.doesNotMatch(rankings, /document\.body\.style\.overflow/);
   assert.doesNotMatch(rankings, /document\.documentElement\.style\.overflow/);
@@ -39,6 +40,8 @@ test("Team Rankings groups assets by position and removes mobile horizontal scro
   assert.match(styles, /\.team-assets-mobile-open\{font-weight:700!important\}/);
   assert.match(styles, /\.room-rank\.rank-elite b/);
   assert.match(styles, /\.room-rank\.rank-trailing b/);
+  assert.match(styles, /\.team-rank-row \.room-position-label\{display:block/);
+  assert.match(styles, /@media\(max-width:700px\)[\s\S]*?\.team-rank-row \.room-position-label\{display:none\}/);
   assert.match(styles, /\.team-rank-row \.room-rank\{[^}]*background:rgb\(var\(--brand-primary-rgb,11 134 80\) \/ \.14\)/);
   assert.match(styles, /\.team-rank-row \.core-assets button\{background:rgb\(var\(--brand-primary-rgb,11 134 80\) \/ \.14\)/);
   assert.match(styles, /\.team-rankings-page \.team-rank-row \.core-assets button\{font-size:8px!important\}/);
