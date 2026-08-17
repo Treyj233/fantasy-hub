@@ -15,6 +15,11 @@ type TrendingRow = { player_id?: string; count?: number };
 
 const LEAGUE_PAYLOAD_VERSION = 9;
 const LEAGUE_SNAPSHOT_TTL_MS = 30 * 60 * 1000;
+const SHARED_TTL_SECONDS = {
+  projections: 4 * 60 * 60,
+  adp: 12 * 60 * 60,
+  trends: 20 * 60,
+} as const;
 const isCurrentFantasyPlayer = (player: SourcePlayer) => {
   const status = (player.status ?? "").trim().toLowerCase();
   return Boolean(player.team) && !/(retired|inactive|deceased)/.test(status);
@@ -60,8 +65,8 @@ export async function GET(request: Request) {
       fetch(`https://api.sleeper.app/v1/league/${id}/users`, { cache: "no-store" }),
       fetchCachedUpstream("https://api.sleeper.app/v1/players/nfl", 86400),
       fetch(`https://api.sleeper.app/v1/league/${id}/traded_picks`, { cache: "no-store" }).catch(() => null),
-      fetchCachedUpstream("https://api.sleeper.app/v1/players/nfl/trending/add?lookback_hours=24&limit=100", 300).catch(() => null),
-      fetchCachedUpstream("https://api.sleeper.app/v1/players/nfl/trending/drop?lookback_hours=24&limit=100", 300).catch(() => null),
+      fetchCachedUpstream("https://api.sleeper.app/v1/players/nfl/trending/add?lookback_hours=24&limit=100", SHARED_TTL_SECONDS.trends).catch(() => null),
+      fetchCachedUpstream("https://api.sleeper.app/v1/players/nfl/trending/drop?lookback_hours=24&limit=100", SHARED_TTL_SECONDS.trends).catch(() => null),
     ]);
     if (!leagueResponse.ok || !rostersResponse.ok || !usersResponse.ok || !playersResponse.ok) throw new Error("League unavailable");
     const league = await leagueResponse.json() as { name?: string; status?: string; total_rosters?: number; season?: string; leg?: number; roster_positions?: string[]; scoring_settings?: Record<string, number>; settings?: { type?: number; draft_rounds?: number } };
@@ -75,9 +80,9 @@ export async function GET(request: Request) {
     const scoring = league.scoring_settings ?? {};
     const receptionValue = scoring.rec ?? 1;
     const [projectionResponse, matchupResponse, sleeperAdpResponse, espnAdp] = await Promise.all([
-      fetchCachedUpstream(`https://api.sleeper.com/projections/nfl/${league.season ?? new Date().getUTCFullYear()}/${projectionWeek}?season_type=regular`, 3600).catch(() => null),
+      fetchCachedUpstream(`https://api.sleeper.com/projections/nfl/${league.season ?? new Date().getUTCFullYear()}/${projectionWeek}?season_type=regular`, SHARED_TTL_SECONDS.projections).catch(() => null),
       fetch(`https://api.sleeper.app/v1/league/${id}/matchups/${projectionWeek}`, { cache: "no-store" }).catch(() => null),
-      fetchCachedUpstream(`https://api.sleeper.com/projections/nfl/${league.season ?? new Date().getUTCFullYear()}?season_type=regular&order_by=adp_ppr`, 21600).catch(() => null),
+      fetchCachedUpstream(`https://api.sleeper.com/projections/nfl/${league.season ?? new Date().getUTCFullYear()}?season_type=regular&order_by=adp_ppr`, SHARED_TTL_SECONDS.adp).catch(() => null),
       loadEspnAdpByPlayerKey(Number(league.season ?? new Date().getUTCFullYear())),
     ]);
     const projectionPayload: unknown = projectionResponse?.ok ? await projectionResponse.json().catch(() => []) : [];

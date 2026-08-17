@@ -89,7 +89,7 @@ const seasonData = (season: number) => {
   const existing = cache.get(season);
   if (existing && existing.expiresAt > Date.now()) return existing.request;
   const request = calculateSeason(season);
-  cache.set(season, { expiresAt: Date.now() + 6 * 60 * 60 * 1000, request });
+  cache.set(season, { expiresAt: Date.now() + 24 * 60 * 60 * 1000, request });
   return request;
 };
 

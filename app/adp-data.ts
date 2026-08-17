@@ -6,6 +6,7 @@ type SleeperAdpPlayer = { full_name?: string; first_name?: string; last_name?: s
 type SleeperAdpRow = { player_id?: string; stats?: Record<string, number> };
 
 const espnPositionById: Record<number, string> = { 1: "QB", 2: "RB", 3: "WR", 4: "TE", 5: "K", 16: "DEF" };
+const ADP_CACHE_TTL_SECONDS = 12 * 60 * 60;
 export type UnderdogAdpFormat = "Single-QB Half PPR" | "Single-QB Full PPR" | "Superflex Half PPR";
 
 export const adpPlayerKey = (name: string, position: string) =>
@@ -19,7 +20,7 @@ export async function loadEspnAdpByPlayerKey(season: number) {
   const filter = JSON.stringify({ players: { limit: 2000, sortDraftRanks: { sortPriority: 1, sortAsc: true, value: "STANDARD" } } });
   const response = await fetchCachedUpstream(
     `https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/${season}/segments/0/leaguedefaults/3?view=kona_player_info`,
-    21600,
+    ADP_CACHE_TTL_SECONDS,
     { headers: { Accept: "application/json", "User-Agent": "Fantasy Hub ESPN ADP", "x-fantasy-filter": filter } },
   ).catch(() => null);
   if (!response?.ok) return new Map<string, number>();
@@ -37,7 +38,7 @@ export async function loadEspnAdpByPlayerKey(season: number) {
 export async function loadSleeperAdpByPlayerKey(season: number, adpKey: string) {
   const [playersResponse, adpResponse] = await Promise.all([
     fetchCachedUpstream("https://api.sleeper.app/v1/players/nfl", 86400).catch(() => null),
-    fetchCachedUpstream(`https://api.sleeper.com/projections/nfl/${season}?season_type=regular&order_by=adp_ppr`, 21600).catch(() => null),
+    fetchCachedUpstream(`https://api.sleeper.com/projections/nfl/${season}?season_type=regular&order_by=adp_ppr`, ADP_CACHE_TTL_SECONDS).catch(() => null),
   ]);
   if (!playersResponse?.ok || !adpResponse?.ok) return new Map<string, number>();
   const players = await playersResponse.json().catch(() => ({})) as Record<string, SleeperAdpPlayer>;

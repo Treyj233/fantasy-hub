@@ -135,7 +135,7 @@ export function loadSnapProfiles(season: number) {
   const cached = snapProfileCache.get(season);
   if (cached && cached.expiresAt > Date.now()) return cached.request;
   const request = fetchSnapProfiles(season);
-  snapProfileCache.set(season, { expiresAt: Date.now() + 6 * 60 * 60 * 1000, request });
+  snapProfileCache.set(season, { expiresAt: Date.now() + 24 * 60 * 60 * 1000, request });
   return request;
 }
 

@@ -142,7 +142,7 @@ export function loadPlayerSeasonProfiles(season: number) {
   const cached = playerCache.get(season);
   if (cached && cached.expiresAt > Date.now()) return cached.request;
   const request = fetchPlayerSeason(season);
-  playerCache.set(season, { expiresAt: Date.now() + 6 * 60 * 60 * 1000, request });
+  playerCache.set(season, { expiresAt: Date.now() + 24 * 60 * 60 * 1000, request });
   return request;
 }
 
@@ -150,7 +150,7 @@ export function loadTeamOffenseProfiles(season: number) {
   const cached = offenseCache.get(season);
   if (cached && cached.expiresAt > Date.now()) return cached.request;
   const request = fetchTeamOffense(season);
-  offenseCache.set(season, { expiresAt: Date.now() + 6 * 60 * 60 * 1000, request });
+  offenseCache.set(season, { expiresAt: Date.now() + 24 * 60 * 60 * 1000, request });
   return request;
 }
 

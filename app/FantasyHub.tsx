@@ -486,6 +486,33 @@ type ScoreboardTeam = {
   isMine: boolean;
   topPlayers: ScoreboardPlayer[];
 };
+
+function projectedTeamTotal(team: ScoreboardTeam) {
+  const projectedStarters = team.topPlayers.filter(
+    (player) => player.isStarter && player.projection != null,
+  );
+  if (!projectedStarters.length) return null;
+  return projectedStarters.reduce(
+    (total, player) => total + (player.projection ?? 0),
+    0,
+  );
+}
+
+function ScoreWithProjection({
+  team,
+  precision = 2,
+}: {
+  team: ScoreboardTeam;
+  precision?: number;
+}) {
+  const projection = projectedTeamTotal(team);
+  return (
+    <span className="score-with-projection">
+      <b>{team.points.toFixed(precision)}</b>
+      {projection != null && <small>PROJ {projection.toFixed(1)}</small>}
+    </span>
+  );
+}
 type ScoreboardData = {
   league: { name: string; season: string; currentWeek: number; provider?: string; projectionSource?: string; scoring?: Record<string, number> };
   week: number;
@@ -5125,8 +5152,8 @@ function AllLeagueScoreboard({
             const urgency = matchup.status === "live" && margin <= 12 ? "urgent" : matchup.status === "live" ? "live" : matchup.status;
             return <button className={urgency} type="button" key={league.id} onClick={() => scrollToLeagueScore(league.id)}>
               <span><i /> {matchup.status === "live" ? "LIVE" : matchup.status === "final" ? "FINAL" : `WEEK ${week}`} · {league.name}</span>
-              <p><b>{matchup.mine.teamName}</b><strong>{matchup.mine.points.toFixed(1)}</strong></p>
-              <p><b>{matchup.opponent.teamName}</b><strong>{matchup.opponent.points.toFixed(1)}</strong></p>
+              <p><b>{matchup.mine.teamName}</b><ScoreWithProjection team={matchup.mine} precision={1} /></p>
+              <p><b>{matchup.opponent.teamName}</b><ScoreWithProjection team={matchup.opponent} precision={1} /></p>
               <small><em>{matchup.winProbability == null ? "—" : `${matchup.winProbability}%`} WIN</em>{margin <= 12 && matchup.status === "live" ? "One-play range" : "Open details →"}</small>
             </button>;
           })}
@@ -5212,7 +5239,7 @@ function AllLeagueScoreboard({
                     <div className={team.isMine ? "mine" : ""} key={team.rosterId}>
                       <span>{team.teamName.slice(0, 3).toUpperCase()}</span>
                       <p><strong>{team.teamName}</strong><small>{team.managerName}{team.isMine ? " · YOU" : ""}</small></p>
-                      <b>{team.points.toFixed(2)}</b>
+                      <ScoreWithProjection team={team} />
                       {leader === team.rosterId && <i>▲</i>}
                     </div>
                   ))}
@@ -5383,7 +5410,7 @@ function Scoreboard({
                         {team.isMine ? " · YOU" : ""}
                       </small>
                     </p>
-                    <b>{team.points.toFixed(2)}</b>
+                    <ScoreWithProjection team={team} />
                     {leader === team.rosterId && <i>▲</i>}
                   </div>
                 ))}
@@ -9640,7 +9667,7 @@ function HeadToHeadMatchup({
           <span>{team.isMine ? "YOUR TEAM" : side}</span>
           <h3>{team.teamName}</h3>
           <small>{team.managerName}</small>
-          <strong>{team.points.toFixed(2)}</strong>
+          <ScoreWithProjection team={team} />
           {leaderId === team.rosterId && <i>LEADING</i>}
         </header>
         <div className="head-to-head-group">
@@ -9695,9 +9722,9 @@ function HeadToHeadMatchup({
       {matchup && firstTeam && secondTeam ? (
         <>
           <section className="head-to-head-score panel">
-            <div><small>{firstTeam.isMine ? "YOU" : firstTeam.teamName}</small><strong>{firstTeam.points.toFixed(2)}</strong></div>
+            <div><small>{firstTeam.isMine ? "YOU" : firstTeam.teamName}</small><ScoreWithProjection team={firstTeam} /></div>
             <span><b>{matchup.status === "Live" ? "● LIVE" : matchup.status}</b><i>VS</i><small>Week {data?.week}</small></span>
-            <div><small>{secondTeam.isMine ? "YOU" : secondTeam.teamName}</small><strong>{secondTeam.points.toFixed(2)}</strong></div>
+            <div><small>{secondTeam.isMine ? "YOU" : secondTeam.teamName}</small><ScoreWithProjection team={secondTeam} /></div>
           </section>
           <div className="head-to-head-grid">
             {teamColumn(firstTeam, "TEAM 1")}
