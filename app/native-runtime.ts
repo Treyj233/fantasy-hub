@@ -173,8 +173,20 @@ export function isNativeIosApp() {
   return Capacitor.isNativePlatform() && Capacitor.getPlatform() === "ios";
 }
 
+const nativeHapticsPreferenceKey = "fantasy-hub-vibrations-enabled";
+
+export function nativeHapticsEnabled() {
+  if (typeof window === "undefined") return true;
+  return window.localStorage.getItem(nativeHapticsPreferenceKey) !== "false";
+}
+
+export function setNativeHapticsEnabled(enabled: boolean) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(nativeHapticsPreferenceKey, String(enabled));
+}
+
 export async function nativeImpact(style: "light" | "medium" = "light") {
-  if (!isNativeIosApp()) return;
+  if (!isNativeIosApp() || !nativeHapticsEnabled()) return;
   await Haptics.impact({
     style: style === "medium" ? ImpactStyle.Medium : ImpactStyle.Light,
   }).catch(() => undefined);

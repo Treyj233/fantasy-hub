@@ -7,7 +7,7 @@ import { estimatedWinProbability, playerLeverage, rootingInterests, whatDoINeed 
 import { classifyFantasyPlay, findEspnPlayContext, matchupImpactText } from "./live-play-alerts.mjs";
 import { PRE_KICKOFF_VISUALS_ENABLED } from "./pre-kickoff-visuals";
 import { DEFAULT_PUSH_PREFERENCES, type PushAlertKey, type PushPreferences } from "./push-preferences";
-import { disableNativePushNotifications, enableNativePushNotifications, initializeNativeRuntime, isNativeIosApp, nativeImpact, nativeManageSubscriptions, nativePurchase, nativeRefreshPurchases, nativeRestorePurchases, nativeStoreProducts } from "./native-runtime";
+import { disableNativePushNotifications, enableNativePushNotifications, initializeNativeRuntime, isNativeIosApp, nativeHapticsEnabled, nativeImpact, nativeManageSubscriptions, nativePurchase, nativeRefreshPurchases, nativeRestorePurchases, nativeStoreProducts, setNativeHapticsEnabled } from "./native-runtime";
 import { useOverflowAutoScroll } from "./use-overflow-auto-scroll";
 import { useOverlayGuard } from "./use-overlay-guard";
 import { useProductMonitoring } from "./use-product-monitoring";
@@ -3079,6 +3079,7 @@ function AccessAccount({ accountUser, entitlement, onPlans }: { accountUser: Acc
   const [pushBusy, setPushBusy] = useState(false);
   const [pushPreferences, setPushPreferences] = useState<PushPreferences>(DEFAULT_PUSH_PREFERENCES);
   const [pushMessage, setPushMessage] = useState("");
+  const [vibrationsEnabled, setVibrationsEnabled] = useState(() => nativeHapticsEnabled());
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
   const [deletingAccount, setDeletingAccount] = useState(false);
   const [deleteError, setDeleteError] = useState("");
@@ -3092,6 +3093,13 @@ function AccessAccount({ accountUser, entitlement, onPlans }: { accountUser: Acc
       if (data?.preferences) setPushPreferences(data.preferences);
     }).catch(() => undefined);
   }, [nativeIos]);
+
+  function toggleVibrations() {
+    const next = !vibrationsEnabled;
+    setNativeHapticsEnabled(next);
+    setVibrationsEnabled(next);
+    if (next) void nativeImpact("medium");
+  }
 
   async function updatePushPreference(key: PushAlertKey) {
     const previous = pushPreferences;
@@ -3203,6 +3211,10 @@ function AccessAccount({ accountUser, entitlement, onPlans }: { accountUser: Acc
       ] as [PushAlertKey, string, string][]).map(([key, title, detail]) => <button type="button" key={key} className={pushPreferences[key] ? "enabled" : ""} aria-pressed={pushPreferences[key]} disabled={pushBusy} onClick={() => void updatePushPreference(key)}><i aria-hidden="true">{pushPreferences[key] ? "✓" : ""}</i><span><strong>{title}</strong><small>{detail}</small></span></button>)}</div>
       </details>}
       {pushMessage && <p className="notification-message" role="status">{pushMessage}</p>}
+    </section>}
+    {nativeIos && <section className="device-feedback panel">
+      <div><span>DEVICE FEEDBACK</span><h3>Vibrations</h3><p>Use subtle haptic feedback when navigating, opening trays, and selecting Fantasy Hub controls.</p></div>
+      <button type="button" role="switch" aria-checked={vibrationsEnabled} className={vibrationsEnabled ? "enabled" : ""} onClick={toggleVibrations}><i aria-hidden="true" /><span>{vibrationsEnabled ? "On" : "Off"}</span></button>
     </section>}
     <section className="account-settings-grid">
       <article className="panel account-profile-card"><header><span>{accountUser.displayName.slice(0,1).toUpperCase()}</span><div><small>ACCOUNT PROFILE</small><h3>{accountUser.displayName}</h3><p>{accountUser.email}</p></div></header><dl><div><dt>Sign-in provider</dt><dd>{accountUser.provider === "clerk" ? "Fantasy Hub account" : "ChatGPT"}</dd></div><div><dt>Membership</dt><dd>{entitlement.pro ? "Fantasy Hub Pro" : "Fantasy Hub Free"}</dd></div></dl><p className="account-edit-note">Name, email, password, and connected sign-in methods are securely managed by your authentication provider.</p></article>
