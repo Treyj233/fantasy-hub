@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { useAuth } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef } from "react";
 import LaunchSplash from "./LaunchSplash";
 
 function InitialLoadingShell() {
@@ -22,13 +22,13 @@ export default function FantasyHubLoader({
 }) {
   const { isLoaded, isSignedIn } = useAuth();
   const router = useRouter();
-  const [sessionRefreshRequested, setSessionRefreshRequested] = useState(false);
+  const sessionRefreshRequested = useRef(false);
 
   useEffect(() => {
-    if (accountUser || !isLoaded || !isSignedIn || sessionRefreshRequested) return;
-    setSessionRefreshRequested(true);
+    if (accountUser || !isLoaded || !isSignedIn || sessionRefreshRequested.current) return;
+    sessionRefreshRequested.current = true;
     router.refresh();
-  }, [accountUser, isLoaded, isSignedIn, router, sessionRefreshRequested]);
+  }, [accountUser, isLoaded, isSignedIn, router]);
 
   if (!accountUser && (!isLoaded || isSignedIn)) return <InitialLoadingShell />;
   return <FantasyHub accountUser={accountUser} />;

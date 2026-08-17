@@ -21,3 +21,37 @@ test("sums only starters and preserves commissioner overrides", () => {
   assert.equal(liveTeamPoints(players), 20.75);
   assert.equal(liveTeamPoints(players, 19.1), 19.1);
 });
+
+test("Sunday game-day scoring advances between official Sleeper reconciliations", () => {
+  const scoring = { pass_yd: 0.04, pass_td: 4, pass_int: -2, rush_yd: 0.1, rush_td: 6, rec: 1, rec_yd: 0.1, rec_td: 6 };
+  const starters = (snapshot) => [
+    { isStarter: true, points: sleeperFantasyPoints(snapshot.qb, scoring, "QB") },
+    { isStarter: true, points: sleeperFantasyPoints(snapshot.rb, scoring, "RB") },
+    { isStarter: false, points: sleeperFantasyPoints(snapshot.bench, scoring, "WR") },
+  ];
+
+  const kickoff = starters({ qb: {}, rb: {}, bench: {} });
+  const firstDrive = starters({
+    qb: { pass_yd: 74, pass_td: 1 },
+    rb: { rush_yd: 18, rec: 1, rec_yd: 7 },
+    bench: { rec: 2, rec_yd: 45 },
+  });
+  const secondDrive = starters({
+    qb: { pass_yd: 126, pass_td: 1, pass_int: 1 },
+    rb: { rush_yd: 42, rush_td: 1, rec: 2, rec_yd: 16 },
+    bench: { rec: 4, rec_yd: 82, rec_td: 1 },
+  });
+
+  assert.equal(liveTeamPoints(kickoff), 0);
+  assert.equal(liveTeamPoints(firstDrive), 10.46);
+  assert.equal(liveTeamPoints(secondDrive), 20.84);
+
+  // Sleeper's league matchup payload can remain at the prior 15-minute true-up;
+  // the shared 30-second player snapshot continues moving the displayed score.
+  const sleeperOfficialBeforeTrueUp = 10.46;
+  assert.notEqual(liveTeamPoints(secondDrive), sleeperOfficialBeforeTrueUp);
+  assert.equal(liveTeamPoints(secondDrive), 20.84);
+
+  // A commissioner override always wins, including during calculated live scoring.
+  assert.equal(liveTeamPoints(secondDrive, 20.5), 20.5);
+});
