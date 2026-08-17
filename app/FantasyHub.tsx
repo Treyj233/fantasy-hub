@@ -5238,9 +5238,8 @@ function AllLeagueScoreboard({
                   {[mine, opponent].map((team) => (
                     <div className={team.isMine ? "mine" : ""} key={team.rosterId}>
                       <span>{team.teamName.slice(0, 3).toUpperCase()}</span>
-                      <p><strong>{team.teamName}</strong><small>{team.managerName}{team.isMine ? " · YOU" : ""}</small></p>
+                      <p><strong>{team.teamName}</strong><small>{team.managerName}{team.isMine ? " · YOU" : ""}{leader === team.rosterId && <em className="score-leader"> · LEADING</em>}</small></p>
                       <ScoreWithProjection team={team} />
-                      {leader === team.rosterId && <i>▲</i>}
                     </div>
                   ))}
                 </div>
@@ -5408,10 +5407,10 @@ function Scoreboard({
                       <small>
                         {team.managerName}
                         {team.isMine ? " · YOU" : ""}
+                        {leader === team.rosterId && <em className="score-leader"> · LEADING</em>}
                       </small>
                     </p>
                     <ScoreWithProjection team={team} />
-                    {leader === team.rosterId && <i>▲</i>}
                   </div>
                 ))}
               </div>
