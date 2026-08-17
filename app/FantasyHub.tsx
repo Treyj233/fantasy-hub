@@ -692,12 +692,12 @@ type LeagueScan = {
 
 type NavGroup = "Home" | "Game Day" | "Manage Team" | "Analyze League" | "Utilities";
 const navGroupOrder: NavGroup[] = ["Home", "Game Day", "Manage Team", "Analyze League", "Utilities"];
-const mobileCategoryNav: { group: NavGroup; lead: View; label: string }[] = [
-  { group: "Home", lead: "All Leagues", label: "Home" },
-  { group: "Game Day", lead: "Scoreboard", label: "Game Day" },
-  { group: "Manage Team", lead: "Command Center", label: "Manage" },
-  { group: "Analyze League", lead: "League Stories", label: "Analyze" },
-  { group: "Utilities", lead: "Manage Leagues", label: "Utilities" },
+const mobileCategoryNav: { group: NavGroup; lead: View; label: string; categoryTone: string }[] = [
+  { group: "Home", lead: "All Leagues", label: "Home", categoryTone: "category-blue" },
+  { group: "Game Day", lead: "Scoreboard", label: "Game Day", categoryTone: "category-red" },
+  { group: "Manage Team", lead: "Command Center", label: "Manage", categoryTone: "category-yellow" },
+  { group: "Analyze League", lead: "League Stories", label: "Analyze", categoryTone: "category-green" },
+  { group: "Utilities", lead: "Manage Leagues", label: "Utilities", categoryTone: "category-orange" },
 ];
 const nav: { label: View; displayLabel?: string; mark: string; tone: string; group: NavGroup }[] = [
   { label: "All Leagues", displayLabel: "Mission Hub", mark: "◆", tone: "home-prism", group: "Home" },
@@ -2372,7 +2372,7 @@ export default function FantasyHub({
                 }
               }}
             >
-              <i className={`nav-badge ${leadPage.tone}`} aria-hidden="true">{leadPage.mark}</i><span>{item.label}</span>
+              <i className={`nav-badge ${leadPage.tone} ${item.categoryTone}`} aria-hidden="true">{leadPage.mark}</i><span>{item.label}</span>
             </button>
             );
           })}
