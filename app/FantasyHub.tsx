@@ -9666,7 +9666,6 @@ function HeadToHeadMatchup({
           <span>{team.isMine ? "YOUR TEAM" : side}</span>
           <h3>{team.teamName}</h3>
           <small>{team.managerName}</small>
-          <ScoreWithProjection team={team} />
           {leaderId === team.rosterId && <i>LEADING</i>}
         </header>
         <div className="head-to-head-group">
