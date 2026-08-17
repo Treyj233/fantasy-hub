@@ -3360,7 +3360,7 @@ function ProPlans({ entitlement }: { entitlement: AccountEntitlement }) {
 }
 
 function ProFeatureArtwork({ type }: { type: "trade" | "start" | "pulse" }) {
-  const asset = type === "trade" ? "pro-trade-lab-themed.jpg" : type === "start" ? "pro-start-sit-themed.jpg" : "pro-sunday-pulse-themed.jpg";
+  const asset = type === "trade" ? "pro-trade-lab-original.jpg" : type === "start" ? "pro-start-sit-original.jpg" : "pro-sunday-pulse-original.jpg";
   const label = type === "trade" ? "Fantasy Hub Trade Lab" : type === "start" ? "Fantasy Hub Start Sit" : "Fantasy Hub Sunday Pulse";
   return <div className={`pro-feature-art ${type}`} role="img" aria-label={label} style={{ backgroundImage: `url(/marketing/app-store/${asset})` }} />;
 }

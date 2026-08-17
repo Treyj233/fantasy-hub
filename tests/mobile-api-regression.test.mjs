@@ -67,9 +67,9 @@ test("free tools retain manual utility while proprietary controls require Pro", 
   assert.match(dashboard, /ProFeatureArtwork type="trade"/);
   assert.match(dashboard, /ProFeatureArtwork type="start"/);
   assert.match(dashboard, /ProFeatureArtwork type="pulse"/);
-  assert.match(dashboard, /pro-trade-lab-themed\.jpg/);
-  assert.match(dashboard, /pro-start-sit-themed\.jpg/);
-  assert.match(dashboard, /pro-sunday-pulse-themed\.jpg/);
+  assert.match(dashboard, /pro-trade-lab-original\.jpg/);
+  assert.match(dashboard, /pro-start-sit-original\.jpg/);
+  assert.match(dashboard, /pro-sunday-pulse-original\.jpg/);
 });
 
 test("free accounts are forced to the Chargers appearance on client and server", async () => {

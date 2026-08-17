@@ -1405,9 +1405,10 @@ html .sidebar .sidebar-bottom{background:var(--deep)}
 
 /* Pricing stays immediately actionable; campaign artwork enhances the existing feature rows. */
 .pro-plans-page>.pro-plans-hero{order:0}.pro-plans-page>.native-billing-note,.pro-plans-page>.billing-error{order:1}.pro-plans-page>.plan-grid{order:2}.pro-plans-page>.pro-showcase{order:3}.pro-plans-page>.pro-theme-gallery{order:4}.pro-plans-page>.pro-principle{order:5}
-.pro-feature-art{width:min(100%,340px);aspect-ratio:2064/2752;justify-self:center;background-color:#071a35;background-position:center;background-repeat:no-repeat;background-size:contain;border:1px solid #ffffff42;border-radius:15px;box-shadow:0 18px 45px rgb(0 0 0 / .3);transform:perspective(900px) rotateY(-2deg)}.pro-feature-card.reverse>.pro-feature-art{grid-column:1;grid-row:1;transform:perspective(900px) rotateY(2deg)}
-@media(max-width:900px){.pro-feature-card.reverse>.pro-feature-art{grid-column:auto;grid-row:auto}.pro-feature-art{width:min(100%,390px);transform:none!important}}
-@media(max-width:560px){.pro-feature-art{width:min(100%,330px);background-position:center}.pro-feature-card{gap:16px}}
+.pro-showcase .pro-feature-card{grid-template-columns:minmax(180px,.42fr) minmax(0,1.58fr);padding:24px 24px 24px 30px}.pro-showcase .pro-feature-card.reverse{grid-template-columns:minmax(0,1.58fr) minmax(180px,.42fr)}
+.pro-feature-art{width:100%;aspect-ratio:2732/1998;justify-self:stretch;background-color:#f5f7f5;background-position:center;background-repeat:no-repeat;background-size:contain;border:1px solid #ffffff42;border-radius:15px;box-shadow:0 18px 45px rgb(0 0 0 / .3);transform:perspective(1100px) rotateY(-1.25deg)}.pro-feature-card.reverse>.pro-feature-art{grid-column:1;grid-row:1;transform:perspective(1100px) rotateY(1.25deg)}
+@media(max-width:900px){.pro-showcase .pro-feature-card,.pro-showcase .pro-feature-card.reverse{grid-template-columns:1fr}.pro-feature-card.reverse>.pro-feature-art{grid-column:auto;grid-row:auto}.pro-feature-art{width:100%;transform:none!important}}
+@media(max-width:560px){.pro-feature-art{width:100%;background-position:center}.pro-feature-card{gap:16px}}
 
 /* The active-team strip already establishes page context on phones. Follow it
    with a compact title rail instead of repeating a full hero-style intro card. */
