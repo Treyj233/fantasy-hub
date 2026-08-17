@@ -59,7 +59,10 @@ test("freemium access is durable, visible, and enforced on proprietary APIs", as
 
 test("free tools retain manual utility while proprietary controls require Pro", async () => {
   const dashboard = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
-  assert.match(dashboard, /Manual trade calculator/);
+  assert.match(dashboard, /Manual Trade Lab calculator/);
+  assert.match(dashboard, /Fantasy Scoreboard, Sunday Pulse, NFL Games, and Fantasy Matchups/);
+  assert.match(dashboard, /Command Center weekly planning, roster health, alerts, weather, and readiness/);
+  assert.match(dashboard, /All 32 NFL-inspired themes and all 16 navigation icon packs/);
   assert.match(dashboard, /Unlock trade suggestions/);
   assert.match(dashboard, /disabled=\{!isPro\}/);
   assert.match(dashboard, /PRO · Unlock floor-to-ceiling strategy/);
