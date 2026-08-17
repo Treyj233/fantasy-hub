@@ -174,6 +174,28 @@ export async function GET(request: Request) {
   const yourAveragePoints = mineStanding && completedWeek ? mineStanding.points / completedWeek : 0;
   const rosterValueIndex = leagueAveragePoints > 0 ? Math.round(yourAveragePoints / leagueAveragePoints * 100) : 100;
   const playoffProbability = !completedWeek || !mineStanding || !playoffLine ? 50 : Math.max(5, Math.min(95, Math.round((50 + (playoffTeams - mineStanding.rank) * 7 + (mineStanding.wins - playoffLine.wins) * 9) / 5) * 5));
+  const playoffOddsFor = (team: (typeof standings)[number]) => !completedWeek || !playoffLine
+    ? Math.round(playoffTeams / Math.max(1, standings.length) * 100)
+    : Math.max(2, Math.min(98, Math.round((50 + (playoffTeams - team.rank) * 7 + (team.wins - playoffLine.wins) * 9) / 5) * 5));
+  const playoffSeeds = standings.slice(0, playoffTeams).map((team) => ({
+    seed: team.rank, rosterId: team.rosterId, teamName: team.teamName, managerName: team.managerName,
+    record: `${team.wins}-${team.losses}${team.ties ? `-${team.ties}` : ""}`, points: team.points,
+    playoffOdds: playoffOddsFor(team), isMine: team.isMine,
+  }));
+  const bracketSize = 2 ** Math.ceil(Math.log2(Math.max(2, playoffTeams)));
+  const openingMatchups = Array.from({ length: bracketSize / 2 }, (_, index) => {
+    const highSeed = index + 1;
+    const lowSeed = bracketSize - index;
+    return { id: `opening-${highSeed}-${lowSeed}`, label: lowSeed > playoffTeams ? `Seed ${highSeed} bye` : `Seed ${highSeed} vs ${lowSeed}`, teams: [playoffSeeds[highSeed - 1] ?? null, lowSeed <= playoffTeams ? playoffSeeds[lowSeed - 1] ?? null : null], bye: lowSeed > playoffTeams };
+  });
+  const bracketRoundNames = bracketSize <= 4 ? ["Semifinals", "Championship"] : bracketSize <= 8 ? ["Opening round", "Semifinals", "Championship"] : ["Opening round", "Quarterfinals", "Semifinals", "Championship"];
+  const projectedRounds = [{ name: bracketRoundNames[0], matchups: openingMatchups }];
+  let priorMatchupCount = openingMatchups.length;
+  for (let roundIndex = 1; roundIndex < bracketRoundNames.length; roundIndex++) {
+    const matchupCount = Math.max(1, priorMatchupCount / 2);
+    projectedRounds.push({ name: bracketRoundNames[roundIndex], matchups: Array.from({ length: matchupCount }, (_, index) => ({ id: `round-${roundIndex}-${index}`, label: roundIndex === bracketRoundNames.length - 1 ? "Championship" : `Projected matchup ${index + 1}`, teams: [null, null], bye: false })) });
+    priorMatchupCount = matchupCount;
+  }
   const injuryCount = (myRoster?.players ?? []).filter((id) => players[id]?.injury_status && !["Healthy", ""] .includes(players[id]?.injury_status ?? "")).length;
   const season = league.season ?? "";
   await db.insert(seasonNarrativeSnapshots).values({ id: `${user.userId}:${leagueId}:${season}:${currentWeek}`, userId: user.userId, leagueId, season, week: currentWeek, playoffProbability, rosterValueIndex, injuryCount, record: `${mineStanding?.wins ?? 0}-${mineStanding?.losses ?? 0}`, pointsFor: mineStanding?.points ?? 0, capturedAt: new Date().toISOString() }).onConflictDoUpdate({ target: [seasonNarrativeSnapshots.userId, seasonNarrativeSnapshots.leagueId, seasonNarrativeSnapshots.season, seasonNarrativeSnapshots.week], set: { playoffProbability, rosterValueIndex, injuryCount, record: `${mineStanding?.wins ?? 0}-${mineStanding?.losses ?? 0}`, pointsFor: mineStanding?.points ?? 0, capturedAt: new Date().toISOString() } });
@@ -191,7 +213,7 @@ export async function GET(request: Request) {
     rivalry,
     rivalries: { selectedRosterIds: selectedRivalIds, candidates: rivalCandidates, reports: rivalryReports },
     trades,
-    playoff: { teams: playoffTeams, startsWeek: playoffWeek, weeksRemaining: Math.max(0, playoffWeek - currentWeek), yourRank: completedWeek ? mineStanding?.rank ?? null : null, yourWins: completedWeek ? mineStanding?.wins ?? null : null, lineWins: completedWeek ? playoffLine?.wins ?? null : null, summary: !completedWeek ? "The playoff race begins after Week 1 results are recorded." : mineStanding && playoffLine ? mineStanding.rank <= playoffTeams ? `Currently inside the ${playoffTeams}-team playoff field, ${mineStanding.wins - playoffLine.wins} wins relative to the current cutoff.` : `Currently ${mineStanding.wins === playoffLine.wins ? "tied in wins with" : `${playoffLine.wins - mineStanding.wins} wins behind`} the playoff cutoff.` : "Playoff context is unavailable until standings are posted." },
+    playoff: { teams: playoffTeams, startsWeek: playoffWeek, weeksRemaining: Math.max(0, playoffWeek - currentWeek), yourRank: completedWeek ? mineStanding?.rank ?? null : null, yourWins: completedWeek ? mineStanding?.wins ?? null : null, lineWins: completedWeek ? playoffLine?.wins ?? null : null, summary: !completedWeek ? "The playoff race begins after Week 1 results are recorded." : mineStanding && playoffLine ? mineStanding.rank <= playoffTeams ? `Currently inside the ${playoffTeams}-team playoff field, ${mineStanding.wins - playoffLine.wins} wins relative to the current cutoff.` : `Currently ${mineStanding.wins === playoffLine.wins ? "tied in wins with" : `${playoffLine.wins - mineStanding.wins} wins behind`} the playoff cutoff.` : "Playoff context is unavailable until standings are posted.", bracket: { status: currentWeek >= playoffWeek ? "Playoffs in progress" : completedWeek ? "Projected from current standings" : "Preseason projection", seeds: playoffSeeds, rounds: projectedRounds } },
     methodology: "Stories use observed Sleeper matchup scores, rosters and completed transactions. Power movement is standings-based; lineup notes describe outcomes, not decision quality."
     ,seasonNarrative: {
       draftDay: myDraftPicks.length ? { slot: myDraftPicks[0].draft_slot ?? null, picks: myDraftPicks.map((pick) => ({ round: pick.round ?? null, pick: pick.pick_no ?? null, player: pick.player_id ? playerName(pick.player_id) : "Unknown player" })), summary: `Your season began with ${myDraftPicks.length} recorded draft picks${myDraftPicks[0].draft_slot ? ` from draft slot ${myDraftPicks[0].draft_slot}` : ""}.` } : null,
