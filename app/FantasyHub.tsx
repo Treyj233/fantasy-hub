@@ -1611,7 +1611,7 @@ export default function FantasyHub({
       const results = await mapWithConcurrency(leagues, 3, async (league) => {
         try {
           const response = await fetchWithTimeout(
-            `/api/scoreboard?leagueId=${encodeURIComponent(league.id)}&week=${week}`,
+            `/api/scoreboard?leagueId=${encodeURIComponent(league.id)}&week=${week}&scope=mine`,
             {},
             12_000,
           );
@@ -4953,7 +4953,7 @@ function AllLeagueScoreboard({
           3,
           async (league) => {
             try {
-              const response = await fetch(`/api/scoreboard?leagueId=${encodeURIComponent(league.id)}&week=${week}`);
+              const response = await fetch(`/api/scoreboard?leagueId=${encodeURIComponent(league.id)}&week=${week}&scope=mine`);
               if (!response.ok) return [league.id, null] as const;
               return [league.id, await response.json() as ScoreboardData] as const;
             } catch {
@@ -6967,7 +6967,7 @@ function MyTeam({
     const refresh = async () => {
       if (!leagueId) return;
       try {
-        const response = await fetch(`/api/scoreboard?leagueId=${encodeURIComponent(leagueId)}&week=${week}`);
+        const response = await fetch(`/api/scoreboard?leagueId=${encodeURIComponent(leagueId)}&week=${week}&scope=mine`);
         if (!response.ok) return;
         const payload = await response.json() as ScoreboardData;
         const mine = payload.matchups.flatMap((matchup) => matchup.teams.filter((team) => team.isMine).map((team) => ({ matchup, team })))[0];

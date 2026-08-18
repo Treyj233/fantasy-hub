@@ -56,6 +56,7 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const leagueId = url.searchParams.get("leagueId")?.trim();
   const requestedWeek = Number(url.searchParams.get("week"));
+  const requestedScope = url.searchParams.get("scope") === "mine" ? "mine" : "league";
   if (leagueId?.startsWith("espn:")) {
     const [, season, sourceLeagueId] = leagueId.split(":");
     if (!sourceLeagueId) return Response.json({ error: "Select an ESPN league first" }, { status: 400 });
@@ -68,7 +69,9 @@ export async function GET(request: Request) {
       return Response.json({
         ...scoreboard,
         matchups: withCurrentNflStatus(
-          scoreboard.matchups,
+          requestedScope === "mine"
+            ? scoreboard.matchups.filter((matchup) => matchup.teams.some((team) => team.isMine))
+            : scoreboard.matchups,
           scoreboard.week,
           scoreboard.league.currentWeek,
           nflGameInProgress,
@@ -160,8 +163,15 @@ export async function GET(request: Request) {
   };
   const grouped = new Map<number, MatchupRow[]>();
   matchupRows.forEach((row, index) => { const key = row.matchup_id ?? 1000 + index; grouped.set(key, [...(grouped.get(key) ?? []), row]); });
+  const ownRosterId = rosters.find((roster) => roster.owner_id === connection.sleeperUserId)?.roster_id;
+  const ownMatchupId = ownRosterId == null
+    ? undefined
+    : matchupRows.find((row) => row.roster_id === ownRosterId)?.matchup_id;
+  const scopedGroups = requestedScope === "mine" && ownMatchupId != null
+    ? [...grouped.entries()].filter(([matchupId]) => matchupId === ownMatchupId)
+    : [...grouped.entries()];
   const matchups = withCurrentNflStatus(
-    [...grouped.entries()].map(([matchupId, rows]) => ({ matchupId, teams: rows.map(teamFromRow).sort((a, b) => Number(b.isMine) - Number(a.isMine)), status: "Scheduled" })).sort((a, b) => Number(b.teams.some((team) => team.isMine)) - Number(a.teams.some((team) => team.isMine))),
+    scopedGroups.map(([matchupId, rows]) => ({ matchupId, teams: rows.map(teamFromRow).sort((a, b) => Number(b.isMine) - Number(a.isMine)), status: "Scheduled" })).sort((a, b) => Number(b.teams.some((team) => team.isMine)) - Number(a.teams.some((team) => team.isMine))),
     week,
     league.leg ?? week,
     nflGameInProgress,

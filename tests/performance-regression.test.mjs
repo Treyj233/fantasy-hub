@@ -38,6 +38,10 @@ test("launch traffic is bounded and public provider data is edge cached", async 
   assert.match(scoreboard, /leagueUsers: 60 \* 60/);
   assert.match(scoreboard, /sleeperFantasyPoints/);
   assert.match(scoreboard, /getSleeperWeeklyStats/);
+  assert.match(scoreboard, /requestedScope === "mine"/);
+  assert.match(scoreboard, /scopedGroups\.map/);
+  assert.equal((client.match(/scope=mine/g) ?? []).length, 3);
+  assert.match(client, /function Scoreboard[\s\S]+\/api\/scoreboard\?leagueId=\$\{encodeURIComponent\(leagueId\)\}\$\{query\}/);
   assert.match(sharedSleeper, /stats\/nfl\/regular\/\$\{season\}\/\$\{week\}`/);
   assert.match(sharedSleeper, /weeklyStatsRequest/);
   assert.match(sharedSleeper, /playerDirectoryRequest/);
