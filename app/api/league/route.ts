@@ -13,7 +13,7 @@ type SourceProjection = { player_id?: string; stats?: Record<string, number> };
 type MatchupRow = { roster_id?: number; matchup_id?: number | null };
 type TrendingRow = { player_id?: string; count?: number };
 
-const LEAGUE_PAYLOAD_VERSION = 9;
+const LEAGUE_PAYLOAD_VERSION = 10;
 const LEAGUE_SNAPSHOT_TTL_MS = 30 * 60 * 1000;
 const SHARED_TTL_SECONDS = {
   projections: 4 * 60 * 60,
@@ -210,7 +210,7 @@ export async function GET(request: Request) {
         Boolean(seasonProfile?.games);
       if (!hasCurrentRoleSignal) return [];
       const adpBySite = { Sleeper: directSleeperAdp, "Sleeper Single-QB": directSleeperSingleQbAdp, "Sleeper Superflex": directSleeperSuperflexAdp, ESPN: directEspnAdp, "Underdog Single-QB Half PPR": underdogSingleQbHalfPprAdp.get(normalizedAdpKey) ?? null, "Underdog Single-QB Full PPR": underdogSingleQbFullPprAdp.get(normalizedAdpKey) ?? null, "Underdog Superflex Half PPR": underdogSuperflexHalfPprAdp.get(normalizedAdpKey) ?? null };
-      const waiverProjection = leagueProjections.has(playerId) ? platformProjection : projectedPoints;
+      const waiverProjection = platformProjection;
       return [{ id: player.player_id ?? playerId, name, position, team: player.team, opponent: "Matchup pending", projection: platformProjection, leagueProjection: leagueProjections.get(playerId) ?? null, waiverProjection: Number(waiverProjection.toFixed(2)), floor: Number((platformProjection * .68).toFixed(1)), ceiling: Number((platformProjection * 1.38).toFixed(1)), trend: 0, status: player.injury_status ?? "Healthy", role: "Player pool", age: player.age ?? null, rankingValue: Number(value.toFixed(2)), sleeperRank: sourceRank, ageAdjustment: Number(ageAdjustment.toFixed(1)), lineupAdjustment: Number(lineupAdjustment.toFixed(1)), snapPct: snapProfile?.latestPct ?? null, snapAverage: snapProfile?.averagePct ?? null, snapWeek: snapProfile?.latestWeek ?? null, snapSeason: snapProfile?.season ?? null, statsSourceSeason, statsBlended, fantasyPpg2025: seasonProfile?.games ? Number((fantasyPoints! / seasonProfile.games).toFixed(1)) : null, gamesPlayed2025: seasonProfile?.games ?? null, team2025: seasonProfile?.team ?? null, teamOffenseRank2025: seasonTeamOffense?.rank ?? null, teamPointsPerGame2025: seasonTeamOffense?.pointsPerGame ?? null, adpBySite }];
     }).sort((a, b) => b.rankingValue - a.rankingValue).slice(0, 600).map((player, index) => ({ ...player, overallRank: index + 1 }));
     const rosteredPlayerIds = new Set(rosters.flatMap((roster) => roster.players ?? []));

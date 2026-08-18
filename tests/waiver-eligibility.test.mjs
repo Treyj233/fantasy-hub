@@ -91,7 +91,7 @@ test("mobile ADP uses five phone-width columns without horizontal scrolling", as
   assert.match(styles, /\.adp-market-table \.rank-table \{[\s\S]*?overflow-x: hidden;/);
 });
 
-test("waiver order and recommendations use position-normalized projections with league-filtered trends", async () => {
+test("waiver order and recommendations use provider projections with league-filtered trends", async () => {
   const route = await readFile(new URL("../app/api/league/route.ts", import.meta.url), "utf8");
   const hub = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
   const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
@@ -101,7 +101,8 @@ test("waiver order and recommendations use position-normalized projections with 
   assert.match(route, /projectionStats = new Map/);
   assert.match(route, /player\.waiverProjection - stats\.mean\) \/ stats\.deviation/);
   assert.match(route, /Number\(b\.waiverProjection > 0\) - Number\(a\.waiverProjection > 0\)/);
-  assert.match(route, /leagueProjections\.has\(playerId\) \? platformProjection : projectedPoints/);
+  assert.match(route, /const waiverProjection = platformProjection/);
+  assert.doesNotMatch(route, /const waiverProjection = leagueProjections\.has\(playerId\) \? platformProjection : projectedPoints/);
   assert.match(route, /b\.normalizedProjectionScore - a\.normalizedProjectionScore/);
   assert.match(route, /waiverRank: index \+ 1/);
   assert.match(route, /availableById\.get\(row\.player_id\)/);
