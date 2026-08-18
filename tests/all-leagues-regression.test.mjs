@@ -729,7 +729,7 @@ test("Command Center matchup projections mirror each other", async () => {
 
   assert.match(
     styles,
-    /\.command-matchup-strip>div:not\(\.opponent\)\{grid-template-columns:auto minmax\(0,1fr\);text-align:right\}/,
+    /\.command-matchup-strip>div:not\(\.opponent\)\{grid-template-columns:auto minmax\(0,1fr\);text-align:left\}/,
   );
   assert.match(styles, /\.command-matchup-strip>div:not\(\.opponent\) b\{grid-column:1;grid-row:2;text-align:left\}/);
 });
@@ -750,5 +750,5 @@ test("Command Center uses live league context instead of placeholder metrics", a
   assert.match(component, /command-availability/);
   assert.match(component, /command-bench-cost/);
   assert.match(component, /command-trends/);
-  assert.match(component, /command-quick-actions/);
+  assert.doesNotMatch(component, /command-quick-actions/);
 });

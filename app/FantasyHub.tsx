@@ -6975,7 +6975,6 @@ function CommandCenter({
           <div>{trendWatch.map((player) => <button key={player.id} onClick={() => setSelectedPlayer(player)}><span className={`pos pos-${player.position.toLowerCase()}`}>{player.position}</span><p><strong>{player.name}</strong><small>{player.team} · {player.snapPct == null ? "role trend" : `${player.snapPct.toFixed(0)}% snaps`}</small></p><b className={player.trend >= 0 ? "positive" : "negative"}>{player.trend >= 0 ? "+" : ""}{player.trend.toFixed(1)}</b></button>)}{!trendWatch.length && <p className="command-clear">Role movement will appear as weekly usage changes.</p>}</div>
         </section>
       </div>
-      <section className="command-quick-actions"><span>QUICK ACTIONS</span><button onClick={() => setView("Start / Sit")}>⚡ Fix lineup</button><button onClick={() => setView("Waiver Wire")}>＋ Review waivers</button><button onClick={() => setView("Matchups")}>◎ Open matchup</button><button onClick={() => setView("Scoreboard")}>▣ Fantasy scoreboard</button></section>
     </div>
   );
 }
