@@ -4,9 +4,14 @@ import test from "node:test";
 
 test("account shell is released before league enrichment completes", async () => {
   const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
+  const nativeRefresh = source.indexOf("const nativeEntitlementRefresh");
+  const leagueEnrichmentStart = source.indexOf("const leagueEnrichment", nativeRefresh);
+  const accountRequest = source.indexOf('fetch("/api/account")', leagueEnrichmentStart);
   const release = source.indexOf("setAccountLoading(false)");
-  const enrichment = source.indexOf("Promise.allSettled", release);
-  assert.ok(release >= 0 && enrichment > release);
+  const enrichmentAwait = source.indexOf("await leagueEnrichment", release);
+  assert.ok(nativeRefresh >= 0 && leagueEnrichmentStart > nativeRefresh && accountRequest > leagueEnrichmentStart);
+  assert.ok(release >= 0 && enrichmentAwait > release);
+  assert.doesNotMatch(source.slice(nativeRefresh, accountRequest), /await nativeEntitlementRefresh/);
 });
 
 test("portfolio scans preserve saved results while weather requests use a bounded client cache", async () => {

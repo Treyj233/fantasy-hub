@@ -1689,11 +1689,18 @@ export default function FantasyHub({
 
   useEffect(() => {
     if (!accountUser) return;
+    let active = true;
     void (async () => {
+      // League discovery should never wait on StoreKit. Saved leagues can begin
+      // hydrating immediately while purchase state is reconciled in parallel.
+      const nativeEntitlementRefresh = isNativeIosApp()
+        ? nativeRestorePurchases().catch(() => false)
+        : Promise.resolve(false);
+      const leagueEnrichment = Promise.allSettled([
+        loadManagedLeagues(),
+        loadLeagues(true),
+      ]);
       try {
-        // StoreKit currentEntitlements is a prompt-free renewal/revocation
-        // backstop when a server notification was delayed or missed.
-        if (isNativeIosApp()) await nativeRestorePurchases().catch(() => false);
         const response = await fetch("/api/account");
         if (!response.ok) throw new Error("Account unavailable");
         const data = (await response.json()) as {
@@ -1701,6 +1708,7 @@ export default function FantasyHub({
           preferences?: AccountPreferences | null;
           entitlement?: AccountEntitlement;
         };
+        if (!active) return;
         setConnection(data.connection ?? null);
         const nextEntitlement = data.entitlement ?? { plan: "free" as const, status: "inactive", pro: false, currentPeriodEnd: null, provider: null };
         setEntitlement(nextEntitlement);
@@ -1728,22 +1736,46 @@ export default function FantasyHub({
           setNeedsOnboarding(true);
         }
         setAccountLoading(false);
-        const results = await Promise.allSettled([
-          loadManagedLeagues(),
-          loadLeagues(true),
-        ]);
+        const results = await leagueEnrichment;
+        if (!active) return;
         if (results.some((result) => result.status === "rejected"))
           setAccountError(
             "Some league data is still loading. Fantasy Hub will keep retrying as you navigate.",
           );
+        if (isNativeIosApp()) {
+          void nativeEntitlementRefresh.then(async () => {
+            if (!active) return;
+            const reconciledResponse = await fetch("/api/account");
+            if (!reconciledResponse.ok || !active) return;
+            const reconciled = (await reconciledResponse.json()) as {
+              preferences?: AccountPreferences | null;
+              entitlement?: AccountEntitlement;
+            };
+            if (!active) return;
+            const reconciledEntitlement = reconciled.entitlement ?? { plan: "free" as const, status: "inactive", pro: false, currentPeriodEnd: null, provider: null };
+            setEntitlement(reconciledEntitlement);
+            if (reconciled.preferences) {
+              const reconciledTeamTheme = reconciledEntitlement.pro ? reconciled.preferences.teamTheme : "LAC";
+              const reconciledBadgeTheme = reconciledEntitlement.pro ? reconciled.preferences.badgeTheme : "arcade";
+              setTeamTheme(reconciledTeamTheme);
+              setBadgeTheme(reconciledBadgeTheme);
+              window.localStorage.setItem("fantasy-hub-team-theme", reconciledTeamTheme);
+              window.localStorage.setItem("fantasy-hub-badge-theme", reconciledBadgeTheme);
+            }
+          }).catch(() => {
+            // The initial server entitlement remains the safe fallback.
+          });
+        }
       } catch {
+        if (!active) return;
         setAccountError(
           "We couldn’t load your Fantasy Hub account. Refresh and try again.",
         );
       } finally {
-        setAccountLoading(false);
+        if (active) setAccountLoading(false);
       }
     })();
+    return () => { active = false; };
     // Account bootstrap intentionally runs only when the authenticated user changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accountUser]);
