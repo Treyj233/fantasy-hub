@@ -6410,7 +6410,7 @@ function LeagueAnalytics({
                   <header><span>{position} ASSETS</span><b>{room.length} PLAYERS</b></header>
                   {room.map((player) => {
                     const rosterPlayer = players.find((candidate) => candidate.id === player.id);
-                    return <button type="button" key={`allocation-${player.id}`} onClick={() => setSelectedPlayer(player)}><span className={`pos pos-${position.toLowerCase()}`}>{position}</span><p><strong>{player.name}</strong><small>Age {player.age ?? "—"} · {player.phase} · {rosterPlayer ? formatRosterSlot(rosterPlayer.role) : "Roster"}</small></p><b>#{player.positionRank ?? "—"}<small>{position} rank · Overall #{player.overallRank}</small></b><em>View player</em></button>;
+                    return <button type="button" key={`allocation-${player.id}`} onClick={() => setSelectedPlayer(player)}><span className={`pos pos-${position.toLowerCase()}`}>{position}</span><p><strong>{player.name}</strong><small>Age {player.age ?? "—"} · {player.phase} · {rosterPlayer ? formatRosterSlot(rosterPlayer.role) : "Roster"}</small></p><b>#{player.positionRank ?? "—"}<small>{position} rank · Overall #{player.overallRank}</small></b><em>View player →</em></button>;
                   })}
                   {!room.length && <p>No {position} assets are currently rostered.</p>}
                 </div>}
@@ -10830,8 +10830,8 @@ function Header({
 }: {
   eyebrow: string;
   title: string;
-  action: string;
-  onClick: () => void;
+  action?: string;
+  onClick?: () => void;
 }) {
   return (
     <header className="panel-header">
@@ -10839,7 +10839,7 @@ function Header({
         <span>{eyebrow}</span>
         <h3>{title}</h3>
       </div>
-      <button onClick={onClick}>{action} →</button>
+      {action && onClick ? <button type="button" onClick={onClick}>{action} →</button> : null}
     </header>
   );
 }
