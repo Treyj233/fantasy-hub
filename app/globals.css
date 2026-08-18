@@ -977,6 +977,7 @@ html[data-theme="dark"] .team-rank-row .core-assets button{background:rgb(var(--
 .dynasty-page .dynasty-metrics .metric{min-width:0}.dynasty-page .dynasty-metrics .metric strong{overflow:hidden;max-width:100%;font-variant-numeric:tabular-nums;letter-spacing:-.05em;line-height:1;text-overflow:ellipsis;white-space:nowrap}
 .dynasty-page :is(.allocation-grid article>strong,.dynasty-player-list button>b,.window-bars span,.redraft-range-labels b,.analytics-route-card>b){font-family:var(--font-geist-sans),Arial,sans-serif;font-variant-numeric:tabular-nums;font-weight:900;letter-spacing:0}
 .dynasty-page :is(.allocation-grid article>span,.allocation-grid article>small,.dynasty-player-list p strong,.dynasty-player-list p small,.dynasty-player-list button>b small,.analytics-route-card strong,.analytics-route-card em){min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media(min-width:701px) and (max-width:1024px){.dynasty-page .dynasty-plan>div{grid-template-columns:repeat(2,minmax(0,1fr))}.dynasty-page .dynasty-plan .analytics-route-card{min-width:0}.dynasty-page .dynasty-plan .analytics-route-card:nth-child(3){grid-column:1/-1}}
 @media(max-width:700px){.dynasty-page .panel-header h3{font-size:16px}.dynasty-page .dynasty-hero h2{font-size:28px}.dynasty-page .window-score strong{font-size:36px}}
 
 /* Compact Season Simulator presentation. */
