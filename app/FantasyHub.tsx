@@ -461,6 +461,25 @@ type ManagedLeague = {
   status: "live" | "saved" | "oauth_required";
   updatedAt: string;
 };
+type CachedAccountBootstrap = {
+  savedAt: number;
+  connection?: SleeperConnection | null;
+  preferences?: AccountPreferences | null;
+  entitlement?: AccountEntitlement;
+  leagues?: ManagedLeague[];
+  connectedLeagues?: ConnectedLeague[];
+};
+function cachedAccountBootstrap(email?: string): CachedAccountBootstrap | null {
+  if (typeof window === "undefined" || !email) return null;
+  try {
+    const cached = JSON.parse(
+      window.localStorage.getItem(`fantasy-hub-account-bootstrap:${email.trim().toLowerCase()}`) ?? "null",
+    ) as CachedAccountBootstrap | null;
+    return cached && Date.now() - cached.savedAt < 7 * 24 * 60 * 60 * 1000 ? cached : null;
+  } catch {
+    return null;
+  }
+}
 type ScoreboardPlayer = {
   id: string;
   name: string;
@@ -1372,7 +1391,12 @@ export default function FantasyHub({
 }: {
   accountUser: AccountUser | null;
 }) {
+  const cachedAccount = cachedAccountBootstrap(accountUser?.email);
   const [view, setView] = useState<View>("All Leagues");
+  useEffect(() => {
+    if (view === "Trade Lab") void import("./trade-calculator.css");
+    if (view === "Player Rankings" || view === "ADP") void import("./player-ranks.css");
+  }, [view]);
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: "auto" });
     document.documentElement.scrollTop = 0;
@@ -1401,34 +1425,37 @@ export default function FantasyHub({
     String(new Date().getFullYear()),
   );
   const [leagueRefreshedAt, setLeagueRefreshedAt] = useState<number | null>(null);
-  const [connection, setConnection] = useState<SleeperConnection | null>(null);
+  const [connection, setConnection] = useState<SleeperConnection | null>(cachedAccount?.connection ?? null);
   const [leaguePlatform, setLeaguePlatform] = useState("Sleeper");
   const [availableLeagues, setAvailableLeagues] = useState<ConnectedLeague[]>(
-    [],
+    cachedAccount?.connectedLeagues ?? [],
   );
-  const [hiddenLeagueIds, setHiddenLeagueIds] = useState<string[]>([]);
-  const [managedLeagues, setManagedLeagues] = useState<ManagedLeague[]>([]);
+  const [hiddenLeagueIds, setHiddenLeagueIds] = useState<string[]>(() => {
+    try { return JSON.parse(cachedAccount?.preferences?.hiddenLeagueIdsJson ?? "[]") as string[]; }
+    catch { return []; }
+  });
+  const [managedLeagues, setManagedLeagues] = useState<ManagedLeague[]>(cachedAccount?.leagues ?? []);
   const [portfolioScans, setPortfolioScans] = useState<LeagueScan[]>([]);
   const [liveMatchupCount, setLiveMatchupCount] = useState<number | null>(null);
   const [selectedMatchupId, setSelectedMatchupId] = useState<number | null>(
     null,
   );
   const [scoreboardScope, setScoreboardScope] = useState<"all" | "league">("all");
-  const [accountLoading, setAccountLoading] = useState(Boolean(accountUser));
+  const [accountLoading, setAccountLoading] = useState(Boolean(accountUser && !cachedAccount));
   const [accountError, setAccountError] = useState("");
-  const [entitlement, setEntitlement] = useState<AccountEntitlement>({ plan: "free", status: "inactive", pro: false, currentPeriodEnd: null, provider: null });
+  const [entitlement, setEntitlement] = useState<AccountEntitlement>(cachedAccount?.entitlement ?? { plan: "free", status: "inactive", pro: false, currentPeriodEnd: null, provider: null });
   const [rivalryWeek, setRivalryWeek] = useState<RivalryWeek | null>(null);
-  const [needsOnboarding, setNeedsOnboarding] = useState(false);
+  const [needsOnboarding, setNeedsOnboarding] = useState(cachedAccount?.preferences ? !cachedAccount.preferences.onboardingCompletedAt : false);
   const [theme, setTheme] = useState<Theme>(() => {
     if (typeof window === "undefined") return "light";
-    const savedTheme = window.localStorage.getItem("fantasy-hub-theme");
+    const savedTheme = cachedAccount?.preferences?.colorMode ?? window.localStorage.getItem("fantasy-hub-theme");
     if (savedTheme === "light" || savedTheme === "dark") return savedTheme;
     return window.matchMedia("(prefers-color-scheme: dark)").matches
       ? "dark"
       : "light";
   });
-  const [teamTheme, setTeamTheme] = useState("LAC");
-  const [badgeTheme, setBadgeTheme] = useState<BadgeTheme>("arcade");
+  const [teamTheme, setTeamTheme] = useState(cachedAccount?.preferences?.teamTheme ?? "LAC");
+  const [badgeTheme, setBadgeTheme] = useState<BadgeTheme>(cachedAccount?.preferences?.badgeTheme ?? "arcade");
   const effectiveTeamTheme = entitlement.pro ? teamTheme : "LAC";
   const effectiveBadgeTheme: BadgeTheme = entitlement.pro ? badgeTheme : "arcade";
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
@@ -1696,22 +1723,40 @@ export default function FantasyHub({
       const nativeEntitlementRefresh = isNativeIosApp()
         ? nativeRestorePurchases().catch(() => false)
         : Promise.resolve(false);
-      const leagueEnrichment = Promise.allSettled([
-        loadManagedLeagues(),
-        loadLeagues(true),
-      ]);
+      const cachedLeagueId = window.localStorage.getItem("fantasy-hub-active-league");
+      if (cachedLeagueId) void importLeague(cachedLeagueId);
       try {
-        const response = await fetch("/api/account");
-        if (!response.ok) throw new Error("Account unavailable");
-        const data = (await response.json()) as {
+        const freshlyBootstrapped = cachedAccount && Date.now() - cachedAccount.savedAt < 10_000;
+        const data = freshlyBootstrapped ? cachedAccount : await (async () => {
+          const response = await fetch("/api/v1/bootstrap");
+          if (!response.ok) throw new Error("Account unavailable");
+          return await response.json() as {
           connection?: SleeperConnection | null;
           preferences?: AccountPreferences | null;
           entitlement?: AccountEntitlement;
-        };
+          leagues?: ManagedLeague[];
+          connectedLeagues?: ConnectedLeague[];
+          };
+        })();
         if (!active) return;
         setConnection(data.connection ?? null);
         const nextEntitlement = data.entitlement ?? { plan: "free" as const, status: "inactive", pro: false, currentPeriodEnd: null, provider: null };
         setEntitlement(nextEntitlement);
+        setManagedLeagues(data.leagues ?? []);
+        const bootstrappedLeagues = data.connectedLeagues ?? [];
+        if (bootstrappedLeagues.length) {
+          setAvailableLeagues(bootstrappedLeagues);
+          const selected = bootstrappedLeagues.find((league) => league.id === cachedLeagueId) ?? bootstrappedLeagues[0];
+          setLeagueId(selected.id);
+          setLeagueName(selected.name);
+          void importLeague(selected.id, data.connection?.sleeperUserId, selected.rosterId);
+        } else if (data.connection) {
+          void loadLeagues(true).catch(() => setAccountError("League refresh is temporarily unavailable."));
+        }
+        window.localStorage.setItem(
+          `fantasy-hub-account-bootstrap:${accountUser.email.trim().toLowerCase()}`,
+          JSON.stringify({ savedAt: Date.now(), ...data }),
+        );
         if (data.preferences) {
           setTheme(data.preferences.colorMode);
           const effectiveTeamTheme = nextEntitlement.pro ? data.preferences.teamTheme : "LAC";
@@ -1736,12 +1781,6 @@ export default function FantasyHub({
           setNeedsOnboarding(true);
         }
         setAccountLoading(false);
-        const results = await leagueEnrichment;
-        if (!active) return;
-        if (results.some((result) => result.status === "rejected"))
-          setAccountError(
-            "Some league data is still loading. Fantasy Hub will keep retrying as you navigate.",
-          );
         if (isNativeIosApp()) {
           void nativeEntitlementRefresh.then(async () => {
             if (!active) return;
@@ -1856,6 +1895,48 @@ export default function FantasyHub({
     const requestNumber = ++importRequest.current;
     setImportState("loading");
     setSelectedPlayer(null);
+    const applyCachedCore = (data: {
+      league?: { name?: string; platform?: string; status?: string; season?: string; currentWeek?: number };
+      teams?: LeagueTeam[];
+      rankings?: LeagueRanking[];
+      waiverPlayers?: WaiverPlayer[];
+      waiverTrending?: WaiverTrending;
+      rankingContext?: RankingContext;
+      cache?: { refreshedAt?: string };
+    }) => {
+      if (!data.league) return;
+      const importedTeams = data.teams ?? [];
+      const ownedTeam = rosterIdOverride
+        ? importedTeams.find((team) => team.id === rosterIdOverride)
+        : ownerIdOverride
+          ? importedTeams.find((team) => team.ownerId === ownerIdOverride)
+          : importedTeams[0];
+      setLeagueId(requestedLeagueId);
+      setLeagueName(data.league.name ?? "Saved league");
+      setLeaguePlatform(data.league.platform ?? "Sleeper");
+      setLeagueTeams(importedTeams);
+      if (ownedTeam) {
+        setSelectedTeamId(ownedTeam.id);
+        setPlayers(ownedTeam.roster);
+      }
+      setLeagueRankings(data.rankings ?? []);
+      setWaiverPlayers(data.waiverPlayers ?? []);
+      setWaiverTrending(data.waiverTrending ?? { up: [], down: [] });
+      setLeagueStatus(data.league.status ?? "unknown");
+      setLeagueWeek(data.league.currentWeek ?? 0);
+      setLeagueSeason(data.league.season ?? String(new Date().getFullYear()));
+      setRankingContext(data.rankingContext ?? null);
+      setLeagueRefreshedAt(data.cache?.refreshedAt ? new Date(data.cache.refreshedAt).getTime() : null);
+      setImportState("success");
+    };
+    try {
+      const cached = JSON.parse(
+        window.localStorage.getItem(`fantasy-hub-league-bootstrap:${requestedLeagueId}`) ?? "null",
+      ) as Parameters<typeof applyCachedCore>[0] | null;
+      if (cached) applyCachedCore(cached);
+    } catch {
+      window.localStorage.removeItem(`fantasy-hub-league-bootstrap:${requestedLeagueId}`);
+    }
     try {
       const response = await fetch(
         `/api/league?id=${encodeURIComponent(requestedLeagueId)}`,
@@ -1876,6 +1957,11 @@ export default function FantasyHub({
         rankingContext?: RankingContext;
         cache?: { status?: string; refreshedAt?: string };
       };
+      window.localStorage.setItem(
+        `fantasy-hub-league-bootstrap:${requestedLeagueId}`,
+        JSON.stringify(data),
+      );
+      window.localStorage.setItem("fantasy-hub-active-league", requestedLeagueId);
       if (requestNumber !== importRequest.current) return;
       const season = data.league.season ?? String(new Date().getFullYear());
       const currentWeek = Math.max(1, data.league.currentWeek ?? 1);

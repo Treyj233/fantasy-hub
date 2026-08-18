@@ -2,16 +2,15 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-test("account shell is released before league enrichment completes", async () => {
+test("account bootstrap restores cached UI and avoids the legacy launch waterfall", async () => {
   const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
   const nativeRefresh = source.indexOf("const nativeEntitlementRefresh");
-  const leagueEnrichmentStart = source.indexOf("const leagueEnrichment", nativeRefresh);
-  const accountRequest = source.indexOf('fetch("/api/account")', leagueEnrichmentStart);
-  const release = source.indexOf("setAccountLoading(false)");
-  const enrichmentAwait = source.indexOf("await leagueEnrichment", release);
-  assert.ok(nativeRefresh >= 0 && leagueEnrichmentStart > nativeRefresh && accountRequest > leagueEnrichmentStart);
-  assert.ok(release >= 0 && enrichmentAwait > release);
-  assert.doesNotMatch(source.slice(nativeRefresh, accountRequest), /await nativeEntitlementRefresh/);
+  const bootstrapRequest = source.indexOf('fetch("/api/v1/bootstrap")', nativeRefresh);
+  assert.ok(nativeRefresh >= 0 && bootstrapRequest > nativeRefresh);
+  assert.match(source, /cachedAccountBootstrap/);
+  assert.match(source, /fantasy-hub-league-bootstrap:/);
+  assert.doesNotMatch(source.slice(nativeRefresh, bootstrapRequest), /await nativeEntitlementRefresh/);
+  assert.doesNotMatch(source.slice(nativeRefresh, source.indexOf("setAccountLoading(false)", bootstrapRequest)), /fetch\("\/api\/account\/managed-leagues"\)/);
 });
 
 test("portfolio scans preserve saved results while weather requests use a bounded client cache", async () => {

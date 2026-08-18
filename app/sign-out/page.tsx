@@ -14,6 +14,13 @@ export default function SignOutPage() {
       try {
         const response = await fetch("/api/native-auth/session", { method: "DELETE" });
         if (!response.ok) throw new Error("Fantasy Hub session cleanup failed");
+        for (let index = window.localStorage.length - 1; index >= 0; index -= 1) {
+          const key = window.localStorage.key(index);
+          if (key?.startsWith("fantasy-hub-account-bootstrap:") || key?.startsWith("fantasy-hub-league-bootstrap:"))
+            window.localStorage.removeItem(key);
+        }
+        window.localStorage.removeItem("fantasy-hub-native-user");
+        window.localStorage.removeItem("fantasy-hub-active-league");
         if (isNativeIosApp()) {
           await nativeAppleSignOut();
           window.location.replace("/native-sign-in");

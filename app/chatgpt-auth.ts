@@ -56,16 +56,25 @@ async function getClerkUser(): Promise<ChatGPTUser | null> {
   const keys = await getClerkRuntimeKeys();
   if (!keys) return null;
   const session = await auth();
+  const nativeCookie = (await cookies()).get("fh_native_session")?.value;
+  const nativeSession = nativeCookie ? await verifyNativeSession(nativeCookie, keys.secretKey) : null;
+  if (nativeSession?.email && nativeSession.displayName) {
+    const verifiedEmail = nativeSession.email.trim().toLowerCase();
+    return {
+      userId: await resolveCanonicalUserId("clerk", nativeSession.sub, verifiedEmail),
+      displayName: nativeSession.displayName,
+      email: verifiedEmail,
+      fullName: nativeSession.displayName,
+      provider: "clerk",
+      signOutPath: "/sign-out",
+    };
+  }
   let user = session.userId ? await currentUser() : null;
-  if (!user) {
-    const nativeCookie = (await cookies()).get("fh_native_session")?.value;
-    const nativeSession = nativeCookie ? await verifyNativeSession(nativeCookie, keys.secretKey) : null;
-    if (nativeSession) {
-      try {
-        user = await (await clerkClient()).users.getUser(nativeSession.sub);
-      } catch {
-        user = null;
-      }
+  if (!user && nativeSession) {
+    try {
+      user = await (await clerkClient()).users.getUser(nativeSession.sub);
+    } catch {
+      user = null;
     }
   }
   if (!user) return null;
@@ -91,6 +100,8 @@ async function resolveCanonicalUserId(provider: "clerk" | "chatgpt", providerUse
   )).limit(1);
 
   const normalizedEmail = email.trim().toLowerCase();
+  if (existingIdentity?.verifiedEmail === normalizedEmail)
+    return existingIdentity.canonicalUserId;
   const [connection] = await db.select({ userId: sleeperConnections.userId }).from(sleeperConnections)
     .where(sql`lower(${sleeperConnections.email}) = ${normalizedEmail}`).limit(1);
   const preferenceRows = connection ? [] : await db.select({ userId: userPreferences.userId }).from(userPreferences)

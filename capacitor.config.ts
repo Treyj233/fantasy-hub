@@ -14,7 +14,6 @@ const config: CapacitorConfig = {
     scrollEnabled: true,
   },
   server: {
-    url: "https://fantasyhubapp.com",
     allowNavigation: [
       "fantasyhubapp.com",
       "www.fantasyhubapp.com",

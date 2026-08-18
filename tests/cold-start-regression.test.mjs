@@ -1,0 +1,36 @@
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import test from "node:test";
+
+test("native cold launch paints locally before opening the static app entry", async () => {
+  const [config, shell, nativePage] = await Promise.all([
+    readFile(new URL("../capacitor.config.ts", import.meta.url), "utf8"),
+    readFile(new URL("../native-shell/index.html", import.meta.url), "utf8"),
+    readFile(new URL("../app/native-app/page.tsx", import.meta.url), "utf8"),
+  ]);
+  assert.doesNotMatch(config, /url:\s*"https:\/\/fantasyhubapp\.com"/);
+  assert.match(shell, /requestAnimationFrame/);
+  assert.match(shell, /fantasyhubapp\.com\/native-app/);
+  assert.doesNotMatch(shell, /<img[^>]+https:\/\//);
+  assert.match(nativePage, /force-static/);
+  assert.match(nativePage, /clientBootstrap/);
+});
+
+test("native sessions carry verified identity claims to avoid launch-time Clerk lookup", async () => {
+  const [session, exchange, auth] = await Promise.all([
+    readFile(new URL("../app/native-session.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/native-auth/exchange/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/chatgpt-auth.ts", import.meta.url), "utf8"),
+  ]);
+  assert.match(session, /email\?: string/);
+  assert.match(exchange, /verification\?\.status !== "verified"/);
+  assert.match(auth, /nativeSession\?\.email && nativeSession\.displayName/);
+  assert.match(auth, /existingIdentity\?\.verifiedEmail === normalizedEmail/);
+});
+
+test("sign out removes cached private bootstrap data", async () => {
+  const source = await readFile(new URL("../app/sign-out/page.tsx", import.meta.url), "utf8");
+  assert.match(source, /fantasy-hub-account-bootstrap:/);
+  assert.match(source, /fantasy-hub-league-bootstrap:/);
+  assert.match(source, /fantasy-hub-native-user/);
+});

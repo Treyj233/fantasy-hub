@@ -12,8 +12,15 @@ export async function POST(request: Request) {
     const payload = await verifyToken(token, { secretKey: keys.secretKey });
     if (!payload.sub) return Response.json({ error: "Secure native session required" }, { status: 401 });
     const client = await clerkClient();
-    await client.users.getUser(payload.sub);
-    return Response.json({ session: await createNativeSession(payload.sub, keys.secretKey) });
+    const user = await client.users.getUser(payload.sub);
+    const primaryEmail = user.emailAddresses.find((entry) => entry.id === user.primaryEmailAddressId);
+    if (primaryEmail?.verification?.status !== "verified")
+      return Response.json({ error: "A verified email is required" }, { status: 401 });
+    const email = primaryEmail.emailAddress;
+    const displayName = [user.firstName, user.lastName].filter(Boolean).join(" ") || user.username || email;
+    return Response.json({
+      session: await createNativeSession(payload.sub, keys.secretKey, { email, displayName }),
+    });
   } catch {
     return Response.json({ error: "Native session could not be verified" }, { status: 401 });
   }

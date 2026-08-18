@@ -1,4 +1,10 @@
-type NativeSessionPayload = { sub: string; exp: number; v: 1 };
+export type NativeSessionPayload = {
+  sub: string;
+  exp: number;
+  v: 1 | 2;
+  email?: string;
+  displayName?: string;
+};
 
 const encoder = new TextEncoder();
 
@@ -24,8 +30,19 @@ async function signingKey(secret: string) {
   );
 }
 
-export async function createNativeSession(userId: string, secret: string) {
-  const payload: NativeSessionPayload = { sub: userId, exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 30, v: 1 };
+export async function createNativeSession(
+  userId: string,
+  secret: string,
+  identity?: { email: string; displayName: string },
+) {
+  const payload: NativeSessionPayload = {
+    sub: userId,
+    exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 30,
+    v: identity ? 2 : 1,
+    ...(identity
+      ? { email: identity.email.trim().toLowerCase(), displayName: identity.displayName }
+      : {}),
+  };
   const encodedPayload = encodeBase64Url(encoder.encode(JSON.stringify(payload)));
   const signature = await crypto.subtle.sign("HMAC", await signingKey(secret), encoder.encode(encodedPayload));
   return `${encodedPayload}.${encodeBase64Url(new Uint8Array(signature))}`;
@@ -43,7 +60,7 @@ export async function verifyNativeSession(value: string, secret: string) {
     );
     if (!valid) return null;
     const payload = JSON.parse(new TextDecoder().decode(decodeBase64Url(encodedPayload))) as NativeSessionPayload;
-    if (payload.v !== 1 || !payload.sub || payload.exp <= Math.floor(Date.now() / 1000)) return null;
+    if (![1, 2].includes(payload.v) || !payload.sub || payload.exp <= Math.floor(Date.now() / 1000)) return null;
     return payload;
   } catch {
     return null;

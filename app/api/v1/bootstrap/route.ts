@@ -24,11 +24,29 @@ export async function GET(request: Request) {
     teamTheme: entitlement.pro ? preferences.teamTheme : "LAC",
     badgeTheme: entitlement.pro ? preferences.badgeTheme : "arcade",
   } : null;
+  const connectedLeagues = leagues.flatMap((record) => {
+    if (record.status !== "live" || record.identifierType !== "league_id") return [];
+    let meta: { teams?: number; format?: string; scoring?: string; starterCount?: number } = {};
+    try { meta = JSON.parse(record.leagueMetaJson || "{}"); } catch { /* Older records use safe defaults. */ }
+    return [{
+      id: record.provider === "espn" ? `espn:${record.season}:${record.identifier}` : record.identifier,
+      sourceId: record.identifier,
+      provider: record.provider,
+      name: record.leagueName ?? "Saved League",
+      season: record.season ?? String(new Date().getUTCFullYear()),
+      teams: meta.teams ?? 0,
+      format: meta.format ?? "Redraft",
+      scoring: meta.scoring ?? "Platform scoring",
+      rosterId: record.rosterId ?? "",
+      starterCount: meta.starterCount ?? 0,
+    }];
+  });
   return apiJson({
     user: { id: user.userId, displayName: user.displayName, email: user.email },
     connection: connection ?? null,
     preferences: effectivePreferences,
     leagues,
+    connectedLeagues,
     entitlement,
     serverTime: new Date().toISOString(),
   });
