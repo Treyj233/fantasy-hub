@@ -176,6 +176,11 @@ test("scoreboard only reports live matchups while ESPN has an NFL game in progre
   assert.doesNotMatch(source, /week === \(league\.leg \?\? week\) \? "Live"/);
 });
 
+test("Fantasy Scoreboard centers its week selector chevron", async () => {
+  const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  assert.match(styles, /\.scoreboard-head label:after\{content:"";right:15px;bottom:17px;width:7px;height:7px;[^}]*border-right:2px solid var\(--deep\);border-bottom:2px solid var\(--deep\);[^}]*transform:rotate\(45deg\)/);
+});
+
 test("hottest performers explains league help and harm in plain language", async () => {
   const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
   assert.match(source, /Helps in \$\{helps === 1 \? "one" : helps\} league/);
@@ -701,6 +706,32 @@ test("Rams matchup strength uses the shared LAR code", async () => {
   assert.match(dashboard, /normalizeNflTeam\(opponent\.replace/);
   assert.match(matchupModel, /JAC: "JAX", WSH: "WAS", LA: "LAR"/);
   assert.match(matchupModel, /const team = normalizeTeam\(cells\[column\("opponent_team"\)\]\)/);
+});
+
+test("Sunday Pulse clears the sticky mobile navigation", async () => {
+  const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+
+  assert.match(styles, /\.sunday-pulse\{position:sticky;z-index:34;top:112px/);
+  assert.match(
+    styles,
+    /html\[data-native-platform="ios"\] \.sunday-pulse\{top:calc\(112px \+ max\(54px,env\(safe-area-inset-top\)\)\)\}/,
+  );
+});
+
+test("Command Center projection panel stays square", async () => {
+  const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+
+  assert.match(styles, /\.command-center-page \.hero-score\{transform:none\}/);
+});
+
+test("Command Center matchup projections mirror each other", async () => {
+  const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+
+  assert.match(
+    styles,
+    /\.command-matchup-strip>div:not\(\.opponent\)\{grid-template-columns:auto minmax\(0,1fr\);text-align:right\}/,
+  );
+  assert.match(styles, /\.command-matchup-strip>div:not\(\.opponent\) b\{grid-column:1;grid-row:2;text-align:left\}/);
 });
 
 test("Command Center uses live league context instead of placeholder metrics", async () => {
