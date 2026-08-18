@@ -32,7 +32,10 @@ test("launch traffic is bounded and public provider data is edge cached", async 
   assert.match(client, /document\.visibilityState === "visible"/);
   assert.match(scoreboard, /fetchCachedUpstream/);
   assert.match(league, /fetchCachedUpstream/);
-  assert.match(scoreboard, /matchups\/\$\{week\}`, 900/);
+  assert.match(scoreboard, /leagueConfiguration: 6 \* 60 \* 60/);
+  assert.match(scoreboard, /matchupReconciliation: 15 \* 60/);
+  assert.match(scoreboard, /rosterOwners: 60 \* 60/);
+  assert.match(scoreboard, /leagueUsers: 60 \* 60/);
   assert.match(scoreboard, /sleeperFantasyPoints/);
   assert.match(scoreboard, /getSleeperWeeklyStats/);
   assert.match(sharedSleeper, /stats\/nfl\/regular\/\$\{season\}\/\$\{week\}`/);
@@ -56,8 +59,8 @@ test("large dashboard bundle loads behind a lightweight client shell", async () 
   const source = await readFile(new URL("../app/FantasyHubLoader.tsx", import.meta.url), "utf8");
   assert.match(source, /dynamic\(\(\) => import\("\.\/FantasyHub"\)/);
   assert.match(source, /ssr: false/);
-  assert.match(source, /Math\.min\(99/);
-  assert.match(source, /roundedProgress/);
+  assert.match(source, /LaunchSplash/);
+  assert.match(source, /loading: InitialLoadingShell/);
 });
 
 test("league scans expose truthful determinate progress", async () => {

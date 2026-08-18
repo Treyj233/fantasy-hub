@@ -12,6 +12,13 @@ type EspnNflScoreboard = {
   events?: { status?: { type?: { state?: string } } }[];
 };
 
+const SLEEPER_SCOREBOARD_TTL_SECONDS = {
+  leagueConfiguration: 6 * 60 * 60,
+  matchupReconciliation: 15 * 60,
+  rosterOwners: 60 * 60,
+  leagueUsers: 60 * 60,
+} as const;
+
 async function nflWeekHasGameInProgress(season: string, week: number) {
   try {
     const response = await fetchCachedUpstream(
@@ -80,15 +87,27 @@ export async function GET(request: Request) {
   // live scoring. Keep those inputs warm at the edge while the matchup payload
   // retains a periodic reconciliation TTL. Between reconciliations, live points
   // are calculated from the shared 30-second weekly player-stat snapshot.
-  const leagueResponse = await fetchCachedUpstream(`https://api.sleeper.app/v1/league/${leagueId}`, 900);
+  const leagueResponse = await fetchCachedUpstream(
+    `https://api.sleeper.app/v1/league/${leagueId}`,
+    SLEEPER_SCOREBOARD_TTL_SECONDS.leagueConfiguration,
+  );
   if (!leagueResponse.ok) return Response.json({ error: "League unavailable" }, { status: 404 });
   const league = await leagueResponse.json() as { name?: string; season?: string; leg?: number; total_rosters?: number; roster_positions?: string[]; scoring_settings?: Record<string, number> };
   const week = Number.isInteger(requestedWeek) && requestedWeek >= 1 && requestedWeek <= 18 ? requestedWeek : Math.max(1, league.leg ?? 1);
   const season = league.season ?? String(new Date().getUTCFullYear());
   const [matchupsResponse, rostersResponse, usersResponse, playerDirectory, statsSnapshot, projectionsSnapshot, nflGameInProgress] = await Promise.all([
-    fetchCachedUpstream(`https://api.sleeper.app/v1/league/${leagueId}/matchups/${week}`, 900),
-    fetchCachedUpstream(`https://api.sleeper.app/v1/league/${leagueId}/rosters`, 300),
-    fetchCachedUpstream(`https://api.sleeper.app/v1/league/${leagueId}/users`, 900),
+    fetchCachedUpstream(
+      `https://api.sleeper.app/v1/league/${leagueId}/matchups/${week}`,
+      SLEEPER_SCOREBOARD_TTL_SECONDS.matchupReconciliation,
+    ),
+    fetchCachedUpstream(
+      `https://api.sleeper.app/v1/league/${leagueId}/rosters`,
+      SLEEPER_SCOREBOARD_TTL_SECONDS.rosterOwners,
+    ),
+    fetchCachedUpstream(
+      `https://api.sleeper.app/v1/league/${leagueId}/users`,
+      SLEEPER_SCOREBOARD_TTL_SECONDS.leagueUsers,
+    ),
     getSleeperPlayerDirectory(),
     getSleeperWeeklyStats(season, week).catch(() => null),
     getSleeperWeeklyProjections(season, week).catch(() => null),
