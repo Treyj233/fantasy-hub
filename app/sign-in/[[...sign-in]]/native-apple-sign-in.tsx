@@ -30,7 +30,7 @@ export default function NativeAppleSignIn() {
       <h1 id="native-sign-in-title">Welcome back.</h1>
       <p>Use Apple for the fastest in-app sign-in, or choose another secure method below.</p>
       <button type="button" disabled={working} onClick={continueWithApple}>
-        <b aria-hidden="true">●</b>
+        <b aria-hidden="true"></b>
         {working ? "Signing in…" : "Continue with Apple"}
       </button>
       {error ? <p className="native-sign-in-error" role="alert">{error}</p> : null}
