@@ -12,7 +12,8 @@ export default function SignOutPage() {
   useEffect(() => {
     void (async () => {
       try {
-        const response = await fetch("/api/native-auth/session", { method: "DELETE" });
+        const nativeIos = isNativeIosApp();
+        const response = await fetch(`/api/native-auth/session${nativeIos ? "?native=ios" : ""}`, { method: "DELETE" });
         if (!response.ok) throw new Error("Fantasy Hub session cleanup failed");
         for (let index = window.localStorage.length - 1; index >= 0; index -= 1) {
           const key = window.localStorage.key(index);
@@ -21,7 +22,7 @@ export default function SignOutPage() {
         }
         window.localStorage.removeItem("fantasy-hub-native-user");
         window.localStorage.removeItem("fantasy-hub-active-league");
-        if (isNativeIosApp()) {
+        if (nativeIos) {
           // The iOS app has both a Clerk session in the WebView and a native
           // Clerk session. Clear both: otherwise the persisted WebView cookie
           // authenticates the next cold launch even after native sign-out.

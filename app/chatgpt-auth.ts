@@ -56,7 +56,9 @@ async function getClerkUser(): Promise<ChatGPTUser | null> {
   const keys = await getClerkRuntimeKeys();
   if (!keys) return null;
   const session = await auth();
-  const nativeCookie = (await cookies()).get("fh_native_session")?.value;
+  const cookieStore = await cookies();
+  if (cookieStore.get("fh_native_signed_out")?.value === "1") return null;
+  const nativeCookie = cookieStore.get("fh_native_session")?.value;
   const nativeSession = nativeCookie ? await verifyNativeSession(nativeCookie, keys.secretKey) : null;
   if (nativeSession?.email && nativeSession.displayName) {
     const verifiedEmail = nativeSession.email.trim().toLowerCase();

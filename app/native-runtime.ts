@@ -23,6 +23,8 @@ const AppleAuth = registerPlugin<{
 
 export async function nativeAppleCredential() {
   if (!isNativeIosApp()) throw new Error("Native Apple sign-in requires the iOS app");
+  const response = await fetch("/api/native-auth/session", { method: "POST" });
+  if (!response.ok) throw new Error("Fantasy Hub could not begin a new secure session");
   return AppleAuth.signIn();
 }
 
