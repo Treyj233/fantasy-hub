@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { access, readFile } from "node:fs/promises";
 import test from "node:test";
 
 test("native cold launch paints locally before opening the uncached app entry", async () => {
@@ -40,4 +40,17 @@ test("native bootstrap cannot remain indefinitely on the launch splash", async (
   const loader = await readFile(new URL("../app/FantasyHubLoader.tsx", import.meta.url), "utf8");
   assert.match(loader, /window\.setTimeout\(\(\) => controller\.abort\(\), 8000\)/);
   assert.match(loader, /window\.location\.replace\("\/sign-in\?native=ios"\)/);
+});
+
+test("cached native shells from every year-cached release retain their entry bundles", async () => {
+  const loaders = [
+    "FantasyHubLoader-tM1Wf_5h.js",
+    "FantasyHubLoader-PW4_0gVA.js",
+    "FantasyHubLoader-C9FKp2WB.js",
+    "FantasyHubLoader-LdtWeYYP.js",
+    "FantasyHubLoader-BsXV-fWr.js",
+  ];
+  await Promise.all(loaders.map((loader) =>
+    access(new URL(`../public/assets/${loader}`, import.meta.url)),
+  ));
 });
