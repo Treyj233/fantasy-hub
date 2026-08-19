@@ -1909,6 +1909,14 @@ export default function FantasyHub({
     setLeagueRefreshedAt(null);
     setSelectedMatchupId(null);
     setStarterChoice("");
+    const resolveOwnedTeam = (teams: LeagueTeam[]) =>
+      (rosterIdOverride
+        ? teams.find((team) => team.id === rosterIdOverride)
+        : undefined) ??
+      (ownerIdOverride
+        ? teams.find((team) => team.ownerId === ownerIdOverride)
+        : undefined) ??
+      (teams.length === 1 ? teams[0] : undefined);
     const applyCachedCore = (data: {
       league?: { name?: string; platform?: string; status?: string; season?: string; currentWeek?: number };
       teams?: LeagueTeam[];
@@ -1920,11 +1928,7 @@ export default function FantasyHub({
     }) => {
       if (!data.league) return;
       const importedTeams = data.teams ?? [];
-      const ownedTeam = rosterIdOverride
-        ? importedTeams.find((team) => team.id === rosterIdOverride)
-        : ownerIdOverride
-          ? importedTeams.find((team) => team.ownerId === ownerIdOverride)
-          : importedTeams[0];
+      const ownedTeam = resolveOwnedTeam(importedTeams);
       setLeagueId(requestedLeagueId);
       setLeagueName(data.league.name ?? "Saved league");
       setLeaguePlatform(data.league.platform ?? "Sleeper");
@@ -1997,15 +2001,10 @@ export default function FantasyHub({
           ),
         }));
         setLeagueTeams(importedTeams);
-        const ownedTeam = rosterIdOverride
-          ? importedTeams.find((team) => team.id === rosterIdOverride)
-          : ownerIdOverride
-            ? importedTeams.find((team) => team.ownerId === ownerIdOverride)
-            : undefined;
-        if (ownedTeam || importedTeams.length === 1) {
-          const activeTeam = ownedTeam ?? importedTeams[0];
-          setSelectedTeamId(activeTeam.id);
-          setPlayers(activeTeam.roster);
+        const ownedTeam = resolveOwnedTeam(importedTeams);
+        if (ownedTeam) {
+          setSelectedTeamId(ownedTeam.id);
+          setPlayers(ownedTeam.roster);
         } else {
           setSelectedTeamId("");
           setPlayers([]);
