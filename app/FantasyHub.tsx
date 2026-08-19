@@ -3119,7 +3119,7 @@ function SignInScreen() {
       </header>
 
       <section className="auth-landing-hero">
-        <div className="auth-live-pill"><i /> LIVE LEAGUE INTELLIGENCE</div>
+        <div className="auth-live-pill"><i /> SUNDAY PULSE · LIVE MATCHUP INTELLIGENCE</div>
         <h1>Run your league.<br /><em>Own the week.</em></h1>
         <p>Every matchup, move, and decision in one command center.</p>
 

@@ -63,9 +63,17 @@ test("the landing screen offers dedicated login and signup routes while ChatGPT 
   assert.match(dashboard, /const signUpHref = nativeIos \? "\/sign-up\?native=ios" : "\/sign-up"/);
   assert.match(dashboard, /className="auth-landing-login" href=\{signInHref\}>Log in/);
   assert.match(dashboard, /className="auth-landing-signup" href=\{signUpHref\}>Create account/);
+  assert.match(dashboard, /SUNDAY PULSE · LIVE MATCHUP INTELLIGENCE/);
   assert.doesNotMatch(dashboard, /signin-with-chatgpt/);
   assert.match(signIn, /!nativeIos \? <a className="clerk-chatgpt-option" href="\/signin-with-chatgpt\?return_to=\/"/);
   assert.doesNotMatch(signIn, /chatgpt-web-only/);
+});
+
+test("the signed-out landing screen stays within the native iPhone safe area", async () => {
+  const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  assert.match(styles, /html\[data-native-platform="ios"\] \.auth-landing\{[^}]*height:100svh;min-height:100svh/);
+  assert.match(styles, /padding-top:max\(14px,calc\(env\(safe-area-inset-top\) \+ 8px\)\)/);
+  assert.match(styles, /padding-bottom:max\(12px,calc\(env\(safe-area-inset-bottom\) \+ 8px\)\)/);
 });
 
 test("new accounts start in light mode without changing saved account preferences", async () => {
