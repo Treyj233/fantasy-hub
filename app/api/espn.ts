@@ -143,13 +143,19 @@ export async function normalizeEspnLeague(payload: EspnPayload) {
   };
   const rosteredIds = new Set(rosterPlayers.map((player) => player.id));
   const rankingPool = universe.map((player) => playerShape(player)).filter((player) => ["QB", "RB", "WR", "TE", "K", "DEF"].includes(player.position)).sort((a, b) => b.rankingValue - a.rankingValue).map((player, index) => ({ ...player, overallRank: index + 1 }));
+  const rankingById = new Map(rankingPool.map((player) => [player.id, player]));
   const currentMatchups = (payload.schedule ?? []).filter((row) => row.matchupPeriodId === (payload.status?.currentMatchupPeriod ?? week));
   const matchupByTeam = new Map<number, number>();
   currentMatchups.forEach((row, index) => { if (row.home?.teamId) matchupByTeam.set(row.home.teamId, index + 1); if (row.away?.teamId) matchupByTeam.set(row.away.teamId, index + 1); });
   const teams = (payload.teams ?? []).map((team, index) => {
     const ownerId = team.primaryOwner ?? team.owners?.[0] ?? "";
     const owner = members.get(ownerId);
-    const roster = (team.roster?.entries ?? []).flatMap((entry) => entry.playerPoolEntry?.player ? [playerShape(entry.playerPoolEntry.player, slotById[entry.lineupSlotId ?? 20] ?? "Bench")] : []);
+    const roster = (team.roster?.entries ?? []).flatMap((entry) => {
+      if (!entry.playerPoolEntry?.player) return [];
+      const role = slotById[entry.lineupSlotId ?? 20] ?? "Bench";
+      const shaped = playerShape(entry.playerPoolEntry.player, role);
+      return [{ ...shaped, ...rankingById.get(shaped.id), role }];
+    });
     return { id: String(team.id ?? index + 1), ownerId: `espn-team:${team.id ?? index + 1}`, managerName: owner?.displayName ?? (`${owner?.firstName ?? ""} ${owner?.lastName ?? ""}`.trim() || `Manager ${index + 1}`), teamName: teamName(team), matchupId: matchupByTeam.get(team.id ?? 0) ?? null, roster, draftCapital: { score: 0, picks: [] } };
   });
   const scoring = receptionPoints >= .75 ? "PPR" : receptionPoints >= .25 ? "Half PPR" : "Standard";

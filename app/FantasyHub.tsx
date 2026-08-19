@@ -11,6 +11,7 @@ import { disableNativePushNotifications, enableNativePushNotifications, initiali
 import { useOverflowAutoScroll } from "./use-overflow-auto-scroll";
 import { useOverlayGuard } from "./use-overlay-guard";
 import { useProductMonitoring } from "./use-product-monitoring";
+import { isProtectedWaiverDrop, waiverMarketProtection } from "./waiver-drop-model.mjs";
 import LaunchSplash from "./LaunchSplash";
 import { cacheActiveLeagueBootstrap, readSessionCache, safeLocalStorageSet, writeSessionCache } from "./local-storage";
 
@@ -63,6 +64,13 @@ type Player = {
   team2025?: string | null;
   teamOffenseRank2025?: number | null;
   teamPointsPerGame2025?: number | null;
+  overallRank?: number;
+  sleeperRank?: number;
+  rankingValue?: number;
+  adpBySite?: Record<string, number | null>;
+  age?: number | null;
+  ageAdjustment?: number;
+  lineupAdjustment?: number;
 };
 type MatchupStrength = {
   team: string;
@@ -8698,6 +8706,7 @@ function waiverAddDropPlan(
     (player) =>
       player.role === "Bench" &&
       player.id !== add.id &&
+      !isProtectedWaiverDrop(player, context) &&
       (!["K", "DEF"].includes(player.position) || player.position === add.position),
   );
   if (!droppable.length) return { drop: null, improvement: 0, worthIt: false };
@@ -8711,8 +8720,9 @@ function waiverAddDropPlan(
     const projection = player.leagueProjection ?? player.projection;
     const roleEvidence = (player.snapAverage ?? player.snapPct ?? 0) / 25;
     const scarcityProtection = (positionCounts[player.position] ?? 0) <= desiredAt(player.position) + 1 ? 3 : 0;
+    const marketProtection = waiverMarketProtection(player, context);
     const availabilityPenalty = ["Out", "IR", "Suspended"].includes(player.status) ? -2 : 0;
-    return projection + roleEvidence + scarcityProtection + availabilityPenalty;
+    return projection + roleEvidence + scarcityProtection + marketProtection + availabilityPenalty;
   };
   const drop = [...droppable].sort((a, b) => dropUtility(a) - dropUtility(b))[0];
   const addProjection = add.leagueProjection ?? add.projection;

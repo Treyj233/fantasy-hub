@@ -13,7 +13,7 @@ type SourceProjection = { player_id?: string; stats?: Record<string, number> };
 type MatchupRow = { roster_id?: number; matchup_id?: number | null };
 type TrendingRow = { player_id?: string; count?: number };
 
-const LEAGUE_PAYLOAD_VERSION = 11;
+const LEAGUE_PAYLOAD_VERSION = 12;
 const LEAGUE_SNAPSHOT_TTL_MS = 30 * 60 * 1000;
 const SHARED_TTL_SECONDS = {
   projections: 4 * 60 * 60,
@@ -213,6 +213,7 @@ export async function GET(request: Request) {
       const waiverProjection = platformProjection;
       return [{ id: player.player_id ?? playerId, name, position, team: player.team, opponent: "Matchup pending", projection: platformProjection, leagueProjection: leagueProjections.get(playerId) ?? null, waiverProjection: Number(waiverProjection.toFixed(2)), floor: Number((platformProjection * .68).toFixed(1)), ceiling: Number((platformProjection * 1.38).toFixed(1)), trend: 0, status: player.injury_status ?? "Healthy", role: "Player pool", age: player.age ?? null, rankingValue: Number(value.toFixed(2)), sleeperRank: sourceRank, ageAdjustment: Number(ageAdjustment.toFixed(1)), lineupAdjustment: Number(lineupAdjustment.toFixed(1)), snapPct: snapProfile?.latestPct ?? null, snapAverage: snapProfile?.averagePct ?? null, snapWeek: snapProfile?.latestWeek ?? null, snapSeason: snapProfile?.season ?? null, statsSourceSeason, statsBlended, fantasyPpg2025: seasonProfile?.games ? Number((fantasyPoints! / seasonProfile.games).toFixed(1)) : null, gamesPlayed2025: seasonProfile?.games ?? null, team2025: seasonProfile?.team ?? null, teamOffenseRank2025: seasonTeamOffense?.rank ?? null, teamPointsPerGame2025: seasonTeamOffense?.pointsPerGame ?? null, adpBySite }];
     }).sort((a, b) => b.rankingValue - a.rankingValue).slice(0, 600).map((player, index) => ({ ...player, overallRank: index + 1 }));
+    const rankingById = new Map(rankingPool.map((player) => [player.id, player]));
     const rosteredPlayerIds = new Set(rosters.flatMap((roster) => roster.players ?? []));
     const availablePool = league.status === "pre_draft" ? [] : rankingPool.filter((player) => !rosteredPlayerIds.has(player.id));
     const projectionStats = new Map<string, { mean: number; deviation: number }>();
@@ -262,10 +263,11 @@ export async function GET(request: Request) {
       const normalized = orderedRoster.flatMap(({ playerId, role }) => {
         const player = sourcePlayers[playerId];
         if (!player) return [];
+        const ranking = rankingById.get(player.player_id ?? playerId);
         const platformProjection = leagueProjections.get(playerId) ?? 0;
         const name = player.full_name ?? `${player.first_name ?? ""} ${player.last_name ?? ""}`.trim();
         const snapProfile = snapProfileFor(snapProfiles, name);
-        return [{ id: player.player_id ?? playerId, name, position: player.position ?? "FLEX", team: player.team ?? "FA", opponent: "Matchup pending", projection: platformProjection, leagueProjection: leagueProjections.get(playerId) ?? null, floor: Number((platformProjection * .68).toFixed(1)), ceiling: Number((platformProjection * 1.38).toFixed(1)), trend: 0, status: player.injury_status ?? "Healthy", role, snapPct: snapProfile?.latestPct ?? null, snapAverage: snapProfile?.averagePct ?? null, snapWeek: snapProfile?.latestWeek ?? null, snapSeason: snapProfile?.season ?? null }];
+        return [{ ...ranking, id: player.player_id ?? playerId, name, position: player.position ?? "FLEX", team: player.team ?? "FA", opponent: "Matchup pending", projection: platformProjection, leagueProjection: leagueProjections.get(playerId) ?? null, floor: Number((platformProjection * .68).toFixed(1)), ceiling: Number((platformProjection * 1.38).toFixed(1)), trend: 0, status: player.injury_status ?? "Healthy", role, snapPct: snapProfile?.latestPct ?? null, snapAverage: snapProfile?.averagePct ?? null, snapWeek: snapProfile?.latestWeek ?? null, snapSeason: snapProfile?.season ?? null }];
       });
       const rosterId = roster.roster_id ?? rosterIndex + 1;
       const ownedPicks = draftPicks.filter((pick) => pick.ownerRosterId === rosterId).sort((a, b) => a.season - b.season || a.round - b.round);
