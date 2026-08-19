@@ -12,7 +12,7 @@ import { useOverflowAutoScroll } from "./use-overflow-auto-scroll";
 import { useOverlayGuard } from "./use-overlay-guard";
 import { useProductMonitoring } from "./use-product-monitoring";
 import LaunchSplash from "./LaunchSplash";
-import { cacheActiveLeagueBootstrap, safeLocalStorageSet } from "./local-storage";
+import { cacheActiveLeagueBootstrap, readSessionCache, safeLocalStorageSet, writeSessionCache } from "./local-storage";
 
 type View =
   | "Command Center"
@@ -5622,14 +5622,23 @@ function Scoreboard({
   const [week, setWeek] = useState(
     defaultWeek >= 1 && defaultWeek <= 18 ? defaultWeek : 1,
   );
-  const [data, setData] = useState<ScoreboardData | null>(null);
+  const [data, setData] = useState<ScoreboardData | null>(() =>
+    readSessionCache<ScoreboardData>(
+      `fantasy-hub-scoreboard:${leagueId}:${defaultWeek >= 1 && defaultWeek <= 18 ? defaultWeek : 1}:all`,
+    ),
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
     let active = true;
+    const cacheKey = `fantasy-hub-scoreboard:${leagueId}:${week}:all`;
+    const cached = readSessionCache<ScoreboardData>(cacheKey);
+    let hasCached = Boolean(cached);
+    if (cached) setData(cached);
+    else setData(null);
     const refresh = async () => {
-      setLoading(true);
+      if (!hasCached) setLoading(true);
       try {
         if (!leagueId) throw new Error("No league selected");
         const query = week ? `&week=${week}` : "";
@@ -5643,6 +5652,8 @@ function Scoreboard({
           throw new Error(payload.error ?? "Scores unavailable");
         if (!active) return;
         setData(payload);
+        writeSessionCache(cacheKey, payload);
+        hasCached = true;
         setWeek((current) => current ?? payload.week);
         setError("");
       } catch (requestError) {
@@ -9863,9 +9874,18 @@ function HeadToHeadMatchup({
   initialMatchupId: number | null;
 }) {
   const openPlayer = useContext(PlayerOpenContext);
+  const initialCachedMatchup = useMemo(
+    () => readSessionCache<ScoreboardData>(`fantasy-hub-scoreboard:${leagueId}:${defaultWeek}:all`),
+    [leagueId, defaultWeek],
+  );
   const [week, setWeek] = useState(defaultWeek);
-  const [data, setData] = useState<ScoreboardData | null>(null);
-  const [matchupId, setMatchupId] = useState<number | null>(initialMatchupId);
+  const [data, setData] = useState<ScoreboardData | null>(initialCachedMatchup);
+  const [matchupId, setMatchupId] = useState<number | null>(
+    initialMatchupId ??
+    initialCachedMatchup?.matchups.find((matchup) => matchup.teams.some((team) => team.isMine))?.matchupId ??
+    initialCachedMatchup?.matchups[0]?.matchupId ??
+    null,
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [nflSchedule, setNflSchedule] = useState<NflScheduleData | null>(null);
@@ -9874,8 +9894,21 @@ function HeadToHeadMatchup({
 
   useEffect(() => {
     let active = true;
+    const cacheKey = `fantasy-hub-scoreboard:${leagueId}:${week}:all`;
+    const cached = readSessionCache<ScoreboardData>(cacheKey);
+    let hasCached = Boolean(cached);
+    if (cached) {
+      setData(cached);
+      setMatchupId((current) =>
+        cached.matchups.some((matchup) => matchup.matchupId === current)
+          ? current
+          : cached.matchups.find((matchup) => matchup.teams.some((team) => team.isMine))?.matchupId ?? cached.matchups[0]?.matchupId ?? null,
+      );
+    } else {
+      setData(null);
+    }
     const refresh = async () => {
-      setLoading(true);
+      if (!hasCached) setLoading(true);
       try {
         const response = await fetch(
           `/api/scoreboard?leagueId=${encodeURIComponent(leagueId)}&week=${week}`,
@@ -9887,6 +9920,8 @@ function HeadToHeadMatchup({
           throw new Error(payload.error ?? "Matchup unavailable");
         if (!active) return;
         setData(payload);
+        writeSessionCache(cacheKey, payload);
+        hasCached = true;
         setMatchupId((current) => {
           if (payload.matchups.some((matchup) => matchup.matchupId === current))
             return current;

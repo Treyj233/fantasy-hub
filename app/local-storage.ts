@@ -47,3 +47,20 @@ export function cacheActiveLeagueBootstrap(leagueId: string, value: string) {
     // A fresh API response remains usable even when caching is unavailable.
   }
 }
+
+export function readSessionCache<T>(key: string): T | null {
+  try {
+    return JSON.parse(window.sessionStorage.getItem(key) ?? "null") as T | null;
+  } catch {
+    try { window.sessionStorage.removeItem(key); } catch { /* Ignore unavailable storage. */ }
+    return null;
+  }
+}
+
+export function writeSessionCache(key: string, value: unknown) {
+  try {
+    window.sessionStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // Matchup caching is optional; live data must continue rendering.
+  }
+}
