@@ -15,7 +15,18 @@ class FantasyHubAppleAuthPlugin: CAPPlugin, CAPBridgedPlugin {
     ]
 
     private var pendingCall: CAPPluginCall?
-    private static let clerkPublishableKey = "pk_test_aW5ub2NlbnQtZmFsY29uLTIwLmNsZXJrLmFjY291bnRzLmRldiQ"
+    private static var clerkPublishableKey: String {
+        guard let key = Bundle.main.object(forInfoDictionaryKey: "ClerkPublishableKey") as? String,
+              !key.isEmpty,
+              !key.hasPrefix("$(") else {
+            fatalError("ClerkPublishableKey is missing from the app configuration")
+        }
+
+#if !DEBUG
+        precondition(key.hasPrefix("pk_live_"), "Release builds must use a production Clerk key")
+#endif
+        return key
+    }
 
     @objc func signIn(_ call: CAPPluginCall) {
         Task { @MainActor [weak self] in

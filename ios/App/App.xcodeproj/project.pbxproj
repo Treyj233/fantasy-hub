@@ -261,6 +261,8 @@
 			buildSettings = {
 				APS_ENVIRONMENT = development;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CLERK_FRONTEND_API_DOMAIN = innocent-falcon-20.clerk.accounts.dev;
+				CLERK_PUBLISHABLE_KEY = "pk_test_aW5ub2NlbnQtZmFsY29uLTIwLmNsZXJrLmFjY291bnRzLmRldiQ";
 				CODE_SIGN_ENTITLEMENTS = App/App.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
@@ -288,6 +290,8 @@
 			buildSettings = {
 				APS_ENVIRONMENT = production;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CLERK_FRONTEND_API_DOMAIN = clerk.fantasyhubapp.com;
+				CLERK_PUBLISHABLE_KEY = "pk_live_Y2xlcmsuZmFudGFzeWh1YmFwcC5jb20k";
 				CODE_SIGN_ENTITLEMENTS = App/App.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
@@ -424,9 +428,11 @@
 			buildSettings = {
 				APS_ENVIRONMENT = development;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CLERK_FRONTEND_API_DOMAIN = innocent-falcon-20.clerk.accounts.dev;
+				CLERK_PUBLISHABLE_KEY = "pk_test_aW5ub2NlbnQtZmFsY29uLTIwLmNsZXJrLmFjY291bnRzLmRldiQ";
 				CODE_SIGN_ENTITLEMENTS = App/App.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 32;
+				CURRENT_PROJECT_VERSION = 33;
 				DEVELOPMENT_TEAM = PSFU9Q2JRK;
 				INFOPLIST_FILE = App/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
@@ -449,9 +455,11 @@
 			buildSettings = {
 				APS_ENVIRONMENT = production;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CLERK_FRONTEND_API_DOMAIN = clerk.fantasyhubapp.com;
+				CLERK_PUBLISHABLE_KEY = "pk_live_Y2xlcmsuZmFudGFzeWh1YmFwcC5jb20k";
 				CODE_SIGN_ENTITLEMENTS = App/App.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 32;
+				CURRENT_PROJECT_VERSION = 33;
 				DEVELOPMENT_TEAM = PSFU9Q2JRK;
 				INFOPLIST_FILE = App/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
