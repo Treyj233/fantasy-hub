@@ -13,7 +13,7 @@ test("signing out clears native and browser sessions with branded feedback", asy
     source,
     /if \(nativeIos\) \{[\s\S]*?await signOut\(\);[\s\S]*?await nativeAppleSignOut\(\);/,
   );
-  assert.match(source, /window\.location\.replace\("\/native-sign-in"\)/);
+  assert.match(source, /window\.location\.replace\("\/sign-in\?native=ios"\)/);
   assert.match(source, /chargers-entry-shell/);
   assert.doesNotMatch(source, /redirectUrl: "\/"/);
   assert.doesNotMatch(source, /setTimeout/);

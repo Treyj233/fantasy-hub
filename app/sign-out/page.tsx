@@ -28,7 +28,7 @@ export default function SignOutPage() {
           // authenticates the next cold launch even after native sign-out.
           await signOut();
           await nativeAppleSignOut();
-          window.location.replace("/native-sign-in");
+          window.location.replace("/sign-in?native=ios");
           return;
         }
         await signOut({ redirectUrl: "/sign-in" });

@@ -8,7 +8,7 @@ test("native Apple auth exchanges its token for a durable signed Fantasy Hub ses
     readFile(new URL("../app/native-session.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/chatgpt-auth.ts", import.meta.url), "utf8"),
     readFile(new URL("../ios/App/App/SceneDelegate.swift", import.meta.url), "utf8"),
-    readFile(new URL("../app/native-sign-in/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/sign-in/[[...sign-in]]/native-apple-sign-in.tsx", import.meta.url), "utf8"),
   ]);
 
   assert.match(route, /verifyToken\(token/);

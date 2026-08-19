@@ -13,4 +13,5 @@ test("an existing Clerk session skips the sign-in screen on launch", async () =>
   assert.match(loader, /if \(!accountUser && \(!isLoaded \|\| isSignedIn\)\) return <InitialLoadingShell/);
   assert.match(signIn, /const \{ userId \} = await auth\(\)/);
   assert.match(signIn, /if \(userId\) redirect\(nativeIos \? "\/native-auth-return" : "\/"\)/);
+  assert.match(signIn, /nativeIos \? <NativeAppleSignIn \/> : null/);
 });

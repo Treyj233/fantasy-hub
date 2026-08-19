@@ -57,7 +57,7 @@ export default function FantasyHubLoader({
       })
       .catch(() => {
         if (!controller.signal.aborted && !nativeAccountUser)
-          window.location.replace("/native-sign-in");
+          window.location.replace("/sign-in?native=ios");
       });
     return () => controller.abort();
     // Native bootstrap runs once; subsequent account refreshes happen inside the dashboard.
