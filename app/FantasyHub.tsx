@@ -3137,8 +3137,9 @@ function SignInScreen() {
       <section className="auth-landing-actions">
         <Link className="auth-landing-login" href={signInHref}>Log in</Link>
         <Link className="auth-landing-signup" href={signUpHref}>Create account</Link>
-        <small>Connect Sleeper securely. We never ask for your Sleeper password.</small>
       </section>
+
+      <p className="auth-league-sync"><b>SLEEPER + ESPN</b><span>Sync every league into one home.</span></p>
 
       <div className="auth-feature-ticker" aria-hidden="true">
         <span>LINEUP INTEL</span><i>◆</i><span>TRADE LAB</span><i>◆</i><span>LIVE SCORES</span><i>◆</i><span>WAIVER WIRE</span>
