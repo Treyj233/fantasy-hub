@@ -34,3 +34,9 @@ test("sign out removes cached private bootstrap data", async () => {
   assert.match(source, /fantasy-hub-league-bootstrap:/);
   assert.match(source, /fantasy-hub-native-user/);
 });
+
+test("native bootstrap cannot remain indefinitely on the launch splash", async () => {
+  const loader = await readFile(new URL("../app/FantasyHubLoader.tsx", import.meta.url), "utf8");
+  assert.match(loader, /window\.setTimeout\(\(\) => controller\.abort\(\), 8000\)/);
+  assert.match(loader, /window\.location\.replace\("\/sign-in\?native=ios"\)/);
+});

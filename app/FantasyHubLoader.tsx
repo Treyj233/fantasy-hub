@@ -37,6 +37,7 @@ export default function FantasyHubLoader({
   useEffect(() => {
     if (!clientBootstrap) return;
     const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 8000);
     void fetch("/api/v1/bootstrap", { signal: controller.signal })
       .then(async (response) => {
         if (!response.ok) throw new Error("Native bootstrap unavailable");
@@ -56,10 +57,13 @@ export default function FantasyHubLoader({
         setNativeAccountUser(user);
       })
       .catch(() => {
-        if (!controller.signal.aborted && !nativeAccountUser)
-          window.location.replace("/sign-in?native=ios");
-      });
-    return () => controller.abort();
+        if (!nativeAccountUser) window.location.replace("/sign-in?native=ios");
+      })
+      .finally(() => window.clearTimeout(timeout));
+    return () => {
+      window.clearTimeout(timeout);
+      controller.abort();
+    };
     // Native bootstrap runs once; subsequent account refreshes happen inside the dashboard.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clientBootstrap]);

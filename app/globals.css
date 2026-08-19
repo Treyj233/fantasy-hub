@@ -1794,7 +1794,7 @@ html[data-theme="dark"] .player-verdict,html[data-theme="dark"] .player-range-co
 .glossary-definition>span{color:var(--green);font-size:8px;font-weight:950;letter-spacing:.13em}
 .glossary-definition h3{margin:5px 0;font-size:16px}
 .glossary-definition p{max-width:820px;margin:0;color:var(--muted);font-size:10px;line-height:1.55}
-.native-auth-return-link{margin-top:18px;padding:10px 14px;color:#001f47;background:#ffc20e;border-radius:9px;font-size:10px;font-weight:900;text-decoration:none;box-shadow:0 8px 22px rgb(0 0 0 / .26)}
+.native-auth-return-link{margin-top:18px;padding:10px 14px;color:#001f47;background:#ffc20e;border:0;border-radius:9px;font:inherit;font-size:10px;font-weight:900;text-decoration:none;box-shadow:0 8px 22px rgb(0 0 0 / .26);cursor:pointer}
 
 /* Keep the live score dominant while making the lineup projection available at a glance. */
 .score-with-projection{display:inline-flex;align-items:baseline;justify-content:flex-end;gap:6px;white-space:nowrap}
