@@ -34,37 +34,93 @@ const csvRow = (line: string) => {
 };
 
 const fantasyPosition = (position: string) =>
-  position === "FB" ? "RB" : ["QB", "RB", "WR", "TE"].includes(position) ? position : null;
+  position === "FB" ? "RB" : ["QB", "RB", "WR", "TE", "K"].includes(position) ? position : null;
 
 const normalizeTeam = (team: string) =>
   ({ JAC: "JAX", WSH: "WAS", LA: "LAR" })[team] ?? team;
 
 async function calculateSeason(season: number) {
-  const response = await fetch(
-    `https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_${season}.csv`,
-    { next: { revalidate: 21600 } },
-  );
-  if (!response.ok) return null;
-  const lines = (await response.text()).trim().split(/\r?\n/);
-  const headers = csvRow(lines.shift() ?? "");
-  const column = (name: string) => headers.indexOf(name);
   const totals = new Map<string, { points: number; weeks: Set<number> }>();
-  for (const line of lines) {
-    const cells = csvRow(line);
-    if (Number(cells[column("season")]) !== season || cells[column("season_type")] !== "REG") continue;
-    const team = normalizeTeam(cells[column("opponent_team")]);
-    const position = fantasyPosition(cells[column("position_group")] || cells[column("position")]);
-    const week = Number(cells[column("week")]);
-    if (!team || !position || !Number.isFinite(week)) continue;
+  const addTotal = (position: string, team: string, week: number, points: number) => {
     const key = `${position}:${team}`;
     const current = totals.get(key) ?? { points: 0, weeks: new Set<number>() };
-    current.points += Number(cells[column("fantasy_points_ppr")]) || 0;
+    current.points += points;
     current.weeks.add(week);
     totals.set(key, current);
+  };
+  const [playerResponse, teamResponse] = await Promise.all([
+    fetch(
+      `https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_${season}.csv`,
+      { next: { revalidate: 21600 } },
+    ).catch(() => null),
+    fetch(
+      `https://github.com/nflverse/nflverse-data/releases/download/stats_team/stats_team_week_${season}.csv`,
+      { next: { revalidate: 21600 } },
+    ).catch(() => null),
+  ]);
+
+  if (playerResponse?.ok) {
+    const lines = (await playerResponse.text()).trim().split(/\r?\n/);
+    const headers = csvRow(lines.shift() ?? "");
+    const column = (name: string) => headers.indexOf(name);
+    const value = (cells: string[], name: string) => Number(cells[column(name)]) || 0;
+    for (const line of lines) {
+      const cells = csvRow(line);
+      if (Number(cells[column("season")]) !== season || cells[column("season_type")] !== "REG") continue;
+      const team = normalizeTeam(cells[column("opponent_team")]);
+      const listedPosition = cells[column("position")];
+      const position = fantasyPosition(listedPosition === "K" ? listedPosition : cells[column("position_group")] || listedPosition);
+      const week = Number(cells[column("week")]);
+      if (!team || !position || !Number.isFinite(week)) continue;
+      const points = position === "K"
+        ? (value(cells, "fg_made_0_19") + value(cells, "fg_made_20_29") + value(cells, "fg_made_30_39")) * 3
+          + value(cells, "fg_made_40_49") * 4
+          + (value(cells, "fg_made_50_59") + value(cells, "fg_made_60_")) * 5
+          + value(cells, "pat_made")
+        : value(cells, "fantasy_points_ppr");
+      addTotal(position, team, week, points);
+    }
+  }
+
+  if (teamResponse?.ok) {
+    const lines = (await teamResponse.text()).trim().split(/\r?\n/);
+    const headers = csvRow(lines.shift() ?? "");
+    const column = (name: string) => headers.indexOf(name);
+    const value = (cells: string[], name: string) => Number(cells[column(name)]) || 0;
+    const rows = lines.map(csvRow).filter((cells) =>
+      Number(cells[column("season")]) === season && cells[column("season_type")] === "REG",
+    );
+    const rowByGameAndTeam = new Map(rows.map((cells) => [
+      `${cells[column("game_id")]}:${normalizeTeam(cells[column("team")])}`,
+      cells,
+    ]));
+    const pointsAllowedScore = (points: number) =>
+      points === 0 ? 10 : points <= 6 ? 7 : points <= 13 ? 4 : points <= 20 ? 1 : points <= 27 ? 0 : points <= 34 ? -1 : -4;
+
+    for (const cells of rows) {
+      const offense = normalizeTeam(cells[column("team")]);
+      const defense = normalizeTeam(cells[column("opponent_team")]);
+      const week = Number(cells[column("week")]);
+      if (!offense || !defense || !Number.isFinite(week)) continue;
+      const defenseRow = rowByGameAndTeam.get(`${cells[column("game_id")]}:${defense}`);
+      const offensePoints =
+        (value(cells, "passing_tds") + value(cells, "rushing_tds") + value(cells, "special_teams_tds")) * 6
+        + value(cells, "fg_made") * 3
+        + value(cells, "pat_made")
+        + (value(cells, "passing_2pt_conversions") + value(cells, "rushing_2pt_conversions")) * 2;
+      const defensePoints =
+        value(cells, "sacks_suffered")
+        + (value(cells, "passing_interceptions") + value(cells, "fumbles_lost_total")) * 2
+        + pointsAllowedScore(offensePoints)
+        + (defenseRow ? (value(defenseRow, "def_tds") + value(defenseRow, "special_teams_tds")) * 6 : 0)
+        + (defenseRow ? value(defenseRow, "def_safeties") * 2 : 0)
+        + (defenseRow ? (value(defenseRow, "def_punt_blocks") + value(defenseRow, "def_fg_blocks")) * 2 : 0);
+      addTotal("DEF", offense, week, defensePoints);
+    }
   }
   if (!totals.size) return null;
   const positions: MatchupStrengthData["positions"] = {};
-  for (const position of ["QB", "RB", "WR", "TE"]) {
+  for (const position of ["QB", "RB", "WR", "TE", "K", "DEF"]) {
     const teams = [...totals.entries()]
       .filter(([key]) => key.startsWith(`${position}:`))
       .map(([key, total]) => ({

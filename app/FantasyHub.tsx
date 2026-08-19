@@ -1045,6 +1045,8 @@ function applyOpponent(
 const opponentCode = (opponent: string) =>
   normalizeNflTeam(opponent.replace(/^(vs|@)\s+/, "").trim());
 const matchupPosition = (position: string) => position === "FB" ? "RB" : position;
+const matchupPointsLabel = (position: string) =>
+  position === "K" ? "fantasy points allowed to kickers" : position === "DEF" ? "fantasy points allowed to D/ST" : `PPR fantasy points allowed to ${position}`;
 function applyMatchupStrength(player: Player, data: MatchupStrengthData | null) {
   const opponent = opponentCode(player.opponent);
   return {
@@ -1063,7 +1065,7 @@ function MatchupBadge({ player }: { player: Pick<Player, "position" | "opponent"
     <span
       className={`matchup-team matchup-${strength.label.toLowerCase()}`}
       style={{ "--matchup-hue": hue, "--matchup-position": `${strength.score}%` } as CSSProperties}
-      title={`${player.matchupSourceSeason ?? new Date().getUTCFullYear() - 1} ${matchupPosition(player.position)} matchup: ${strength.label}, ${strength.rank}${strength.rank === 1 ? "st" : strength.rank === 2 ? "nd" : strength.rank === 3 ? "rd" : "th"} most PPR fantasy points allowed (${strength.pointsAllowed.toFixed(1)} per game)`}
+      title={`${player.matchupSourceSeason ?? new Date().getUTCFullYear() - 1} ${matchupPosition(player.position)} matchup: ${strength.label}, ${strength.rank}${strength.rank === 1 ? "st" : strength.rank === 2 ? "nd" : strength.rank === 3 ? "rd" : "th"} most ${matchupPointsLabel(matchupPosition(player.position))} (${strength.pointsAllowed.toFixed(1)} per game)`}
     >
       <b>{player.opponent}</b>
       <span><i /><b>{strength.label}</b> · #{strength.rank} vs {matchupPosition(player.position)}</span>
@@ -7149,7 +7151,7 @@ function CommandCenter({
             <>
               <strong>{topMatchupEdge.player.name} · {topMatchupEdge.player.matchupStrength!.label} {topMatchupEdge.player.position} matchup</strong>
               <p>
-                {topMatchupEdge.player.opponent} ranks #{topMatchupEdge.player.matchupStrength!.rank} in PPR fantasy points allowed to {matchupPosition(topMatchupEdge.player.position)}. The {projectionPlatform} projection remains the median; Fantasy Hub adjusts the outcome range used by Start/Sit.
+                {topMatchupEdge.player.opponent} ranks #{topMatchupEdge.player.matchupStrength!.rank} in {matchupPointsLabel(matchupPosition(topMatchupEdge.player.position))}. The {projectionPlatform} projection remains the median; Fantasy Hub adjusts the outcome range used by Start/Sit.
               </p>
               <div>
                 <span>Floor <b>{topMatchupEdge.player.floor.toFixed(1)} → {topMatchupEdge.range.floor.toFixed(1)}</b></span>
