@@ -1889,7 +1889,12 @@ export default function FantasyHub({
     [players],
   );
 
-  async function importLeague(idOverride?: string, ownerIdOverride?: string, rosterIdOverride?: string) {
+  async function importLeague(
+    idOverride?: string,
+    ownerIdOverride?: string,
+    rosterIdOverride?: string,
+    forceRefresh = false,
+  ) {
     const requestedLeagueId = idOverride?.trim() || leagueId.trim();
     if (!requestedLeagueId) return;
     const requestNumber = ++importRequest.current;
@@ -1973,7 +1978,7 @@ export default function FantasyHub({
     }
     try {
       const response = await fetch(
-        `/api/league?id=${encodeURIComponent(requestedLeagueId)}`,
+        `/api/league?id=${encodeURIComponent(requestedLeagueId)}${forceRefresh ? "&refresh=1" : ""}`,
       );
       if (!response.ok) throw new Error("League not found");
       const data = (await response.json()) as {
@@ -2279,7 +2284,10 @@ export default function FantasyHub({
   async function openConnectedLeague(league: ConnectedLeague) {
     setLeagueId(league.id);
     setLeagueName(league.name);
-    await importLeague(league.id, connection?.sleeperUserId, league.rosterId);
+    // A deliberate league switch should never be satisfied by a previously
+    // cached empty snapshot. Refresh the provider payload, then overwrite the
+    // league-specific bootstrap cache with the returned roster data.
+    await importLeague(league.id, connection?.sleeperUserId, league.rosterId, true);
   }
 
   function selectLeagueTeam(teamId: string) {
