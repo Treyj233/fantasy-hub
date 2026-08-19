@@ -34,7 +34,7 @@ export default function NativeAppleSignIn() {
         {working ? "Signing in…" : "Continue with Apple"}
       </button>
       {error ? <p className="native-sign-in-error" role="alert">{error}</p> : null}
-      <div className="native-sign-in-divider"><span>OR USE EMAIL OR ANOTHER METHOD</span></div>
+      <div className="native-sign-in-divider"><span>OR CONTINUE WITH EMAIL</span></div>
     </section>
   );
 }

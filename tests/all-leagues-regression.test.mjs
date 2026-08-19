@@ -39,15 +39,18 @@ test("post-sign-in personalization stays inside the iPhone safe area", async () 
   assert.match(styles, /html\[data-native-platform="ios"\] \.onboarding-shell\{padding-top:max\(64px,calc\(env\(safe-area-inset-top\) \+ 22px\)\)\}/);
 });
 
-test("Apple and Google sign-in remain available in the native iOS app", async () => {
+test("native iOS sign-in keeps SDK Apple above an email-only Clerk card", async () => {
   const signIn = await readFile(new URL("../app/sign-in/[[...sign-in]]/page.tsx", import.meta.url), "utf8");
+  const nativeApple = await readFile(new URL("../app/sign-in/[[...sign-in]]/native-apple-sign-in.tsx", import.meta.url), "utf8");
+  const appearance = await readFile(new URL("../app/entry-theme.ts", import.meta.url), "utf8");
   const signUp = await readFile(new URL("../app/sign-up/[[...sign-up]]/page.tsx", import.meta.url), "utf8");
 
-  for (const source of [signIn, signUp]) {
-    assert.doesNotMatch(source, /socialButtonsBlockButton:\s*\{\s*display:\s*"none"/);
-    assert.doesNotMatch(source, /dividerRow:\s*\{\s*display:\s*"none"/);
-    assert.match(source, /appearance=\{chargersClerkAppearance\}/);
-  }
+  assert.match(signIn, /nativeIos \? <NativeAppleSignIn \/> : null/);
+  assert.match(signIn, /appearance=\{nativeIos \? nativeEmailOnlyClerkAppearance : chargersClerkAppearance\}/);
+  assert.match(nativeApple, /OR CONTINUE WITH EMAIL/);
+  assert.match(appearance, /socialButtonsBlockButton:[\s\S]*?display: "none"/);
+  assert.match(appearance, /dividerRow: \{ display: "none" \}/);
+  assert.match(signUp, /appearance=\{chargersClerkAppearance\}/);
 });
 
 test("new accounts start in light mode without changing saved account preferences", async () => {

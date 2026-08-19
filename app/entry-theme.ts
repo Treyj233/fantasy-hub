@@ -28,3 +28,15 @@ export const chargersClerkAppearance = {
     identityPreviewText: { color: "#001f47", fontWeight: "800" },
   },
 };
+
+export const nativeEmailOnlyClerkAppearance = {
+  ...chargersClerkAppearance,
+  elements: {
+    ...chargersClerkAppearance.elements,
+    socialButtonsBlockButton: {
+      ...chargersClerkAppearance.elements.socialButtonsBlockButton,
+      display: "none",
+    },
+    dividerRow: { display: "none" },
+  },
+};
