@@ -3103,6 +3103,7 @@ function AccountOnboarding({ displayName, colorMode, teamTheme, badgeTheme, isPr
 }
 
 function SignInScreen() {
+  const nativeIos = isNativeIosApp();
   return (
     <main className="auth-shell">
       <section className="auth-brand">
@@ -3121,12 +3122,12 @@ function SignInScreen() {
           Sign in to save your Fantasy Hub profile, connect your Sleeper
           username, and open every league from one personalized dashboard.
         </p>
-        <Link className="auth-primary" href={isNativeIosApp() ? "/sign-in?native=ios" : "/sign-in"}>
-          Continue with Google, Apple, or email
+        <Link className="auth-primary" href={nativeIos ? "/sign-in?native=ios" : "/sign-in"}>
+          {nativeIos ? "Continue with Apple or email" : "Continue with Google, Apple, or email"}
         </Link>
-        <a className="auth-secondary chatgpt-web-only" href="/signin-with-chatgpt?return_to=/">
+        {!nativeIos ? <a className="auth-secondary" href="/signin-with-chatgpt?return_to=/">
           Continue with ChatGPT
-        </a>
+        </a> : null}
         <small className="auth-safety">
           Fantasy Hub never asks for or stores your Sleeper password.
         </small>

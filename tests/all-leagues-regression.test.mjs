@@ -53,6 +53,17 @@ test("native iOS sign-in keeps SDK Apple above an email-only Clerk card", async 
   assert.match(signUp, /appearance=\{chargersClerkAppearance\}/);
 });
 
+test("ChatGPT sign-in is rendered on the website but not in the native iOS app", async () => {
+  const dashboard = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
+  const signIn = await readFile(new URL("../app/sign-in/[[...sign-in]]/page.tsx", import.meta.url), "utf8");
+
+  assert.match(dashboard, /const nativeIos = isNativeIosApp\(\)/);
+  assert.match(dashboard, /!nativeIos \? <a className="auth-secondary" href="\/signin-with-chatgpt\?return_to=\/"/);
+  assert.match(dashboard, /nativeIos \? "Continue with Apple or email" : "Continue with Google, Apple, or email"/);
+  assert.match(signIn, /!nativeIos \? <a className="clerk-chatgpt-option" href="\/signin-with-chatgpt\?return_to=\/"/);
+  assert.doesNotMatch(signIn, /chatgpt-web-only/);
+});
+
 test("new accounts start in light mode without changing saved account preferences", async () => {
   const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
   assert.match(source, /if \(data\.preferences\) \{[\s\S]*?setTheme\(data\.preferences\.colorMode\)/);

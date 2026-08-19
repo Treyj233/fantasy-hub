@@ -17,6 +17,6 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
     <Link className="clerk-auth-brand" href="/" aria-label="Fantasy Hub home">FH</Link>
     {nativeIos ? <NativeAppleSignIn /> : null}
     <SignIn routing="path" path="/sign-in" signUpUrl={nativeIos ? "/sign-up?native=ios" : "/sign-up"} forceRedirectUrl={nativeIos ? "/native-auth-return" : "/"} appearance={nativeIos ? nativeEmailOnlyClerkAppearance : chargersClerkAppearance} />
-    <a className="clerk-chatgpt-option chatgpt-web-only" href="/signin-with-chatgpt?return_to=/">Prefer ChatGPT? Continue here</a>
+    {!nativeIos ? <a className="clerk-chatgpt-option" href="/signin-with-chatgpt?return_to=/">Prefer ChatGPT? Continue here</a> : null}
   </main>;
 }
