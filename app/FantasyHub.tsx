@@ -3104,8 +3104,19 @@ function AccountOnboarding({ displayName, colorMode, teamTheme, badgeTheme, isPr
 
 function SignInScreen() {
   const nativeIos = isNativeIosApp();
+  const [currentNflWeek, setCurrentNflWeek] = useState<number | null>(null);
   const signInHref = nativeIos ? "/sign-in?native=ios" : "/sign-in";
   const signUpHref = nativeIos ? "/sign-up?native=ios" : "/sign-up";
+  useEffect(() => {
+    const controller = new AbortController();
+    void fetch("/api/nfl-schedule", { signal: controller.signal })
+      .then(async (response) => response.ok ? await response.json() as { currentWeek?: number } : null)
+      .then((schedule) => {
+        if (schedule?.currentWeek) setCurrentNflWeek(schedule.currentWeek);
+      })
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, []);
   return (
     <main className="auth-landing">
       <div className="auth-landing-sky" aria-hidden="true">
@@ -3127,7 +3138,7 @@ function SignInScreen() {
           <div className="auth-player-card auth-player-card-left"><span>W</span><b>WIN PROB.</b><strong>67%</strong></div>
           <div className="auth-field-ball">
             <div className="auth-football"><i /><span /><span /><span /><span /></div>
-            <b>WEEK 8</b>
+            <b>{currentNflWeek ? `WEEK ${currentNflWeek}` : "CURRENT WEEK"}</b>
           </div>
           <div className="auth-player-card auth-player-card-right"><span>F</span><b>PROJECTED</b><strong>124.8</strong></div>
           <div className="auth-score-pulse"><span>YOUR TEAM</span><b>98.4</b><i>LIVE</i><b>91.2</b><span>RIVAL</span></div>

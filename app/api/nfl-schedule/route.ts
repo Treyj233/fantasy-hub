@@ -1,9 +1,6 @@
-import { getChatGPTUser } from "../../chatgpt-auth";
 import { loadNflSeasonSchedule } from "../../nfl-schedule-data";
 
 export async function GET(request: Request) {
-  const user = await getChatGPTUser();
-  if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
   const requestedSeason = Number(new URL(request.url).searchParams.get("season"));
   const season = Number.isInteger(requestedSeason) && requestedSeason >= 2020 && requestedSeason <= 2035
     ? requestedSeason
@@ -17,5 +14,8 @@ export async function GET(request: Request) {
     week: index + 1,
     games: games.filter((game) => game.week === index + 1),
   }));
-  return Response.json({ season, currentWeek, updatedAt: new Date().toISOString(), source: "season_schedule", weeks });
+  return Response.json(
+    { season, currentWeek, updatedAt: new Date().toISOString(), source: "season_schedule", weeks },
+    { headers: { "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400" } },
+  );
 }

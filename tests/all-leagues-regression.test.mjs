@@ -64,6 +64,9 @@ test("the landing screen offers dedicated login and signup routes while ChatGPT 
   assert.match(dashboard, /className="auth-landing-login" href=\{signInHref\}>Log in/);
   assert.match(dashboard, /className="auth-landing-signup" href=\{signUpHref\}>Create account/);
   assert.match(dashboard, /SUNDAY PULSE · LIVE MATCHUP INTELLIGENCE/);
+  assert.match(dashboard, /fetch\("\/api\/nfl-schedule", \{ signal: controller\.signal \}\)/);
+  assert.match(dashboard, /currentNflWeek \? `WEEK \$\{currentNflWeek\}` : "CURRENT WEEK"/);
+  assert.doesNotMatch(dashboard, /WEEK 8/);
   assert.doesNotMatch(dashboard, /signin-with-chatgpt/);
   assert.match(signIn, /!nativeIos \? <a className="clerk-chatgpt-option" href="\/signin-with-chatgpt\?return_to=\/"/);
   assert.doesNotMatch(signIn, /chatgpt-web-only/);
