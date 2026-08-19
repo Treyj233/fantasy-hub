@@ -5,6 +5,7 @@ import { useAuth } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import LaunchSplash from "./LaunchSplash";
+import { safeLocalStorageSet } from "./local-storage";
 
 function InitialLoadingShell() {
   return <LaunchSplash />;
@@ -49,12 +50,14 @@ export default function FantasyHubLoader({
           provider: "clerk" as const,
           signOutPath: "/sign-out",
         };
-        window.localStorage.setItem("fantasy-hub-native-user", JSON.stringify(user));
-        window.localStorage.setItem(
+        // Enter the app as soon as the verified bootstrap succeeds. Device
+        // cache quota failures must not strand the WebView on the launch splash.
+        setNativeAccountUser(user);
+        safeLocalStorageSet("fantasy-hub-native-user", JSON.stringify(user));
+        safeLocalStorageSet(
           `fantasy-hub-account-bootstrap:${user.email.trim().toLowerCase()}`,
           JSON.stringify({ savedAt: Date.now(), ...payload }),
         );
-        setNativeAccountUser(user);
       })
       .catch(() => {
         if (!nativeAccountUser) window.location.replace("/sign-in?native=ios");

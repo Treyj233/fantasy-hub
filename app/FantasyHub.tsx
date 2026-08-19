@@ -12,6 +12,7 @@ import { useOverflowAutoScroll } from "./use-overflow-auto-scroll";
 import { useOverlayGuard } from "./use-overlay-guard";
 import { useProductMonitoring } from "./use-product-monitoring";
 import LaunchSplash from "./LaunchSplash";
+import { cacheActiveLeagueBootstrap, safeLocalStorageSet } from "./local-storage";
 
 type View =
   | "Command Center"
@@ -1676,7 +1677,7 @@ export default function FantasyHub({
     themeColor.removeAttribute("media");
     if (!themeColor.isConnected) document.head.appendChild(themeColor);
     themeColors.slice(1).forEach((entry) => entry.remove());
-    window.localStorage.setItem("fantasy-hub-theme", theme);
+    safeLocalStorageSet("fantasy-hub-theme", theme);
   }, [theme]);
 
   useEffect(() => {
@@ -1705,14 +1706,14 @@ export default function FantasyHub({
     root.style.setProperty("--brand-primary-rgb", primaryRgb);
     root.style.setProperty("--brand-secondary-rgb", secondaryRgb);
     root.dataset.nflTheme = selectedTheme.id;
-    window.localStorage.setItem("fantasy-hub-team-theme", selectedTheme.id);
+    safeLocalStorageSet("fantasy-hub-team-theme", selectedTheme.id);
     window.localStorage.removeItem("fantasy-hub-primary");
     window.localStorage.removeItem("fantasy-hub-secondary");
   }, [effectiveTeamTheme]);
 
   useEffect(() => {
     document.documentElement.dataset.badgeTheme = effectiveBadgeTheme;
-    window.localStorage.setItem("fantasy-hub-badge-theme", effectiveBadgeTheme);
+    safeLocalStorageSet("fantasy-hub-badge-theme", effectiveBadgeTheme);
   }, [effectiveBadgeTheme]);
 
   useEffect(() => {
@@ -1773,7 +1774,7 @@ export default function FantasyHub({
         } else if (data.connection) {
           void loadLeagues(true).catch(() => setAccountError("League refresh is temporarily unavailable."));
         }
-        window.localStorage.setItem(
+        safeLocalStorageSet(
           `fantasy-hub-account-bootstrap:${accountUser.email.trim().toLowerCase()}`,
           JSON.stringify({ savedAt: Date.now(), ...data }),
         );
@@ -1783,12 +1784,12 @@ export default function FantasyHub({
           const effectiveBadgeTheme = nextEntitlement.pro ? data.preferences.badgeTheme : "arcade";
           setTeamTheme(effectiveTeamTheme);
           setBadgeTheme(effectiveBadgeTheme);
-          window.localStorage.setItem("fantasy-hub-theme", data.preferences.colorMode);
-          window.localStorage.setItem("fantasy-hub-team-theme", effectiveTeamTheme);
-          window.localStorage.setItem("fantasy-hub-badge-theme", effectiveBadgeTheme);
-          window.localStorage.setItem("fantasy-hub-league-order", data.preferences.leagueOrderJson);
+          safeLocalStorageSet("fantasy-hub-theme", data.preferences.colorMode);
+          safeLocalStorageSet("fantasy-hub-team-theme", effectiveTeamTheme);
+          safeLocalStorageSet("fantasy-hub-badge-theme", effectiveBadgeTheme);
+          safeLocalStorageSet("fantasy-hub-league-order", data.preferences.leagueOrderJson);
           const savedHiddenLeagueIds = data.preferences.hiddenLeagueIdsJson ?? "[]";
-          window.localStorage.setItem("fantasy-hub-hidden-leagues", savedHiddenLeagueIds);
+          safeLocalStorageSet("fantasy-hub-hidden-leagues", savedHiddenLeagueIds);
           try {
             setHiddenLeagueIds(JSON.parse(savedHiddenLeagueIds) as string[]);
           } catch {
@@ -1797,7 +1798,7 @@ export default function FantasyHub({
           setNeedsOnboarding(!data.preferences.onboardingCompletedAt);
         } else {
           setTheme("light");
-          window.localStorage.setItem("fantasy-hub-theme", "light");
+          safeLocalStorageSet("fantasy-hub-theme", "light");
           setNeedsOnboarding(true);
         }
         setAccountLoading(false);
@@ -1818,8 +1819,8 @@ export default function FantasyHub({
               const reconciledBadgeTheme = reconciledEntitlement.pro ? reconciled.preferences.badgeTheme : "arcade";
               setTeamTheme(reconciledTeamTheme);
               setBadgeTheme(reconciledBadgeTheme);
-              window.localStorage.setItem("fantasy-hub-team-theme", reconciledTeamTheme);
-              window.localStorage.setItem("fantasy-hub-badge-theme", reconciledBadgeTheme);
+              safeLocalStorageSet("fantasy-hub-team-theme", reconciledTeamTheme);
+              safeLocalStorageSet("fantasy-hub-badge-theme", reconciledBadgeTheme);
             }
           }).catch(() => {
             // The initial server entitlement remains the safe fallback.
@@ -1864,7 +1865,7 @@ export default function FantasyHub({
       const next = current.includes(id)
         ? current.filter((leagueId) => leagueId !== id)
         : [...current, id];
-      window.localStorage.setItem("fantasy-hub-hidden-leagues", JSON.stringify(next));
+      safeLocalStorageSet("fantasy-hub-hidden-leagues", JSON.stringify(next));
       void saveAccountPreferences({ hiddenLeagueIds: next });
       if (hiding && id === leagueId) {
         const nextVisibleLeague = availableLeagues.find(
@@ -1896,7 +1897,7 @@ export default function FantasyHub({
       window.localStorage.removeItem(cacheKey);
       return;
     }
-    window.localStorage.setItem(cacheKey, JSON.stringify({
+    safeLocalStorageSet(cacheKey, JSON.stringify({
       version: PORTFOLIO_CACHE_VERSION,
       savedAt: Date.now(),
       scans: portfolioScans,
@@ -2022,11 +2023,8 @@ export default function FantasyHub({
         rankingContext?: RankingContext;
         cache?: { status?: string; refreshedAt?: string };
       };
-      window.localStorage.setItem(
-        `fantasy-hub-league-bootstrap:${requestedLeagueId}`,
-        JSON.stringify(data),
-      );
-      window.localStorage.setItem("fantasy-hub-active-league", requestedLeagueId);
+      cacheActiveLeagueBootstrap(requestedLeagueId, JSON.stringify(data));
+      safeLocalStorageSet("fantasy-hub-active-league", requestedLeagueId);
       if (requestNumber !== importRequest.current) return;
       const season = data.league.season ?? String(new Date().getFullYear());
       const currentWeek = Math.max(1, data.league.currentWeek ?? 1);
@@ -2183,7 +2181,7 @@ export default function FantasyHub({
         ordered[nextIndex],
         ordered[currentIndex],
       ];
-      window.localStorage.setItem(
+      safeLocalStorageSet(
         "fantasy-hub-league-order",
         JSON.stringify(ordered.map((league) => league.id)),
       );
@@ -2218,7 +2216,7 @@ export default function FantasyHub({
       );
       if (targetIndex < 0) return current;
       ordered.splice(targetIndex + (position === "after" ? 1 : 0), 0, moved);
-      window.localStorage.setItem(
+      safeLocalStorageSet(
         "fantasy-hub-league-order",
         JSON.stringify(ordered.map((league) => league.id)),
       );
@@ -2322,7 +2320,7 @@ export default function FantasyHub({
     setPlayers(team?.roster ?? []);
     setSelectedPlayer(null);
     if (leagueId && teamId) {
-      window.localStorage.setItem(`fantasy-hub-selected-team:${leagueId}`, teamId);
+      safeLocalStorageSet(`fantasy-hub-selected-team:${leagueId}`, teamId);
     } else if (leagueId) {
       window.localStorage.removeItem(`fantasy-hub-selected-team:${leagueId}`);
     }
@@ -2384,7 +2382,7 @@ export default function FantasyHub({
           title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
           onClick={() => {
             setSidebarCollapsed((current) => {
-              window.localStorage.setItem(
+              safeLocalStorageSet(
                 "fantasy-hub-sidebar-collapsed",
                 String(!current),
               );
@@ -5250,7 +5248,7 @@ function AllLeagueScoreboard({
       setUpdatedAt(nextUpdatedAt);
       hasCachedScores = true;
       try {
-        window.localStorage.setItem(portfolioCacheKey, JSON.stringify({
+        safeLocalStorageSet(portfolioCacheKey, JSON.stringify({
           scores: nextScores,
           updatedAt: nextUpdatedAt,
         }));
