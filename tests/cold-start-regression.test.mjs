@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-test("native cold launch paints locally before opening the static app entry", async () => {
+test("native cold launch paints locally before opening the uncached app entry", async () => {
   const [config, shell, nativePage] = await Promise.all([
     readFile(new URL("../capacitor.config.ts", import.meta.url), "utf8"),
     readFile(new URL("../native-shell/index.html", import.meta.url), "utf8"),
@@ -12,7 +12,8 @@ test("native cold launch paints locally before opening the static app entry", as
   assert.match(shell, /requestAnimationFrame/);
   assert.match(shell, /fantasyhubapp\.com\/native-app/);
   assert.doesNotMatch(shell, /<img[^>]+https:\/\//);
-  assert.match(nativePage, /force-static/);
+  assert.match(nativePage, /force-dynamic/);
+  assert.doesNotMatch(nativePage, /force-static/);
   assert.match(nativePage, /clientBootstrap/);
 });
 

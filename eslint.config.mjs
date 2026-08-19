@@ -11,6 +11,9 @@ const eslintConfig = defineConfig([
     ".next/**",
     "out/**",
     "build/**",
+    // Archived generated bundles kept temporarily so cached native WebViews
+    // can recover after a deployment replaced their hashed entry assets.
+    "public/assets/**",
     "next-env.d.ts",
   ]),
 ]);
