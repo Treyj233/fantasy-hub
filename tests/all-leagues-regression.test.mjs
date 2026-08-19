@@ -54,13 +54,16 @@ test("native iOS sign-in keeps SDK Apple above an email-only Clerk card", async 
   assert.match(signUp, /appearance=\{nativeIos \? nativeEmailOnlyClerkAppearance : chargersClerkAppearance\}/);
 });
 
-test("ChatGPT sign-in is rendered on the website but not in the native iOS app", async () => {
+test("the landing screen offers dedicated login and signup routes while ChatGPT remains web-only", async () => {
   const dashboard = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
   const signIn = await readFile(new URL("../app/sign-in/[[...sign-in]]/page.tsx", import.meta.url), "utf8");
 
   assert.match(dashboard, /const nativeIos = isNativeIosApp\(\)/);
-  assert.match(dashboard, /!nativeIos \? <a className="auth-secondary" href="\/signin-with-chatgpt\?return_to=\/"/);
-  assert.match(dashboard, /nativeIos \? "Continue with Apple or email" : "Continue with Google, Apple, or email"/);
+  assert.match(dashboard, /const signInHref = nativeIos \? "\/sign-in\?native=ios" : "\/sign-in"/);
+  assert.match(dashboard, /const signUpHref = nativeIos \? "\/sign-up\?native=ios" : "\/sign-up"/);
+  assert.match(dashboard, /className="auth-landing-login" href=\{signInHref\}>Log in/);
+  assert.match(dashboard, /className="auth-landing-signup" href=\{signUpHref\}>Create account/);
+  assert.doesNotMatch(dashboard, /signin-with-chatgpt/);
   assert.match(signIn, /!nativeIos \? <a className="clerk-chatgpt-option" href="\/signin-with-chatgpt\?return_to=\/"/);
   assert.doesNotMatch(signIn, /chatgpt-web-only/);
 });

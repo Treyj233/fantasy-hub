@@ -3104,42 +3104,42 @@ function AccountOnboarding({ displayName, colorMode, teamTheme, badgeTheme, isPr
 
 function SignInScreen() {
   const nativeIos = isNativeIosApp();
+  const signInHref = nativeIos ? "/sign-in?native=ios" : "/sign-in";
+  const signUpHref = nativeIos ? "/sign-up?native=ios" : "/sign-up";
   return (
-    <main className="auth-shell">
-      <section className="auth-brand">
-        <span className="brand-mark">FH</span>
-        <strong>Fantasy Hub</strong>
-        <small>Make every week count.</small>
-      </section>
-      <section className="auth-card">
-        <span>YOUR LEAGUES. ONE HOME.</span>
-        <h1>
-          Set smarter lineups.
-          <br />
-          <em>Own every matchup.</em>
-        </h1>
-        <p>
-          Sign in to save your Fantasy Hub profile, connect your Sleeper
-          username, and open every league from one personalized dashboard.
-        </p>
-        <Link className="auth-primary" href={nativeIos ? "/sign-in?native=ios" : "/sign-in"}>
-          {nativeIos ? "Continue with Apple or email" : "Continue with Google, Apple, or email"}
-        </Link>
-        {!nativeIos ? <a className="auth-secondary" href="/signin-with-chatgpt?return_to=/">
-          Continue with ChatGPT
-        </a> : null}
-        <small className="auth-safety">
-          Fantasy Hub never asks for or stores your Sleeper password.
-        </small>
-        <div className="auth-features">
-          <b>Command Center</b>
-          <b>League Stories</b>
-          <b>Manager Report</b>
-          <b>Player Rankings</b>
-          <b>Waiver Wire</b>
-          <b>Trade Lab</b>
+    <main className="auth-landing">
+      <div className="auth-landing-sky" aria-hidden="true">
+        <i /><i /><i /><i />
+      </div>
+      <div className="auth-landing-grid" aria-hidden="true" />
+
+      <header className="auth-landing-brand">
+        <span>FH</span>
+        <div><strong>FANTASY</strong><b>HUB</b></div>
+      </header>
+
+      <section className="auth-landing-hero">
+        <div className="auth-live-pill"><i /> LIVE LEAGUE INTELLIGENCE</div>
+        <h1>Run your league.<br /><em>Own the week.</em></h1>
+        <p>Every matchup, move, and decision in one command center.</p>
+
+        <div className="auth-matchup-stage" aria-hidden="true">
+          <div className="auth-player-card auth-player-card-left"><span>W</span><b>WIN PROB.</b><strong>67%</strong></div>
+          <div className="auth-field-ball"><i /><b>WEEK 8</b></div>
+          <div className="auth-player-card auth-player-card-right"><span>F</span><b>PROJECTED</b><strong>124.8</strong></div>
+          <div className="auth-score-pulse"><span>YOUR TEAM</span><b>98.4</b><i>LIVE</i><b>91.2</b><span>RIVAL</span></div>
         </div>
       </section>
+
+      <section className="auth-landing-actions">
+        <Link className="auth-landing-login" href={signInHref}>Log in</Link>
+        <Link className="auth-landing-signup" href={signUpHref}>Create account</Link>
+        <small>Connect Sleeper securely. We never ask for your Sleeper password.</small>
+      </section>
+
+      <div className="auth-feature-ticker" aria-hidden="true">
+        <span>LINEUP INTEL</span><i>◆</i><span>TRADE LAB</span><i>◆</i><span>LIVE SCORES</span><i>◆</i><span>WAIVER WIRE</span>
+      </div>
     </main>
   );
 }
