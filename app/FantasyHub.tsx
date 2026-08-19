@@ -1909,14 +1909,27 @@ export default function FantasyHub({
     setLeagueRefreshedAt(null);
     setSelectedMatchupId(null);
     setStarterChoice("");
-    const resolveOwnedTeam = (teams: LeagueTeam[]) =>
-      (rosterIdOverride
-        ? teams.find((team) => team.id === rosterIdOverride)
-        : undefined) ??
-      (ownerIdOverride
-        ? teams.find((team) => team.ownerId === ownerIdOverride)
-        : undefined) ??
-      (teams.length === 1 ? teams[0] : undefined);
+    const normalizeId = (value?: string | null) => value?.trim().toLowerCase() ?? "";
+    const savedTeamId = window.localStorage.getItem(
+      `fantasy-hub-selected-team:${requestedLeagueId}`,
+    );
+    const resolveOwnedTeam = (teams: LeagueTeam[]) => {
+      const rosterId = normalizeId(rosterIdOverride);
+      const ownerId = normalizeId(ownerIdOverride);
+      const rememberedId = normalizeId(savedTeamId);
+      return (
+        (rosterId
+          ? teams.find((team) => normalizeId(team.id) === rosterId)
+          : undefined) ??
+        (ownerId
+          ? teams.find((team) => normalizeId(team.ownerId) === ownerId)
+          : undefined) ??
+        (rememberedId
+          ? teams.find((team) => normalizeId(team.id) === rememberedId)
+          : undefined) ??
+        (teams.length === 1 ? teams[0] : undefined)
+      );
+    };
     const applyCachedCore = (data: {
       league?: { name?: string; platform?: string; status?: string; season?: string; currentWeek?: number };
       teams?: LeagueTeam[];
@@ -2274,6 +2287,11 @@ export default function FantasyHub({
     const team = leagueTeams.find((candidate) => candidate.id === teamId);
     setPlayers(team?.roster ?? []);
     setSelectedPlayer(null);
+    if (leagueId && teamId) {
+      window.localStorage.setItem(`fantasy-hub-selected-team:${leagueId}`, teamId);
+    } else if (leagueId) {
+      window.localStorage.removeItem(`fantasy-hub-selected-team:${leagueId}`);
+    }
   }
 
   const selectedLeagueTeam = leagueTeams.find(
@@ -2305,6 +2323,9 @@ export default function FantasyHub({
       leagueSelected={Boolean(leagueId)}
       loading={importState === "loading"}
       leagueName={leagueName}
+      teams={leagueTeams}
+      teamSelected={Boolean(selectedTeamId)}
+      leagueStatus={leagueStatus}
     />
   );
   const viewTitle = nav.find((item) => item.label === view)?.displayLabel ?? view;
@@ -3185,21 +3206,38 @@ function EmptyRoster({
   leagueSelected,
   loading,
   leagueName,
+  teams,
+  teamSelected,
+  leagueStatus,
 }: {
   leagueSelected: boolean;
   loading: boolean;
   leagueName: string;
+  teams: LeagueTeam[];
+  teamSelected: boolean;
+  leagueStatus: string;
 }) {
+  const hasDraftedRoster = teams.some((team) => team.roster.length > 0);
+  const needsTeamSelection = leagueSelected && !teamSelected && hasDraftedRoster;
+  const isUndrafted = leagueSelected && !hasDraftedRoster && leagueStatus === "pre_draft";
   const title = loading
     ? `Opening ${leagueName}`
-    : leagueSelected
+    : needsTeamSelection
+      ? "Choose your fantasy team"
+      : isUndrafted
       ? `${leagueName} has not drafted yet`
-      : "Choose a league to begin";
+      : leagueSelected
+        ? `${leagueName} roster is unavailable`
+        : "Choose a league to begin";
   const text = loading
     ? "Fantasy Hub is loading this league’s settings and roster."
-    : leagueSelected
+    : needsTeamSelection
+      ? "The league is drafted. Select your team above once and Fantasy Hub will remember it for this league."
+      : isUndrafted
       ? "This league is connected, but your roster is currently empty. Fantasy Hub will populate these tools after the draft appears in the league data."
-      : "Select one of your leagues above to load its roster, scoring, and lineup settings.";
+      : leagueSelected
+        ? "Fantasy Hub found the league, but no roster data is currently available from the provider."
+        : "Select one of your leagues above to load its roster, scoring, and lineup settings.";
   return (
     <div className="page-content">
       <SectionIntro
@@ -3210,7 +3248,9 @@ function EmptyRoster({
       <section className="panel scoreboard-empty">
         {loading
           ? "Loading league data…"
-          : leagueSelected
+          : needsTeamSelection
+            ? "Use the Fantasy team menu above to identify your roster."
+            : leagueSelected
             ? "No players have been assigned to your roster."
             : "No league selected."}
       </section>
