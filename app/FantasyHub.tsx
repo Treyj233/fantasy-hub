@@ -3125,7 +3125,10 @@ function SignInScreen() {
 
         <div className="auth-matchup-stage" aria-hidden="true">
           <div className="auth-player-card auth-player-card-left"><span>W</span><b>WIN PROB.</b><strong>67%</strong></div>
-          <div className="auth-field-ball"><i /><b>WEEK 8</b></div>
+          <div className="auth-field-ball">
+            <div className="auth-football"><i /><span /><span /><span /><span /></div>
+            <b>WEEK 8</b>
+          </div>
           <div className="auth-player-card auth-player-card-right"><span>F</span><b>PROJECTED</b><strong>124.8</strong></div>
           <div className="auth-score-pulse"><span>YOUR TEAM</span><b>98.4</b><i>LIVE</i><b>91.2</b><span>RIVAL</span></div>
         </div>
