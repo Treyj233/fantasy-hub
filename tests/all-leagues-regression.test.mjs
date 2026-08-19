@@ -44,14 +44,17 @@ test("native iOS sign-in keeps SDK Apple above an email-only Clerk card", async 
   const nativeApple = await readFile(new URL("../app/sign-in/[[...sign-in]]/native-apple-sign-in.tsx", import.meta.url), "utf8");
   const appearance = await readFile(new URL("../app/entry-theme.ts", import.meta.url), "utf8");
   const signUp = await readFile(new URL("../app/sign-up/[[...sign-up]]/page.tsx", import.meta.url), "utf8");
+  const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
 
-  assert.match(signIn, /nativeIos \? <NativeAppleSignIn \/> : null/);
+  assert.match(signIn, /nativeIos \? <div className="native-auth-card-stack"><NativeAppleSignIn \/>\{emailSignIn\}<\/div> : emailSignIn/);
   assert.match(signIn, /appearance=\{nativeIos \? nativeEmailOnlyClerkAppearance : chargersClerkAppearance\}/);
   assert.match(nativeApple, /OR CONTINUE WITH EMAIL/);
   assert.match(appearance, /socialButtonsBlockButton:[\s\S]*?display: "none"/);
   assert.match(appearance, /dividerRow: \{ display: "none" \}/);
-  assert.match(signUp, /nativeIos \? <NativeAppleSignIn mode="sign-up" \/> : null/);
+  assert.match(signUp, /nativeIos \? <div className="native-auth-card-stack"><NativeAppleSignIn mode="sign-up" \/>\{emailSignUp\}<\/div> : emailSignUp/);
   assert.match(signUp, /appearance=\{nativeIos \? nativeEmailOnlyClerkAppearance : chargersClerkAppearance\}/);
+  assert.match(styles, /\.native-auth-card-stack\{[^}]*width:min\(100%,460px\)/);
+  assert.match(styles, /\.native-auth-card-stack>\.native-sign-in-primary,\.native-auth-card-stack>\.cl-rootBox\{[^}]*width:100%!important/);
 });
 
 test("the landing screen offers dedicated login and signup routes while ChatGPT remains web-only", async () => {

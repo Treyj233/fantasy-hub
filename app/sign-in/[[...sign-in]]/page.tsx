@@ -13,10 +13,10 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
   const nativeSignedOut = nativeIos && cookieStore.get("fh_native_signed_out")?.value === "1";
   if (userId && nativeSignedOut) return <NativeSessionReset />;
   if (userId) redirect(nativeIos ? "/native-auth-return" : "/");
+  const emailSignIn = <SignIn routing="path" path="/sign-in" signUpUrl={nativeIos ? "/sign-up?native=ios" : "/sign-up"} forceRedirectUrl={nativeIos ? "/native-auth-return" : "/"} appearance={nativeIos ? nativeEmailOnlyClerkAppearance : chargersClerkAppearance} />;
   return <main className="clerk-auth-shell chargers-entry-shell">
     <Link className="clerk-auth-brand" href="/" aria-label="Fantasy Hub home">FH</Link>
-    {nativeIos ? <NativeAppleSignIn /> : null}
-    <SignIn routing="path" path="/sign-in" signUpUrl={nativeIos ? "/sign-up?native=ios" : "/sign-up"} forceRedirectUrl={nativeIos ? "/native-auth-return" : "/"} appearance={nativeIos ? nativeEmailOnlyClerkAppearance : chargersClerkAppearance} />
+    {nativeIos ? <div className="native-auth-card-stack"><NativeAppleSignIn />{emailSignIn}</div> : emailSignIn}
     {!nativeIos ? <a className="clerk-chatgpt-option" href="/signin-with-chatgpt?return_to=/">Prefer ChatGPT? Continue here</a> : null}
   </main>;
 }
