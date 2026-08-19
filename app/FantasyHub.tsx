@@ -85,6 +85,74 @@ const weatherRequestCache = new Map<
   string,
   { expiresAt: number; request: Promise<WeatherData | null> }
 >();
+type SharedDataCache<T> = { expiresAt: number; value?: T; request?: Promise<T | null> };
+const scheduleRequestCache = new Map<string, SharedDataCache<NflScheduleData>>();
+const matchupStrengthRequestCache = new Map<string, SharedDataCache<MatchupStrengthData>>();
+
+function readSharedDataCache<T>(
+  memoryCache: Map<string, SharedDataCache<T>>,
+  key: string,
+  storageKey: string,
+) {
+  const memory = memoryCache.get(key);
+  if (memory?.value && memory.expiresAt > Date.now()) return memory.value;
+  const stored = readSessionCache<{ expiresAt: number; value: T }>(storageKey);
+  if (!stored?.value || stored.expiresAt <= Date.now()) return null;
+  memoryCache.set(key, { expiresAt: stored.expiresAt, value: stored.value });
+  return stored.value;
+}
+
+function storeSharedDataCache<T>(
+  memoryCache: Map<string, SharedDataCache<T>>,
+  key: string,
+  storageKey: string,
+  value: T,
+  ttl: number,
+) {
+  const expiresAt = Date.now() + ttl;
+  memoryCache.set(key, { expiresAt, value });
+  writeSessionCache(storageKey, { expiresAt, value });
+  return value;
+}
+
+const scheduleStorageKey = (season: string | number) => `fantasy-hub-nfl-schedule:${season}`;
+function readCachedScheduleData(season: string | number) {
+  const key = String(season);
+  return readSharedDataCache(scheduleRequestCache, key, scheduleStorageKey(key));
+}
+function loadScheduleData(season: string | number) {
+  const key = String(season);
+  const cached = readCachedScheduleData(key);
+  if (cached) return Promise.resolve(cached);
+  const pending = scheduleRequestCache.get(key);
+  if (pending?.request && pending.expiresAt > Date.now()) return pending.request;
+  const request = fetch(`/api/nfl-schedule?season=${encodeURIComponent(key)}`)
+    .then(async (response) => response.ok ? await response.json() as NflScheduleData : null)
+    .then((value) => value ? storeSharedDataCache(scheduleRequestCache, key, scheduleStorageKey(key), value, 6 * 60 * 60 * 1000) : null)
+    .catch(() => null);
+  scheduleRequestCache.set(key, { expiresAt: Date.now() + 6 * 60 * 60 * 1000, request });
+  return request;
+}
+
+const matchupStrengthStorageKey = (season: string | number, week: number) =>
+  `fantasy-hub-matchup-strength:${season}:${week}`;
+function readCachedMatchupStrengths(season: string | number, week: number) {
+  const key = `${season}-${week}`;
+  return readSharedDataCache(matchupStrengthRequestCache, key, matchupStrengthStorageKey(season, week));
+}
+function loadMatchupStrengthData(season: string | number, week: number) {
+  const key = `${season}-${week}`;
+  const cached = readCachedMatchupStrengths(season, week);
+  if (cached) return Promise.resolve(cached);
+  const pending = matchupStrengthRequestCache.get(key);
+  if (pending?.request && pending.expiresAt > Date.now()) return pending.request;
+  const request = fetch(`/api/matchup-strength?season=${encodeURIComponent(String(season))}&week=${week}`)
+    .then(async (response) => response.ok ? await response.json() as MatchupStrengthData : null)
+    .then((value) => value ? storeSharedDataCache(matchupStrengthRequestCache, key, matchupStrengthStorageKey(season, week), value, 24 * 60 * 60 * 1000) : null)
+    .catch(() => null);
+  matchupStrengthRequestCache.set(key, { expiresAt: Date.now() + 24 * 60 * 60 * 1000, request });
+  return request;
+}
 
 function loadWeatherData(season: string | number, week: number) {
   const key = `${season}-${week}`;
@@ -1975,7 +2043,16 @@ export default function FantasyHub({
       cache?: { refreshedAt?: string };
     }) => {
       if (!data.league) return;
-      const importedTeams = data.teams ?? [];
+      const season = data.league.season ?? String(new Date().getFullYear());
+      const currentWeek = Math.max(1, data.league.currentWeek ?? 1);
+      const schedule = readCachedScheduleData(season);
+      const matchupStrengths = readCachedMatchupStrengths(season, currentWeek);
+      const enhancePlayer = (player: Player) =>
+        applyMatchupStrength(applyOpponent(player, schedule, currentWeek), matchupStrengths);
+      const importedTeams = (data.teams ?? []).map((team) => ({
+        ...team,
+        roster: team.roster.map(enhancePlayer),
+      }));
       const ownedTeam = resolveOwnedTeam(importedTeams);
       setLeagueId(requestedLeagueId);
       setLeagueName(data.league.name ?? "Saved league");
@@ -1988,9 +2065,12 @@ export default function FantasyHub({
         setSelectedTeamId("");
         setPlayers([]);
       }
-      setLeagueRankings(data.rankings ?? []);
-      setWaiverPlayers(data.waiverPlayers ?? []);
-      setWaiverTrending(data.waiverTrending ?? { up: [], down: [] });
+      setLeagueRankings((data.rankings ?? []).map(enhancePlayer));
+      setWaiverPlayers((data.waiverPlayers ?? []).map((player) => enhancePlayer(player) as WaiverPlayer));
+      setWaiverTrending({
+        up: (data.waiverTrending?.up ?? []).map((player) => enhancePlayer(player) as WaiverPlayer),
+        down: (data.waiverTrending?.down ?? []).map((player) => enhancePlayer(player) as WaiverPlayer),
+      });
       setLeagueStatus(data.league.status ?? "unknown");
       setLeagueWeek(data.league.currentWeek ?? 0);
       setLeagueSeason(data.league.season ?? String(new Date().getFullYear()));
@@ -2078,23 +2158,25 @@ export default function FantasyHub({
         );
         setImportState("success");
       };
-      // Render the user-scoped cached league payload immediately. Weather,
-      // schedule, and matchup context enhance it in the background.
-      applyLeagueData(null, null, null);
+      // Shared NFL context is identical across leagues. Reuse it synchronously
+      // so a cached roster keeps its opponent grades on the first switch paint.
+      applyLeagueData(
+        null,
+        readCachedScheduleData(season),
+        readCachedMatchupStrengths(season, currentWeek),
+      );
       let weather: WeatherData | null = null;
       let schedule: NflScheduleData | null = null;
       let matchupStrengths: MatchupStrengthData | null = null;
       try {
-        const [weatherPayload, scheduleResponse, matchupResponse] = await Promise.all([
+        const [weatherPayload, schedulePayload, matchupPayload] = await Promise.all([
           loadWeatherData(season, currentWeek),
-          fetch(`/api/nfl-schedule?season=${encodeURIComponent(season)}`),
-          fetch(`/api/matchup-strength?season=${encodeURIComponent(season)}&week=${currentWeek}`),
+          loadScheduleData(season),
+          loadMatchupStrengthData(season, currentWeek),
         ]);
         weather = weatherPayload;
-        if (scheduleResponse.ok)
-          schedule = (await scheduleResponse.json()) as NflScheduleData;
-        if (matchupResponse.ok)
-          matchupStrengths = (await matchupResponse.json()) as MatchupStrengthData;
+        schedule = schedulePayload;
+        matchupStrengths = matchupPayload;
       } catch {
         /* Schedule and weather enrichment are optional; core roster loading continues. */
       }
