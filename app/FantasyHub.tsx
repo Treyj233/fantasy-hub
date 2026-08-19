@@ -3125,7 +3125,8 @@ function SignInScreen() {
       <div className="auth-landing-grid" aria-hidden="true" />
 
       <header className="auth-landing-brand">
-        <span>FH</span>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/marketing/app-store/fh-blue-app-mark.png" alt="Fantasy Hub" />
         <div><strong>FANTASY</strong><b>HUB</b></div>
       </header>
 

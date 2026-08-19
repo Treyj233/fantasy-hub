@@ -73,10 +73,12 @@ test("the landing screen offers dedicated login and signup routes while ChatGPT 
 });
 
 test("the signed-out landing screen stays within the native iPhone safe area", async () => {
+  const dashboard = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
   const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
   assert.match(styles, /html\[data-native-platform="ios"\] \.auth-landing\{[^}]*height:100svh;min-height:100svh/);
-  assert.match(styles, /padding-top:max\(14px,calc\(env\(safe-area-inset-top\) \+ 8px\)\)/);
-  assert.match(styles, /padding-bottom:max\(12px,calc\(env\(safe-area-inset-bottom\) \+ 8px\)\)/);
+  assert.match(styles, /padding-top:max\(64px,calc\(env\(safe-area-inset-top\) \+ 12px\)\)/);
+  assert.match(styles, /padding-bottom:max\(28px,calc\(env\(safe-area-inset-bottom\) \+ 8px\)\)/);
+  assert.match(dashboard, /src="\/marketing\/app-store\/fh-blue-app-mark\.png" alt="Fantasy Hub"/);
 });
 
 test("new accounts start in light mode without changing saved account preferences", async () => {
