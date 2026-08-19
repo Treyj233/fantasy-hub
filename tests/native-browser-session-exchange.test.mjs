@@ -20,4 +20,6 @@ test("native Apple auth exchanges its token for a durable signed Fantasy Hub ses
   assert.doesNotMatch(swift, /name: "__session"/);
   assert.match(swift, /name: "fh_native_session"/);
   assert.match(signInPage, /window\.location\.replace\(result\.redirect\)/);
+  assert.match(signInPage, /Create account with Apple/);
+  assert.match(signInPage, /Start securely with Apple without leaving the app/);
 });

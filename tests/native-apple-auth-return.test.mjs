@@ -13,6 +13,8 @@ test("native Apple authentication returns from the web flow to the iOS app", asy
   assert.match(hub, /href=\{nativeIos \? "\/sign-in\?native=ios" : "\/sign-in"\}/);
   assert.match(signIn, /forceRedirectUrl=\{nativeIos \? "\/native-auth-return" : "\/"\}/);
   assert.match(signUp, /forceRedirectUrl=\{nativeIos \? "\/native-auth-return" : "\/"\}/);
+  assert.match(signUp, /<NativeAppleSignIn mode="sign-up" \/>/);
+  assert.match(signUp, /nativeEmailOnlyClerkAppearance/);
   assert.match(callback, /fantasyhub:\/\/auth\/complete\?ticket=/);
   assert.match(callbackClient, /window\.location\.replace\(appUrl\)/);
   assert.match(callbackClient, /fetch\("\/api\/native-auth\/session", \{ method: "POST" \}\)/);

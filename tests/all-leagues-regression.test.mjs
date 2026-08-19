@@ -50,7 +50,8 @@ test("native iOS sign-in keeps SDK Apple above an email-only Clerk card", async 
   assert.match(nativeApple, /OR CONTINUE WITH EMAIL/);
   assert.match(appearance, /socialButtonsBlockButton:[\s\S]*?display: "none"/);
   assert.match(appearance, /dividerRow: \{ display: "none" \}/);
-  assert.match(signUp, /appearance=\{chargersClerkAppearance\}/);
+  assert.match(signUp, /nativeIos \? <NativeAppleSignIn mode="sign-up" \/> : null/);
+  assert.match(signUp, /appearance=\{nativeIos \? nativeEmailOnlyClerkAppearance : chargersClerkAppearance\}/);
 });
 
 test("ChatGPT sign-in is rendered on the website but not in the native iOS app", async () => {
