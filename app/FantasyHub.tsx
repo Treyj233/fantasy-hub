@@ -1895,6 +1895,20 @@ export default function FantasyHub({
     const requestNumber = ++importRequest.current;
     setImportState("loading");
     setSelectedPlayer(null);
+    // A league switch must never leave the previous league powering the page
+    // while the next roster is loading or if its saved team cannot be matched.
+    setPlayers([]);
+    setLeagueTeams([]);
+    setSelectedTeamId("");
+    setLeagueRankings([]);
+    setRankingContext(null);
+    setWaiverPlayers([]);
+    setWaiverTrending({ up: [], down: [] });
+    setLeagueStatus("unknown");
+    setLeagueWeek(0);
+    setLeagueRefreshedAt(null);
+    setSelectedMatchupId(null);
+    setStarterChoice("");
     const applyCachedCore = (data: {
       league?: { name?: string; platform?: string; status?: string; season?: string; currentWeek?: number };
       teams?: LeagueTeam[];
@@ -1918,6 +1932,9 @@ export default function FantasyHub({
       if (ownedTeam) {
         setSelectedTeamId(ownedTeam.id);
         setPlayers(ownedTeam.roster);
+      } else {
+        setSelectedTeamId("");
+        setPlayers([]);
       }
       setLeagueRankings(data.rankings ?? []);
       setWaiverPlayers(data.waiverPlayers ?? []);
@@ -1991,6 +2008,7 @@ export default function FantasyHub({
           setPlayers(activeTeam.roster);
         } else {
           setSelectedTeamId("");
+          setPlayers([]);
         }
         setLeagueRankings((data.rankings ?? []).map((player) =>
           applyMatchupStrength(applyWeather(applyOpponent(player, schedule, currentWeek), weather), matchupStrengths),

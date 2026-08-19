@@ -75,6 +75,13 @@ test("the landing screen offers dedicated login and signup routes while ChatGPT 
   assert.doesNotMatch(signIn, /chatgpt-web-only/);
 });
 
+test("switching leagues clears stale roster data before applying the next league", async () => {
+  const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
+  assert.match(source, /const requestNumber = \+\+importRequest\.current;[\s\S]*?setImportState\("loading"\);[\s\S]*?setPlayers\(\[\]\);[\s\S]*?setLeagueTeams\(\[\]\);[\s\S]*?setSelectedTeamId\(""\);[\s\S]*?setLeagueRankings\(\[\]\);[\s\S]*?setRankingContext\(null\);/);
+  assert.match(source, /if \(ownedTeam\) \{[\s\S]*?setPlayers\(ownedTeam\.roster\);[\s\S]*?\} else \{\s*setSelectedTeamId\(""\);\s*setPlayers\(\[\]\);/);
+  assert.match(source, /if \(ownedTeam \|\| importedTeams\.length === 1\) \{[\s\S]*?\} else \{\s*setSelectedTeamId\(""\);\s*setPlayers\(\[\]\);/);
+});
+
 test("the signed-out landing screen stays within the native iPhone safe area", async () => {
   const dashboard = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
   const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
