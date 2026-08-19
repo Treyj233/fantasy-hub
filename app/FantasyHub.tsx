@@ -1921,26 +1921,27 @@ export default function FantasyHub({
     ownerIdOverride?: string,
     rosterIdOverride?: string,
     forceRefresh = false,
+    silent = false,
   ) {
     const requestedLeagueId = idOverride?.trim() || leagueId.trim();
     if (!requestedLeagueId) return;
     const requestNumber = ++importRequest.current;
-    setImportState("loading");
-    setSelectedPlayer(null);
-    // A league switch must never leave the previous league powering the page
-    // while the next roster is loading or if its saved team cannot be matched.
-    setPlayers([]);
-    setLeagueTeams([]);
-    setSelectedTeamId("");
-    setLeagueRankings([]);
-    setRankingContext(null);
-    setWaiverPlayers([]);
-    setWaiverTrending({ up: [], down: [] });
-    setLeagueStatus("unknown");
-    setLeagueWeek(0);
-    setLeagueRefreshedAt(null);
-    setSelectedMatchupId(null);
-    setStarterChoice("");
+    if (!silent) {
+      setImportState("loading");
+      setSelectedPlayer(null);
+      setPlayers([]);
+      setLeagueTeams([]);
+      setSelectedTeamId("");
+      setLeagueRankings([]);
+      setRankingContext(null);
+      setWaiverPlayers([]);
+      setWaiverTrending({ up: [], down: [] });
+      setLeagueStatus("unknown");
+      setLeagueWeek(0);
+      setLeagueRefreshedAt(null);
+      setSelectedMatchupId(null);
+      setStarterChoice("");
+    }
     const normalizeId = (value?: string | null) => value?.trim().toLowerCase() ?? "";
     const savedTeamId = window.localStorage.getItem(
       `fantasy-hub-selected-team:${requestedLeagueId}`,
@@ -2098,7 +2099,7 @@ export default function FantasyHub({
       applyLeagueData(weather, schedule, matchupStrengths);
     } catch {
       if (requestNumber !== importRequest.current) return;
-      setImportState("error");
+      if (!silent) setImportState("error");
     }
   }
 
@@ -2308,10 +2309,11 @@ export default function FantasyHub({
   async function openConnectedLeague(league: ConnectedLeague) {
     setLeagueId(league.id);
     setLeagueName(league.name);
-    // A deliberate league switch should never be satisfied by a previously
-    // cached empty snapshot. Refresh the provider payload, then overwrite the
-    // league-specific bootstrap cache with the returned roster data.
-    await importLeague(league.id, connection?.sleeperUserId, league.rosterId, true);
+    setSelectedPlayer(null);
+    // Swap from the local/server snapshot without clearing the current page or
+    // showing a loading refresh, then reconcile fresh provider data quietly.
+    await importLeague(league.id, connection?.sleeperUserId, league.rosterId, false, true);
+    void importLeague(league.id, connection?.sleeperUserId, league.rosterId, true, true);
   }
 
   function selectLeagueTeam(teamId: string) {
