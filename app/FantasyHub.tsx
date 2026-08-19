@@ -1477,6 +1477,7 @@ export default function FantasyHub({
     position: "before" | "after";
   } | null>(null);
   const importRequest = useRef(0);
+  const preferenceSaveQueue = useRef<Promise<void>>(Promise.resolve());
   const leagueDragOccurred = useRef(false);
 
   useEffect(() => initializeNativeRuntime(), []);
@@ -1743,13 +1744,32 @@ export default function FantasyHub({
         const nextEntitlement = data.entitlement ?? { plan: "free" as const, status: "inactive", pro: false, currentPeriodEnd: null, provider: null };
         setEntitlement(nextEntitlement);
         setManagedLeagues(data.leagues ?? []);
-        const bootstrappedLeagues = data.connectedLeagues ?? [];
+        const savedLeagueOrder = (() => {
+          try {
+            return JSON.parse(data.preferences?.leagueOrderJson ?? "[]") as string[];
+          } catch {
+            return [];
+          }
+        })();
+        const savedLeagueOrderIndex = new Map(savedLeagueOrder.map((id, index) => [id, index]));
+        const bootstrappedLeagues = [...(data.connectedLeagues ?? [])].sort((a, b) => {
+          const aIndex = savedLeagueOrderIndex.get(a.id);
+          const bIndex = savedLeagueOrderIndex.get(b.id);
+          if (aIndex == null && bIndex == null) return 0;
+          if (aIndex == null) return 1;
+          if (bIndex == null) return -1;
+          return aIndex - bIndex;
+        });
         if (bootstrappedLeagues.length) {
           setAvailableLeagues(bootstrappedLeagues);
           const selected = bootstrappedLeagues.find((league) => league.id === cachedLeagueId) ?? bootstrappedLeagues[0];
           setLeagueId(selected.id);
           setLeagueName(selected.name);
           void importLeague(selected.id, data.connection?.sleeperUserId, selected.rosterId);
+          // Refresh league discovery after rendering the saved account state.
+          // This swaps undrafted new-season shells for the latest populated
+          // roster without delaying the first screen.
+          void loadLeagues(false, true).catch(() => undefined);
         } else if (data.connection) {
           void loadLeagues(true).catch(() => setAccountError("League refresh is temporarily unavailable."));
         }
@@ -1820,15 +1840,21 @@ export default function FantasyHub({
   }, [accountUser]);
 
   async function saveAccountPreferences(overrides: Partial<{ colorMode: Theme; teamTheme: string; badgeTheme: BadgeTheme; leagueOrder: string[]; hiddenLeagueIds: string[] }>, completeOnboarding = false) {
-    try {
-      await fetch("/api/account/preferences", {
+    const save = async () => {
+      const response = await fetch("/api/account/preferences", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ colorMode: theme, teamTheme, badgeTheme, ...overrides, completeOnboarding }),
       });
+      if (!response.ok) throw new Error("Preference sync failed");
       if (completeOnboarding) setNeedsOnboarding(false);
+    };
+    const queuedSave = preferenceSaveQueue.current.then(save, save);
+    preferenceSaveQueue.current = queuedSave.catch(() => undefined);
+    try {
+      await queuedSave;
     } catch {
-      setAccountError("Your appearance is applied on this device, but account sync will retry later.");
+      setAccountError("Your changes are applied on this device, but account sync will retry later.");
     }
   }
 
