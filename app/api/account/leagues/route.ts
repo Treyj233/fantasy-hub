@@ -23,15 +23,16 @@ export async function GET(request: Request) {
   if (!forceRefresh && (savedSleeper.length || (!connection && savedEspn.length)))
     return Response.json({ connection: connection ?? null, leagues: [...savedSleeper.map(savedShape), ...savedEspn.map(savedShape)] });
   const currentSeason = new Date().getUTCFullYear();
-  const seasons = [String(currentSeason), String(currentSeason - 1)];
-  const leagueGroups = connection ? await Promise.all(seasons.map(async (season) => {
-    const response = await fetch(`https://api.sleeper.app/v1/user/${connection.sleeperUserId}/leagues/nfl/${season}`, { cache: "no-store" });
-    return response.ok ? await response.json() as SleeperLeague[] : [];
-  })) : [];
-  const uniqueLeagueRecords = Array.from(new Map(leagueGroups.flat().filter((league) => league.league_id).map((league) => [league.league_id!, league])).values());
-  // Inspect both seasons, then keep the newest version of each league. Current
-  // preseason shells remain visible as current leagues even before drafting;
-  // prior-season rosters must never replace them in the primary league list.
+  const currentLeagueResponse = connection
+    ? await fetch(`https://api.sleeper.app/v1/user/${connection.sleeperUserId}/leagues/nfl/${currentSeason}`, { cache: "no-store" })
+    : null;
+  const leagueDiscoverySucceeded = Boolean(currentLeagueResponse?.ok);
+  const currentLeagueRecords = currentLeagueResponse?.ok
+    ? await currentLeagueResponse.json() as SleeperLeague[]
+    : [];
+  const uniqueLeagueRecords = Array.from(new Map(currentLeagueRecords.filter((league) => league.league_id).map((league) => [league.league_id!, league])).values());
+  // Only the active fantasy season belongs in the primary league list.
+  // Historical records remain archived and are never reintroduced as fallbacks.
   const leagueCandidates = (await Promise.all(uniqueLeagueRecords
     .sort((a, b) => Number(b.season ?? 0) - Number(a.season ?? 0))
     .map(async (league) => {
@@ -41,19 +42,12 @@ export async function GET(request: Request) {
     const myRoster = rosters.find((roster) => roster.owner_id === connection.sleeperUserId);
     if (!myRoster) return null;
     const receptionValue = league.scoring_settings?.rec ?? 0;
-    return { id: league.league_id, name: league.name ?? "Unnamed League", season: league.season, teams: league.total_rosters ?? rosters.length, format: league.settings?.type === 2 ? "Dynasty" : league.settings?.type === 1 ? "Keeper" : "Redraft", scoring: receptionValue >= .75 ? "PPR" : receptionValue >= .25 ? "Half PPR" : "Standard", rosterId: String(myRoster.roster_id ?? ""), starterCount: (league.roster_positions ?? []).filter((slot) => slot !== "BN").length, identity: `${league.name?.trim().toLowerCase() ?? ""}|${league.settings?.type ?? 0}|${league.total_rosters ?? 0}` };
+    return { id: league.league_id, name: league.name ?? "Unnamed League", season: league.season, teams: league.total_rosters ?? rosters.length, format: league.settings?.type === 2 ? "Dynasty" : league.settings?.type === 1 ? "Keeper" : "Redraft", scoring: receptionValue >= .75 ? "PPR" : receptionValue >= .25 ? "Half PPR" : "Standard", rosterId: String(myRoster.roster_id ?? ""), starterCount: (league.roster_positions ?? []).filter((slot) => slot !== "BN").length };
   }))).filter((league): league is NonNullable<typeof league> => Boolean(league));
-  const candidateGroups = new Map<string, typeof leagueCandidates>();
-  for (const candidate of leagueCandidates)
-    candidateGroups.set(candidate.identity, [...(candidateGroups.get(candidate.identity) ?? []), candidate]);
-  const sleeperLeagues = Array.from(candidateGroups.values()).map((candidates) => {
-    const selected = candidates[0];
-    const { identity: _identity, ...league } = selected;
-    return league;
-  }).sort((a, b) => Number(b.season ?? 0) - Number(a.season ?? 0) || a.name.localeCompare(b.name));
+  const sleeperLeagues = leagueCandidates.sort((a, b) => a.name.localeCompare(b.name));
   const now = new Date().toISOString();
   await Promise.all(sleeperLeagues.map((league) => db.insert(managedLeagues).values({ id: crypto.randomUUID(), userId: user.userId, provider: "sleeper", identifierType: "league_id", identifier: league.id, rosterId: league.rosterId, leagueName: league.name, season: league.season ?? null, leagueMetaJson: JSON.stringify({ teams: league.teams, format: league.format, scoring: league.scoring, starterCount: league.starterCount }), status: "live", createdAt: now, updatedAt: now }).onConflictDoUpdate({ target: [managedLeagues.userId, managedLeagues.provider, managedLeagues.identifierType, managedLeagues.identifier], set: { rosterId: league.rosterId, leagueName: league.name, season: league.season ?? null, leagueMetaJson: JSON.stringify({ teams: league.teams, format: league.format, scoring: league.scoring, starterCount: league.starterCount }), status: "live", updatedAt: now } })));
-  if (sleeperLeagues.length) {
+  if (leagueDiscoverySucceeded) {
     const currentLeagueIds = new Set(sleeperLeagues.map((league) => league.id));
     await Promise.all(savedSleeper
       .filter((record) => !currentLeagueIds.has(record.identifier))
