@@ -8,6 +8,10 @@ test("signing out clears native and browser sessions with branded feedback", asy
   assert.match(source, /signOut\(\{ redirectUrl: "\/sign-in" \}\)/);
   assert.match(source, /fetch\("\/api\/native-auth\/session", \{ method: "DELETE" \}\)/);
   assert.match(source, /nativeAppleSignOut/);
+  assert.match(
+    source,
+    /if \(isNativeIosApp\(\)\) \{[\s\S]*?await signOut\(\);[\s\S]*?await nativeAppleSignOut\(\);/,
+  );
   assert.match(source, /window\.location\.replace\("\/native-sign-in"\)/);
   assert.match(source, /chargers-entry-shell/);
   assert.doesNotMatch(source, /redirectUrl: "\/"/);

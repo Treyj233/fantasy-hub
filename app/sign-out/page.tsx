@@ -22,6 +22,10 @@ export default function SignOutPage() {
         window.localStorage.removeItem("fantasy-hub-native-user");
         window.localStorage.removeItem("fantasy-hub-active-league");
         if (isNativeIosApp()) {
+          // The iOS app has both a Clerk session in the WebView and a native
+          // Clerk session. Clear both: otherwise the persisted WebView cookie
+          // authenticates the next cold launch even after native sign-out.
+          await signOut();
           await nativeAppleSignOut();
           window.location.replace("/native-sign-in");
           return;
