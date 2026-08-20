@@ -114,9 +114,11 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
       if (schedule.id !== matchingSchedule?.id) await this.cancelSchedule(schedule.id);
     }
     if (!matchingSchedule) await this.scheduleEvery(interval, "runCycle", { trigger: "schedule" });
-    if (!this.state.startedAt) {
-      this.setState({ ...this.state, startedAt: new Date().toISOString(), mode: this.mode() });
-    }
+    this.setState({
+      ...this.state,
+      startedAt: this.state.startedAt ?? new Date().toISOString(),
+      mode: this.mode(),
+    });
   }
 
   private mode(): "preview" | "live" {
