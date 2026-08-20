@@ -80,6 +80,11 @@ const filterRedundantFeedStories = (stories: StoredStory[]) => stories.filter((s
   if (!subjectId) return true;
   const inferredCategory = categorizeStory(`${story.title} ${story.draft ?? ""}`);
   const effectiveCategory = story.category === "news" && inferredCategory === "injury" ? "injury" : story.category;
+  if (story.category === "news" && inferredCategory === "injury" && all.some((candidate) =>
+    candidate.category === "injury"
+      && feedSubjectId(candidate) === subjectId
+      && Math.abs(Date.parse(candidate.published_at) - Date.parse(story.published_at)) <= 24 * 60 * 60_000
+  )) return false;
   const materialStage = ["game-status", "confirmed", "return"].includes(story.lifecycle_stage || "initial");
   if (materialStage) return true;
   return !all.slice(0, index).some((newer) => {

@@ -71,6 +71,7 @@ test("social agent is live, sourced, deduplicated, and rate limited", async () =
   assert.match(worker, /related_players_json/);
   assert.match(worker, /hydratedStories = await Promise\.all/);
   assert.match(worker, /filterRedundantFeedStories\(hydratedStories\)\.map\(feedStory\)/);
+  assert.match(worker, /candidate\.category === "injury"/);
   assert.match(worker, /\["game-status", "confirmed", "return"\]/);
   assert.match(worker, /findTeamFantasyPlayers/);
   assert.match(content, /splitAtomicUpdates/);
