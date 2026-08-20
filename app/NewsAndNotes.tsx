@@ -62,7 +62,11 @@ export default function NewsAndNotes({ onOpenPlayer }: { onOpenPlayer?: (player:
   const loadFeed = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
     try {
-      const response = await fetch("/api/news-notes", { signal });
+      const response = await fetch(`/api/news-notes?refresh=${Date.now()}`, {
+        cache: "no-store",
+        headers: { accept: "application/json" },
+        signal,
+      });
       const payload = await response.json() as NewsPayload;
       if (!response.ok) throw new Error(payload.error || "News feed unavailable");
       setItems(Array.isArray(payload.items) ? payload.items : []);
