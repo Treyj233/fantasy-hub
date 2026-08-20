@@ -374,6 +374,21 @@ type LeagueRanking = Player & {
   age?: number | null;
   ageAdjustment: number;
   lineupAdjustment: number;
+  fantasyPoints2025?: number | null;
+  fantasyPpg2025?: number | null;
+  gamesPlayed2025?: number | null;
+  targets2025?: number | null;
+  receptions2025?: number | null;
+  receivingYards2025?: number | null;
+  receivingTouchdowns2025?: number | null;
+  rushingAttempts2025?: number | null;
+  rushingYards2025?: number | null;
+  rushingTouchdowns2025?: number | null;
+  passingAttempts2025?: number | null;
+  passingYards2025?: number | null;
+  passingTouchdowns2025?: number | null;
+  snapAverage?: number | null;
+  statsSourceSeason?: number | null;
 };
 type CompositeLeagueRanking = LeagueRanking & { compositeAdp: number | null };
 type WaiverPlayer = LeagueRanking & {

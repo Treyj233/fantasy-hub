@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 
-type DraftPlayer = { id: string; name: string; position: string; team: string; overallRank?: number; rankingValue?: number; age?: number | null; adpBySite?: Record<string, number | null>; fantasyPpg2025?: number | null; gamesPlayed2025?: number | null; snapAverage?: number | null; teamOffenseRank2025?: number | null; teamPointsPerGame2025?: number | null };
+type DraftPlayer = { id: string; name: string; position: string; team: string; overallRank?: number; rankingValue?: number; age?: number | null; adpBySite?: Record<string, number | null>; fantasyPoints2025?: number | null; fantasyPpg2025?: number | null; gamesPlayed2025?: number | null; targets2025?: number | null; receptions2025?: number | null; receivingYards2025?: number | null; receivingTouchdowns2025?: number | null; rushingAttempts2025?: number | null; rushingYards2025?: number | null; rushingTouchdowns2025?: number | null; passingAttempts2025?: number | null; passingYards2025?: number | null; passingTouchdowns2025?: number | null; snapAverage?: number | null; statsSourceSeason?: number | null };
 type RosterConfig = { QB: number; RB: number; WR: number; TE: number; FLEX: number; BENCH: number };
 type BoardOrder = "Fantasy Hub Rankings" | "Consensus ADP" | "Underdog ADP" | "Sleeper ADP" | "ESPN ADP";
 type DraftSettings = { teams: number; slot: number; format: "Redraft" | "Keeper" | "Dynasty"; lineup: "1QB" | "Superflex"; scoring: "Standard" | "Half PPR" | "Full PPR" | "TE Premium"; cpu: "Balanced" | "Competitive" | "Chaotic"; boardOrder: BoardOrder; timer: number; roster: RosterConfig };
@@ -108,19 +108,39 @@ const boardOrderValue = (player: DraftPlayer, settings: DraftSettings) => {
   return (source ? siteAdp(player, source, settings) : displayAdp(player, settings)) ?? player.overallRank ?? 999;
 };
 const historicalContext = (player: DraftPlayer) => {
-  if (player.position === "QB") {
-    return [
-      { label: "2025 FPPG", value: player.fantasyPpg2025 == null ? "—" : player.fantasyPpg2025.toFixed(1) },
-      { label: "GAMES", value: player.gamesPlayed2025 == null ? "—" : String(player.gamesPlayed2025) },
-      { label: "OFFENSE", value: player.teamOffenseRank2025 == null ? "—" : `#${player.teamOffenseRank2025}` },
-      { label: "TEAM PPG", value: player.teamPointsPerGame2025 == null ? "—" : player.teamPointsPerGame2025.toFixed(1) },
-    ];
-  }
-  return [
-    { label: "2025 FPPG", value: player.fantasyPpg2025 == null ? "—" : player.fantasyPpg2025.toFixed(1) },
-    { label: "GAMES", value: player.gamesPlayed2025 == null ? "—" : String(player.gamesPlayed2025) },
+  const value = (stat: number | null | undefined, digits = 0) => stat == null ? "—" : stat.toFixed(digits);
+  const common = [
+    { label: `${player.statsSourceSeason ?? 2025} FPTS`, value: value(player.fantasyPoints2025, 1) },
     { label: "SNAP SHARE", value: player.snapAverage == null ? "—" : `${Math.round(player.snapAverage)}%` },
     { label: "AGE", value: player.age == null ? "—" : String(player.age) },
+  ];
+  if (player.position === "QB") {
+    return [
+      common[0],
+      { label: "PASS ATT", value: value(player.passingAttempts2025) },
+      { label: "PASS YD", value: value(player.passingYards2025) },
+      { label: "PASS TD", value: value(player.passingTouchdowns2025) },
+      { label: "RUSH ATT", value: value(player.rushingAttempts2025) },
+      { label: "RUSH YD", value: value(player.rushingYards2025) },
+      common[1], common[2],
+    ];
+  }
+  if (player.position === "RB") return [
+    common[0],
+    { label: "RUSH ATT", value: value(player.rushingAttempts2025) },
+    { label: "RUSH YD", value: value(player.rushingYards2025) },
+    { label: "RUSH TD", value: value(player.rushingTouchdowns2025) },
+    { label: "REC", value: value(player.receptions2025) },
+    { label: "REC YD", value: value(player.receivingYards2025) },
+    common[1], common[2],
+  ];
+  return [
+    common[0],
+    { label: "TARGETS", value: value(player.targets2025) },
+    { label: "REC", value: value(player.receptions2025) },
+    { label: "REC YD", value: value(player.receivingYards2025) },
+    { label: "REC TD", value: value(player.receivingTouchdowns2025) },
+    common[1], common[2],
   ];
 };
 const cpuScore = (player: DraftPlayer, profile: CpuProfile, teamPicks: Pick[], overall: number, settings: DraftSettings) => {

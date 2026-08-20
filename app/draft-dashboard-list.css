@@ -217,7 +217,7 @@ html[data-theme="dark"] .draft-roster article {
 }
 
 .draft-player-list > button {
-  grid-template-columns: 40px minmax(150px, 1.25fr) minmax(360px, 2fr) 90px 56px;
+  grid-template-columns: 40px minmax(150px, 1.15fr) minmax(520px, 2.4fr) 90px 56px;
   gap: 14px;
   padding: 10px 12px;
 }
@@ -227,7 +227,8 @@ html[data-theme="dark"] .draft-roster article {
 }
 
 .draft-player-history {
-  grid-template-columns: repeat(4, minmax(58px, 1fr));
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(60px, 1fr);
   gap: 8px;
 }
 
@@ -426,13 +427,9 @@ html[data-theme="dark"] .draft-roster article {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .draft-player-list > button {
-    grid-template-columns: 34px minmax(120px, 1fr) 70px 48px;
-  }
-
-  .draft-player-history {
-    display: none;
-  }
+  .draft-player-list > button { min-width: 820px; grid-template-columns: 34px 145px minmax(540px, 1fr) 48px; }
+  .draft-player-list > button > i { position: sticky; left: 0; z-index: 3; padding-block: 12px; background: inherit; }
+  .draft-player-identity { position: sticky; left: 34px; z-index: 2; align-self: stretch; align-content: center; padding: 0 10px 0 4px; background: inherit; box-shadow: 8px 0 12px rgb(0 0 0 / .07); }
 
   .draft-roster-tab > div {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -474,9 +471,12 @@ html[data-theme="dark"] .draft-roster article {
   }
 
   .draft-player-list > button {
-    grid-template-columns: 30px minmax(0, 1fr) 42px;
+    min-width: 790px;
+    grid-template-columns: 30px 138px minmax(540px, 1fr) 42px;
     gap: 8px;
   }
+
+  .draft-player-identity { left: 30px; }
 
   .draft-player-market {
     display: none;

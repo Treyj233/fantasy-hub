@@ -2,6 +2,15 @@ export type PlayerSeasonProfile = {
   games: number;
   fantasyPoints: number;
   receptions: number;
+  targets: number;
+  receivingYards: number;
+  receivingTouchdowns: number;
+  rushingAttempts: number;
+  rushingYards: number;
+  rushingTouchdowns: number;
+  passingAttempts: number;
+  passingYards: number;
+  passingTouchdowns: number;
   team: string | null;
 };
 
@@ -63,6 +72,15 @@ async function fetchPlayerSeason(season: number) {
         games: 0,
         fantasyPoints: 0,
         receptions: 0,
+        targets: 0,
+        receivingYards: 0,
+        receivingTouchdowns: 0,
+        rushingAttempts: 0,
+        rushingYards: 0,
+        rushingTouchdowns: 0,
+        passingAttempts: 0,
+        passingYards: 0,
+        passingTouchdowns: 0,
         team: null,
       };
       profiles.set(key, {
@@ -72,6 +90,15 @@ async function fetchPlayerSeason(season: number) {
           (Number(cells[column("fantasy_points")]) || 0),
         receptions:
           existing.receptions + (Number(cells[column("receptions")]) || 0),
+        targets: existing.targets + (Number(cells[column("targets")]) || 0),
+        receivingYards: existing.receivingYards + (Number(cells[column("receiving_yards")]) || 0),
+        receivingTouchdowns: existing.receivingTouchdowns + (Number(cells[column("receiving_tds")]) || 0),
+        rushingAttempts: existing.rushingAttempts + (Number(cells[column("carries")]) || 0),
+        rushingYards: existing.rushingYards + (Number(cells[column("rushing_yards")]) || 0),
+        rushingTouchdowns: existing.rushingTouchdowns + (Number(cells[column("rushing_tds")]) || 0),
+        passingAttempts: existing.passingAttempts + (Number(cells[column("attempts")]) || 0),
+        passingYards: existing.passingYards + (Number(cells[column("passing_yards")]) || 0),
+        passingTouchdowns: existing.passingTouchdowns + (Number(cells[column("passing_tds")]) || 0),
         team:
           cells[column("team")] ||
           cells[column("recent_team")] ||
@@ -171,10 +198,21 @@ export async function loadBlendedPlayerSeasonProfiles(currentSeason: number, cur
     const priorPpg = prior.games ? prior.fantasyPoints / prior.games : latestPpg;
     const latestReceptions = latest.games ? latest.receptions / latest.games : 0;
     const priorReceptions = prior.games ? prior.receptions / prior.games : latestReceptions;
+    const blendTotal = (latestValue: number, priorValue: number) =>
+      ((latest.games ? latestValue / latest.games : 0) * weight + (prior.games ? priorValue / prior.games : latest.games ? latestValue / latest.games : 0) * (1 - weight)) * latest.games;
     profiles.set(key, {
       games: latest.games,
       fantasyPoints: (latestPpg * weight + priorPpg * (1 - weight)) * latest.games,
       receptions: (latestReceptions * weight + priorReceptions * (1 - weight)) * latest.games,
+      targets: blendTotal(latest.targets, prior.targets),
+      receivingYards: blendTotal(latest.receivingYards, prior.receivingYards),
+      receivingTouchdowns: blendTotal(latest.receivingTouchdowns, prior.receivingTouchdowns),
+      rushingAttempts: blendTotal(latest.rushingAttempts, prior.rushingAttempts),
+      rushingYards: blendTotal(latest.rushingYards, prior.rushingYards),
+      rushingTouchdowns: blendTotal(latest.rushingTouchdowns, prior.rushingTouchdowns),
+      passingAttempts: blendTotal(latest.passingAttempts, prior.passingAttempts),
+      passingYards: blendTotal(latest.passingYards, prior.passingYards),
+      passingTouchdowns: blendTotal(latest.passingTouchdowns, prior.passingTouchdowns),
       team: latest.team ?? prior.team,
     });
   });
