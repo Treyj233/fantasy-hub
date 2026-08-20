@@ -73,7 +73,7 @@ export async function gameDayWeatherStories(): Promise<Story[]> {
     const matchup = teamNames.length === 2 ? `${teamNames[0]}–${teamNames[1]}` : teamCodes.join("–");
     const conditions = `${Math.round(forecast.temperatureF ?? 0)}°F, ${Math.round(forecast.windMph ?? 0)} mph wind (${Math.round(forecast.windGustMph ?? 0)} mph gusts), ${Math.round(forecast.precipitationProbability ?? 0)}% precipitation`;
     const severity = `${windy ? "w" : ""}${wet ? "p" : ""}${extremeTemperature ? "t" : ""}`;
-    return { id: `weather:${event.id}:${severity}:${Math.round((forecast.windMph ?? 0) / 5)}:${Math.round((forecast.precipitationProbability ?? 0) / 20)}`, title: `Inclement weather is forecast for ${matchup}: ${conditions}.`, summary: `Outdoor conditions at ${venue.fullName ?? "the stadium"} could affect fantasy scoring.`, url: "https://fantasyhubapp.com", source: "weather", publishedAt: new Date().toISOString(), category: "weather", fantasyImpact: weatherImpact(teamCodes.join(" and "), forecast) };
+    return { id: `weather:${event.id}:${severity}:${Math.round((forecast.windMph ?? 0) / 5)}:${Math.round((forecast.precipitationProbability ?? 0) / 20)}`, title: `Inclement weather is forecast for ${matchup}: ${conditions}.`, summary: `Outdoor conditions at ${venue.fullName ?? "the stadium"} could affect fantasy scoring.`, url: "https://fantasyhubapp.com", source: "weather", publishedAt: new Date().toISOString(), category: "weather", fantasyImpact: weatherImpact(teamCodes.join(" and "), forecast), sourceContext: teamCodes };
   }))).filter((story): story is Story => Boolean(story));
   weatherCache = { expires: now + 15 * 60_000, stories };
   return stories;

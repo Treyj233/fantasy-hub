@@ -1,7 +1,7 @@
 import { Agent, getAgentByName } from "agents";
 import { categorizeStory, composeFantasyPost, isFantasyRelevant, isPracticeSetting, isSixPointFantasyPlay, splitAtomicUpdates, type Story } from "./content";
 import { createXPost, xApiGet, type XCredentials } from "./x-client";
-import { findPlayerContext } from "./player-data";
+import { findPlayerContext, findTeamFantasyPlayers } from "./player-data";
 import { gameDayWeatherStories } from "./weather";
 import { isNflRegularOrPostseasonGameDay } from "./game-day";
 import { dashboardHtml } from "./dashboard";
@@ -384,9 +384,18 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
       FROM stories
       WHERE status IN ('draft', 'posted') AND draft IS NOT NULL
       ORDER BY published_at DESC LIMIT 100`];
+    const hydratedStories = await Promise.all(stories.map(async (story) => {
+      const savedPlayers = parseJson<Array<{ id: string; name: string; position: string; team: string; relationship: "subject" | "beneficiary" | "backup" }>>(story.related_players_json, []);
+      if (savedPlayers.length || story.category === "weather") return story;
+      const context = await findPlayerContext(`${story.title}. ${story.draft ?? ""}`);
+      if (!context?.relatedPlayers.length) return story;
+      const relatedPlayersJson = JSON.stringify(context.relatedPlayers);
+      this.sql`UPDATE stories SET related_players_json = ${relatedPlayersJson} WHERE id = ${story.id}`;
+      return { ...story, related_players_json: relatedPlayersJson };
+    }));
     return {
       updatedAt: this.state.lastRunAt,
-      items: stories.map(feedStory),
+      items: hydratedStories.map(feedStory),
     };
   }
 
@@ -430,7 +439,7 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
         const validation = Date.parse(preparedStory.publishedAt) >= now.getTime() - POST_FRESHNESS_MINUTES * 60_000
           ? await this.critiqueForPublishing(preparedStory, draft, facts, deterministicValidation)
           : deterministicValidation;
-        const relatedPlayers = context?.relatedPlayers ?? [];
+        const relatedPlayers = context?.relatedPlayers ?? (story.category === "weather" ? await findTeamFantasyPlayers(story.sourceContext ?? []) : []);
         if (semanticDuplicate.length) {
           const canonical = semanticDuplicate[0];
           this.sql`INSERT OR IGNORE INTO story_evidence (story_id, source_story_id, source, url, title, published_at)

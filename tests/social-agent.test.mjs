@@ -53,6 +53,8 @@ test("social agent is live, sourced, deduplicated, and rate limited", async () =
   assert.match(worker, /story_evidence/);
   assert.match(worker, /critiqueForPublishing/);
   assert.match(worker, /related_players_json/);
+  assert.match(worker, /hydratedStories = await Promise\.all/);
+  assert.match(worker, /findTeamFantasyPlayers/);
   assert.match(content, /splitAtomicUpdates/);
   assert.match(worker, /Tyler Warren has a groin injury/);
   assert.match(worker, /Rachaad White tweaked his hamstring; not considered serious/);
