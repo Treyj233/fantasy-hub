@@ -11,14 +11,18 @@ test("News & Notes removes team hashtag markers from displayed copy", async () =
   assert.match(source, /IMPACTED PLAYERS/);
   assert.match(source, /onOpenPlayer\?\.\(player\)/);
   assert.match(source, /sourceCount/);
-  assert.match(source, /visibleItems\.length > 10/);
-  assert.match(source, /ResizeObserver\(sizePane\)/);
+  assert.match(source, /filteredItems\.slice\(0, visibleCount\)/);
+  assert.match(source, /setVisibleCount\(\(count\) => count \+ 10\)/);
+  assert.match(source, /Show 10 older updates/);
+  assert.doesNotMatch(source, /ResizeObserver|is-scrollable|news-feed-pane-height/);
   assert.match(source, /\["news", "Fantasy Pulse"\]/);
   assert.match(source, /\["performance", "Game highlights"\]/);
 });
 
-test("scrollable news cards retain their natural height", async () => {
+test("news feed uses one page scroll instead of a nested scroll pane", async () => {
   const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
   assert.match(styles, /\.news-feed\{display:grid;grid-auto-rows:max-content;align-content:start/);
   assert.match(styles, /\.news-feed-card\{[^}]*align-self:start;width:100%/);
+  assert.match(styles, /\.news-load-more\{/);
+  assert.doesNotMatch(styles, /\.news-feed\.is-scrollable|news-feed-pane-height/);
 });

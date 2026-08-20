@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 type NewsItem = {
   id: string;
@@ -57,7 +57,7 @@ export default function NewsAndNotes({ onOpenPlayer }: { onOpenPlayer?: (player:
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [manualRefreshState, setManualRefreshState] = useState<"idle" | "refreshing" | "updated">("idle");
-  const feedRef = useRef<HTMLDivElement>(null);
+  const [visibleCount, setVisibleCount] = useState(10);
 
   const loadFeed = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
@@ -101,37 +101,15 @@ export default function NewsAndNotes({ onOpenPlayer }: { onOpenPlayer?: (player:
     };
   }, [loadFeed]);
 
-  const visibleItems = useMemo(
+  const filteredItems = useMemo(
     () => filter === "all" ? items : items.filter((item) => item.category === filter),
     [filter, items],
   );
+  const visibleItems = useMemo(() => filteredItems.slice(0, visibleCount), [filteredItems, visibleCount]);
 
   useEffect(() => {
-    const feed = feedRef.current;
-    if (!feed) return;
-    if (visibleItems.length <= 10) {
-      feed.style.removeProperty("--news-feed-pane-height");
-      return;
-    }
-    const sizePane = () => {
-      const cards = Array.from(feed.children).slice(0, 10) as HTMLElement[];
-      const gap = Number.parseFloat(window.getComputedStyle(feed).rowGap || "0") || 0;
-      const cardHeights = cards.map((card) => card.getBoundingClientRect().height);
-      if (cards.length < 10 || cardHeights.some((height) => height <= 0)) {
-        feed.style.removeProperty("--news-feed-pane-height");
-        return;
-      }
-      const height = cardHeights.reduce((total, cardHeight) => total + cardHeight, 0) + gap * Math.max(0, cards.length - 1);
-      feed.style.setProperty("--news-feed-pane-height", `${Math.ceil(height)}px`);
-    };
-    const animationFrame = window.requestAnimationFrame(sizePane);
-    const observer = new ResizeObserver(sizePane);
-    Array.from(feed.children).slice(0, 10).forEach((card) => observer.observe(card));
-    return () => {
-      window.cancelAnimationFrame(animationFrame);
-      observer.disconnect();
-    };
-  }, [visibleItems]);
+    setVisibleCount(10);
+  }, [filter]);
 
   return (
     <div className="page-content news-notes-page">
@@ -170,7 +148,7 @@ export default function NewsAndNotes({ onOpenPlayer }: { onOpenPlayer?: (player:
         <section className="panel news-empty"><span>✓</span><h3>You&apos;re all caught up</h3><p>New fantasy-impacting updates will appear here as they break.</p></section>
       )}
 
-      <div ref={feedRef} className={`news-feed ${visibleItems.length > 10 ? "is-scrollable" : ""}`} tabIndex={visibleItems.length > 10 ? 0 : undefined} aria-label={`${visibleItems.length} fantasy news updates`}>
+      <div className="news-feed" aria-label={`${filteredItems.length} fantasy news updates`}>
         {visibleItems.map((item, index) => {
           const steps = item.nextSteps.length ? item.nextSteps : [item.impact];
           return (
@@ -202,6 +180,11 @@ export default function NewsAndNotes({ onOpenPlayer }: { onOpenPlayer?: (player:
           );
         })}
       </div>
+      {visibleCount < filteredItems.length && (
+        <button type="button" className="news-load-more" onClick={() => setVisibleCount((count) => count + 10)}>
+          Show 10 older updates <span>{filteredItems.length - visibleCount} remaining</span>
+        </button>
+      )}
     </div>
   );
 }
