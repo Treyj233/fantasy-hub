@@ -48,7 +48,8 @@ test("social agent is live, sourced, deduplicated, and rate limited", async () =
   assert.match(content, /\\bir\\b/);
   assert.match(content, /arrival adds real competition/);
   assert.match(content, /departure clears an opening/);
-  assert.match(worker, /x-sources-v25-material-injury-followups/);
+  assert.match(worker, /x-sources-v26-suppress-live-content/);
+  assert.match(worker, /if \(isLiveContentPost\(primaryText, sourceUrls\)\) return \[\]/);
   assert.match(worker, /isMaterialStoryUpdate\(previousFacts, facts, preparedStory\)/);
   assert.match(intelligence, /openingAvailabilityPattern/);
   assert.match(intelligence, /week 1\|start of/);
@@ -107,6 +108,15 @@ test("role classification distinguishes a starting-role change from starting an 
   assert.equal(categorizeStory("Evan Engram scored twice in Broncos training camp"), "news");
   assert.equal(categorizeStory("Bo Nix will play about 14 snaps in the preseason game"), "news");
   assert.equal(isSixPointFantasyPlay({ title: "Touchdown in practice", summary: "Evan Engram scored during team drills" }), false);
+});
+
+test("live content posts are suppressed without blocking complete text reports", async () => {
+  const { isLiveContentPost } = await import("../social-agent/src/content.ts");
+  assert.equal(isLiveContentPost("We're live now—join the show for camp updates"), true);
+  assert.equal(isLiveContentPost("Lions camp conversation", ["https://x.com/i/broadcasts/1DXxy" ]), true);
+  assert.equal(isLiveContentPost("Join our X Space", ["https://twitter.com/i/spaces/1YpKk"]), true);
+  assert.equal(isLiveContentPost("Sam LaPorta may not be ready for Week 1 after a hip flare-up."), false);
+  assert.equal(isLiveContentPost("Live practice update: Sam LaPorta left with a hip injury."), false);
 });
 
 test("practice stat lines retain versus context and never imply an absence", async () => {

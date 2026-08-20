@@ -1,5 +1,5 @@
 import { Agent, getAgentByName } from "agents";
-import { categorizeStory, composeFantasyPost, isFantasyRelevant, isPracticeSetting, isSixPointFantasyPlay, splitAtomicUpdates, type Story } from "./content";
+import { categorizeStory, composeFantasyPost, isFantasyRelevant, isLiveContentPost, isPracticeSetting, isSixPointFantasyPlay, splitAtomicUpdates, type Story } from "./content";
 import { createXPost, xApiGet, type XCredentials } from "./x-client";
 import { findPlayerContext, findTeamFantasyPlayers } from "./player-data";
 import { gameDayWeatherStories } from "./weather";
@@ -18,7 +18,7 @@ type AgentState = {
 const RECENT_STORY_HOURS = 18;
 const POST_FRESHNESS_MINUTES = 60;
 const GAMEDAY_POST_FRESHNESS_MINUTES = 20;
-const DRAFT_FORMAT_VERSION = "x-sources-v25-material-injury-followups";
+const DRAFT_FORMAT_VERSION = "x-sources-v26-suppress-live-content";
 const RETRACTED_STORY_IDS = ["2090186160634986677", "2090197243202609473", "2090202303143747828"];
 
 type StoredStory = {
@@ -217,6 +217,8 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
   }
 
   private async sourceStories(): Promise<Story[]> {
+    type TweetUrl = { expanded_url?: string; unwound_url?: string; url?: string };
+    type SourceTweet = { id: string; text: string; created_at?: string; author_id?: string; referenced_tweets?: Array<{ type: string; id: string }>; entities?: { urls?: TweetUrl[] } };
     const handles = this.handles();
     const known = [...this.sql<{ username: string; x_user_id: string }>`SELECT username, x_user_id FROM source_accounts`];
     const ids = new Map(known.map((account) => [account.username.toLowerCase(), account.x_user_id]));
@@ -237,9 +239,9 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
       const userId = ids.get(handle.toLowerCase());
       if (!userId) return [];
       const timeline = await xApiGet<{
-        data?: Array<{ id: string; text: string; created_at?: string; author_id?: string; referenced_tweets?: Array<{ type: string; id: string }> }>;
+        data?: SourceTweet[];
         includes?: {
-          tweets?: Array<{ id: string; text: string; author_id?: string }>;
+          tweets?: SourceTweet[];
           users?: Array<{ id: string; username: string }>;
         };
       }>(
@@ -265,6 +267,9 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
         const curated = handle.toLowerCase() === "32beatwriters";
         const primaryText = curated && referencedText ? referencedText : cleanText;
         const contextText = curated && referencedText ? referencedText : primaryText;
+        const primaryPost = curated && referencedPost ? referencedPost : post;
+        const sourceUrls = (primaryPost.entities?.urls ?? []).flatMap((entity) => [entity.expanded_url, entity.unwound_url, entity.url].filter((url): url is string => Boolean(url)));
+        if (isLiveContentPost(primaryText, sourceUrls)) return [];
         const originalUrl = curated && reference && originalReporter
           ? `https://x.com/${originalReporter.username}/status/${reference.id}`
           : `https://x.com/${handle}/status/${post.id}`;

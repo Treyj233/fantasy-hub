@@ -31,6 +31,13 @@ export function isPracticeSetting(value: string) {
   return practiceSettingPattern.test(value);
 }
 
+const liveContentPattern = /(?:^|\b)(?:live now|going live|we(?:'re| are) live|join (?:us|me) live|watch live|listen live|tune in live|live ?stream|x space|twitter space)(?:\b|:)/i;
+const liveContentUrlPattern = /(?:x|twitter)\.com\/i\/(?:broadcasts|spaces)\/|pscp\.tv\//i;
+
+export function isLiveContentPost(text: string, urls: string[] = []) {
+  return liveContentPattern.test(text) || urls.some((url) => liveContentUrlPattern.test(url));
+}
+
 export function splitAtomicUpdates(value: string) {
   const withoutLinks = value.replace(/https:\/\/t\.co\/\w+/g, "").replace(/^RT\s+@\w+:\s*/i, "").trim();
   const lines = withoutLinks.split(/\n+/).map((line) => line.replace(/^\s*[-•–—]+\s*/, "").replace(/\s+/g, " ").trim()).filter(Boolean);
