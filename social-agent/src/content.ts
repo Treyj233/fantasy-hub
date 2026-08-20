@@ -187,6 +187,11 @@ const lateInGameWeek = (publishedAt: string) => {
   return day === 0 || day >= 4;
 };
 
+const isPreseasonPeriod = (publishedAt: string) => {
+  const month = new Date(publishedAt).getUTCMonth();
+  return month === 6 || month === 7;
+};
+
 export function isSixPointFantasyPlay(story: Pick<Story, "title" | "summary">) {
   const text = `${story.title} ${story.summary}`;
   if (/\b(?:touchdown|td|pick-six|fumble return)\b/i.test(text)) return true;
@@ -203,6 +208,12 @@ const specificImpact = (story: Story, context: FantasyPlayerContext | null) => {
     const detailLead = injuryLead(context.player, injuryUpdate);
     if (longTermInjury.test(injuryUpdate)) {
       return `${context.player} managers: prioritize ${backupText} on waivers. Expect the remaining ${context.team} playmakers to absorb the vacated volume.`;
+    }
+    if (isPreseasonPeriod(story.publishedAt)) {
+      const beneficiary = context.affectedPlayers[0] ?? context.backups[0] ?? `another ${context.team} playmaker`;
+      const opportunity = context.position === "RB" ? "touch-share" : context.position === "QB" ? "passing-game" : "target-share";
+      const depthWatch = context.backups[0] && context.backups[0] !== beneficiary ? ` ${context.backups[0]} is depth-chart insurance.` : "";
+      return `Preseason: track ${context.player}'s recovery, not the waiver wire. If the absence lingers, ${beneficiary} is the ${opportunity} watch.${depthWatch}`;
     }
     if (confirmedAbsence.test(injuryUpdate)) {
       const verb = context.backups.length > 1 ? "get" : "gets";

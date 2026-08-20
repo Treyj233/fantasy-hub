@@ -46,9 +46,10 @@ test("social agent is live, sourced, deduplicated, and rate limited", async () =
   assert.match(content, /\\bir\\b/);
   assert.match(content, /arrival changes the \$\{opportunity\}/);
   assert.match(content, /departure opens opportunity/);
-  assert.match(worker, /x-sources-v16-rachaad-white-injury-context/);
+  assert.match(worker, /x-sources-v17-preseason-injury-beneficiaries/);
   assert.match(worker, /Tyler Warren has a groin injury/);
   assert.match(worker, /Rachaad White tweaked his hamstring; not considered serious/);
+  assert.match(worker, /Josh Downs is the target-share watch/);
   assert.match(worker, /gameDayWeatherStories/);
   assert.match(content, /WEATHER WATCH/);
   assert.match(content, /isSixPointFantasyPlay/);
@@ -96,8 +97,25 @@ test("injury headlines prioritize the diagnosis when attribution consumes the tw
     publishedAt: new Date().toISOString(),
     category: "injury",
   }, { player: "Tyler Warren", position: "TE", team: "IND", backups: ["Mo Alie-Cox", "Will Mallory"], affectedPlayers: [] });
-  assert.match(post, /Tyler Warren has a groin injury\./);
+  assert.match(post, /Tyler Warren (?:has|is dealing with a) groin injury\./);
   assert.doesNotMatch(post, /Colts HC Shane Steichen told reporters\./);
+});
+
+test("preseason injuries favor healthy target beneficiaries over immediate waiver backups", async () => {
+  const { composeFantasyPost } = await import("../social-agent/src/content.ts");
+  const post = composeFantasyPost({
+    id: "preseason-injury-test",
+    title: "Tyler Warren is dealing with a groin injury suffered during practice.",
+    summary: "Tyler Warren is dealing with a groin injury suffered during practice.",
+    url: "https://example.com/preseason-injury-test",
+    source: "@AdamSchefter",
+    publishedAt: "2026-08-19T21:31:12.000Z",
+    category: "injury",
+  }, { player: "Tyler Warren", position: "TE", team: "IND", backups: ["Mo Alie-Cox"], affectedPlayers: ["Josh Downs"] });
+  assert.match(post, /track Tyler Warren's recovery, not the waiver wire/);
+  assert.match(post, /Josh Downs is the target-share watch/);
+  assert.match(post, /Mo Alie-Cox is depth-chart insurance/);
+  assert.doesNotMatch(post, /prioritize Mo Alie-Cox on waivers/);
 });
 
 test("X posting uses signed user context and never stores credentials in source", async () => {

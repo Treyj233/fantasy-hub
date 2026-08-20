@@ -17,7 +17,7 @@ type AgentState = {
 const RECENT_STORY_HOURS = 18;
 const POST_FRESHNESS_MINUTES = 60;
 const GAMEDAY_POST_FRESHNESS_MINUTES = 20;
-const DRAFT_FORMAT_VERSION = "x-sources-v16-rachaad-white-injury-context";
+const DRAFT_FORMAT_VERSION = "x-sources-v17-preseason-injury-beneficiaries";
 const RETRACTED_STORY_IDS = ["2090186160634986677", "2090197243202609473", "2090202303143747828"];
 
 type StoredStory = {
@@ -97,6 +97,13 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
             'Rachaad White tweaked his hamstring, but it is not considered serious or long-term. No immediate waiver move. Monitor his practice status;'
           )
       WHERE id = '2090248955300884689'`;
+    this.sql`UPDATE stories
+      SET draft = REPLACE(
+        draft,
+        'Tyler Warren is dealing with a groin injury. No immediate waiver move. Monitor Tyler Warren''s practice status; if ruled out, reassess Mo Alie-Cox and Will Mallory and other IND playmakers.',
+        'Preseason: track Tyler Warren''s recovery, not the waiver wire. If the absence lingers, Josh Downs is the target-share watch. Mo Alie-Cox is depth-chart insurance.'
+      )
+      WHERE id = '2090189865996443824'`;
     this.sql`INSERT OR REPLACE INTO agent_meta (key, value) VALUES ('draft_format', ${DRAFT_FORMAT_VERSION})`;
   }
 

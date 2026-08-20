@@ -39,6 +39,13 @@ const hasMeaningfulDepthRole = (player: SleeperPlayer) =>
 const isFantasySignificant = (player: SleeperPlayer) =>
   hasFantasyMarket(player) || hasMeaningfulDepthRole(player);
 
+const isAvailableForRecommendation = (player: SleeperPlayer) =>
+  player.status !== "Inactive"
+  && !player.injury_status;
+
+const fantasyRelevanceOrder = (player: SleeperPlayer) =>
+  player.search_rank && player.search_rank > 0 ? player.search_rank : 10_000 + (player.depth_chart_order ?? 99);
+
 export async function findPlayerContext(text: string): Promise<PlayerContext | null> {
   if (!playerCache || playerCache.expires < Date.now()) {
     const response = await fetch("https://api.sleeper.app/v1/players/nfl", {
@@ -59,7 +66,7 @@ export async function findPlayerContext(text: string): Promise<PlayerContext | n
   const order = mentioned.depth_chart_order ?? 0;
   const backups = playerCache.players
     .filter((player) => player.full_name && player.team === mentioned.team && player.position === mentioned.position)
-    .filter((player) => player.full_name !== mentioned.full_name && player.status !== "Inactive")
+    .filter((player) => player.full_name !== mentioned.full_name && isAvailableForRecommendation(player))
     .filter((player) => !order || !player.depth_chart_order || player.depth_chart_order > order)
     .sort((a, b) => (a.depth_chart_order ?? 99) - (b.depth_chart_order ?? 99))
     .slice(0, 2)
@@ -71,13 +78,14 @@ export async function findPlayerContext(text: string): Promise<PlayerContext | n
       : new Set([mentioned.position]);
   const affectedPlayers = playerCache.players
     .filter((player) => player.full_name && player.team === mentioned.team && player.position && affectedPositions.has(player.position))
-    .filter((player) => player.full_name !== mentioned.full_name && player.status !== "Inactive")
-    .sort((a, b) => (a.depth_chart_order ?? 99) - (b.depth_chart_order ?? 99))
+    .filter((player) => player.full_name !== mentioned.full_name && isAvailableForRecommendation(player))
+    .filter(isFantasySignificant)
+    .sort((a, b) => fantasyRelevanceOrder(a) - fantasyRelevanceOrder(b))
     .slice(0, 3)
     .map((player) => player.full_name!);
   const hasRelevantAffectedPlayer = playerCache.players
     .filter((player) => player.full_name && player.team === mentioned.team && player.position && affectedPositions.has(player.position))
-    .some((player) => player.full_name !== mentioned.full_name && player.status !== "Inactive" && isFantasySignificant(player));
+    .some((player) => player.full_name !== mentioned.full_name && isAvailableForRecommendation(player) && isFantasySignificant(player));
   const depthOrder = mentioned.depth_chart_order ?? 0;
   const meaningfulTeammateImpact = materialRoleChange.test(primaryStatement)
     && depthOrder > 0
