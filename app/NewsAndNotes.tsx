@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type NewsItem = {
   id: string;
@@ -56,6 +56,7 @@ export default function NewsAndNotes({ onOpenPlayer }: { onOpenPlayer?: (player:
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [manualRefreshState, setManualRefreshState] = useState<"idle" | "refreshing" | "updated">("idle");
+  const feedRef = useRef<HTMLDivElement>(null);
 
   const loadFeed = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
@@ -100,6 +101,21 @@ export default function NewsAndNotes({ onOpenPlayer }: { onOpenPlayer?: (player:
     [filter, items],
   );
 
+  useEffect(() => {
+    const feed = feedRef.current;
+    if (!feed || visibleItems.length <= 10) return;
+    const sizePane = () => {
+      const cards = Array.from(feed.children).slice(0, 10) as HTMLElement[];
+      const gap = Number.parseFloat(window.getComputedStyle(feed).rowGap || "0") || 0;
+      const height = cards.reduce((total, card) => total + card.getBoundingClientRect().height, 0) + gap * Math.max(0, cards.length - 1);
+      feed.style.setProperty("--news-feed-pane-height", `${Math.ceil(height)}px`);
+    };
+    sizePane();
+    const observer = new ResizeObserver(sizePane);
+    Array.from(feed.children).slice(0, 10).forEach((card) => observer.observe(card));
+    return () => observer.disconnect();
+  }, [visibleItems]);
+
   return (
     <div className="page-content news-notes-page">
       <section className="section-intro compact news-notes-intro">
@@ -137,7 +153,7 @@ export default function NewsAndNotes({ onOpenPlayer }: { onOpenPlayer?: (player:
         <section className="panel news-empty"><span>✓</span><h3>You&apos;re all caught up</h3><p>New fantasy-impacting updates will appear here as they break.</p></section>
       )}
 
-      <div className="news-feed">
+      <div ref={feedRef} className={`news-feed ${visibleItems.length > 10 ? "is-scrollable" : ""}`} tabIndex={visibleItems.length > 10 ? 0 : undefined} aria-label={`${visibleItems.length} fantasy news updates`}>
         {visibleItems.map((item, index) => {
           const steps = item.nextSteps.length ? item.nextSteps : [item.impact];
           return (

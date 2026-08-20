@@ -11,4 +11,6 @@ test("News & Notes removes team hashtag markers from displayed copy", async () =
   assert.match(source, /PLAYERS IN THIS UPDATE/);
   assert.match(source, /onOpenPlayer\?\.\(player\)/);
   assert.match(source, /sourceCount/);
+  assert.match(source, /visibleItems\.length > 10/);
+  assert.match(source, /ResizeObserver\(sizePane\)/);
 });

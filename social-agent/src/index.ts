@@ -379,7 +379,7 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
       SELECT id, title, source, category, draft, status, published_at, confidence, lifecycle_stage, related_players_json, source_count
       FROM stories
       WHERE status IN ('draft', 'posted') AND draft IS NOT NULL
-      ORDER BY published_at DESC LIMIT 30`];
+      ORDER BY published_at DESC LIMIT 100`];
     return {
       updatedAt: this.state.lastRunAt,
       items: stories.map(feedStory),
