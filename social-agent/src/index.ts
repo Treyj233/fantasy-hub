@@ -18,7 +18,7 @@ type AgentState = {
 const RECENT_STORY_HOURS = 18;
 const POST_FRESHNESS_MINUTES = 60;
 const GAMEDAY_POST_FRESHNESS_MINUTES = 20;
-const DRAFT_FORMAT_VERSION = "x-sources-v27-regenerated-current-feed";
+const DRAFT_FORMAT_VERSION = "x-sources-v28-complete-feed-regeneration";
 const RETRACTED_STORY_IDS = ["2090186160634986677", "2090197243202609473", "2090202303143747828"];
 
 type StoredStory = {
@@ -386,13 +386,12 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
   }
 
   private async regenerateCurrentFeed() {
-    const regenerationKey = "regenerated_feed_v27";
+    const regenerationKey = "regenerated_feed_v28";
     const [completed] = [...this.sql<{ value: string }>`SELECT value FROM agent_meta WHERE key = ${regenerationKey} LIMIT 1`];
     if (completed?.value === "complete") return;
-    const cutoff = new Date(Date.now() - RECENT_STORY_HOURS * 60 * 60_000).toISOString();
     const stories = [...this.sql<{ id: string; title: string; url: string; source: string; category: Story["category"]; published_at: string; status: string }>`
       SELECT id, title, url, source, category, published_at, status FROM stories
-      WHERE published_at >= ${cutoff} AND status IN ('draft', 'posted')
+      WHERE status IN ('draft', 'posted')
       ORDER BY published_at DESC LIMIT 100`];
     for (const stored of stories) {
       const [evidence] = [...this.sql<{ title: string; url: string; source: string; published_at: string }>`
@@ -416,7 +415,7 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
         url: sourceUrl,
         source: evidence?.source || stored.source,
         publishedAt: evidence?.published_at || stored.published_at,
-        category: stored.category,
+        category: categorizeStory(sourceText),
       };
       const prepared = await this.enrichStory(sourceStory, context);
       const draft = composeFantasyPost(prepared, context);
@@ -427,7 +426,7 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
         continue;
       }
       this.sql`UPDATE stories SET
-        title = ${prepared.title}, draft = ${draft}, confidence = ${facts.confidence}, lifecycle_stage = ${facts.lifecycleStage},
+        title = ${prepared.title}, category = ${prepared.category}, draft = ${draft}, confidence = ${facts.confidence}, lifecycle_stage = ${facts.lifecycleStage},
         facts_json = ${JSON.stringify(facts)}, validation_json = ${JSON.stringify(validation)}, related_players_json = ${JSON.stringify(context.relatedPlayers)}, error = NULL
         WHERE id = ${stored.id}`;
     }
