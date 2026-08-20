@@ -75,10 +75,14 @@ const semanticKey = (story: Story, player: { player: string; team: string; posit
 const feedSubjectId = (story: StoredStory) => parseJson<Array<{ id: string; relationship: string }>>(story.related_players_json, [])
   .find((player) => player.relationship === "subject")?.id;
 
+const feedStoryLooksLikeInjury = (story: StoredStory) => story.category === "injury"
+  || /\b(?:injur(?:y|ed)|tore|tear|acl|mcl|hamstring|ankle|knee|hip|groin|concussion|surgery|ir\b|injured reserve)\b/i
+    .test(`${story.title} ${story.draft ?? ""}`);
+
 const filterRedundantFeedStories = (stories: StoredStory[]) => stories.filter((story, index, all) => {
   const subjectId = feedSubjectId(story);
   if (!subjectId) return true;
-  const inferredCategory = categorizeStory(`${story.title} ${story.draft ?? ""}`);
+  const inferredCategory = feedStoryLooksLikeInjury(story) ? "injury" : categorizeStory(`${story.title} ${story.draft ?? ""}`);
   const effectiveCategory = story.category === "news" && inferredCategory === "injury" ? "injury" : story.category;
   if (story.category === "news" && inferredCategory === "injury" && all.some((candidate) =>
     candidate.category === "injury"
@@ -89,7 +93,7 @@ const filterRedundantFeedStories = (stories: StoredStory[]) => stories.filter((s
   if (materialStage) return true;
   return !all.slice(0, index).some((newer) => {
     if (feedSubjectId(newer) !== subjectId) return false;
-    const newerInferred = categorizeStory(`${newer.title} ${newer.draft ?? ""}`);
+    const newerInferred = feedStoryLooksLikeInjury(newer) ? "injury" : categorizeStory(`${newer.title} ${newer.draft ?? ""}`);
     if (story.category === "injury" && newer.category === "news" && newerInferred === "injury") return false;
     const newerCategory = newer.category === "news" && newerInferred === "injury" ? "injury" : newer.category;
     return newerCategory === effectiveCategory && Math.abs(Date.parse(newer.published_at) - Date.parse(story.published_at)) <= 24 * 60 * 60_000;
