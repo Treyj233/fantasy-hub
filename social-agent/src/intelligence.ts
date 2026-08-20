@@ -89,7 +89,9 @@ export function validateStoryDraft(story: Story, context: PlayerContext | null, 
   if (facts.confidence === "low") reasons.push("Extracted facts are low confidence");
   if (draft.length > 280) reasons.push("Draft exceeds the X character limit");
   if (/told reporters\.$|according to (?:a )?source\.$|has a new (?:injury )?update\.$/im.test(draft)) reasons.push("Headline ends before the actionable fact");
-  if (/\b(?:not|and|or|but|with|for|to)\.$/im.test(draft)) reasons.push("Headline ends with a dangling word");
+  if (/\b(?:not|and|or|but|with|for|to|during)\.$/im.test(draft)) reasons.push("Headline ends with a dangling word");
+  const headline = draft.split(/\n{2,}/)[1] ?? "";
+  if (context && headline.toLowerCase().split(context.player.toLowerCase()).length - 1 > 1) reasons.push("Headline repeats the subject name");
   if (story.category === "injury" && facts.diagnosis && !draft.toLowerCase().includes(facts.diagnosis.toLowerCase().replace(/^(?:tweaked)\s+(?:his|her|their)\s+/, ""))) reasons.push("Draft omits the reported injury detail");
   if (!/FANTASY IMPACT:/i.test(draft)) reasons.push("Fantasy impact is missing");
   if (/adjust projections|monitor the depth chart|compare (?:this report )?(?:with )?(?:routes|targets|snaps)|routes, targets and snaps/i.test(draft)) reasons.push("Fantasy impact uses vague boilerplate");

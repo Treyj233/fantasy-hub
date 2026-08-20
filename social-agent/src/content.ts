@@ -239,11 +239,13 @@ const specificImpact = (story: Story, context: FantasyPlayerContext | null) => {
   if (story.category === "injury" && context) {
     const opportunityPlayers = [...new Set([...context.affectedPlayers, ...context.backups])].slice(0, 3);
     const backupText = opportunityPlayers.length ? opportunityPlayers.join(" and ") : `the next ${context.position} on the ${context.team} depth chart`;
+    const beneficiaryText = context.affectedPlayers.length ? [...new Set(context.affectedPlayers)].slice(0, 3).join(" and ") : `the remaining ${context.team} playmakers`;
+    const depthText = context.backups.length ? [...new Set(context.backups)].slice(0, 2).join(" and ") : `the next ${context.position} on the ${context.team} depth chart`;
     const injuryUpdate = `${story.title} ${story.summary}`;
     const details = injuryDetails(injuryUpdate);
     const detailLead = injuryLead(context.player, injuryUpdate);
     if (longTermInjury.test(injuryUpdate)) {
-      return `${context.player} managers: prioritize ${backupText} on waivers. Expect the remaining ${context.team} playmakers to absorb the vacated volume.`;
+      return `${context.player} managers should plan a replacement. ${beneficiaryText} gain the clearest opportunity; put ${depthText} on the watchlist until the vacated role is assigned.`;
     }
     if (isPreseasonPeriod(story.publishedAt)) {
       const beneficiary = context.affectedPlayers[0] ?? context.backups[0] ?? `another ${context.team} playmaker`;

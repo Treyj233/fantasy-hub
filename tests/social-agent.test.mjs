@@ -37,7 +37,7 @@ test("social agent is live, sourced, deduplicated, and rate limited", async () =
   assert.match(worker, /duplicateWindowMs/);
   assert.match(worker, /story\.category === "performance" \? 20 \* 60_000 : 24 \* 60 \* 60_000/);
   assert.match(content, /SUNDAY PULSE/);
-  assert.match(content, /prioritize \$\{backupText\} on waivers/);
+  assert.match(content, /gain the clearest opportunity; put \$\{depthText\} on the watchlist/);
   assert.match(content, /No immediate waiver move/);
   assert.match(content, /tweaked\|strained\|sprained/);
   assert.match(content, /not considered serious or long-term/);
@@ -48,7 +48,7 @@ test("social agent is live, sourced, deduplicated, and rate limited", async () =
   assert.match(content, /\\bir\\b/);
   assert.match(content, /arrival adds real competition/);
   assert.match(content, /departure clears an opening/);
-  assert.match(worker, /x-sources-v29-batched-feed-regeneration/);
+  assert.match(worker, /x-sources-v30-feed-quality-cleanup/);
   assert.match(worker, /if \(isLiveContentPost\(primaryText, sourceUrls\)\) return \[\]/);
   assert.match(worker, /await this\.regenerateCurrentFeed\(\)/);
   assert.match(worker, /\.filter\(\(story\) => !processed\.has\(story\.id\)\)\.slice\(0, 2\)/);
@@ -57,6 +57,7 @@ test("social agent is live, sourced, deduplicated, and rate limited", async () =
   assert.match(worker, /status IN \('draft', 'posted'\)/);
   assert.match(worker, /category: categorizeStory\(sourceText\)/);
   assert.match(intelligence, /Headline ends with a dangling word/);
+  assert.match(intelligence, /Headline repeats the subject name/);
   assert.match(worker, /status IN \('posted', 'posted_suppressed'\)/);
   assert.match(worker, /isMaterialStoryUpdate\(previousFacts, facts, preparedStory\)/);
   assert.match(intelligence, /openingAvailabilityPattern/);
@@ -213,6 +214,17 @@ test("an injured RB2 recommendation includes the healthy RB1 workload beneficiar
   }, { player: "Rachaad White", position: "RB", team: "WAS", backups: ["Kaytron Allen"], affectedPlayers: ["Jacory Croskey-Merritt"] });
   assert.match(post, /Jacory Croskey-Merritt is the touch-share watch/);
   assert.match(post, /Kaytron Allen is depth-chart insurance/);
+});
+
+test("long-term injury advice separates established beneficiaries from depth options", async () => {
+  const { composeFantasyPost } = await import("../social-agent/src/content.ts");
+  const post = composeFantasyPost({
+    id: "season-ending-test", title: "Jayden Higgins tore his ACL and will miss the season.", summary: "Jayden Higgins tore his ACL and will miss the season.",
+    url: "https://example.com/season-ending-test", source: "@RapSheet", publishedAt: "2026-08-19T16:18:45.000Z", category: "injury",
+  }, { player: "Jayden Higgins", position: "WR", team: "HOU", affectedPlayers: ["Nico Collins", "Dalton Schultz"], backups: ["Justin Watson"] });
+  assert.match(post, /Nico Collins and Dalton Schultz gain the clearest opportunity/);
+  assert.match(post, /put Justin Watson on the watchlist/);
+  assert.doesNotMatch(post, /prioritize Nico Collins.*waivers/);
 });
 
 test("X posting uses signed user context and never stores credentials in source", async () => {
