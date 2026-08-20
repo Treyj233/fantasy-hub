@@ -22,6 +22,7 @@ const filters = [
   ["depth-chart", "Role watch"],
   ["contract", "Roster moves"],
   ["performance", "Game day"],
+  ["weather", "Weather"],
 ] as const;
 
 const timeAgo = (value: string) => {

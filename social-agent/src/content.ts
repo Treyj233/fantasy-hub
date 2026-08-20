@@ -1,4 +1,4 @@
-export type StoryCategory = "injury" | "performance" | "contract" | "depth-chart" | "news";
+export type StoryCategory = "injury" | "performance" | "contract" | "depth-chart" | "weather" | "news";
 
 export type Story = {
   id: string;
@@ -8,6 +8,7 @@ export type Story = {
   source: string;
   publishedAt: string;
   category: StoryCategory;
+  fantasyImpact?: string;
 };
 
 export type FantasyPlayerContext = {
@@ -15,6 +16,7 @@ export type FantasyPlayerContext = {
   position: string;
   team: string;
   backups: string[];
+  affectedPlayers: string[];
 };
 
 const decodeEntities = (value: string) => value
@@ -41,7 +43,7 @@ const atomLink = (xml: string) => {
 
 export function categorizeStory(text: string): StoryCategory {
   const normalized = text.toLowerCase();
-  if (/injur|out for|questionable|doubtful|ir\b|concussion|surgery|torn|sprain|hamstring|ankle|knee/.test(normalized)) return "injury";
+  if (/injur|out for|questionable|doubtful|\bir\b|concussion|surgery|torn|sprain|hamstring|ankle|knee/.test(normalized)) return "injury";
   if (/signs?|signed|extension|contract|released|waived|traded|trade\b|franchise tag/.test(normalized)) return "contract";
   if (/starter|starting|depth chart|promoted|demoted|backup|committee|workload/.test(normalized)) return "depth-chart";
   if (/yards|touchdowns?|targets|receptions|carries|snaps|breakout|record/.test(normalized)) return "performance";
@@ -83,6 +85,7 @@ const impacts: Record<StoryCategory, string> = {
   contract: "This can reshape role security, target competition, and dynasty value.",
   "depth-chart": "Usage is changing—watch snaps, touches, and waiver availability.",
   performance: "Treat the usage behind the box score as the signal for lineups and trades.",
+  weather: "Recheck the forecast and affected lineup decisions near kickoff.",
   news: "Monitor the depth chart and projections before making your next move.",
 };
 
@@ -91,6 +94,7 @@ const labels: Record<StoryCategory, string> = {
   contract: "📝 ROSTER MOVE",
   "depth-chart": "📈 ROLE WATCH",
   performance: "🔥 PERFORMANCE PULSE",
+  weather: "🌧️ WEATHER WATCH",
   news: "🏈 FANTASY PULSE",
 };
 
@@ -149,13 +153,23 @@ const confirmedAbsence = /ruled out|will not play|won't play|will miss (?:the )?
 const highConcernWeeklyInjury = /doubtful|game-time decision|week-to-week|miss(?:ed|es|ing) (?:a |the )?(?:practice|walkthrough)|did not practice|dnp|concussion/i;
 const mildInjury = /day-to-day|limited|soreness|tightness|bruise|contusion|precautionary|minor|managing|rest day/i;
 const gameDayPlay = /\b(?:touchdown|td|scores?|two-point|[4-9]\d-yard|1\d{2}\s+yards|100-yard|150-yard|200-yard)\b/i;
+const playerAdded = /sign(?:s|ed)?|agreed|acquired|traded for|claimed/i;
+const playerRemoved = /released|waived|cut|traded away|departed|not re-sign/i;
 
 const lateInGameWeek = (publishedAt: string) => {
   const day = new Date(publishedAt).getUTCDay();
   return day === 0 || day >= 4;
 };
 
+export function isSixPointFantasyPlay(story: Pick<Story, "title" | "summary">) {
+  const text = `${story.title} ${story.summary}`;
+  if (/\b(?:touchdown|td|pick-six|fumble return)\b/i.test(text)) return true;
+  const yardage = [...text.matchAll(/\b(\d{2,3})[- ]yard/gi)].map((match) => Number(match[1]));
+  return yardage.some((yards) => yards >= 60) && /rush|run|reception|receiv|catch|caught/i.test(text);
+}
+
 const specificImpact = (story: Story, context: FantasyPlayerContext | null) => {
+  if (story.category === "weather" && story.fantasyImpact) return story.fantasyImpact;
   if (story.category === "injury" && context) {
     const backupText = context.backups.length ? context.backups.join(" and ") : `the next ${context.position} on the ${context.team} depth chart`;
     const injuryUpdate = `${story.title} ${story.summary}`;
@@ -181,6 +195,17 @@ const specificImpact = (story: Story, context: FantasyPlayerContext | null) => {
   }
   if (story.category === "depth-chart" && context) {
     return `${context.player}'s role is moving. Track first-team reps, routes and touches before waivers lock; opportunity beats name value.`;
+  }
+  if (story.category === "contract" && context) {
+    const move = `${story.title} ${story.summary}`;
+    const affected = context.affectedPlayers.length ? context.affectedPlayers.slice(0, 2).join(" and ") : `the other ${context.team} ${context.position}s`;
+    if (playerRemoved.test(move)) {
+      return `${context.player}'s departure opens opportunity for ${affected}. Recheck the depth chart, but wait for role evidence before making a major valuation change.`;
+    }
+    if (playerAdded.test(move)) {
+      const opportunity = context.position === "QB" ? "passing-game outlook" : context.position === "K" ? "kicking role" : "touch and target competition";
+      return `${context.player}'s arrival changes the ${opportunity} for ${affected}. Reassess roles and projections before waivers, trades or drafts.`;
+    }
   }
   return impacts[story.category];
 };

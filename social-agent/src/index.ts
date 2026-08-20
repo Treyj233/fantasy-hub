@@ -1,7 +1,9 @@
 import { Agent, getAgentByName } from "agents";
-import { categorizeStory, composeFantasyPost, isFantasyRelevant, type Story } from "./content";
+import { categorizeStory, composeFantasyPost, isFantasyRelevant, isSixPointFantasyPlay, type Story } from "./content";
 import { createXPost, xApiGet, type XCredentials } from "./x-client";
 import { findPlayerContext } from "./player-data";
+import { gameDayWeatherStories } from "./weather";
+import { isNflRegularOrPostseasonGameDay } from "./game-day";
 import { dashboardHtml } from "./dashboard";
 
 type AgentState = {
@@ -13,7 +15,7 @@ type AgentState = {
 };
 
 const RECENT_STORY_HOURS = 18;
-const DRAFT_FORMAT_VERSION = "x-sources-v6-injury-severity";
+const DRAFT_FORMAT_VERSION = "x-sources-v8-weather-watch";
 
 type StoredStory = {
   id: string;
@@ -94,8 +96,13 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
       x_user_id TEXT NOT NULL,
       updated_at TEXT NOT NULL
     )`;
-    const interval = Math.max(300, Number(this.env.POLL_INTERVAL_SECONDS || 600));
-    await this.scheduleEvery(interval, "runCycle", { trigger: "schedule" });
+    const interval = Math.max(300, Number(this.env.POLL_INTERVAL_SECONDS || 300));
+    const pollingSchedules = this.getSchedules().filter((schedule) => schedule.callback === "runCycle");
+    const matchingSchedule = pollingSchedules.find((schedule) => schedule.type === "interval" && schedule.intervalSeconds === interval);
+    for (const schedule of pollingSchedules) {
+      if (schedule.id !== matchingSchedule?.id) await this.cancelSchedule(schedule.id);
+    }
+    if (!matchingSchedule) await this.scheduleEvery(interval, "runCycle", { trigger: "schedule" });
     if (!this.state.startedAt) {
       this.setState({ ...this.state, startedAt: new Date().toISOString(), mode: this.mode() });
     }
@@ -160,14 +167,15 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
     return timelines.flat();
   }
 
-  private eligibleToPost() {
-    const minimumGap = Math.max(15, Number(this.env.MIN_POST_INTERVAL_MINUTES || 45)) * 60_000;
+  private eligibleToPost(gameDay: boolean) {
+    const minimumGap = gameDay ? 0 : Math.max(12, Number(this.env.MIN_POST_INTERVAL_MINUTES || 12)) * 60_000;
     if (this.state.lastPostAt && Date.now() - Date.parse(this.state.lastPostAt) < minimumGap) return false;
     const start = new Date();
     start.setUTCHours(0, 0, 0, 0);
     const [{ count }] = this.sql<{ count: number }>`SELECT COUNT(*) AS count FROM stories
       WHERE status = 'posted' AND discovered_at >= ${start.toISOString()}`;
-    return Number(count) < Math.max(1, Number(this.env.MAX_POSTS_PER_DAY || 8));
+    const dailyLimit = gameDay ? Number(this.env.GAMEDAY_MAX_POSTS_PER_DAY || 100) : Number(this.env.MAX_POSTS_PER_DAY || 20);
+    return Number(count) < Math.max(1, dailyLimit);
   }
 
   private recentDrafts() {
@@ -195,6 +203,7 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
   async runCycle(_payload?: { trigger: string }) {
     const now = new Date();
     try {
+      const gameDay = await isNflRegularOrPostseasonGameDay();
       this.sql`CREATE TABLE IF NOT EXISTS agent_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)`;
       const storyColumns = [...this.sql<{ name: string }>`PRAGMA table_info(stories)`];
       if (!storyColumns.some((column) => column.name === "semantic_key")) {
@@ -206,20 +215,22 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
         this.sql`INSERT OR REPLACE INTO agent_meta (key, value) VALUES ('draft_format', ${DRAFT_FORMAT_VERSION})`;
       }
       // Remove drafts created by the retired RSS source. X-origin stories use an @handle.
-      this.sql`DELETE FROM stories WHERE source NOT LIKE '@%'`;
+      this.sql`DELETE FROM stories WHERE source NOT LIKE '@%' AND source != 'weather'`;
       const cutoff = now.getTime() - RECENT_STORY_HOURS * 60 * 60 * 1000;
-      const candidates = (await this.sourceStories())
+      const candidates = [...await this.sourceStories(), ...await gameDayWeatherStories()]
         .filter(isFantasyRelevant)
+        .filter((story) => !gameDay || story.category !== "performance" || isSixPointFantasyPlay(story))
         .filter((story) => Date.parse(story.publishedAt) >= cutoff)
         .sort((a, b) => Date.parse(b.publishedAt) - Date.parse(a.publishedAt));
 
       let selected: Story | null = null;
+      const newlyCreated: Story[] = [];
       for (const story of candidates) {
         const existing = [...this.sql<{ id: string }>`SELECT id FROM stories WHERE id = ${story.id} LIMIT 1`];
         if (existing.length) continue;
-        const context = await findPlayerContext(`${story.title} ${story.summary}`);
-        if (!context) continue;
-        const storySemanticKey = semanticKey(story, context);
+        const context = story.category === "weather" ? null : await findPlayerContext(`${story.title} ${story.summary}`);
+        if (!context && story.category !== "weather") continue;
+        const storySemanticKey = context ? semanticKey(story, context) : story.id;
         const duplicateWindowMs = story.category === "performance" ? 20 * 60_000 : 24 * 60 * 60_000;
         const duplicateCutoff = new Date(Date.parse(story.publishedAt) - duplicateWindowMs).toISOString();
         const semanticDuplicate = [...this.sql<{ id: string }>`SELECT id FROM stories
@@ -230,20 +241,28 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
         this.sql`INSERT INTO stories (id, title, url, source, category, published_at, discovered_at, draft, status, semantic_key)
           VALUES (${story.id}, ${story.title}, ${story.url}, ${story.source}, ${story.category}, ${story.publishedAt}, ${now.toISOString()}, ${draft}, 'draft', ${storySemanticKey})`;
         selected ??= story;
+        newlyCreated.push(story);
       }
 
       const mode = this.mode();
-      if (selected && mode === "live" && this.eligibleToPost()) {
+      if (selected && mode === "live" && this.eligibleToPost(gameDay)) {
         const credentials = this.credentials();
         if (Object.values(credentials).some((value) => !value)) throw new Error("X posting credentials are incomplete");
-        const [{ draft }] = [...this.sql<{ draft: string }>`SELECT draft FROM stories WHERE id = ${selected.id} LIMIT 1`];
-        const postId = await createXPost(draft, credentials);
-        this.sql`UPDATE stories SET status = 'posted', x_post_id = ${postId}, error = NULL WHERE id = ${selected.id}`;
-        this.setState({ ...this.state, lastRunAt: now.toISOString(), lastPostAt: now.toISOString(), lastError: null, mode });
+        const freshnessCutoff = now.getTime() - 20 * 60_000;
+        const queue = gameDay ? newlyCreated.filter((story) => Date.parse(story.publishedAt) >= freshnessCutoff) : [selected];
+        let lastPostAt = this.state.lastPostAt;
+        for (const story of queue) {
+          if (!this.eligibleToPost(gameDay)) break;
+          const [{ draft }] = [...this.sql<{ draft: string }>`SELECT draft FROM stories WHERE id = ${story.id} LIMIT 1`];
+          const postId = await createXPost(draft, credentials);
+          lastPostAt = new Date().toISOString();
+          this.sql`UPDATE stories SET status = 'posted', x_post_id = ${postId}, error = NULL WHERE id = ${story.id}`;
+        }
+        this.setState({ ...this.state, lastRunAt: now.toISOString(), lastPostAt, lastError: null, mode });
       } else {
         this.setState({ ...this.state, lastRunAt: now.toISOString(), lastError: null, mode });
       }
-      console.log(JSON.stringify({ event: "social_agent_cycle", mode, candidates: candidates.length, selected: selected?.id ?? null }));
+      console.log(JSON.stringify({ event: "social_agent_cycle", mode, gameDay, candidates: candidates.length, selected: selected?.id ?? null }));
       return this.status();
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown social agent failure";

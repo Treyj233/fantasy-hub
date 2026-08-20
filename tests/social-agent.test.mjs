@@ -9,9 +9,12 @@ test("social agent is preview-first, sourced, deduplicated, and rate limited", a
     readFile(new URL("../social-agent/wrangler.jsonc", import.meta.url), "utf8"),
   ]);
   assert.match(config, /"POSTING_MODE": "preview"/);
-  assert.match(config, /"MIN_POST_INTERVAL_MINUTES": "45"/);
-  assert.match(config, /"MAX_POSTS_PER_DAY": "8"/);
+  assert.match(config, /"POLL_INTERVAL_SECONDS": "300"/);
+  assert.match(config, /"MIN_POST_INTERVAL_MINUTES": "12"/);
+  assert.match(config, /"MAX_POSTS_PER_DAY": "20"/);
+  assert.match(config, /"GAMEDAY_MAX_POSTS_PER_DAY": "100"/);
   assert.match(worker, /scheduleEvery\(interval, "runCycle"/);
+  assert.match(worker, /cancelSchedule\(schedule\.id\)/);
   assert.match(worker, /CREATE TABLE IF NOT EXISTS stories/);
   assert.match(worker, /SELECT id FROM stories WHERE id/);
   assert.match(worker, /RECENT_STORY_HOURS = 18/);
@@ -22,7 +25,7 @@ test("social agent is preview-first, sourced, deduplicated, and rate limited", a
   assert.match(worker, /source_accounts/);
   assert.match(worker, /xApiGet/);
   assert.match(worker, /DRAFT_FORMAT_VERSION/);
-  assert.match(worker, /if \(!context\) continue/);
+  assert.match(worker, /if \(!context && story\.category !== "weather"\) continue/);
   assert.match(worker, /semantic_key/);
   assert.match(worker, /duplicateWindowMs/);
   assert.match(worker, /story\.category === "performance" \? 20 \* 60_000 : 24 \* 60 \* 60_000/);
@@ -32,6 +35,17 @@ test("social agent is preview-first, sourced, deduplicated, and rate limited", a
   assert.match(content, /act only after a downgrade or inactive ruling/);
   assert.match(content, /if ruled out, reassess \$\{backupText\}/);
   assert.doesNotMatch(content, /Add now where available and monitor pregame status/);
+  assert.match(content, /\\bir\\b/);
+  assert.match(content, /arrival changes the \$\{opportunity\}/);
+  assert.match(content, /departure opens opportunity/);
+  assert.match(worker, /x-sources-v8-weather-watch/);
+  assert.match(worker, /gameDayWeatherStories/);
+  assert.match(content, /WEATHER WATCH/);
+  assert.match(content, /isSixPointFantasyPlay/);
+  assert.match(worker, /isNflRegularOrPostseasonGameDay/);
+  assert.match(worker, /const minimumGap = gameDay \? 0/);
+  assert.match(await readFile(new URL("../social-agent/src/weather.ts", import.meta.url), "utf8"), /windGustMph/);
+  assert.match(await readFile(new URL("../social-agent/src/player-data.ts", import.meta.url), "utf8"), /primaryStatement/);
   assert.match(content, /Reported by \$\{reporter\}/);
   assert.match(content, /"@rapsheet": "@RapSheet"/);
   assert.doesNotMatch(content, /"@underdognfl":/);

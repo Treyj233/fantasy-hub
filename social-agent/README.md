@@ -9,7 +9,7 @@ Dedicated Cloudflare Agent for monitoring NFL news and publishing concise Fantas
 - Rejects rumor/speculation language.
 - Ignores items older than 18 hours.
 - Deduplicates stories in Durable Object SQLite.
-- Enforces a 45-minute minimum gap and eight-post daily cap.
+- Checks sources every five minutes, enforces a 12-minute minimum gap, and caps publishing at 20 posts per day.
 - Keeps admin routes behind a timing-safe bearer token.
 
 ## Required X setup
