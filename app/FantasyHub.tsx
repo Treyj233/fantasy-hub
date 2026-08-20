@@ -3817,18 +3817,15 @@ function ThemeStore({
   const [tab, setTab] = useState<"library" | "store">("library");
   const [adding, setAdding] = useState("");
   const selectedNflTheme = nflThemes.find((team) => team.id === teamTheme) ?? nflThemes[0];
-  const libraryTeams = nflThemes.filter((team) => ownedTeamThemes.includes(team.id));
-  const libraryBadges = badgeThemeOptions.filter((pack) => ownedBadgeThemes.includes(pack.id));
+  const proNflThemes = nflThemes.filter((team) => !team.premium);
+  const proBadgePacks = badgeThemeOptions.filter((pack) => !premiumBadgeThemeIds.has(pack.id));
+  const libraryTeams = nflThemes.filter((team) => ownedTeamThemes.includes(team.id) || (isPro && !team.premium));
+  const libraryBadges = badgeThemeOptions.filter((pack) => ownedBadgeThemes.includes(pack.id) || (isPro && !premiumBadgeThemeIds.has(pack.id)));
   const premiumBundles = [
     { theme: nflThemes.find((theme) => theme.id === "CROWN")!, badge: badgeThemeOptions.find((pack) => pack.id === "crown-chrome")!, label: "THE CHAMPIONSHIP SUITE" },
     { theme: nflThemes.find((theme) => theme.id === "NEONX")!, badge: badgeThemeOptions.find((pack) => pack.id === "neon-endzone")!, label: "THE PRIME-TIME SUITE" },
     { theme: nflThemes.find((theme) => theme.id === "HERITAGE")!, badge: badgeThemeOptions.find((pack) => pack.id === "heritage-gridiron")!, label: "THE LEGACY SUITE" },
   ];
-  const acquire = async (kind: "team" | "badge", id: string) => {
-    setAdding(`${kind}:${id}`);
-    await onAcquire(kind, id);
-    setAdding("");
-  };
   const acquireBundle = async (themeId: string, badgeId: BadgeTheme) => {
     setAdding(`bundle:${themeId}`);
     const themeAdded = ownedTeamThemes.includes(themeId) || await onAcquire("team", themeId);
@@ -3849,11 +3846,13 @@ function ThemeStore({
       <aside className="theme-store-future"><span>BUILD YOUR LIBRARY</span><strong>Looking for another Sunday look?</strong><p>Open the Store tab to add more palettes and badge packs to your account.</p></aside>
     </section> : <section className="appearance-panel theme-store-catalog theme-market panel" role="tabpanel">
       <div className="panel-header"><div><span>THEME STORE</span><h3>Add themes to your library</h3></div><b className="theme-membership-price">{isElite ? "ELITE · FREE" : isPro ? "PRO COLLECTION" : "MEMBERSHIP REQUIRED"}</b></div>
-      <p>Items are added only when you choose them. Elite membership makes eligible theme packs free, but does not automatically add them to your library.</p>
+      <p>The NFL Theme Collection and Starter Badge Collection are automatically added to your library with an active Pro membership.</p>
       <aside className="elite-theme-promise"><span>FANTASY HUB ELITE</span><strong>Every current and future theme. Included.</strong><p>Elite members can claim every eligible release from the Store for free and keep it organized in My Library.</p><button onClick={onUpgrade}>{isElite ? "View Elite membership →" : "Explore Elite →"}</button></aside>
+      <section className="pro-theme-collections"><header><span>INCLUDED WITH PRO</span><h4>Two complete starter collections.</h4><p>Upgrade once and both packs appear automatically in My Library.</p></header><div>
+        <article className="pro-collection-card nfl-collection"><div className="pro-collection-art" aria-hidden="true">{proNflThemes.slice(0,8).map((theme)=><i key={theme.id} style={{background:`linear-gradient(135deg,${theme.primary} 0 50%,${theme.secondary} 50%)`}}><b>{theme.id}</b></i>)}</div><em>32 NFL-INSPIRED THEMES</em><h5>NFL Theme Collection</h5><p>Every current NFL-inspired dashboard palette, packaged together and ready to use across Fantasy Hub.</p><button disabled={isPro} onClick={onUpgrade}>{isPro ? "PRO · IN YOUR LIBRARY" : "GET PRO ACCESS →"}</button></article>
+        <article className="pro-collection-card badge-collection"><div className="pro-collection-art badge-collection-art" aria-hidden="true">{proBadgePacks.slice(0,6).map((pack)=><span className={`badge-pack-preview ${pack.id}`} key={pack.id}>{pack.preview.slice(0,2).map((icon,index)=><i key={`${icon}-${index}`}>{icon}</i>)}</span>)}</div><em>16 NAVIGATION STYLES</em><h5>Starter Badge Collection</h5><p>All 16 original Fantasy Hub badge packs in one Pro collection, from Arcade and Team Colors to Helmet and Trading Cards.</p><button disabled={isPro} onClick={onUpgrade}>{isPro ? "PRO · IN YOUR LIBRARY" : "GET PRO ACCESS →"}</button></article>
+      </div></section>
       <section className="premium-theme-releases"><header><span>PREMIUM PACKS</span><h4>Three complete identities. Built beyond a color swap.</h4><p>Each release pairs a cinematic dashboard palette with a handcrafted matching badge system.</p></header><div>{premiumBundles.map(({theme,badge,label})=>{const owned=ownedTeamThemes.includes(theme.id)&&ownedBadgeThemes.includes(badge.id);return <article key={theme.id} className={`premium-pack-card premium-bundle premium-${theme.id.toLowerCase()}`}><div className="premium-bundle-art" style={{background:`radial-gradient(circle at 78% 18%,${theme.secondary}88,transparent 31%),linear-gradient(135deg,${theme.primary},color-mix(in srgb,${theme.primary} 65%,#000))`}}><span className={`badge-pack-preview ${badge.id}`}>{badge.preview.map((icon,index)=><i key={`${icon}-${index}`}>{icon}</i>)}</span></div><em>{label}</em><h5>{theme.name}</h5><p>{theme.detail}</p><small>Includes {badge.name} badge pack</small><button disabled={owned||!isOwner||adding===`bundle:${theme.id}`} onClick={()=>void acquireBundle(theme.id,badge.id)}>{owned?"IN LIBRARY":!isOwner?"COMING SOON":adding===`bundle:${theme.id}`?"ADDING PACK…":"OWNER PREVIEW · ADD FREE"}</button></article>})}</div></section>
-      <div className="theme-market-grid">{nflThemes.filter((team)=>!team.premium).map((team)=>{const owned=ownedTeamThemes.includes(team.id);return <article key={team.id}><i style={{background:`linear-gradient(135deg, ${team.primary} 0 50%, ${team.secondary} 50%)`}}/><span><strong>{team.name}</strong><small>NFL dashboard palette</small></span><button disabled={owned||adding===`team:${team.id}`} onClick={()=>void acquire("team",team.id)}>{owned?"IN LIBRARY":adding===`team:${team.id}`?"ADDING…":isElite?"FREE · ADD":isPro?"ADD":"UNLOCK"}</button></article>})}</div>
-      <div className="badge-theme-builder"><header><div><span>BADGE PACK STORE</span><h4>Add navigation styles</h4></div><small>{badgeThemeOptions.length - premiumBadgeThemeIds.size} packs</small></header><div className="theme-market-grid badge-market-grid">{badgeThemeOptions.filter((pack)=>!premiumBadgeThemeIds.has(pack.id)).map((pack)=>{const owned=ownedBadgeThemes.includes(pack.id);return <article key={pack.id}><span className={`badge-pack-preview ${pack.id}`}>{pack.preview.map((icon,index)=><i key={`${icon}-${index}`}>{icon}</i>)}</span><span><strong>{pack.name}</strong><small>{pack.detail}</small></span><button disabled={owned||adding===`badge:${pack.id}`} onClick={()=>void acquire("badge",pack.id)}>{owned?"IN LIBRARY":adding===`badge:${pack.id}`?"ADDING…":isElite?"FREE · ADD":isPro?"ADD":"UNLOCK"}</button></article>})}</div></div>
       {!isPro && <div className="appearance-pro-callout"><span>FANTASY HUB MEMBERSHIP</span><strong>Unlock theme collections.</strong><p>Upgrade to add premium themes and badge packs to your personal library.</p><button onClick={onUpgrade}>Explore plans →</button></div>}
     </section>}
   </div>;

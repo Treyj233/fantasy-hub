@@ -6,8 +6,10 @@ import { entitlementFor } from "../../../entitlements";
 
 const premiumTeamIds = new Set(["CROWN", "NEONX", "HERITAGE"]);
 const premiumBadgeThemes = new Set(["crown-chrome", "neon-endzone", "heritage-gridiron"]);
-const teamIds = new Set(["ARI","ATL","BAL","BUF","CAR","CHI","CIN","CLE","DAL","DEN","DET","GB","HOU","IND","JAX","KC","LV","LAC","LAR","MIA","MIN","NE","NO","NYG","NYJ","PHI","PIT","SF","SEA","TB","TEN","WSH",...premiumTeamIds]);
-const badgeThemes = new Set(["arcade", "team", "neon", "minimal", "stadium", "broadcast", "playbook", "varsity", "championship", "gridiron", "neon-sunday", "retro", "glass", "carbon", "helmet", "trading-cards",...premiumBadgeThemes]);
+const proTeamIds = ["ARI","ATL","BAL","BUF","CAR","CHI","CIN","CLE","DAL","DEN","DET","GB","HOU","IND","JAX","KC","LV","LAC","LAR","MIA","MIN","NE","NO","NYG","NYJ","PHI","PIT","SF","SEA","TB","TEN","WSH"];
+const proBadgeThemes = ["arcade", "team", "neon", "minimal", "stadium", "broadcast", "playbook", "varsity", "championship", "gridiron", "neon-sunday", "retro", "glass", "carbon", "helmet", "trading-cards"];
+const teamIds = new Set([...proTeamIds,...premiumTeamIds]);
+const badgeThemes = new Set([...proBadgeThemes,...premiumBadgeThemes]);
 
 export async function POST(request: Request) {
   const user = await getChatGPTUser();
@@ -28,6 +30,10 @@ export async function POST(request: Request) {
   };
   const ownedTeamThemes = parseLibrary(current?.ownedTeamThemesJson, current?.teamTheme ?? "LAC");
   const ownedBadgeThemes = parseLibrary(current?.ownedBadgeThemesJson, current?.badgeTheme ?? "arcade");
+  if (entitlement.pro) {
+    ownedTeamThemes.push(...proTeamIds);
+    ownedBadgeThemes.push(...proBadgeThemes);
+  }
   if (payload.acquireTeamTheme) {
     if (!teamIds.has(payload.acquireTeamTheme)) return Response.json({ error: "Invalid team theme" }, { status: 400 });
     if (!entitlement.pro) return Response.json({ error: "Theme purchase required" }, { status: 402 });
