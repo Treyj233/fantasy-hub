@@ -48,7 +48,8 @@ test("social agent is live, sourced, deduplicated, and rate limited", async () =
   assert.match(content, /\\bir\\b/);
   assert.match(content, /arrival adds real competition/);
   assert.match(content, /departure clears an opening/);
-  assert.match(worker, /x-sources-v34-potential-roster-move/);
+  assert.match(worker, /x-sources-v37-context-list-gate/);
+  assert.match(worker, /2090517793737158739:2/);
   assert.match(worker, /2090493186653249579/);
   assert.match(worker, /filter\(\(story\) => !RETRACTED_STORY_IDS\.includes\(story\.id\)\)/);
   assert.match(worker, /stories\.filter\(\(story\) => !RETRACTED_STORY_IDS\.includes\(story\.id\)\)\.map/);
@@ -192,6 +193,13 @@ test("potential trade reports remain roster moves when an injury provides contex
   }, { player: "Kayshon Boutte", position: "WR", team: "NE", backups: [], affectedPlayers: [] });
   assert.match(draft, /Boutte is a potential trade candidate\./);
   assert.doesNotMatch(draft, /roster situation has changed/);
+});
+
+test("historical contract lists are context, not fantasy roster moves", async () => {
+  const { categorizeStory, isFantasyRelevant } = await import("../social-agent/src/content.ts");
+  const contextLine = "Since 2012: Lavonte David (5 contracts), Vita Vea (2), Chris Godwin (2), Mike Evans (2).";
+  assert.equal(categorizeStory(contextLine), "news");
+  assert.equal(isFantasyRelevant({ title: contextLine, summary: contextLine }), false);
 });
 
 test("injury classification recognizes past-tense ACL reports", async () => {

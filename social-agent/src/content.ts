@@ -82,7 +82,7 @@ export function categorizeStory(text: string): StoryCategory {
   const normalized = text.toLowerCase();
   if (/potential trade candidate|trade candidate|trade target|drawing trade interest|interested in trading for/.test(normalized)) return "contract";
   if (/injur|out for|questionable|doubtful|\bir\b|concussion|surgery|tor(?:e|n)|sprain|flare-up|hamstring|ankle|knee/.test(normalized)) return "injury";
-  if (/\b(?:signs|signed|signing|re-signs|re-signed)\b|extension|contract|released|waived|traded|trade\b|franchise tag/.test(normalized)) return "contract";
+  if (/\b(?:signs|signed|signing|re-signs|re-signed)\b|extension|(?:new |reworked |renegotiated |agreed to (?:a |the )?)contract|released|waived|traded|trade\b|franchise tag/.test(normalized)) return "contract";
   if (/\bstarter\b|\bnamed (?:the )?starter\b|\b(?:will|expected to|set to) start\b|\bstarting (?:at )?(?:quarterback|running back|wide receiver|tight end|kicker|role|job|lineup|offense)\b|depth chart|promoted|demoted|backup|committee|workload/.test(normalized)) return "depth-chart";
   if (isPracticeSetting(normalized)) return "news";
   if (/\b(?:will|expected to|set to|scheduled to|slated to) play\b/.test(normalized)) return "news";
@@ -95,7 +95,9 @@ const unreliableSignals = /rumou?r|could potentially|may possibly|speculation|an
 
 export function isFantasyRelevant(story: Pick<Story, "title" | "summary">) {
   const text = `${story.title} ${story.summary}`.toLowerCase();
-  return fantasySignals.test(text) && !unreliableSignals.test(text);
+  const historicalContractList = /(?:^|\s)(?:since|from)\s+\d{4}\s*:/i.test(text)
+    && /\bcontracts?\b|\bsecond contracts?\b/i.test(text);
+  return fantasySignals.test(text) && !unreliableSignals.test(text) && !historicalContractList;
 }
 
 export function parseFeed(xml: string, feedUrl: string): Story[] {
