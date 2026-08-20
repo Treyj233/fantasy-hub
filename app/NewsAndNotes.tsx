@@ -77,7 +77,6 @@ export default function NewsAndNotes() {
     <div className="page-content news-notes-page">
       <section className="section-intro compact news-notes-intro">
         <span>LIVE LEAGUE INTELLIGENCE</span>
-        <h2>News &amp; Notes</h2>
         <p>Fantasy football news translated into what matters—and what you should do next.</p>
       </section>
 
