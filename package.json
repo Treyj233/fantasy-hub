@@ -17,6 +17,9 @@
     "ios:doctor": "cap doctor ios",
     "ios:build:sim": "xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Debug -sdk iphonesimulator -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -derivedDataPath /private/tmp/fantasy-hub-derived CODE_SIGNING_ALLOWED=NO build",
     "ios:archive": "xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Release -destination 'generic/platform=iOS' -archivePath build/FantasyHub.xcarchive archive -allowProvisioningUpdates",
+    "social:types": "WRANGLER_LOG_PATH=.wrangler/social-agent.log wrangler types ./social-agent/worker-configuration.d.ts --config social-agent/wrangler.jsonc",
+    "social:check": "npm run social:types && tsc -p social-agent/tsconfig.json && WRANGLER_LOG_PATH=.wrangler/social-agent.log wrangler deploy --dry-run --config social-agent/wrangler.jsonc",
+    "social:deploy": "WRANGLER_LOG_PATH=.wrangler/social-agent.log wrangler deploy --config social-agent/wrangler.jsonc",
     "db:generate": "drizzle-kit generate",
     "loadtest:smoke": "k6 run loadtest/k6-smoke.js"
   },
@@ -30,6 +33,7 @@
     "@capacitor/network": "^8.0.1",
     "@capacitor/push-notifications": "^8.1.2",
     "@clerk/nextjs": "^7.7.3",
+    "agents": "^0.21.0",
     "drizzle-orm": "0.45.2",
     "jspdf": "^4.2.1",
     "next": "^16.3.0",

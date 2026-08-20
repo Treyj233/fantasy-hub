@@ -1,0 +1,26 @@
+{
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  "name": "fantasy-hub-social-agent",
+  "main": "./src/index.ts",
+  "compatibility_date": "2026-08-19",
+  "compatibility_flags": ["nodejs_compat"],
+  "vars": {
+    "POSTING_MODE": "preview",
+    "POLL_INTERVAL_SECONDS": "600",
+    "MIN_POST_INTERVAL_MINUTES": "45",
+    "MAX_POSTS_PER_DAY": "8",
+    "X_SOURCE_HANDLES": "RapSheet,AdamSchefter,TomPelissero,MikeGarafolo,UnderdogNFL"
+  },
+  "durable_objects": {
+    "bindings": [
+      { "name": "SOCIAL_AGENT", "class_name": "FantasyHubSocialAgent" }
+    ]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["FantasyHubSocialAgent"] }
+  ],
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  }
+}

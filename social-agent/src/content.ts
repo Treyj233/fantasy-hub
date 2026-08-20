@@ -1,0 +1,197 @@
+export type StoryCategory = "injury" | "performance" | "contract" | "depth-chart" | "news";
+
+export type Story = {
+  id: string;
+  title: string;
+  summary: string;
+  url: string;
+  source: string;
+  publishedAt: string;
+  category: StoryCategory;
+};
+
+export type FantasyPlayerContext = {
+  player: string;
+  position: string;
+  team: string;
+  backups: string[];
+};
+
+const decodeEntities = (value: string) => value
+  .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1")
+  .replace(/&amp;/g, "&")
+  .replace(/&quot;/g, '"')
+  .replace(/&#39;|&apos;/g, "'")
+  .replace(/&lt;/g, "<")
+  .replace(/&gt;/g, ">");
+
+const stripHtml = (value: string) => decodeEntities(value).replace(/<[^>]+>/g, " ")
+  .replace(/\s+/g, " ")
+  .trim();
+
+const tag = (xml: string, name: string) => {
+  const match = xml.match(new RegExp(`<${name}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${name}>`, "i"));
+  return match ? stripHtml(match[1]) : "";
+};
+
+const atomLink = (xml: string) => {
+  const match = xml.match(/<link[^>]+href=["']([^"']+)["'][^>]*>/i);
+  return match?.[1] ? decodeEntities(match[1]) : "";
+};
+
+export function categorizeStory(text: string): StoryCategory {
+  const normalized = text.toLowerCase();
+  if (/injur|out for|questionable|doubtful|ir\b|concussion|surgery|torn|sprain|hamstring|ankle|knee/.test(normalized)) return "injury";
+  if (/signs?|signed|extension|contract|released|waived|traded|trade\b|franchise tag/.test(normalized)) return "contract";
+  if (/starter|starting|depth chart|promoted|demoted|backup|committee|workload/.test(normalized)) return "depth-chart";
+  if (/yards|touchdowns?|targets|receptions|carries|snaps|breakout|record/.test(normalized)) return "performance";
+  return "news";
+}
+
+const fantasySignals = /quarterback|\bqb\b|running back|\brb\b|wide receiver|\bwr\b|tight end|\bte\b|kicker|defense|fantasy|injur|starter|depth chart|contract|signed|released|waived|traded|targets|receptions|carries|touchdowns?|yards|snaps|suspension|inactive|practice|draft/;
+const unreliableSignals = /rumou?r|could potentially|may possibly|speculation|anonymous social|unconfirmed/;
+
+export function isFantasyRelevant(story: Pick<Story, "title" | "summary">) {
+  const text = `${story.title} ${story.summary}`.toLowerCase();
+  return fantasySignals.test(text) && !unreliableSignals.test(text);
+}
+
+export function parseFeed(xml: string, feedUrl: string): Story[] {
+  const blocks = [...xml.matchAll(/<(?:item|entry)(?:\s[^>]*)?>([\s\S]*?)<\/(?:item|entry)>/gi)];
+  return blocks.slice(0, 30).map((match) => {
+    const block = match[1];
+    const title = tag(block, "title");
+    const summary = tag(block, "description") || tag(block, "summary") || tag(block, "content");
+    const url = tag(block, "link") || atomLink(block);
+    const published = tag(block, "pubDate") || tag(block, "published") || tag(block, "updated");
+    const publishedAt = Number.isFinite(Date.parse(published)) ? new Date(published).toISOString() : new Date().toISOString();
+    const source = new URL(feedUrl).hostname.replace(/^www\./, "");
+    return {
+      id: tag(block, "guid") || tag(block, "id") || url || title,
+      title,
+      summary,
+      url,
+      source,
+      publishedAt,
+      category: categorizeStory(`${title} ${summary}`),
+    };
+  }).filter((story) => story.title && story.url && /^https:\/\//.test(story.url));
+}
+
+const impacts: Record<StoryCategory, string> = {
+  injury: "Recheck availability, the direct backup, and every affected start/sit decision.",
+  contract: "This can reshape role security, target competition, and dynasty value.",
+  "depth-chart": "Usage is changing—watch snaps, touches, and waiver availability.",
+  performance: "Treat the usage behind the box score as the signal for lineups and trades.",
+  news: "Monitor the depth chart and projections before making your next move.",
+};
+
+const labels: Record<StoryCategory, string> = {
+  injury: "🚨 INJURY PULSE",
+  contract: "📝 ROSTER MOVE",
+  "depth-chart": "📈 ROLE WATCH",
+  performance: "🔥 PERFORMANCE PULSE",
+  news: "🏈 FANTASY PULSE",
+};
+
+const creditedReporters: Record<string, string> = {
+  "@rapsheet": "@RapSheet",
+  "@adamschefter": "@AdamSchefter",
+  "@tompelissero": "@TomPelissero",
+  "@mikegarafolo": "@MikeGarafolo",
+};
+
+const compact = (value: string, length: number) => value.length <= length
+  ? value
+  : `${value.slice(0, Math.max(0, length - 1)).trimEnd()}…`;
+
+const cleanEnding = (value: string) => value.replace(/[,:;\-–—\s]+$/g, "").replace(/[.!?]?$/, ".");
+
+const summarizeHeadline = (story: Story, context: FantasyPlayerContext | null, budget: number) => {
+  const cleaned = story.title
+    .replace(/^sources?:\s*/i, "")
+    .replace(/https?:\/\/\S+/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  const firstThought = cleaned.split(/(?<=[.!?])\s+|\s+[•|]\s+/)[0] || cleaned;
+  if (firstThought.length <= budget) return cleanEnding(firstThought);
+
+  if (context && story.category === "injury") {
+    const injury = cleaned.match(/torn ACL|ACL tear|torn Achilles|Achilles tear|groin injury|thigh injury|hamstring injury|ankle injury|knee injury|concussion|sprained MCL|sprained ACL/i)?.[0];
+    const severe = injury && /torn|tear/i.test(injury);
+    const summary = injury
+      ? `${context.player} ${severe ? "suffered a" : "is dealing with a"} ${injury}`
+      : `${context.player} has a new injury update`;
+    if (summary.length <= budget) return cleanEnding(summary);
+  }
+  if (context && story.category === "contract") {
+    const move = cleaned.match(/(?:signed|signs|agreed|extended|traded|released|waived)[^.!;,]{0,80}/i)?.[0];
+    const summary = move ? `${context.player} ${move}` : `${context.player}'s roster situation has changed`;
+    if (summary.length <= budget) return cleanEnding(summary);
+  }
+
+  const words = firstThought.split(/\s+/);
+  let summary = "";
+  for (const word of words) {
+    const candidate = summary ? `${summary} ${word}` : word;
+    if (candidate.length > Math.max(24, budget - 1)) break;
+    summary = candidate;
+  }
+  return cleanEnding(summary || firstThought.slice(0, Math.max(1, budget - 1)));
+};
+
+export function composePost(story: Story) {
+  return composeFantasyPost(story, null);
+}
+
+const longTermInjury = /out for (?:the )?(?:season|year|\d+ weeks?|multiple weeks?)|torn|acl|achilles|season-ending|placed on injured reserve|lands on ir|surgery/i;
+const confirmedAbsence = /ruled out|will not play|won't play|will miss (?:the )?game|inactive|not expected to play/i;
+const highConcernWeeklyInjury = /doubtful|game-time decision|week-to-week|miss(?:ed|es|ing) (?:a |the )?(?:practice|walkthrough)|did not practice|dnp|concussion/i;
+const mildInjury = /day-to-day|limited|soreness|tightness|bruise|contusion|precautionary|minor|managing|rest day/i;
+const gameDayPlay = /\b(?:touchdown|td|scores?|two-point|[4-9]\d-yard|1\d{2}\s+yards|100-yard|150-yard|200-yard)\b/i;
+
+const lateInGameWeek = (publishedAt: string) => {
+  const day = new Date(publishedAt).getUTCDay();
+  return day === 0 || day >= 4;
+};
+
+const specificImpact = (story: Story, context: FantasyPlayerContext | null) => {
+  if (story.category === "injury" && context) {
+    const backupText = context.backups.length ? context.backups.join(" and ") : `the next ${context.position} on the ${context.team} depth chart`;
+    const injuryUpdate = `${story.title} ${story.summary}`;
+    if (longTermInjury.test(injuryUpdate)) {
+      return `${context.player} managers: prioritize ${backupText} on waivers. Expect the remaining ${context.team} playmakers to absorb the vacated volume.`;
+    }
+    if (confirmedAbsence.test(injuryUpdate)) {
+      const verb = context.backups.length > 1 ? "get" : "gets";
+      return `${context.player} is not expected to play, so ${backupText} ${verb} the immediate opportunity boost. Check availability and reassess affected lineup decisions.`;
+    }
+    if (highConcernWeeklyInjury.test(injuryUpdate) && lateInGameWeek(story.publishedAt)) {
+      return `${context.player} carries late-week risk. Keep ${backupText} on the contingency list; act only after a downgrade or inactive ruling.`;
+    }
+    if (mildInjury.test(injuryUpdate) || !highConcernWeeklyInjury.test(injuryUpdate)) {
+      return `No immediate waiver move. Monitor ${context.player}'s practice status; if ruled out, reassess ${backupText} and other ${context.team} playmakers.`;
+    }
+    return `Monitor ${context.player} through the next practice report. Keep ${backupText} on the watchlist, then act only if the injury worsens or an absence becomes likely.`;
+  }
+  if (story.category === "performance" && gameDayPlay.test(`${story.title} ${story.summary}`)) {
+    return context
+      ? `${context.player} just swung matchups. Keep the celebration going—but use snaps, routes and touches to decide whether it is sticky. 🚀`
+      : "That play just flipped fantasy matchups everywhere. Points on the board, victory laps in the group chat. 🚀";
+  }
+  if (story.category === "depth-chart" && context) {
+    return `${context.player}'s role is moving. Track first-team reps, routes and touches before waivers lock; opportunity beats name value.`;
+  }
+  return impacts[story.category];
+};
+
+export function composeFantasyPost(story: Story, context: FantasyPlayerContext | null) {
+  const isGameDay = story.category === "performance" && gameDayPlay.test(`${story.title} ${story.summary}`);
+  const label = isGameDay ? "🏈 SUNDAY PULSE" : labels[story.category];
+  const impact = specificImpact(story, context);
+  const reporter = creditedReporters[story.source.toLowerCase()];
+  const attribution = reporter ? `\n\nReported by ${reporter}` : "";
+  const fixed = `${label}\n\n\n\nFANTASY IMPACT: ${impact}${attribution}`;
+  const headlineBudget = Math.max(42, 275 - fixed.length);
+  return `${label}\n\n${summarizeHeadline(story, context, headlineBudget)}\n\nFANTASY IMPACT: ${impact}${attribution}`;
+}

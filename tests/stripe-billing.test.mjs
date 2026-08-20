@@ -17,6 +17,9 @@ test("Stripe Checkout only accepts server-mapped Fantasy Hub plans", async () =>
   assert.match(source, /providerCustomerId\?\.startsWith\("cus_"\)/);
   assert.match(source, /stripeError\.code !== "resource_missing"/);
   assert.match(source, /createCheckout\(\)/);
+  assert.match(source, /automatic_tax: \{ enabled: true \}/);
+  assert.match(source, /billing_address_collection: "required"/);
+  assert.match(source, /customer_update: \{ address: "auto" as const \}/);
 });
 
 test("Apple StoreKit accepts localized prices while guarding the six-month season period", async () => {

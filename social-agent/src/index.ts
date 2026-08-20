@@ -1,0 +1,311 @@
+import { Agent, getAgentByName } from "agents";
+import { categorizeStory, composeFantasyPost, isFantasyRelevant, type Story } from "./content";
+import { createXPost, xApiGet, type XCredentials } from "./x-client";
+import { findPlayerContext } from "./player-data";
+import { dashboardHtml } from "./dashboard";
+
+type AgentState = {
+  startedAt: string | null;
+  lastRunAt: string | null;
+  lastPostAt: string | null;
+  lastError: string | null;
+  mode: "preview" | "live";
+};
+
+const RECENT_STORY_HOURS = 18;
+const DRAFT_FORMAT_VERSION = "x-sources-v6-injury-severity";
+
+type StoredStory = {
+  id: string;
+  title: string;
+  source: string;
+  category: string;
+  draft: string | null;
+  status: string;
+  published_at: string;
+};
+
+const feedStory = (story: StoredStory) => {
+  const sections = (story.draft || "").split(/\n{2,}/).map((section) => section.trim()).filter(Boolean);
+  const titleSection = sections[0] || "🏈 FANTASY PULSE";
+  const titleMatch = titleSection.match(/^(\p{Extended_Pictographic}(?:\uFE0F)?(?:\u200D\p{Extended_Pictographic})*)?\s*(.*)$/u);
+  const impactSection = sections.find((section) => /^FANTASY IMPACT:/i.test(section)) || "";
+  const impact = impactSection.replace(/^FANTASY IMPACT:\s*/i, "").trim();
+  const reporterSection = sections.find((section) => /^Reported by\s+/i.test(section));
+  const sentences = impact.match(/[^.!?]+[.!?]+|[^.!?]+$/g)?.map((sentence) => sentence.trim()).filter(Boolean) || [];
+  const headline = (sections[1] || story.title).replace(/^\p{Extended_Pictographic}(?:\uFE0F)?\s*/u, "");
+
+  return {
+    id: story.id,
+    emoji: titleMatch?.[1] || "🏈",
+    title: titleMatch?.[2] || "FANTASY PULSE",
+    category: story.category,
+    headline,
+    impact,
+    nextSteps: sentences,
+    reporter: reporterSection?.replace(/^Reported by\s+/i, "") || null,
+    publishedAt: story.published_at,
+  };
+};
+
+const semanticKey = (story: Story, player: { player: string; team: string; position: string }) =>
+  [player.player, player.team, player.position, story.category]
+    .map((value) => value.toLowerCase().replace(/[^a-z0-9]+/g, "-"))
+    .join(":");
+
+const safeEqual = async (left: string, right: string) => {
+  const encoder = new TextEncoder();
+  const [leftHash, rightHash] = await Promise.all([
+    crypto.subtle.digest("SHA-256", encoder.encode(left)),
+    crypto.subtle.digest("SHA-256", encoder.encode(right)),
+  ]);
+  const a = new Uint8Array(leftHash);
+  const b = new Uint8Array(rightHash);
+  let difference = 0;
+  for (let i = 0; i < a.length; i += 1) difference |= a[i] ^ b[i];
+  return difference === 0;
+};
+
+export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
+  initialState: AgentState = {
+    startedAt: null,
+    lastRunAt: null,
+    lastPostAt: null,
+    lastError: null,
+    mode: "preview",
+  };
+
+  async onStart() {
+    this.sql`CREATE TABLE IF NOT EXISTS stories (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL,
+      url TEXT NOT NULL,
+      source TEXT NOT NULL,
+      category TEXT NOT NULL,
+      published_at TEXT NOT NULL,
+      discovered_at TEXT NOT NULL,
+      draft TEXT,
+      status TEXT NOT NULL,
+      x_post_id TEXT,
+      error TEXT
+    )`;
+    this.sql`CREATE TABLE IF NOT EXISTS source_accounts (
+      username TEXT PRIMARY KEY,
+      x_user_id TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )`;
+    const interval = Math.max(300, Number(this.env.POLL_INTERVAL_SECONDS || 600));
+    await this.scheduleEvery(interval, "runCycle", { trigger: "schedule" });
+    if (!this.state.startedAt) {
+      this.setState({ ...this.state, startedAt: new Date().toISOString(), mode: this.mode() });
+    }
+  }
+
+  private mode(): "preview" | "live" {
+    return String(this.env.POSTING_MODE) === "live" ? "live" : "preview";
+  }
+
+  private credentials(): XCredentials {
+    return {
+      apiKey: this.env.X_API_KEY,
+      apiSecret: this.env.X_API_SECRET,
+      accessToken: this.env.X_ACCESS_TOKEN,
+      accessTokenSecret: this.env.X_ACCESS_TOKEN_SECRET,
+      bearerToken: this.env.X_BEARER_TOKEN,
+    };
+  }
+
+  private handles() {
+    return this.env.X_SOURCE_HANDLES.split(",").map((handle) => handle.trim().replace(/^@/, "")).filter(Boolean);
+  }
+
+  private async sourceStories(): Promise<Story[]> {
+    const handles = this.handles();
+    const known = [...this.sql<{ username: string; x_user_id: string }>`SELECT username, x_user_id FROM source_accounts`];
+    const ids = new Map(known.map((account) => [account.username.toLowerCase(), account.x_user_id]));
+    const missing = handles.filter((handle) => !ids.has(handle.toLowerCase()));
+    if (missing.length) {
+      const lookup = await xApiGet<{ data?: Array<{ id: string; username: string }> }>(
+        "https://api.x.com/2/users/by",
+        { usernames: missing.join(",") },
+        this.credentials(),
+      );
+      for (const account of lookup.data ?? []) {
+        ids.set(account.username.toLowerCase(), account.id);
+        this.sql`INSERT OR REPLACE INTO source_accounts (username, x_user_id, updated_at)
+          VALUES (${account.username.toLowerCase()}, ${account.id}, ${new Date().toISOString()})`;
+      }
+    }
+    const timelines = await Promise.all(handles.map(async (handle) => {
+      const userId = ids.get(handle.toLowerCase());
+      if (!userId) return [];
+      const timeline = await xApiGet<{ data?: Array<{ id: string; text: string; created_at?: string }> }>(
+        `https://api.x.com/2/users/${userId}/tweets`,
+        { "tweet.fields": "created_at", "max_results": "10", "exclude": "retweets,replies" },
+        this.credentials(),
+      );
+      return (timeline.data ?? []).map((post): Story => {
+        const cleanText = post.text.replace(/https:\/\/t\.co\/\w+/g, "").replace(/\s+/g, " ").trim();
+        return {
+          id: post.id,
+          title: cleanText,
+          summary: cleanText,
+          url: `https://x.com/${handle}/status/${post.id}`,
+          source: `@${handle}`,
+          publishedAt: post.created_at ?? new Date().toISOString(),
+          category: categorizeStory(cleanText),
+        };
+      });
+    }));
+    return timelines.flat();
+  }
+
+  private eligibleToPost() {
+    const minimumGap = Math.max(15, Number(this.env.MIN_POST_INTERVAL_MINUTES || 45)) * 60_000;
+    if (this.state.lastPostAt && Date.now() - Date.parse(this.state.lastPostAt) < minimumGap) return false;
+    const start = new Date();
+    start.setUTCHours(0, 0, 0, 0);
+    const [{ count }] = this.sql<{ count: number }>`SELECT COUNT(*) AS count FROM stories
+      WHERE status = 'posted' AND discovered_at >= ${start.toISOString()}`;
+    return Number(count) < Math.max(1, Number(this.env.MAX_POSTS_PER_DAY || 8));
+  }
+
+  private recentDrafts() {
+    return [...this.sql<{ id: string; title: string; source: string; category: string; draft: string; status: string; published_at: string; x_post_id: string | null }>`
+      SELECT id, title, source, category, draft, status, published_at, x_post_id
+      FROM stories ORDER BY discovered_at DESC LIMIT 20`];
+  }
+
+  async publicFeed() {
+    const stories = [...this.sql<StoredStory>`
+      SELECT id, title, source, category, draft, status, published_at
+      FROM stories
+      WHERE status IN ('draft', 'posted') AND draft IS NOT NULL
+      ORDER BY published_at DESC LIMIT 30`];
+    return {
+      updatedAt: this.state.lastRunAt,
+      items: stories.map(feedStory),
+    };
+  }
+
+  async status() {
+    return { state: this.state, postingConfigured: Boolean(this.env.X_API_KEY && this.env.X_ACCESS_TOKEN), recent: this.recentDrafts() };
+  }
+
+  async runCycle(_payload?: { trigger: string }) {
+    const now = new Date();
+    try {
+      this.sql`CREATE TABLE IF NOT EXISTS agent_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)`;
+      const storyColumns = [...this.sql<{ name: string }>`PRAGMA table_info(stories)`];
+      if (!storyColumns.some((column) => column.name === "semantic_key")) {
+        this.sql`ALTER TABLE stories ADD COLUMN semantic_key TEXT`;
+      }
+      const [format] = [...this.sql<{ value: string }>`SELECT value FROM agent_meta WHERE key = 'draft_format' LIMIT 1`];
+      if (format?.value !== DRAFT_FORMAT_VERSION) {
+        this.sql`DELETE FROM stories WHERE status = 'draft'`;
+        this.sql`INSERT OR REPLACE INTO agent_meta (key, value) VALUES ('draft_format', ${DRAFT_FORMAT_VERSION})`;
+      }
+      // Remove drafts created by the retired RSS source. X-origin stories use an @handle.
+      this.sql`DELETE FROM stories WHERE source NOT LIKE '@%'`;
+      const cutoff = now.getTime() - RECENT_STORY_HOURS * 60 * 60 * 1000;
+      const candidates = (await this.sourceStories())
+        .filter(isFantasyRelevant)
+        .filter((story) => Date.parse(story.publishedAt) >= cutoff)
+        .sort((a, b) => Date.parse(b.publishedAt) - Date.parse(a.publishedAt));
+
+      let selected: Story | null = null;
+      for (const story of candidates) {
+        const existing = [...this.sql<{ id: string }>`SELECT id FROM stories WHERE id = ${story.id} LIMIT 1`];
+        if (existing.length) continue;
+        const context = await findPlayerContext(`${story.title} ${story.summary}`);
+        if (!context) continue;
+        const storySemanticKey = semanticKey(story, context);
+        const duplicateWindowMs = story.category === "performance" ? 20 * 60_000 : 24 * 60 * 60_000;
+        const duplicateCutoff = new Date(Date.parse(story.publishedAt) - duplicateWindowMs).toISOString();
+        const semanticDuplicate = [...this.sql<{ id: string }>`SELECT id FROM stories
+          WHERE semantic_key = ${storySemanticKey} AND published_at >= ${duplicateCutoff}
+          ORDER BY published_at DESC LIMIT 1`];
+        if (semanticDuplicate.length) continue;
+        const draft = composeFantasyPost(story, context);
+        this.sql`INSERT INTO stories (id, title, url, source, category, published_at, discovered_at, draft, status, semantic_key)
+          VALUES (${story.id}, ${story.title}, ${story.url}, ${story.source}, ${story.category}, ${story.publishedAt}, ${now.toISOString()}, ${draft}, 'draft', ${storySemanticKey})`;
+        selected ??= story;
+      }
+
+      const mode = this.mode();
+      if (selected && mode === "live" && this.eligibleToPost()) {
+        const credentials = this.credentials();
+        if (Object.values(credentials).some((value) => !value)) throw new Error("X posting credentials are incomplete");
+        const [{ draft }] = [...this.sql<{ draft: string }>`SELECT draft FROM stories WHERE id = ${selected.id} LIMIT 1`];
+        const postId = await createXPost(draft, credentials);
+        this.sql`UPDATE stories SET status = 'posted', x_post_id = ${postId}, error = NULL WHERE id = ${selected.id}`;
+        this.setState({ ...this.state, lastRunAt: now.toISOString(), lastPostAt: now.toISOString(), lastError: null, mode });
+      } else {
+        this.setState({ ...this.state, lastRunAt: now.toISOString(), lastError: null, mode });
+      }
+      console.log(JSON.stringify({ event: "social_agent_cycle", mode, candidates: candidates.length, selected: selected?.id ?? null }));
+      return this.status();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown social agent failure";
+      this.setState({ ...this.state, lastRunAt: now.toISOString(), lastError: message, mode: this.mode() });
+      console.error(JSON.stringify({ event: "social_agent_error", error: message }));
+      throw error;
+    }
+  }
+}
+
+async function authorized(request: Request, env: Env) {
+  const provided = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") || "";
+  return Boolean(env.ADMIN_TOKEN) && safeEqual(provided, env.ADMIN_TOKEN);
+}
+
+export default {
+  async fetch(request: Request, env: Env): Promise<Response> {
+    const url = new URL(request.url);
+    if (url.pathname === "/dashboard") {
+      return new Response(dashboardHtml, {
+        headers: {
+          "content-type": "text/html; charset=utf-8",
+          "cache-control": "no-store",
+          "content-security-policy": "default-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'",
+          "x-content-type-options": "nosniff",
+          "x-frame-options": "DENY",
+          "referrer-policy": "no-referrer",
+        },
+      });
+    }
+    if (url.pathname === "/health") {
+      const agent = await getAgentByName(env.SOCIAL_AGENT, "fantasy-hub");
+      const current = await agent.status();
+      const status = current.state.lastRunAt && current.recent.length > 0
+        ? current
+        : await agent.runCycle({ trigger: "health-bootstrap" });
+      return Response.json({
+        ok: !status.state.lastError,
+        service: "fantasy-hub-social-agent",
+        mode: status.state.mode,
+        startedAt: status.state.startedAt,
+        lastRunAt: status.state.lastRunAt,
+        lastError: status.state.lastError,
+        draftCount: status.recent.filter((story) => story.status === "draft").length,
+      }, { status: status.state.lastError ? 503 : 200 });
+    }
+    if (url.pathname === "/feed" && request.method === "GET") {
+      const agent = await getAgentByName(env.SOCIAL_AGENT, "fantasy-hub");
+      return Response.json(await agent.publicFeed(), {
+        headers: {
+          "cache-control": "public, max-age=60, s-maxage=300, stale-while-revalidate=600",
+          "x-content-type-options": "nosniff",
+        },
+      });
+    }
+    if (!url.pathname.startsWith("/admin/") || !(await authorized(request, env))) {
+      return Response.json({ error: "Not found" }, { status: 404 });
+    }
+    const agent = await getAgentByName(env.SOCIAL_AGENT, "fantasy-hub");
+    if (url.pathname === "/admin/start" && request.method === "POST") return Response.json(await agent.status());
+    if (url.pathname === "/admin/run" && request.method === "POST") return Response.json(await agent.runCycle({ trigger: "manual" }));
+    if (url.pathname === "/admin/status" && request.method === "GET") return Response.json(await agent.status());
+    return Response.json({ error: "Not found" }, { status: 404 });
+  },
+} satisfies ExportedHandler<Env>;

@@ -13,6 +13,7 @@ import { useOverlayGuard } from "./use-overlay-guard";
 import { useProductMonitoring } from "./use-product-monitoring";
 import { isProtectedWaiverDrop, waiverMarketProtection } from "./waiver-drop-model.mjs";
 import LaunchSplash from "./LaunchSplash";
+import NewsAndNotes from "./NewsAndNotes";
 import { cacheActiveLeagueBootstrap, readSessionCache, safeLocalStorageSet, writeSessionCache } from "./local-storage";
 
 type View =
@@ -22,6 +23,7 @@ type View =
   | "All Leagues"
   | "Scoreboard"
   | "NFL Games"
+  | "News & Notes"
   | "League Analytics"
   | "My Team"
   | "Team Rankings"
@@ -832,6 +834,7 @@ const nav: { label: View; displayLabel?: string; mark: string; tone: string; gro
   { label: "ADP", mark: "⌁", tone: "adp-cyan", group: "Analyze League" },
   { label: "Scoreboard", displayLabel: "Fantasy Scoreboard", mark: "▣", tone: "score-crimson", group: "Game Day" },
   { label: "NFL Games", mark: "🏈", tone: "football-bronze", group: "Game Day" },
+  { label: "News & Notes", mark: "🗞", tone: "news-pulse", group: "Game Day" },
   { label: "Matchups", displayLabel: "Fantasy Matchups", mark: "◎", tone: "matchup-aqua", group: "Game Day" },
   { label: "Glossary", mark: "?", tone: "glossary-plum", group: "Utilities" },
 ];
@@ -853,6 +856,7 @@ const glossaryDetails: Record<View, { summary: string; use: string }> = {
   "ADP": { summary: "Shows market draft position by available source, separated from Fantasy Hub’s internal player rankings.", use: "Use for draft preparation and to compare market cost with your player evaluation." },
   "Scoreboard": { summary: "The all-day Fantasy Scoreboard with live fantasy scores, win odds, What Do I Need paths, rooting interests, swings, and the Sunday Pulse ticker.", use: "Leave open on game day to follow every matchup that matters." },
   "NFL Games": { summary: "Tracks the NFL schedule, scores, weather, and the fantasy players from your matchup involved in each game.", use: "Use to follow real games and understand why each one matters to your leagues." },
+  "News & Notes": { summary: "A live Fantasy Hub news desk that translates league-wide developments into clear fantasy impact and suggested next steps.", use: "Use throughout the week to catch injuries, role changes, roster moves, and game-day performances that affect your decisions." },
   "Matchups": { summary: "A detailed side-by-side view of your lineup and opponent in platform order with scoring, projections, weather, and NFL matchup quality.", use: "Use to inspect one fantasy matchup in detail." },
   "League Stories": { summary: "Turns weekly league activity into recaps, previews, rivalries, awards, power movement, upsets, and season narratives.", use: "Use for the social story of the league, not just optimization." },
   "Manager Report": { summary: "Tracks saved recommendations, choices, outcomes, waiver and trade efficiency, bench points, and decision quality based on information available at the time.", use: "Use to understand where your process is helping or hurting you." },
@@ -3040,6 +3044,7 @@ export default function FantasyHub({
             players={players}
           />
         )}
+        {view === "News & Notes" && <NewsAndNotes />}
         {view === "League Analytics" && !entitlement.pro && <ProGate feature="League Analytics" onUpgrade={() => setView("Fantasy Hub Pro")} />}
         {view === "League Analytics" && entitlement.pro &&
           (rosterReady ? (
