@@ -88,7 +88,7 @@ const impacts: Record<StoryCategory, string> = {
   "depth-chart": "Usage is changing—watch snaps, touches, and waiver availability.",
   performance: "Treat the usage behind the box score as the signal for lineups and trades.",
   weather: "Recheck the forecast and affected lineup decisions near kickoff.",
-  news: "Monitor the depth chart and projections before making your next move.",
+  news: "Verify the report against role, usage, and availability before changing rankings or lineups.",
 };
 
 const labels: Record<StoryCategory, string> = {
@@ -174,6 +174,8 @@ const mildInjury = /day-to-day|limited|soreness|tightness|bruise|contusion|preca
 const gameDayPlay = /\b(?:touchdown|td|scores?|two-point|[4-9]\d-yard|1\d{2}\s+yards|100-yard|150-yard|200-yard)\b/i;
 const playerAdded = /sign(?:s|ed)?|agreed|acquired|traded for|claimed/i;
 const playerRemoved = /released|waived|cut|traded away|departed|not re-sign/i;
+const availabilitySignal = /absen|practice|sideline|no helmet|returned|limited|held out|did not participate|dnp/i;
+const positiveCampSignal = /impressive|excel|standout|strong camp|making plays|first-team|starter reps|breakout/i;
 
 const lateInGameWeek = (publishedAt: string) => {
   const day = new Date(publishedAt).getUTCDay();
@@ -231,6 +233,19 @@ const specificImpact = (story: Story, context: FantasyPlayerContext | null) => {
       return `${context.player}'s arrival changes the ${opportunity} for ${affected}. Reassess roles and projections before waivers, trades or drafts.`;
     }
   }
+  if (story.category === "news" && context) {
+    const update = `${story.title} ${story.summary}`;
+    const affected = context.affectedPlayers.length ? context.affectedPlayers.slice(0, 2).join(" and ") : `the other ${context.team} playmakers`;
+    if (availabilitySignal.test(update)) {
+      return `Check ${context.player}'s next practice participation before changing a lineup or projection. If the absence continues, reassess ${affected}.`;
+    }
+    if (positiveCampSignal.test(update)) {
+      const evidence = context.position === "QB" ? "first-team reps and passing volume" : context.position === "RB" ? "carries, routes and targets" : "routes, targets and first-team snaps";
+      return `Do not chase one camp highlight. Verify ${context.player}'s ${evidence}; move rankings only when the opportunity is repeatable.`;
+    }
+    const evidence = context.position === "QB" ? "first-team reps and passing volume" : context.position === "RB" ? "carries, routes and targets" : context.position === "K" ? "roster status and field-goal opportunities" : context.position === "DEF" ? "matchup personnel and injury availability" : "routes, targets and snaps";
+    return `Compare this report with ${context.player}'s ${evidence}. Adjust projections only if it changes the expected role or availability.`;
+  }
   return impacts[story.category];
 };
 
@@ -240,7 +255,7 @@ export function composeFantasyPost(story: Story, context: FantasyPlayerContext |
   const impact = specificImpact(story, context);
   const reporter = story.reporter || creditedReporters[story.source.toLowerCase()];
   const attribution = reporter
-    ? `\n\nReported by ${reporter}${story.curator && story.curator.toLowerCase() !== reporter.toLowerCase() ? ` via ${story.curator}` : ""}`
+    ? `\n\nReported by ${reporter}`
     : story.curator ? `\n\nCurated by ${story.curator}` : "";
   const fixed = `${label}\n\n\n\nFANTASY IMPACT: ${impact}${attribution}`;
   const headlineBudget = Math.max(42, 275 - fixed.length);

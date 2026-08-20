@@ -41,7 +41,7 @@ test("social agent is live, sourced, deduplicated, and rate limited", async () =
   assert.match(content, /\\bir\\b/);
   assert.match(content, /arrival changes the \$\{opportunity\}/);
   assert.match(content, /departure opens opportunity/);
-  assert.match(worker, /x-sources-v11-injury-context/);
+  assert.match(worker, /x-sources-v12-actionable-original-attribution/);
   assert.match(worker, /gameDayWeatherStories/);
   assert.match(content, /WEATHER WATCH/);
   assert.match(content, /isSixPointFantasyPlay/);
@@ -50,6 +50,11 @@ test("social agent is live, sourced, deduplicated, and rate limited", async () =
   assert.match(await readFile(new URL("../social-agent/src/weather.ts", import.meta.url), "utf8"), /windGustMph/);
   assert.match(await readFile(new URL("../social-agent/src/player-data.ts", import.meta.url), "utf8"), /primaryStatement/);
   assert.match(content, /Reported by \$\{reporter\}/);
+  assert.doesNotMatch(content, /via \$\{story\.curator\}/);
+  assert.match(content, /Do not chase one camp highlight/);
+  assert.match(content, /Check \$\{context\.player\}'s next practice participation/);
+  assert.doesNotMatch(content, /Monitor the depth chart and projections before making your next move/);
+  assert.match(worker, /const originalUrl = curated && reference && originalReporter/);
   assert.match(content, /"@rapsheet": "@RapSheet"/);
   assert.doesNotMatch(content, /"@underdognfl":/);
   assert.match(content, /summarizeHeadline/);

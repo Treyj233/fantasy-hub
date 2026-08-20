@@ -15,7 +15,7 @@ type AgentState = {
 };
 
 const RECENT_STORY_HOURS = 18;
-const DRAFT_FORMAT_VERSION = "x-sources-v11-injury-context";
+const DRAFT_FORMAT_VERSION = "x-sources-v12-actionable-original-attribution";
 const RETRACTED_STORY_IDS = ["2090186160634986677"];
 
 type StoredStory = {
@@ -187,14 +187,15 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
         const originalReporter = referencedPost?.author_id ? includedUsers.get(referencedPost.author_id) : undefined;
         const curated = handle.toLowerCase() === "32beatwriters";
         const primaryText = curated && referencedText ? referencedText : cleanText;
-        const contextText = curated && referencedText && cleanText && cleanText !== referencedText
-          ? `${primaryText} Curator note: ${cleanText}`
-          : primaryText;
+        const contextText = curated && referencedText ? referencedText : primaryText;
+        const originalUrl = curated && reference && originalReporter
+          ? `https://x.com/${originalReporter.username}/status/${reference.id}`
+          : `https://x.com/${handle}/status/${post.id}`;
         return {
           id: post.id,
           title: primaryText,
           summary: contextText,
-          url: `https://x.com/${handle}/status/${post.id}`,
+          url: originalUrl,
           source: `@${handle}`,
           publishedAt: post.created_at ?? new Date().toISOString(),
           category: categorizeStory(contextText),
