@@ -443,6 +443,7 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
 
   async publicFeed() {
     this.ensureStorySchema();
+    await this.regenerateCurrentFeed();
     const stories = [...this.sql<StoredStory>`
       SELECT id, title, source, category, draft, status, published_at, confidence, lifecycle_stage, related_players_json, source_count
       FROM stories

@@ -51,6 +51,7 @@ test("social agent is live, sourced, deduplicated, and rate limited", async () =
   assert.match(worker, /x-sources-v27-regenerated-current-feed/);
   assert.match(worker, /if \(isLiveContentPost\(primaryText, sourceUrls\)\) return \[\]/);
   assert.match(worker, /await this\.regenerateCurrentFeed\(\)/);
+  assert.match(worker, /async publicFeed\(\) \{\s*this\.ensureStorySchema\(\);\s*await this\.regenerateCurrentFeed\(\)/);
   assert.match(worker, /Live or media-dependent source cannot be summarized reliably/);
   assert.match(worker, /status IN \('draft', 'posted'\)/);
   assert.match(worker, /status IN \('posted', 'posted_suppressed'\)/);
