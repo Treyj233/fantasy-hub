@@ -841,8 +841,8 @@ const mobileCategoryNav: { group: NavGroup; lead: View; label: string; categoryT
 ];
 const nav: { label: View; displayLabel?: string; mark: string; tone: string; group: NavGroup }[] = [
   { label: "All Leagues", displayLabel: "Mission Hub", mark: "◆", tone: "home-prism", group: "Home" },
+  { label: "Theme Store", mark: "✦", tone: "theme-spectrum", group: "Home" },
   { label: "Manage Leagues", mark: "⚙", tone: "utility-steel", group: "Utilities" },
-  { label: "Theme Store", mark: "✦", tone: "theme-spectrum", group: "Utilities" },
   { label: "Fantasy Hub Pro", displayLabel: "Manage Plans", mark: "P", tone: "pro-gold", group: "Utilities" },
   { label: "My Account", mark: "J", tone: "account-azure", group: "Utilities" },
   { label: "Command Center", mark: "★", tone: "command-sun", group: "Manage Team" },
