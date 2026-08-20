@@ -46,7 +46,7 @@ test("social agent is live, sourced, deduplicated, and rate limited", async () =
   assert.match(content, /\\bir\\b/);
   assert.match(content, /arrival changes the \$\{opportunity\}/);
   assert.match(content, /departure opens opportunity/);
-  assert.match(worker, /x-sources-v18-intelligence-records/);
+  assert.match(worker, /x-sources-v19-practice-performance-guard/);
   assert.match(worker, /story_evidence/);
   assert.match(worker, /critiqueForPublishing/);
   assert.match(worker, /related_players_json/);
@@ -85,10 +85,13 @@ test("roundup posts are split into atomic player updates", async () => {
 });
 
 test("role classification distinguishes a starting-role change from starting an activity", async () => {
-  const { categorizeStory } = await import("../social-agent/src/content.ts");
+  const { categorizeStory, isSixPointFantasyPlay } = await import("../social-agent/src/content.ts");
   assert.equal(categorizeStory("Bo Nix starting off the day hot"), "news");
   assert.equal(categorizeStory("Bo Nix named the starting quarterback"), "depth-chart");
   assert.equal(categorizeStory("The rookie was promoted to the starting lineup"), "depth-chart");
+  assert.equal(categorizeStory("Jaylen Waddle caught a 60-yard touchdown during practice"), "news");
+  assert.equal(categorizeStory("Evan Engram scored twice in Broncos training camp"), "news");
+  assert.equal(isSixPointFantasyPlay({ title: "Touchdown in practice", summary: "Evan Engram scored during team drills" }), false);
 });
 
 test("transaction classification distinguishes a signing from an absence note", async () => {
