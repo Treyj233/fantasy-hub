@@ -5,7 +5,7 @@ import { findPlayerContext, findTeamFantasyPlayers } from "./player-data";
 import { gameDayWeatherStories } from "./weather";
 import { isNflRegularOrPostseasonGameDay } from "./game-day";
 import { dashboardHtml } from "./dashboard";
-import { extractStoryFacts, validateStoryDraft, type StoryFacts, type ValidationResult } from "./intelligence";
+import { extractStoryFacts, isMaterialStoryUpdate, validateStoryDraft, type StoryFacts, type ValidationResult } from "./intelligence";
 
 type AgentState = {
   startedAt: string | null;
@@ -18,7 +18,7 @@ type AgentState = {
 const RECENT_STORY_HOURS = 18;
 const POST_FRESHNESS_MINUTES = 60;
 const GAMEDAY_POST_FRESHNESS_MINUTES = 20;
-const DRAFT_FORMAT_VERSION = "x-sources-v24-natural-fantasy-impact";
+const DRAFT_FORMAT_VERSION = "x-sources-v25-material-injury-followups";
 const RETRACTED_STORY_IDS = ["2090186160634986677", "2090197243202609473", "2090202303143747828"];
 
 type StoredStory = {
@@ -438,7 +438,7 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
         const storySemanticKey = context ? semanticKey(story, context) : story.id;
         const duplicateWindowMs = story.category === "performance" ? 20 * 60_000 : 24 * 60 * 60_000;
         const duplicateCutoff = new Date(Date.parse(story.publishedAt) - duplicateWindowMs).toISOString();
-        const semanticDuplicate = [...this.sql<{ id: string; source_count: number | null }>`SELECT id, source_count FROM stories
+        const semanticDuplicate = [...this.sql<{ id: string; source_count: number | null; facts_json: string | null }>`SELECT id, source_count, facts_json FROM stories
           WHERE semantic_key = ${storySemanticKey} AND published_at >= ${duplicateCutoff}
           ORDER BY published_at DESC LIMIT 1`];
         const preparedStory = await this.enrichStory(story, context);
@@ -449,7 +449,9 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
           ? await this.critiqueForPublishing(preparedStory, context, draft, facts, deterministicValidation)
           : deterministicValidation;
         const relatedPlayers = context?.relatedPlayers ?? (story.category === "weather" ? await findTeamFantasyPlayers(story.sourceContext ?? []) : []);
-        if (semanticDuplicate.length) {
+        const previousFacts = semanticDuplicate.length ? parseJson<StoryFacts | null>(semanticDuplicate[0].facts_json, null) : null;
+        const materialUpdate = isMaterialStoryUpdate(previousFacts, facts, preparedStory);
+        if (semanticDuplicate.length && !materialUpdate) {
           const canonical = semanticDuplicate[0];
           this.sql`INSERT OR IGNORE INTO story_evidence (story_id, source_story_id, source, url, title, published_at)
             VALUES (${canonical.id}, ${preparedStory.id}, ${preparedStory.source}, ${preparedStory.url}, ${story.title}, ${preparedStory.publishedAt})`;

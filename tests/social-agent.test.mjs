@@ -3,9 +3,10 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 test("social agent is live, sourced, deduplicated, and rate limited", async () => {
-  const [worker, content, config] = await Promise.all([
+  const [worker, content, intelligence, config] = await Promise.all([
     readFile(new URL("../social-agent/src/index.ts", import.meta.url), "utf8"),
     readFile(new URL("../social-agent/src/content.ts", import.meta.url), "utf8"),
+    readFile(new URL("../social-agent/src/intelligence.ts", import.meta.url), "utf8"),
     readFile(new URL("../social-agent/wrangler.jsonc", import.meta.url), "utf8"),
   ]);
   assert.match(config, /"POSTING_MODE": "live"/);
@@ -47,7 +48,12 @@ test("social agent is live, sourced, deduplicated, and rate limited", async () =
   assert.match(content, /\\bir\\b/);
   assert.match(content, /arrival adds real competition/);
   assert.match(content, /departure clears an opening/);
-  assert.match(worker, /x-sources-v24-natural-fantasy-impact/);
+  assert.match(worker, /x-sources-v25-material-injury-followups/);
+  assert.match(worker, /isMaterialStoryUpdate\(previousFacts, facts, preparedStory\)/);
+  assert.match(intelligence, /openingAvailabilityPattern/);
+  assert.match(intelligence, /week 1\|start of/);
+  assert.match(intelligence, /export function isMaterialStoryUpdate/);
+  assert.match(intelligence, /\["diagnosis", "severity", "timetable"\]/);
   assert.match(worker, /Jacory Croskey-Merritt is the primary workload beneficiary/);
   assert.match(worker, /parentIsPractice && category === "performance" \? "news"/);
   assert.match(worker, /story_evidence/);

@@ -25,7 +25,8 @@ export type ValidationResult = {
 
 const diagnosisPattern = /torn ACL|ACL tear|torn Achilles|Achilles tear|groin injury|hamstring injury|ankle injury|knee injury|calf injury|quad injury|shoulder injury|foot injury|toe injury|back injury|hip injury|concussion|turf toe|tweaked (?:his|her|their) (?:hamstring|ankle|knee|groin|calf|quad|shoulder|foot|toe|back|hip)/i;
 const severityPattern = /not (?:considered )?(?:serious|long-term)|season-ending|minor|day-to-day|week-to-week|questionable|doubtful|ruled out/i;
-const timetablePattern = /(?:out|miss) (?:for )?(?:the )?(?:season|year|\d+ weeks?|multiple weeks?)|return(?:ing)? (?:in|by) [^.;]{3,35}/i;
+const timetablePattern = /(?:out|miss) (?:for )?(?:the )?(?:season|year|\d+ weeks?|multiple weeks?)|return(?:ing)? (?:in|by) [^.;]{3,35}|(?:may|might|could|unlikely to|not expected to|uncertain|unclear|in doubt|no guarantee|doesn['’]t know)[^.;]{0,80}(?:week 1|start of (?:the )?season|season opener)/i;
+const openingAvailabilityPattern = /(?:may|might|could|unlikely to|not expected to|uncertain|unclear|in doubt|no guarantee|doesn['’]t know)[^.;]{0,80}(?:week 1|start of (?:the )?season|season opener)|(?:week 1|start of (?:the )?season|season opener)[^.;]{0,80}(?:uncertain|unclear|in doubt|not guaranteed|questionable)/i;
 
 const seasonPhase = (publishedAt: string): StoryFacts["seasonPhase"] => {
   const date = new Date(publishedAt);
@@ -38,7 +39,7 @@ const seasonPhase = (publishedAt: string): StoryFacts["seasonPhase"] => {
 
 const lifecycleStage = (text: string): LifecycleStage => {
   if (/returned|cleared|full participant|back at practice/i.test(text)) return "return";
-  if (/ruled out|inactive|questionable|doubtful|game-time decision/i.test(text)) return "game-status";
+  if (/ruled out|inactive|questionable|doubtful|game-time decision/i.test(text) || openingAvailabilityPattern.test(text)) return "game-status";
   if (/did not practice|limited|practice|sideline|no helmet|held out/i.test(text)) return "practice-update";
   if (/confirmed|diagnosed|torn|surgery|placed on (?:ir|injured reserve)/i.test(text)) return "confirmed";
   return "initial";
@@ -71,6 +72,15 @@ export function extractStoryFacts(story: Story, context: PlayerContext | null): 
     sourceTier,
     confidence,
   };
+}
+
+export function isMaterialStoryUpdate(previous: StoryFacts | null, next: StoryFacts, story: Pick<Story, "title" | "summary">) {
+  if (!previous) return false;
+  const changedFact = (["diagnosis", "severity", "timetable"] as const)
+    .some((key) => Boolean(next[key]) && next[key]?.toLowerCase() !== previous[key]?.toLowerCase());
+  if (changedFact) return true;
+  if (next.lifecycleStage !== previous.lifecycleStage && ["game-status", "confirmed", "return"].includes(next.lifecycleStage)) return true;
+  return openingAvailabilityPattern.test(`${story.title} ${story.summary}`);
 }
 
 export function validateStoryDraft(story: Story, context: PlayerContext | null, draft: string, facts: StoryFacts): ValidationResult {
