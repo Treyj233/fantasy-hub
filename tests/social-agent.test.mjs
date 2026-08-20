@@ -46,7 +46,8 @@ test("social agent is live, sourced, deduplicated, and rate limited", async () =
   assert.match(content, /\\bir\\b/);
   assert.match(content, /arrival changes the \$\{opportunity\}/);
   assert.match(content, /departure opens opportunity/);
-  assert.match(worker, /x-sources-v14-transaction-verb-classification/);
+  assert.match(worker, /x-sources-v15-diagnosis-first-headlines/);
+  assert.match(worker, /Tyler Warren has a groin injury/);
   assert.match(worker, /gameDayWeatherStories/);
   assert.match(content, /WEATHER WATCH/);
   assert.match(content, /isSixPointFantasyPlay/);
@@ -81,6 +82,21 @@ test("transaction classification distinguishes a signing from an absence note", 
   assert.equal(categorizeStory("No sign of Carnell Tate at practice"), "news");
   assert.equal(categorizeStory("The Titans signed a running back"), "contract");
   assert.equal(categorizeStory("The receiver re-signed with the team"), "contract");
+});
+
+test("injury headlines prioritize the diagnosis when attribution consumes the tweet budget", async () => {
+  const { composeFantasyPost } = await import("../social-agent/src/content.ts");
+  const post = composeFantasyPost({
+    id: "injury-test",
+    title: "Colts HC Shane Steichen told reporters that TE Tyler Warren is dealing with a groin injury that he suffered during today's practice.",
+    summary: "Colts HC Shane Steichen told reporters that TE Tyler Warren is dealing with a groin injury that he suffered during today's practice.",
+    url: "https://example.com/injury-test",
+    source: "@AdamSchefter",
+    publishedAt: new Date().toISOString(),
+    category: "injury",
+  }, { player: "Tyler Warren", position: "TE", team: "IND", backups: ["Mo Alie-Cox", "Will Mallory"], affectedPlayers: [] });
+  assert.match(post, /Tyler Warren has a groin injury\./);
+  assert.doesNotMatch(post, /Colts HC Shane Steichen told reporters\./);
 });
 
 test("X posting uses signed user context and never stores credentials in source", async () => {

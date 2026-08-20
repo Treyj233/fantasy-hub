@@ -147,6 +147,10 @@ const summarizeHeadline = (story: Story, context: FantasyPlayerContext | null, b
       ? `${lead}${details.reassuring ? "; not considered serious" : ""}`
       : `${context.player} has a new injury update`;
     if (summary.length <= budget) return cleanEnding(summary);
+    if (details.diagnosis) {
+      const compactDiagnosis = `${context.player} has a ${details.diagnosis}`;
+      if (compactDiagnosis.length <= budget) return cleanEnding(compactDiagnosis);
+    }
   }
   if (context && story.category === "contract") {
     const move = cleaned.match(/(?:signed|signs|agreed|extended|traded|released|waived)[^.!;,]{0,80}/i)?.[0];

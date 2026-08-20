@@ -17,7 +17,7 @@ type AgentState = {
 const RECENT_STORY_HOURS = 18;
 const POST_FRESHNESS_MINUTES = 60;
 const GAMEDAY_POST_FRESHNESS_MINUTES = 20;
-const DRAFT_FORMAT_VERSION = "x-sources-v14-transaction-verb-classification";
+const DRAFT_FORMAT_VERSION = "x-sources-v15-diagnosis-first-headlines";
 const RETRACTED_STORY_IDS = ["2090186160634986677", "2090197243202609473", "2090202303143747828"];
 
 type StoredStory = {
@@ -85,6 +85,10 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
     const [format] = [...this.sql<{ value: string }>`SELECT value FROM agent_meta WHERE key = 'draft_format' LIMIT 1`];
     if (format?.value === DRAFT_FORMAT_VERSION) return;
     for (const storyId of RETRACTED_STORY_IDS) this.sql`DELETE FROM stories WHERE id = ${storyId}`;
+    this.sql`UPDATE stories
+      SET title = 'Tyler Warren has a groin injury.',
+          draft = REPLACE(draft, 'Colts HC Shane Steichen told reporters.', 'Tyler Warren has a groin injury.')
+      WHERE id = '2090189865996443824'`;
     this.sql`INSERT OR REPLACE INTO agent_meta (key, value) VALUES ('draft_format', ${DRAFT_FORMAT_VERSION})`;
   }
 
