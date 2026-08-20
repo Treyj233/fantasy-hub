@@ -221,7 +221,8 @@ export function isSixPointFantasyPlay(story: Pick<Story, "title" | "summary">) {
 const specificImpact = (story: Story, context: FantasyPlayerContext | null) => {
   if (story.fantasyImpact) return story.fantasyImpact;
   if (story.category === "injury" && context) {
-    const backupText = context.backups.length ? context.backups.join(" and ") : `the next ${context.position} on the ${context.team} depth chart`;
+    const opportunityPlayers = [...new Set([...context.affectedPlayers, ...context.backups])].slice(0, 3);
+    const backupText = opportunityPlayers.length ? opportunityPlayers.join(" and ") : `the next ${context.position} on the ${context.team} depth chart`;
     const injuryUpdate = `${story.title} ${story.summary}`;
     const details = injuryDetails(injuryUpdate);
     const detailLead = injuryLead(context.player, injuryUpdate);

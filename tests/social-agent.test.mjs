@@ -47,7 +47,8 @@ test("social agent is live, sourced, deduplicated, and rate limited", async () =
   assert.match(content, /\\bir\\b/);
   assert.match(content, /arrival changes the \$\{opportunity\}/);
   assert.match(content, /departure opens opportunity/);
-  assert.match(worker, /x-sources-v20-parent-practice-context/);
+  assert.match(worker, /x-sources-v21-depth-chart-beneficiaries/);
+  assert.match(worker, /Jacory Croskey-Merritt is the primary workload beneficiary/);
   assert.match(worker, /parentIsPractice && category === "performance" \? "news"/);
   assert.match(worker, /story_evidence/);
   assert.match(worker, /critiqueForPublishing/);
@@ -133,6 +134,21 @@ test("preseason injuries favor healthy target beneficiaries over immediate waive
   assert.match(post, /Josh Downs is the target-share watch/);
   assert.match(post, /Mo Alie-Cox is depth-chart insurance/);
   assert.doesNotMatch(post, /prioritize Mo Alie-Cox on waivers/);
+});
+
+test("an injured RB2 recommendation includes the healthy RB1 workload beneficiary", async () => {
+  const { composeFantasyPost } = await import("../social-agent/src/content.ts");
+  const post = composeFantasyPost({
+    id: "rb2-injury-test",
+    title: "Rachaad White tweaked his hamstring and is day-to-day.",
+    summary: "Rachaad White tweaked his hamstring and is day-to-day.",
+    url: "https://example.com/rb2-injury-test",
+    source: "@MikeGarafolo",
+    publishedAt: "2026-08-19T21:31:12.000Z",
+    category: "injury",
+  }, { player: "Rachaad White", position: "RB", team: "WAS", backups: ["Kaytron Allen"], affectedPlayers: ["Jacory Croskey-Merritt"] });
+  assert.match(post, /Jacory Croskey-Merritt is the touch-share watch/);
+  assert.match(post, /Kaytron Allen is depth-chart insurance/);
 });
 
 test("X posting uses signed user context and never stores credentials in source", async () => {

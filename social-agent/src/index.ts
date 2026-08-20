@@ -18,7 +18,7 @@ type AgentState = {
 const RECENT_STORY_HOURS = 18;
 const POST_FRESHNESS_MINUTES = 60;
 const GAMEDAY_POST_FRESHNESS_MINUTES = 20;
-const DRAFT_FORMAT_VERSION = "x-sources-v20-parent-practice-context";
+const DRAFT_FORMAT_VERSION = "x-sources-v21-depth-chart-beneficiaries";
 const RETRACTED_STORY_IDS = ["2090186160634986677", "2090197243202609473", "2090202303143747828"];
 
 type StoredStory = {
@@ -141,6 +141,10 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
             'No immediate waiver move. Monitor Rachaad White''s practice status;',
             'Rachaad White tweaked his hamstring, but it is not considered serious or long-term. No immediate waiver move. Monitor his practice status;'
           )
+      WHERE id = '2090248955300884689'`;
+    this.sql`UPDATE stories
+      SET draft = '🚨 INJURY PULSE\n\nRachaad White tweaked his hamstring; not considered serious.\n\nFANTASY IMPACT: Preseason: track Rachaad White''s recovery, not the waiver wire. If the absence lingers, Jacory Croskey-Merritt is the primary workload beneficiary. Kaytron Allen is the deeper contingency.\n\nReported by @MikeGarafolo',
+          related_players_json = '[{"id":"8136","name":"Rachaad White","position":"RB","team":"WAS","relationship":"subject"},{"id":"12533","name":"Jacory Croskey-Merritt","position":"RB","team":"WAS","relationship":"beneficiary"},{"id":"13405","name":"Kaytron Allen","position":"RB","team":"WAS","relationship":"backup"}]'
       WHERE id = '2090248955300884689'`;
     this.sql`UPDATE stories
       SET draft = REPLACE(
