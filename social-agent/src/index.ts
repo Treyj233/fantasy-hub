@@ -78,6 +78,15 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
     mode: "preview",
   };
 
+  private migrateDraftFormat() {
+    this.sql`CREATE TABLE IF NOT EXISTS agent_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)`;
+    const [format] = [...this.sql<{ value: string }>`SELECT value FROM agent_meta WHERE key = 'draft_format' LIMIT 1`];
+    if (format?.value === DRAFT_FORMAT_VERSION) return;
+    this.sql`DELETE FROM stories WHERE status = 'draft'`;
+    for (const storyId of RETRACTED_STORY_IDS) this.sql`DELETE FROM stories WHERE id = ${storyId}`;
+    this.sql`INSERT OR REPLACE INTO agent_meta (key, value) VALUES ('draft_format', ${DRAFT_FORMAT_VERSION})`;
+  }
+
   async onStart() {
     this.sql`CREATE TABLE IF NOT EXISTS stories (
       id TEXT PRIMARY KEY,
@@ -92,6 +101,7 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
       x_post_id TEXT,
       error TEXT
     )`;
+    this.migrateDraftFormat();
     this.sql`CREATE TABLE IF NOT EXISTS source_accounts (
       username TEXT PRIMARY KEY,
       x_user_id TEXT NOT NULL,
@@ -205,16 +215,10 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
     const now = new Date();
     try {
       const gameDay = await isNflRegularOrPostseasonGameDay();
-      this.sql`CREATE TABLE IF NOT EXISTS agent_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)`;
+      this.migrateDraftFormat();
       const storyColumns = [...this.sql<{ name: string }>`PRAGMA table_info(stories)`];
       if (!storyColumns.some((column) => column.name === "semantic_key")) {
         this.sql`ALTER TABLE stories ADD COLUMN semantic_key TEXT`;
-      }
-      const [format] = [...this.sql<{ value: string }>`SELECT value FROM agent_meta WHERE key = 'draft_format' LIMIT 1`];
-      if (format?.value !== DRAFT_FORMAT_VERSION) {
-        this.sql`DELETE FROM stories WHERE status = 'draft'`;
-        for (const storyId of RETRACTED_STORY_IDS) this.sql`DELETE FROM stories WHERE id = ${storyId}`;
-        this.sql`INSERT OR REPLACE INTO agent_meta (key, value) VALUES ('draft_format', ${DRAFT_FORMAT_VERSION})`;
       }
       // Remove drafts created by the retired RSS source. X-origin stories use an @handle.
       this.sql`DELETE FROM stories WHERE source NOT LIKE '@%' AND source != 'weather'`;
