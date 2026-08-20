@@ -28,6 +28,10 @@
 .draft-hq-page {
   position: relative;
   isolation: isolate;
+  --draft-surface: color-mix(in srgb, var(--green) 5%, var(--chalk));
+  --draft-surface-raised: color-mix(in srgb, var(--green) 2%, var(--chalk));
+  --draft-surface-muted: color-mix(in srgb, var(--green) 9%, var(--chalk));
+  --draft-surface-accent: color-mix(in srgb, var(--gold-light) 8%, var(--draft-surface-raised));
 }
 
 .draft-hq-page .panel,
@@ -70,7 +74,7 @@
 }
 
 .draft-hq-stats article {
-  background: linear-gradient(135deg, var(--chalk), color-mix(in srgb, var(--gold-light) 8%, var(--chalk)));
+  background: linear-gradient(135deg, var(--draft-surface-raised), var(--draft-surface-accent));
   border-top: 3px solid color-mix(in srgb, var(--green) 58%, var(--gold));
 }
 
@@ -90,7 +94,7 @@
 .draft-roster,
 .draft-player-pool,
 .draft-results {
-  background: linear-gradient(145deg, var(--chalk), color-mix(in srgb, var(--green) 3%, var(--chalk)));
+  background: linear-gradient(145deg, var(--draft-surface-raised), var(--draft-surface));
 }
 
 .draft-setup {
@@ -101,7 +105,7 @@
 .draft-player-pool input,
 .draft-player-pool select,
 .draft-roster-builder select {
-  background: color-mix(in srgb, var(--green) 4%, var(--chalk));
+  background: var(--draft-surface);
   border-color: color-mix(in srgb, var(--green) 24%, var(--line));
 }
 
@@ -149,7 +153,7 @@
 }
 
 .draft-roster article.filled {
-  background: color-mix(in srgb, var(--gold-light) 8%, var(--cream));
+  background: var(--draft-surface-accent);
   border: 1px solid color-mix(in srgb, var(--gold) 28%, var(--line));
 }
 
@@ -165,7 +169,7 @@
 }
 
 .draft-roster-builder {
-  background: linear-gradient(135deg, color-mix(in srgb, var(--gold-light) 7%, var(--cream)), color-mix(in srgb, var(--green) 4%, var(--cream)));
+  background: linear-gradient(135deg, var(--draft-surface-accent), var(--draft-surface));
   border-color: color-mix(in srgb, var(--gold) 36%, var(--line));
   box-shadow: inset 4px 0 var(--gold);
 }
@@ -176,13 +180,20 @@ html[data-theme="dark"] .draft-hq-stats article {
   box-shadow: 0 12px 30px rgb(0 0 0 / .24);
 }
 
+html[data-theme="dark"] .draft-hq-page {
+  --draft-surface: color-mix(in srgb, var(--green) 10%, var(--chalk));
+  --draft-surface-raised: color-mix(in srgb, var(--green) 5%, var(--chalk));
+  --draft-surface-muted: color-mix(in srgb, var(--green) 15%, var(--chalk));
+  --draft-surface-accent: color-mix(in srgb, var(--gold-light) 8%, var(--draft-surface));
+}
+
 html[data-theme="dark"] .draft-hq-stats article,
 html[data-theme="dark"] .draft-setup,
 html[data-theme="dark"] .draft-board,
 html[data-theme="dark"] .draft-roster,
 html[data-theme="dark"] .draft-player-pool,
 html[data-theme="dark"] .draft-results {
-  background: linear-gradient(145deg, color-mix(in srgb, var(--green) 8%, var(--chalk)), var(--chalk));
+  background: linear-gradient(145deg, var(--draft-surface), var(--draft-surface-raised));
 }
 
 html[data-theme="dark"] .draft-roster-builder,
@@ -190,7 +201,19 @@ html[data-theme="dark"] .draft-roster-builder label,
 html[data-theme="dark"] .draft-player-list > button,
 html[data-theme="dark"] .draft-board-grid article,
 html[data-theme="dark"] .draft-roster article {
-  background: color-mix(in srgb, var(--green) 7%, var(--chalk));
+  background: var(--draft-surface);
+}
+
+.draft-hq-page :is(.draft-board-grid article, .draft-roster article, .draft-player-list > button) {
+  background: var(--draft-surface-raised);
+}
+
+.draft-hq-page :is(.draft-settings-grid select, .draft-player-pool input, .draft-player-pool select, .draft-roster-builder select, .draft-setup > header button, .draft-board > header button, .draft-settings-toggle) {
+  background: var(--draft-surface);
+}
+
+.draft-hq-page .draft-roster-builder label {
+  background: var(--draft-surface-raised);
 }
 
 .draft-player-list > button {
@@ -250,6 +273,47 @@ html[data-theme="dark"] .draft-roster article {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+.draft-room-layout.draft-board-only {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.draft-workspace-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  padding: 5px;
+  background: var(--draft-surface-muted);
+  border: 1px solid var(--line);
+  border-radius: 13px;
+}
+
+.draft-workspace-tabs button {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 3px 10px;
+  padding: 12px 14px;
+  text-align: left;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 9px;
+}
+
+.draft-workspace-tabs button span { font-size: 8px; font-weight: 950; letter-spacing: .1em; }
+.draft-workspace-tabs button b { grid-row: 1 / 3; grid-column: 2; align-self: center; color: var(--green); font-size: 16px; }
+.draft-workspace-tabs button small { font-size: 7px; }
+
+.draft-workspace-tabs button.active {
+  color: var(--ink);
+  background: var(--draft-surface-raised);
+  border-color: color-mix(in srgb, var(--gold) 45%, var(--line));
+  box-shadow: inset 0 -3px var(--gold), 0 6px 16px rgb(var(--brand-primary-rgb, 6 45 78) / .1);
+}
+
+.draft-roster-tab > div {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .draft-setup-actions {
   display: flex;
   align-items: center;
@@ -268,7 +332,7 @@ html[data-theme="dark"] .draft-roster article {
 .draft-roster-builder {
   margin-top: 18px;
   padding: 16px;
-  background: linear-gradient(135deg, color-mix(in srgb, var(--gold-light) 7%, var(--cream)), color-mix(in srgb, var(--green) 4%, var(--cream)));
+  background: linear-gradient(135deg, var(--draft-surface-accent), var(--draft-surface));
   border: 1px solid color-mix(in srgb, var(--gold) 36%, var(--line));
   border-radius: 13px;
   box-shadow: inset 4px 0 var(--gold);
@@ -322,7 +386,7 @@ html[data-theme="dark"] .draft-roster article {
   gap: 16px;
   min-height: 48px;
   padding: 8px 10px 8px 13px;
-  background: color-mix(in srgb, var(--green) 3%, var(--chalk));
+  background: var(--draft-surface-raised);
   border: 1px solid color-mix(in srgb, var(--green) 18%, var(--line));
   border-radius: 10px;
 }
@@ -350,7 +414,7 @@ html[data-theme="dark"] .draft-roster article {
   width: 74px;
   padding: 9px;
   color: var(--ink);
-  background: color-mix(in srgb, var(--green) 4%, var(--chalk));
+  background: var(--draft-surface);
   border: 1px solid color-mix(in srgb, var(--green) 24%, var(--line));
   border-radius: 8px;
   font: inherit;
@@ -368,6 +432,10 @@ html[data-theme="dark"] .draft-roster article {
 
   .draft-player-history {
     display: none;
+  }
+
+  .draft-roster-tab > div {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -416,5 +484,17 @@ html[data-theme="dark"] .draft-roster article {
 
   .draft-roster-builder > header {
     align-items: flex-start;
+  }
+
+  .draft-workspace-tabs button {
+    padding: 10px;
+  }
+
+  .draft-workspace-tabs button small {
+    display: none;
+  }
+
+  .draft-roster-tab > div {
+    grid-template-columns: 1fr;
   }
 }
