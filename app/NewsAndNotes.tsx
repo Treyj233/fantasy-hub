@@ -40,6 +40,7 @@ export default function NewsAndNotes() {
   const [filter, setFilter] = useState<(typeof filters)[number][0]>("all");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [manualRefreshState, setManualRefreshState] = useState<"idle" | "refreshing" | "updated">("idle");
 
   const loadFeed = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
@@ -56,6 +57,17 @@ export default function NewsAndNotes() {
       if (!signal?.aborted) setLoading(false);
     }
   }, []);
+
+  const refreshNow = useCallback(async () => {
+    setManualRefreshState("refreshing");
+    const startedAt = Date.now();
+    await loadFeed();
+    const remainingFeedbackTime = Math.max(0, 500 - (Date.now() - startedAt));
+    window.setTimeout(() => {
+      setManualRefreshState("updated");
+      window.setTimeout(() => setManualRefreshState("idle"), 1_800);
+    }, remainingFeedbackTime);
+  }, [loadFeed]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -85,7 +97,15 @@ export default function NewsAndNotes() {
           <span className="news-live-dot" aria-hidden="true" />
           <div><b>THE FANTASY HUB WIRE</b><small>Fresh updates from trusted NFL insiders</small></div>
         </div>
-        <button type="button" onClick={() => void loadFeed()} disabled={loading}>{loading ? "Refreshing…" : "Refresh"}</button>
+        <button
+          type="button"
+          className={manualRefreshState === "updated" ? "updated" : ""}
+          onClick={() => void refreshNow()}
+          disabled={manualRefreshState === "refreshing"}
+          aria-live="polite"
+        >
+          {manualRefreshState === "refreshing" ? "Refreshing…" : manualRefreshState === "updated" ? "Updated ✓" : "Refresh"}
+        </button>
       </section>
 
       <div className="news-filter-row" role="group" aria-label="Filter news">

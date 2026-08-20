@@ -2732,7 +2732,6 @@ export default function FantasyHub({
             ><b>{leagueName}</b><small>League</small><i aria-hidden="true">‹</i></button>
             <span><b>{rankingContext?.scoring ?? "Scoring pending"}</b><small>Format</small></span>
             <span><b>{periodLabel}</b><small>Season</small></span>
-            <span className={importState === "loading" ? "refreshing" : "ready"}><i aria-hidden="true" /><b>{importState === "loading" ? "Updating" : leagueRefreshedAt ? `Updated ${new Date(leagueRefreshedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}` : "Ready"}</b><small>Data</small></span>
           </section>
         )}
 
