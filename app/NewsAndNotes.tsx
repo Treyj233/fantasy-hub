@@ -172,7 +172,7 @@ export default function NewsAndNotes({ onOpenPlayer }: { onOpenPlayer?: (player:
                 <h3>{cleanTeamHashtags(item.headline)}</h3>
                 {!!item.relatedPlayers?.length && (
                   <div className="news-related-players" aria-label="Players affected by this update">
-                    <span>PLAYERS IN THIS UPDATE</span>
+                    <span>IMPACTED PLAYERS</span>
                     <div>{item.relatedPlayers.map((player) => (
                       <button type="button" key={`${item.id}-${player.id}-${player.relationship}`} onClick={() => onOpenPlayer?.(player)} disabled={!onOpenPlayer}>
                         <b>{player.name}</b><small>{player.position} · {player.team}</small>
