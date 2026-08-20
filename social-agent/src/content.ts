@@ -47,7 +47,9 @@ export function splitAtomicUpdates(value: string) {
 }
 
 export function splitImpactSteps(impact: string) {
-  const protectedImpact = impact.replace(/\b(?:[A-Z]\.){2,}/g, (initials) => initials.replace(/\./g, "\uE000"));
+  const protectedImpact = impact
+    .replace(/\b(?:[A-Z]\.){2,}/g, (initials) => initials.replace(/\./g, "\uE000"))
+    .replace(/\b(?:St|Jr|Sr|Mr|Mrs|Ms|Dr)\.(?=\s+[A-Z])/g, (abbreviation) => abbreviation.replace(".", "\uE000"));
   return protectedImpact
     .match(/[^.!?]+[.!?]+|[^.!?]+$/g)
     ?.map((sentence) => sentence.replace(/\uE000/g, ".").trim())

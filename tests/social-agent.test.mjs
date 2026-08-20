@@ -206,6 +206,11 @@ test("feed bullets keep dotted player initials together", async () => {
     "A.J. Brown gets the target boost.",
     "Hold for now.",
   ]);
+  assert.deepEqual(splitImpactSteps("Monitor the injury. Amon-Ra St. Brown gets the target boost. Hold for now."), [
+    "Monitor the injury.",
+    "Amon-Ra St. Brown gets the target boost.",
+    "Hold for now.",
+  ]);
 });
 
 test("injury context follows the player nearest the injury language", async () => {
