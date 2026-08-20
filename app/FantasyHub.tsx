@@ -39,6 +39,7 @@ type View =
   | "Glossary"
   | "Fantasy Hub Pro"
   | "My Account"
+  | "Theme Store"
   | "Manage Leagues";
 type Player = {
   id: string;
@@ -820,6 +821,7 @@ const mobileCategoryNav: { group: NavGroup; lead: View; label: string; categoryT
 const nav: { label: View; displayLabel?: string; mark: string; tone: string; group: NavGroup }[] = [
   { label: "All Leagues", displayLabel: "Mission Hub", mark: "◆", tone: "home-prism", group: "Home" },
   { label: "Manage Leagues", mark: "⚙", tone: "utility-steel", group: "Utilities" },
+  { label: "Theme Store", mark: "✦", tone: "theme-spectrum", group: "Utilities" },
   { label: "Fantasy Hub Pro", displayLabel: "Manage Plans", mark: "P", tone: "pro-gold", group: "Utilities" },
   { label: "My Account", mark: "J", tone: "account-azure", group: "Utilities" },
   { label: "Command Center", mark: "★", tone: "command-sun", group: "Manage Team" },
@@ -844,7 +846,8 @@ const nav: { label: View; displayLabel?: string; mark: string; tone: string; gro
 
 const glossaryDetails: Record<View, { summary: string; use: string }> = {
   "All Leagues": { summary: "Your portfolio-wide Mission Hub, combining urgent lineup, waiver, weather, injury, and trade actions across every connected league.", use: "Open first to see the three most important actions across your portfolio." },
-  "Manage Leagues": { summary: "Connect, remove, refresh, and reorder Sleeper or ESPN leagues while managing account and appearance preferences.", use: "Use when adding a league, changing league order, or updating your Hub setup." },
+  "Manage Leagues": { summary: "Connect, remove, refresh, and reorder Sleeper or ESPN leagues attached to your Fantasy Hub account.", use: "Use when adding a league, changing league order, or updating connected platforms." },
+  "Theme Store": { summary: "Browse and apply every NFL-inspired dashboard palette and all 16 Fantasy Hub navigation badge packs.", use: "Use whenever you want to personalize the colors and navigation style across your Hub." },
   "Fantasy Hub Pro": { summary: "Compare Free and Pro access, start a subscription, restore an App Store purchase, or manage active billing.", use: "Use to review plans and unlock Fantasy Hub’s proprietary tools." },
   "My Account": { summary: "Review account details, subscription status, billing management, notification preferences, and sign-in controls.", use: "Use to manage your Fantasy Hub account or safely end a subscription." },
   "Command Center": { summary: "A league-specific briefing that combines roster readiness, matchup edges, priorities, and recommended next moves.", use: "Open before making weekly decisions for one team." },
@@ -2647,14 +2650,14 @@ export default function FantasyHub({
                 <button
                   className="account-theme-customizer"
                   type="button"
-                  aria-label="Open Theme Customizer"
+                  aria-label="Open Theme Store"
                   onClick={() => {
-                    setView("Manage Leagues");
-                    window.setTimeout(() => document.getElementById("hub-appearance")?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+                    setView("Theme Store");
+                    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
                   }}
                 >
                   <i className="theme-customizer-art" aria-hidden="true"><span /><span /><span /></i>
-                  <span className="theme-customizer-copy"><strong>Theme Customizer</strong><small>Make the Hub yours</small></span>
+                  <span className="theme-customizer-copy"><strong>Theme Store</strong><small>Make the Hub yours</small></span>
                   {!entitlement.pro && <b>PRO</b>}
                   <em aria-hidden="true">›</em>
                 </button>
@@ -2994,8 +2997,8 @@ export default function FantasyHub({
             onScansChange={setPortfolioScans}
             onManage={() => setView("Manage Leagues")}
             onPersonalize={() => {
-              setView("Manage Leagues");
-              window.setTimeout(() => document.getElementById("hub-appearance")?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+              setView("Theme Store");
+              window.scrollTo({ top: 0, left: 0, behavior: "auto" });
             }}
             onOpen={async (league, destination = "Command Center") => {
               await openConnectedLeague(league);
@@ -3179,18 +3182,22 @@ export default function FantasyHub({
             rosterEmptyState
           ))}
         {view === "Glossary" && <Glossary onNavigate={setView} />}
+        {view === "Theme Store" && (
+          <ThemeStore
+            teamTheme={effectiveTeamTheme}
+            onTeamThemeChange={(value) => { setTeamTheme(value); void saveAccountPreferences({ teamTheme: value }); }}
+            badgeTheme={effectiveBadgeTheme}
+            onBadgeThemeChange={(value) => { setBadgeTheme(value); void saveAccountPreferences({ badgeTheme: value }); }}
+            isPro={entitlement.pro}
+            onUpgrade={() => setView("Fantasy Hub Pro")}
+          />
+        )}
         {view === "Manage Leagues" && (
           <ManageLeagues
             connectedLeagues={availableLeagues}
             hiddenLeagueIds={hiddenLeagueIds}
             managedLeagues={managedLeagues}
             accountError={accountError}
-            teamTheme={effectiveTeamTheme}
-            onTeamThemeChange={(value) => { setTeamTheme(value); void saveAccountPreferences({ teamTheme: value }); }}
-            badgeTheme={effectiveBadgeTheme}
-            isPro={entitlement.pro}
-            onUpgrade={() => setView("Fantasy Hub Pro")}
-            onBadgeThemeChange={(value) => { setBadgeTheme(value); void saveAccountPreferences({ badgeTheme: value }); }}
             onOpen={async (league) => {
               setView("Command Center");
               await openConnectedLeague(league);
@@ -3717,17 +3724,45 @@ function ProPlans({ entitlement }: { entitlement: AccountEntitlement }) {
   </div>;
 }
 
-function ManageLeagues({
-  connectedLeagues,
-  hiddenLeagueIds,
-  managedLeagues,
-  accountError,
+function ThemeStore({
   teamTheme,
   onTeamThemeChange,
   badgeTheme,
   onBadgeThemeChange,
   isPro,
   onUpgrade,
+}: {
+  teamTheme: string;
+  onTeamThemeChange: (team: string) => void;
+  badgeTheme: BadgeTheme;
+  onBadgeThemeChange: (theme: BadgeTheme) => void;
+  isPro: boolean;
+  onUpgrade: () => void;
+}) {
+  const selectedNflTheme = nflThemes.find((team) => team.id === teamTheme) ?? nflThemes[0];
+  const selectedBadgeTheme = badgeThemeOptions.find((pack) => pack.id === badgeTheme) ?? badgeThemeOptions[0];
+  return <div className="page-content theme-store-page">
+    <section className="theme-store-hero">
+      <div><span>FANTASY HUB THEME STORE</span><h2>Your leagues.<br/><em>Your Sunday look.</em></h2><p>Choose an NFL-inspired color system and pair it with a navigation badge pack. One selection carries across the complete Fantasy Hub experience.</p></div>
+      <div className="theme-store-counts"><article><strong>{nflThemes.length}</strong><span>NFL THEMES</span></article><article><strong>{badgeThemeOptions.length}</strong><span>BADGE PACKS</span></article><small>Built to expand with future theme collections</small></div>
+    </section>
+    <section id="theme-store-catalog" className={`appearance-panel theme-store-catalog panel ${isPro ? "" : "appearance-pro-locked"}`}>
+      <div className="panel-header"><div><span>NFL THEME COLLECTION</span><h3>Choose your team palette</h3></div><label>Team<select value={teamTheme} disabled={!isPro} onChange={(event) => onTeamThemeChange(event.target.value)}>{nflThemes.map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}</select></label></div>
+      <p>The selected palette carries across dashboard backgrounds, navigation, feature headers, cards, and highlights in both light and dark mode. Your selection is saved to your Fantasy Hub account.</p>
+      <div className="selected-team-theme"><i style={{background:`linear-gradient(135deg, ${selectedNflTheme.primary} 0 50%, ${selectedNflTheme.secondary} 50%)`}}/><span><strong>{selectedNflTheme.name}</strong><small>{selectedNflTheme.primary} · {selectedNflTheme.secondary}</small></span><b>ACTIVE THEME</b></div>
+      <div className="team-theme-grid" role="group" aria-label="NFL team themes">{nflThemes.map((team) => <button type="button" key={team.id} className={team.id === teamTheme ? "active" : ""} onClick={() => onTeamThemeChange(team.id)} aria-pressed={team.id === teamTheme} disabled={!isPro}><i style={{background:`linear-gradient(135deg, ${team.primary} 0 50%, ${team.secondary} 50%)`}}/><span>{team.id}</span><small>{team.name.replace(/^(Arizona|Atlanta|Baltimore|Buffalo|Carolina|Chicago|Cincinnati|Cleveland|Dallas|Denver|Detroit|Green Bay|Houston|Indianapolis|Jacksonville|Kansas City|Las Vegas|Los Angeles|Miami|Minnesota|New England|New Orleans|New York|Philadelphia|Pittsburgh|San Francisco|Seattle|Tampa Bay|Tennessee|Washington) /, "")}</small></button>)}</div>
+      <div className="badge-theme-builder"><header><div><span>NAVIGATION BADGE COLLECTION</span><h4>Choose your navigation style</h4></div><small>{badgeThemeOptions.length} packs</small></header><details className="badge-theme-picker"><summary><span className={`badge-pack-preview ${selectedBadgeTheme.id}`}>{selectedBadgeTheme.preview.map((icon,index)=><i key={`${icon}-${index}`}>{icon}</i>)}</span><span><strong>{selectedBadgeTheme.name}</strong><small>{selectedBadgeTheme.detail}</small></span><b>Browse packs</b></summary><div className="badge-theme-grid" role="radiogroup" aria-label="Navigation badge packs">{badgeThemeOptions.map((pack)=><button type="button" role="radio" aria-checked={badgeTheme === pack.id} disabled={!isPro} className={`${pack.id} ${badgeTheme === pack.id ? "active" : ""}`} key={pack.id} onClick={()=>onBadgeThemeChange(pack.id)}><span>{pack.preview.map((icon,index)=><i key={`${icon}-${index}`}>{icon}</i>)}</span><strong>{pack.name}</strong><small>{pack.detail}</small></button>)}</div></details></div>
+      <aside className="theme-store-future"><span>MORE COLLECTIONS AHEAD</span><strong>Future theme packs will arrive here.</strong><p>The store catalog is ready for seasonal, event, and premium collections without changing where you customize Fantasy Hub.</p></aside>
+      {!isPro && <div className="appearance-pro-callout"><span>FANTASY HUB PRO</span><strong>Make the Hub yours.</strong><p>Unlock every NFL-inspired dashboard palette and all 16 navigation badge packs.</p><button onClick={onUpgrade}>Explore Pro themes →</button></div>}
+    </section>
+  </div>;
+}
+
+function ManageLeagues({
+  connectedLeagues,
+  hiddenLeagueIds,
+  managedLeagues,
+  accountError,
   onOpen,
   onAdd,
   onRemove,
@@ -3740,12 +3775,6 @@ function ManageLeagues({
   hiddenLeagueIds: string[];
   managedLeagues: ManagedLeague[];
   accountError: string;
-  teamTheme: string;
-  onTeamThemeChange: (team: string) => void;
-  badgeTheme: BadgeTheme;
-  onBadgeThemeChange: (theme: BadgeTheme) => void;
-  isPro: boolean;
-  onUpgrade: () => void;
   onOpen: (league: ConnectedLeague) => Promise<void>;
   onAdd: (
     provider: LeagueProvider,
@@ -3800,9 +3829,6 @@ function ManageLeagues({
     },
   ];
   const selectedProvider = providers.find((item) => item.id === provider)!;
-  const selectedNflTheme =
-    nflThemes.find((team) => team.id === teamTheme) ?? nflThemes[0];
-  const selectedBadgeTheme = badgeThemeOptions.find((pack) => pack.id === badgeTheme) ?? badgeThemeOptions[0];
 
   async function addLeague() {
     if (!identifier.trim()) return;
@@ -3870,85 +3896,6 @@ function ManageLeagues({
           </strong>
           <span>LEAGUES & ACCOUNTS</span>
         </div>
-      </section>
-      <section id="hub-appearance" className={`appearance-panel panel ${isPro ? "" : "appearance-pro-locked"}`}>
-        <div className="panel-header">
-          <div>
-            <span>PERSONALIZE YOUR HUB</span>
-            <h3>Choose your NFL team theme</h3>
-          </div>
-          <label>
-            Team
-            <select
-              value={teamTheme}
-              disabled={!isPro}
-              onChange={(event) => onTeamThemeChange(event.target.value)}
-            >
-              {nflThemes.map((team) => (
-                <option key={team.id} value={team.id}>
-                  {team.name}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-        <p>
-          The selected team’s official-style primary and secondary palette
-          carries across dashboard backgrounds, navigation, feature headers,
-          cards, and highlights in both light and dark mode. Your selection is
-          saved on this device.
-        </p>
-        <div className="selected-team-theme">
-          <i
-            style={{
-              background: `linear-gradient(135deg, ${selectedNflTheme.primary} 0 50%, ${selectedNflTheme.secondary} 50%)`,
-            }}
-          />
-          <span>
-            <strong>{selectedNflTheme.name}</strong>
-            <small>
-              {selectedNflTheme.primary} · {selectedNflTheme.secondary}
-            </small>
-          </span>
-        </div>
-        <div
-          className="team-theme-grid"
-          role="group"
-          aria-label="NFL team themes"
-        >
-          {nflThemes.map((team) => (
-            <button
-              key={team.id}
-              className={team.id === teamTheme ? "active" : ""}
-              onClick={() => onTeamThemeChange(team.id)}
-              aria-pressed={team.id === teamTheme}
-              disabled={!isPro}
-            >
-              <i
-                style={{
-                  background: `linear-gradient(135deg, ${team.primary} 0 50%, ${team.secondary} 50%)`,
-                }}
-              />
-              <span>{team.id}</span>
-              <small>
-                {team.name.replace(
-                  /^(Arizona|Atlanta|Baltimore|Buffalo|Carolina|Chicago|Cincinnati|Cleveland|Dallas|Denver|Detroit|Green Bay|Houston|Indianapolis|Jacksonville|Kansas City|Las Vegas|Los Angeles|Miami|Minnesota|New England|New Orleans|New York|Philadelphia|Pittsburgh|San Francisco|Seattle|Tampa Bay|Tennessee|Washington) /,
-                  "",
-                )}
-              </small>
-            </button>
-          ))}
-        </div>
-        <div className="badge-theme-builder">
-          <header><div><span>NAVIGATION ICON PACK</span><h4>Choose your navigation style</h4></div><small>16 Pro looks</small></header>
-          <details className="badge-theme-picker">
-            <summary><span className={`badge-pack-preview ${selectedBadgeTheme.id}`}>{selectedBadgeTheme.preview.map((icon, index) => <i key={`${icon}-${index}`}>{icon}</i>)}</span><span><strong>{selectedBadgeTheme.name}</strong><small>{selectedBadgeTheme.detail}</small></span><b>Change pack</b></summary>
-            <div className="badge-theme-grid" role="radiogroup" aria-label="Navigation icon pack">
-              {badgeThemeOptions.map((pack) => <button type="button" role="radio" aria-checked={badgeTheme === pack.id} disabled={!isPro} className={`${pack.id} ${badgeTheme === pack.id ? "active" : ""}`} key={pack.id} onClick={() => onBadgeThemeChange(pack.id)}><span>{pack.preview.map((icon, index) => <i key={`${icon}-${index}`}>{icon}</i>)}</span><strong>{pack.name}</strong><small>{pack.detail}</small></button>)}
-            </div>
-          </details>
-        </div>
-        {!isPro && <div className="appearance-pro-callout"><span>FANTASY HUB PRO</span><strong>Make the Hub yours.</strong><p>Unlock every NFL-inspired dashboard palette and all 16 navigation icon packs.</p><button onClick={onUpgrade}>Explore Pro themes →</button></div>}
       </section>
       <section className="provider-grid" aria-label="Fantasy providers">
         {providers.map((item) => (
