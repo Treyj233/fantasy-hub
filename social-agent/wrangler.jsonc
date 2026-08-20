@@ -10,8 +10,9 @@
     "MIN_POST_INTERVAL_MINUTES": "12",
     "MAX_POSTS_PER_DAY": "20",
     "GAMEDAY_MAX_POSTS_PER_DAY": "100",
-    "X_SOURCE_HANDLES": "RapSheet,AdamSchefter,TomPelissero,MikeGarafolo,UnderdogNFL"
+    "X_SOURCE_HANDLES": "RapSheet,AdamSchefter,TomPelissero,MikeGarafolo,UnderdogNFL,32BeatWriters"
   },
+  "ai": { "binding": "AI" },
   "durable_objects": {
     "bindings": [
       { "name": "SOCIAL_AGENT", "class_name": "FantasyHubSocialAgent" }

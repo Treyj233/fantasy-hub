@@ -9,6 +9,8 @@ export type Story = {
   publishedAt: string;
   category: StoryCategory;
   fantasyImpact?: string;
+  reporter?: string;
+  curator?: string;
 };
 
 export type FantasyPlayerContext = {
@@ -169,7 +171,7 @@ export function isSixPointFantasyPlay(story: Pick<Story, "title" | "summary">) {
 }
 
 const specificImpact = (story: Story, context: FantasyPlayerContext | null) => {
-  if (story.category === "weather" && story.fantasyImpact) return story.fantasyImpact;
+  if (story.fantasyImpact) return story.fantasyImpact;
   if (story.category === "injury" && context) {
     const backupText = context.backups.length ? context.backups.join(" and ") : `the next ${context.position} on the ${context.team} depth chart`;
     const injuryUpdate = `${story.title} ${story.summary}`;
@@ -214,8 +216,10 @@ export function composeFantasyPost(story: Story, context: FantasyPlayerContext |
   const isGameDay = story.category === "performance" && gameDayPlay.test(`${story.title} ${story.summary}`);
   const label = isGameDay ? "🏈 SUNDAY PULSE" : labels[story.category];
   const impact = specificImpact(story, context);
-  const reporter = creditedReporters[story.source.toLowerCase()];
-  const attribution = reporter ? `\n\nReported by ${reporter}` : "";
+  const reporter = story.reporter || creditedReporters[story.source.toLowerCase()];
+  const attribution = reporter
+    ? `\n\nReported by ${reporter}${story.curator && story.curator.toLowerCase() !== reporter.toLowerCase() ? ` via ${story.curator}` : ""}`
+    : story.curator ? `\n\nCurated by ${story.curator}` : "";
   const fixed = `${label}\n\n\n\nFANTASY IMPACT: ${impact}${attribution}`;
   const headlineBudget = Math.max(42, 275 - fixed.length);
   return `${label}\n\n${summarizeHeadline(story, context, headlineBudget)}\n\nFANTASY IMPACT: ${impact}${attribution}`;

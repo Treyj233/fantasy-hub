@@ -15,7 +15,7 @@ type AgentState = {
 };
 
 const RECENT_STORY_HOURS = 18;
-const DRAFT_FORMAT_VERSION = "x-sources-v9-player-relevance-gate";
+const DRAFT_FORMAT_VERSION = "x-sources-v10-curated-implications";
 const RETRACTED_STORY_IDS = ["2090186160634986677"];
 
 type StoredStory = {
@@ -34,7 +34,7 @@ const feedStory = (story: StoredStory) => {
   const titleMatch = titleSection.match(/^(\p{Extended_Pictographic}(?:\uFE0F)?(?:\u200D\p{Extended_Pictographic})*)?\s*(.*)$/u);
   const impactSection = sections.find((section) => /^FANTASY IMPACT:/i.test(section)) || "";
   const impact = impactSection.replace(/^FANTASY IMPACT:\s*/i, "").trim();
-  const reporterSection = sections.find((section) => /^Reported by\s+/i.test(section));
+  const reporterSection = sections.find((section) => /^(?:Reported|Curated) by\s+/i.test(section));
   const sentences = impact.match(/[^.!?]+[.!?]+|[^.!?]+$/g)?.map((sentence) => sentence.trim()).filter(Boolean) || [];
   const headline = (sections[1] || story.title).replace(/^\p{Extended_Pictographic}(?:\uFE0F)?\s*/u, "");
 
@@ -46,7 +46,7 @@ const feedStory = (story: StoredStory) => {
     headline,
     impact,
     nextSteps: sentences,
-    reporter: reporterSection?.replace(/^Reported by\s+/i, "") || null,
+    reporter: reporterSection?.replace(/^(?:Reported|Curated) by\s+/i, "") || null,
     publishedAt: story.published_at,
   };
 };
@@ -159,21 +159,47 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
     const timelines = await Promise.all(handles.map(async (handle) => {
       const userId = ids.get(handle.toLowerCase());
       if (!userId) return [];
-      const timeline = await xApiGet<{ data?: Array<{ id: string; text: string; created_at?: string }> }>(
+      const timeline = await xApiGet<{
+        data?: Array<{ id: string; text: string; created_at?: string; author_id?: string; referenced_tweets?: Array<{ type: string; id: string }> }>;
+        includes?: {
+          tweets?: Array<{ id: string; text: string; author_id?: string }>;
+          users?: Array<{ id: string; username: string }>;
+        };
+      }>(
         `https://api.x.com/2/users/${userId}/tweets`,
-        { "tweet.fields": "created_at", "max_results": "10", "exclude": "retweets,replies" },
+        {
+          "tweet.fields": "created_at,author_id,referenced_tweets",
+          "user.fields": "username",
+          expansions: "referenced_tweets.id,referenced_tweets.id.author_id",
+          "max_results": "10",
+          exclude: handle.toLowerCase() === "32beatwriters" ? "replies" : "retweets,replies",
+        },
         this.credentials(),
       );
+      const referencedPosts = new Map((timeline.includes?.tweets ?? []).map((post) => [post.id, post]));
+      const includedUsers = new Map((timeline.includes?.users ?? []).map((user) => [user.id, user]));
       return (timeline.data ?? []).map((post): Story => {
-        const cleanText = post.text.replace(/https:\/\/t\.co\/\w+/g, "").replace(/\s+/g, " ").trim();
+        const cleanText = post.text.replace(/https:\/\/t\.co\/\w+/g, "").replace(/^RT\s+@\w+:\s*/i, "").replace(/\s+/g, " ").trim();
+        const reference = post.referenced_tweets?.find((item) => item.type === "quoted")
+          ?? post.referenced_tweets?.find((item) => item.type === "retweeted");
+        const referencedPost = reference ? referencedPosts.get(reference.id) : undefined;
+        const referencedText = referencedPost?.text.replace(/https:\/\/t\.co\/\w+/g, "").replace(/\s+/g, " ").trim() ?? "";
+        const originalReporter = referencedPost?.author_id ? includedUsers.get(referencedPost.author_id) : undefined;
+        const curated = handle.toLowerCase() === "32beatwriters";
+        const primaryText = curated && referencedText ? referencedText : cleanText;
+        const contextText = curated && referencedText && cleanText && cleanText !== referencedText
+          ? `${primaryText} Curator note: ${cleanText}`
+          : primaryText;
         return {
           id: post.id,
-          title: cleanText,
-          summary: cleanText,
+          title: primaryText,
+          summary: contextText,
           url: `https://x.com/${handle}/status/${post.id}`,
           source: `@${handle}`,
           publishedAt: post.created_at ?? new Date().toISOString(),
-          category: categorizeStory(cleanText),
+          category: categorizeStory(contextText),
+          reporter: originalReporter ? `@${originalReporter.username}` : curated ? "@32BeatWriters" : undefined,
+          curator: curated ? "@32BeatWriters" : undefined,
         };
       });
     }));
@@ -189,6 +215,49 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
       WHERE status = 'posted' AND discovered_at >= ${start.toISOString()}`;
     const dailyLimit = gameDay ? Number(this.env.GAMEDAY_MAX_POSTS_PER_DAY || 100) : Number(this.env.MAX_POSTS_PER_DAY || 20);
     return Number(count) < Math.max(1, dailyLimit);
+  }
+
+  private async enrichCuratedStory(story: Story, context: Awaited<ReturnType<typeof findPlayerContext>>) {
+    if (story.source.toLowerCase() !== "@32beatwriters" || !context) return story;
+    try {
+      const result = await this.env.AI.run("@cf/meta/llama-3.3-70b-instruct-fp8-fast", {
+        messages: [
+          {
+            role: "system",
+            content: "You edit a fantasy-football news wire. Paraphrase the evidence; never copy a full quote. Explain only what the report reasonably implies. Distinguish observation from confirmation, avoid certainty when a role is not official, and never invent stats, injuries, transactions, depth-chart facts, or recommendations. Return JSON only.",
+          },
+          {
+            role: "user",
+            content: `Player: ${context.player} (${context.position}, ${context.team})\nCategory: ${story.category}\nSource material: ${story.title} ${story.summary}\nWrite a headline under 130 characters and a fantasyImpact under 230 characters. The impact must say what the report implies and the appropriate action (monitor, adjust projection, waiver, draft, or lineup) with calibrated confidence.`,
+          },
+        ],
+        response_format: {
+          type: "json_schema",
+          json_schema: {
+            type: "object",
+            properties: {
+              headline: { type: "string" },
+              fantasyImpact: { type: "string" },
+            },
+            required: ["headline", "fantasyImpact"],
+            additionalProperties: false,
+          },
+        },
+        max_tokens: 180,
+        temperature: 0.1,
+      });
+      const raw = result && typeof result === "object" && "response" in result ? result.response : undefined;
+      if (typeof raw !== "string") return story;
+      const parsed = JSON.parse(raw) as { headline?: unknown; fantasyImpact?: unknown };
+      if (typeof parsed.headline !== "string" || typeof parsed.fantasyImpact !== "string") return story;
+      const headline = parsed.headline.replace(/\s+/g, " ").trim();
+      const fantasyImpact = parsed.fantasyImpact.replace(/\s+/g, " ").trim();
+      if (!headline || headline.length > 130 || !fantasyImpact || fantasyImpact.length > 230) return story;
+      return { ...story, title: headline, fantasyImpact };
+    } catch (error) {
+      console.warn(JSON.stringify({ event: "curated_story_enrichment_fallback", storyId: story.id, error: error instanceof Error ? error.message : "Unknown enrichment error" }));
+      return story;
+    }
   }
 
   private recentDrafts() {
@@ -245,11 +314,12 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
           WHERE semantic_key = ${storySemanticKey} AND published_at >= ${duplicateCutoff}
           ORDER BY published_at DESC LIMIT 1`];
         if (semanticDuplicate.length) continue;
-        const draft = composeFantasyPost(story, context);
+        const preparedStory = await this.enrichCuratedStory(story, context);
+        const draft = composeFantasyPost(preparedStory, context);
         this.sql`INSERT INTO stories (id, title, url, source, category, published_at, discovered_at, draft, status, semantic_key)
-          VALUES (${story.id}, ${story.title}, ${story.url}, ${story.source}, ${story.category}, ${story.publishedAt}, ${now.toISOString()}, ${draft}, 'draft', ${storySemanticKey})`;
-        selected ??= story;
-        newlyCreated.push(story);
+          VALUES (${preparedStory.id}, ${preparedStory.title}, ${preparedStory.url}, ${preparedStory.source}, ${preparedStory.category}, ${preparedStory.publishedAt}, ${now.toISOString()}, ${draft}, 'draft', ${storySemanticKey})`;
+        selected ??= preparedStory;
+        newlyCreated.push(preparedStory);
       }
 
       const mode = this.mode();
