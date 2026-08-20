@@ -149,6 +149,7 @@ const compact = (value: string, length: number) => value.length <= length
   : `${value.slice(0, Math.max(0, length - 1)).trimEnd()}…`;
 
 const cleanEnding = (value: string) => value.replace(/[,:;\-–—\s]+$/g, "").replace(/[.!?]?$/, ".");
+const potentialTrade = /potential trade candidate|trade candidate|trade target|drawing trade interest|interested in trading for/i;
 
 const firstSentence = (value: string) => {
   const protectedAbbreviations = value.replace(/\b(vs|mr|mrs|ms|dr|st)\./gi, "$1<period>");
@@ -195,6 +196,10 @@ const summarizeHeadline = (story: Story, context: FantasyPlayerContext | null, b
     }
   }
   if (context && story.category === "contract") {
+    if (potentialTrade.test(cleaned)) {
+      const lastName = context.player.split(/\s+/).at(-1) || context.player;
+      return cleanEnding(`${lastName} is a potential trade candidate`);
+    }
     const move = cleaned.match(/(?:signed|signs|agreed|extended|traded|released|waived)[^.!;,]{0,80}/i)?.[0];
     const summary = move ? `${context.player} ${move}` : `${context.player}'s roster situation has changed`;
     if (summary.length <= budget) return cleanEnding(summary);
@@ -221,7 +226,6 @@ const mildInjury = /day-to-day|limited|soreness|tightness|bruise|contusion|preca
 const gameDayPlay = /\b(?:touchdown|td|scores?|two-point|[4-9]\d-yard|1\d{2}\s+yards|100-yard|150-yard|200-yard)\b/i;
 const playerAdded = /\b(?:signs|signed|signing|re-signs|re-signed)\b|agreed|acquired|traded for|claimed/i;
 const playerRemoved = /released|waived|cut|traded away|departed|not re-sign/i;
-const potentialTrade = /potential trade candidate|trade candidate|trade target|drawing trade interest|interested in trading for/i;
 const availabilitySignal = /absen|sideline|no helmet|returned to practice|limited(?: in practice)?|held out|did not participate|\bdnp\b|miss(?:ed|es|ing) (?:a |the )?(?:practice|walkthrough)|not practicing|left practice|exited practice|did not finish practice/i;
 const positiveCampSignal = /impressive|excel|standout|strong camp|making plays|first-team|starter reps|breakout|\bhot\b/i;
 const practiceStatLine = /\b\d+\s*[-–]of[-–]\s*\d+\b|\b\d+\s*(?:tds?|touchdowns?|ints?|interceptions?|targets?|receptions?|carries|yards)\b/i;

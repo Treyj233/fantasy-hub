@@ -420,7 +420,7 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
   }
 
   private async regenerateCurrentFeed() {
-    const regenerationKey = "regenerated_feed_v31";
+    const regenerationKey = "regenerated_feed_v35-potential-trade-headline";
     const [completed] = [...this.sql<{ value: string }>`SELECT value FROM agent_meta WHERE key = ${regenerationKey} LIMIT 1`];
     if (completed?.value === "complete") return;
     const stories = [...this.sql<{ id: string; title: string; url: string; source: string; category: Story["category"]; published_at: string; status: string }>`

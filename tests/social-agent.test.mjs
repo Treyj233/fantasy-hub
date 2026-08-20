@@ -178,8 +178,19 @@ test("transaction classification distinguishes a signing from an absence note", 
 });
 
 test("potential trade reports remain roster moves when an injury provides context", async () => {
-  const { categorizeStory } = await import("../social-agent/src/content.ts");
+  const { categorizeStory, composeFantasyPost } = await import("../social-agent/src/content.ts");
   assert.equal(categorizeStory("Kayshon Boutte is a potential trade candidate following Jayden Higgins injury"), "contract");
+  const draft = composeFantasyPost({
+    id: "trade-watch",
+    title: "Kayshon Boutte makes sense as a potential trade candidate for Texans following Jayden Higgins injury.",
+    summary: "Kayshon Boutte makes sense as a potential trade candidate for Texans following Jayden Higgins injury.",
+    url: "https://example.com/trade-watch",
+    source: "@UnderdogNFL",
+    publishedAt: "2026-08-20T17:36:29.000Z",
+    category: "contract",
+  }, { player: "Kayshon Boutte", position: "WR", team: "NE", backups: [], affectedPlayers: [] });
+  assert.match(draft, /Boutte is a potential trade candidate\./);
+  assert.doesNotMatch(draft, /roster situation has changed/);
 });
 
 test("injury classification recognizes past-tense ACL reports", async () => {
