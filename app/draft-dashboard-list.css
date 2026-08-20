@@ -60,6 +60,97 @@
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+.draft-roster-builder {
+  margin-top: 18px;
+  padding: 16px;
+  background: var(--cream);
+  border: 1px solid var(--line);
+  border-radius: 13px;
+}
+
+.draft-roster-builder.gated {
+  opacity: .58;
+}
+
+.draft-roster-builder > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.draft-roster-builder > header h4 {
+  margin: 4px 0 0;
+  color: var(--deep);
+  font-size: 15px;
+}
+
+.draft-roster-builder > header > div:last-child {
+  display: grid;
+  gap: 2px;
+  text-align: right;
+}
+
+.draft-roster-builder > header > div:last-child b {
+  color: var(--deep);
+  font-size: 10px;
+}
+
+.draft-roster-builder > header > div:last-child small {
+  color: var(--muted);
+  font-size: 7px;
+}
+
+.draft-roster-builder > div {
+  display: grid;
+  gap: 7px;
+  margin-top: 12px;
+}
+
+.draft-roster-builder label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 48px;
+  padding: 8px 10px 8px 13px;
+  background: var(--chalk);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.draft-roster-builder label > span {
+  display: grid;
+  gap: 3px;
+  color: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  letter-spacing: normal;
+}
+
+.draft-roster-builder label b {
+  color: var(--deep);
+  font-size: 9px;
+}
+
+.draft-roster-builder label small {
+  color: var(--muted);
+  font-size: 7px;
+}
+
+.draft-roster-builder select {
+  width: 74px;
+  padding: 9px;
+  color: var(--ink);
+  background: var(--cream);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font: inherit;
+  font-weight: 900;
+}
+
 @media (max-width: 850px) {
   .draft-settings-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -86,5 +177,9 @@
 
   .draft-player-market {
     display: none;
+  }
+
+  .draft-roster-builder > header {
+    align-items: flex-start;
   }
 }
