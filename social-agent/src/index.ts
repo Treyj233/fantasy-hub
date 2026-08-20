@@ -15,7 +15,7 @@ type AgentState = {
 };
 
 const RECENT_STORY_HOURS = 18;
-const DRAFT_FORMAT_VERSION = "x-sources-v10-curated-implications";
+const DRAFT_FORMAT_VERSION = "x-sources-v11-injury-context";
 const RETRACTED_STORY_IDS = ["2090186160634986677"];
 
 type StoredStory = {
@@ -228,7 +228,7 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
           },
           {
             role: "user",
-            content: `Player: ${context.player} (${context.position}, ${context.team})\nCategory: ${story.category}\nSource material: ${story.title} ${story.summary}\nWrite a headline under 130 characters and a fantasyImpact under 230 characters. The impact must say what the report implies and the appropriate action (monitor, adjust projection, waiver, draft, or lineup) with calibrated confidence.`,
+            content: `Player: ${context.player} (${context.position}, ${context.team})\nCategory: ${story.category}\nSource material: ${story.title} ${story.summary}\nWrite a headline under 130 characters and a fantasyImpact under 230 characters. For injury news, retain the reported body part or diagnosis, absence/practice context, and severity or timetable when the source provides them. The impact must say what the report implies and the appropriate action (monitor, adjust projection, waiver, draft, or lineup) with calibrated confidence.`,
           },
         ],
         response_format: {

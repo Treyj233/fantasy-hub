@@ -113,6 +113,23 @@ const compact = (value: string, length: number) => value.length <= length
 
 const cleanEnding = (value: string) => value.replace(/[,:;\-–—\s]+$/g, "").replace(/[.!?]?$/, ".");
 
+const injuryDetails = (value: string) => {
+  const action = value.match(/\b(?:tweaked|strained|sprained|injured|hurt|aggravated)(?:\s+(?:his|her|their))?\s+(?:(?:left|right)\s+)?(?:hamstring|ankle|knee|groin|calf|quad|shoulder|foot|toe|back|hip|wrist|hand)\b/i)?.[0];
+  const diagnosis = value.match(/torn ACL|ACL tear|torn Achilles|Achilles tear|groin injury|thigh injury|hamstring injury|ankle injury|knee injury|calf injury|quad injury|shoulder injury|foot injury|toe injury|back injury|hip injury|concussion|sprained MCL|sprained ACL|turf toe/i)?.[0];
+  const reassuring = /not (?:considered )?(?:serious|long-term)|not believed to be (?:serious|long-term)|minor|day-to-day|precautionary/i.test(value);
+  return { action, diagnosis, reassuring };
+};
+
+const injuryLead = (player: string, text: string) => {
+  const details = injuryDetails(text);
+  if (details.action) return `${player} ${details.action}`;
+  if (details.diagnosis) {
+    const severe = /torn|tear/i.test(details.diagnosis);
+    return `${player} ${severe ? "suffered a" : "is dealing with a"} ${details.diagnosis}`;
+  }
+  return "";
+};
+
 const summarizeHeadline = (story: Story, context: FantasyPlayerContext | null, budget: number) => {
   const cleaned = story.title
     .replace(/^sources?:\s*/i, "")
@@ -123,10 +140,10 @@ const summarizeHeadline = (story: Story, context: FantasyPlayerContext | null, b
   if (firstThought.length <= budget) return cleanEnding(firstThought);
 
   if (context && story.category === "injury") {
-    const injury = cleaned.match(/torn ACL|ACL tear|torn Achilles|Achilles tear|groin injury|thigh injury|hamstring injury|ankle injury|knee injury|concussion|sprained MCL|sprained ACL/i)?.[0];
-    const severe = injury && /torn|tear/i.test(injury);
-    const summary = injury
-      ? `${context.player} ${severe ? "suffered a" : "is dealing with a"} ${injury}`
+    const details = injuryDetails(cleaned);
+    const lead = injuryLead(context.player, cleaned);
+    const summary = lead
+      ? `${lead}${details.reassuring ? "; not considered serious" : ""}`
       : `${context.player} has a new injury update`;
     if (summary.length <= budget) return cleanEnding(summary);
   }
@@ -175,6 +192,8 @@ const specificImpact = (story: Story, context: FantasyPlayerContext | null) => {
   if (story.category === "injury" && context) {
     const backupText = context.backups.length ? context.backups.join(" and ") : `the next ${context.position} on the ${context.team} depth chart`;
     const injuryUpdate = `${story.title} ${story.summary}`;
+    const details = injuryDetails(injuryUpdate);
+    const detailLead = injuryLead(context.player, injuryUpdate);
     if (longTermInjury.test(injuryUpdate)) {
       return `${context.player} managers: prioritize ${backupText} on waivers. Expect the remaining ${context.team} playmakers to absorb the vacated volume.`;
     }
@@ -186,7 +205,10 @@ const specificImpact = (story: Story, context: FantasyPlayerContext | null) => {
       return `${context.player} carries late-week risk. Keep ${backupText} on the contingency list; act only after a downgrade or inactive ruling.`;
     }
     if (mildInjury.test(injuryUpdate) || !highConcernWeeklyInjury.test(injuryUpdate)) {
-      return `No immediate waiver move. Monitor ${context.player}'s practice status; if ruled out, reassess ${backupText} and other ${context.team} playmakers.`;
+      const contextSentence = detailLead
+        ? `${detailLead}${details.reassuring ? ", but it is not considered serious or long-term" : ""}. `
+        : "";
+      return `${contextSentence}No immediate waiver move. Monitor ${context.player}'s practice status; if ruled out, reassess ${backupText} and other ${context.team} playmakers.`;
     }
     return `Monitor ${context.player} through the next practice report. Keep ${backupText} on the watchlist, then act only if the injury worsens or an absence becomes likely.`;
   }

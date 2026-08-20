@@ -2,13 +2,13 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-test("social agent is preview-first, sourced, deduplicated, and rate limited", async () => {
+test("social agent is live, sourced, deduplicated, and rate limited", async () => {
   const [worker, content, config] = await Promise.all([
     readFile(new URL("../social-agent/src/index.ts", import.meta.url), "utf8"),
     readFile(new URL("../social-agent/src/content.ts", import.meta.url), "utf8"),
     readFile(new URL("../social-agent/wrangler.jsonc", import.meta.url), "utf8"),
   ]);
-  assert.match(config, /"POSTING_MODE": "preview"/);
+  assert.match(config, /"POSTING_MODE": "live"/);
   assert.match(config, /"POLL_INTERVAL_SECONDS": "300"/);
   assert.match(config, /"MIN_POST_INTERVAL_MINUTES": "12"/);
   assert.match(config, /"MAX_POSTS_PER_DAY": "20"/);
@@ -32,13 +32,16 @@ test("social agent is preview-first, sourced, deduplicated, and rate limited", a
   assert.match(content, /SUNDAY PULSE/);
   assert.match(content, /prioritize \$\{backupText\} on waivers/);
   assert.match(content, /No immediate waiver move/);
+  assert.match(content, /tweaked\|strained\|sprained/);
+  assert.match(content, /not considered serious or long-term/);
+  assert.match(content, /injuryLead/);
   assert.match(content, /act only after a downgrade or inactive ruling/);
   assert.match(content, /if ruled out, reassess \$\{backupText\}/);
   assert.doesNotMatch(content, /Add now where available and monitor pregame status/);
   assert.match(content, /\\bir\\b/);
   assert.match(content, /arrival changes the \$\{opportunity\}/);
   assert.match(content, /departure opens opportunity/);
-  assert.match(worker, /x-sources-v8-weather-watch/);
+  assert.match(worker, /x-sources-v11-injury-context/);
   assert.match(worker, /gameDayWeatherStories/);
   assert.match(content, /WEATHER WATCH/);
   assert.match(content, /isSixPointFantasyPlay/);
