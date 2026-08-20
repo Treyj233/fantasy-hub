@@ -1,5 +1,5 @@
 import { Agent, getAgentByName } from "agents";
-import { categorizeStory, composeFantasyPost, isFantasyRelevant, isLiveContentPost, isPracticeSetting, isSixPointFantasyPlay, splitAtomicUpdates, splitImpactSteps, type Story } from "./content";
+import { categorizeStory, composeFantasyPost, isFantasyRelevant, isLiveContentPost, isPotentialTradeStory, isPracticeSetting, isSixPointFantasyPlay, splitAtomicUpdates, splitImpactSteps, type Story } from "./content";
 import { createXPost, xApiGet, type XCredentials } from "./x-client";
 import { findPlayerContext, findTeamFantasyPlayers } from "./player-data";
 import { gameDayWeatherStories } from "./weather";
@@ -344,6 +344,7 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
 
   private async enrichStory(story: Story, context: Awaited<ReturnType<typeof findPlayerContext>>) {
     if (!context) return story;
+    if (story.category === "contract" && isPotentialTradeStory(`${story.title} ${story.summary}`)) return story;
     try {
       const isCurated = story.source.toLowerCase() === "@32beatwriters";
       const candidates = [...new Set([...context.affectedPlayers, ...context.backups])].slice(0, 5);
@@ -420,7 +421,7 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
   }
 
   private async regenerateCurrentFeed() {
-    const regenerationKey = "regenerated_feed_v35-potential-trade-headline";
+    const regenerationKey = "regenerated_feed_v36-preserve-trade-uncertainty";
     const [completed] = [...this.sql<{ value: string }>`SELECT value FROM agent_meta WHERE key = ${regenerationKey} LIMIT 1`];
     if (completed?.value === "complete") return;
     const stories = [...this.sql<{ id: string; title: string; url: string; source: string; category: Story["category"]; published_at: string; status: string }>`

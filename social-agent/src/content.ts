@@ -151,6 +151,10 @@ const compact = (value: string, length: number) => value.length <= length
 const cleanEnding = (value: string) => value.replace(/[,:;\-–—\s]+$/g, "").replace(/[.!?]?$/, ".");
 const potentialTrade = /potential trade candidate|trade candidate|trade target|drawing trade interest|interested in trading for/i;
 
+export function isPotentialTradeStory(text: string) {
+  return potentialTrade.test(text);
+}
+
 const firstSentence = (value: string) => {
   const protectedAbbreviations = value.replace(/\b(vs|mr|mrs|ms|dr|st)\./gi, "$1<period>");
   return (protectedAbbreviations.split(/(?<=[.!?])\s+|\s+[•|]\s+/)[0] || protectedAbbreviations)

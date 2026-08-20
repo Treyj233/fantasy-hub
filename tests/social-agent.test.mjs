@@ -60,6 +60,7 @@ test("social agent is live, sourced, deduplicated, and rate limited", async () =
   assert.match(worker, /Live or media-dependent source cannot be summarized reliably/);
   assert.match(worker, /status IN \('draft', 'posted'\)/);
   assert.match(worker, /const sourceCategory = categorizeStory\(sourceText\)/);
+  assert.match(worker, /isPotentialTradeStory\(`\$\{story\.title\} \$\{story\.summary\}`\)/);
   assert.match(worker, /category: sourceCategory/);
   assert.match(intelligence, /Headline ends with a dangling word/);
   assert.match(intelligence, /Headline repeats the subject name/);
