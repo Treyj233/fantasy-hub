@@ -48,15 +48,17 @@ test("social agent is live, sourced, deduplicated, and rate limited", async () =
   assert.match(content, /\\bir\\b/);
   assert.match(content, /arrival adds real competition/);
   assert.match(content, /departure clears an opening/);
-  assert.match(worker, /x-sources-v31-injury-tense/);
+  assert.match(worker, /x-sources-v32-event-subject/);
+  assert.match(worker, /2090493186653249579/);
   assert.match(worker, /if \(isLiveContentPost\(primaryText, sourceUrls\)\) return \[\]/);
   assert.match(worker, /await this\.regenerateCurrentFeed\(\)/);
   assert.match(content, /replace\(\/\\b\(\?:\[A-Z\]\\\.\)\{2,\}\//);
   assert.match(worker, /\.filter\(\(story\) => !processed\.has\(story\.id\)\)\.slice\(0, 2\)/);
-  assert.match(worker, /async publicFeed\(\) \{\s*this\.ensureStorySchema\(\);\s*await this\.regenerateCurrentFeed\(\)/);
+  assert.match(worker, /async publicFeed\(\) \{\s*this\.ensureStorySchema\(\);\s*this\.migrateDraftFormat\(\);\s*await this\.regenerateCurrentFeed\(\)/);
   assert.match(worker, /Live or media-dependent source cannot be summarized reliably/);
   assert.match(worker, /status IN \('draft', 'posted'\)/);
-  assert.match(worker, /category: categorizeStory\(sourceText\)/);
+  assert.match(worker, /const sourceCategory = categorizeStory\(sourceText\)/);
+  assert.match(worker, /category: sourceCategory/);
   assert.match(intelligence, /Headline ends with a dangling word/);
   assert.match(intelligence, /Headline repeats the subject name/);
   assert.match(worker, /status IN \('posted', 'posted_suppressed'\)/);
@@ -185,6 +187,24 @@ test("feed bullets keep dotted player initials together", async () => {
     "A.J. Brown gets the target boost.",
     "Hold for now.",
   ]);
+});
+
+test("injury context follows the player nearest the injury language", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => new Response(JSON.stringify({
+    boutte: { full_name: "Kayshon Boutte", team: "NE", position: "WR", search_rank: 100 },
+    higgins: { full_name: "Jayden Higgins", team: "HOU", position: "WR", search_rank: 80 },
+  }));
+  try {
+    const { findPlayerContext } = await import(`../social-agent/src/player-data.ts?subject-test=${Date.now()}`);
+    const context = await findPlayerContext(
+      "Kayshon Boutte makes sense as a potential trade candidate for Texans following Jayden Higgins injury.",
+      "injury",
+    );
+    assert.equal(context?.player, "Jayden Higgins");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 test("injury headlines prioritize the diagnosis when attribution consumes the tweet budget", async () => {

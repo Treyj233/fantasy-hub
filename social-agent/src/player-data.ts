@@ -76,16 +76,28 @@ export async function findTeamFantasyPlayers(teams: string[]) {
     .map((player) => ({ id: player.player_id!, name: player.full_name!, position: player.position!, team: player.team!, relationship: "beneficiary" as const })));
 }
 
-export async function findPlayerContext(text: string): Promise<PlayerContext | null> {
+export async function findPlayerContext(text: string, eventType?: string): Promise<PlayerContext | null> {
   const players = await loadPlayers();
   if (!players.length) return null;
   const normalized = text.toLowerCase();
   const primaryStatement = normalized.split(/(?<=[.!?])\s+/)[0].slice(0, 260);
   const skillPositions = new Set(["QB", "RB", "WR", "TE", "K"]);
-  const mentioned = players
+  const mentionedPlayers = players
     .filter((player) => player.full_name && player.team && player.position && skillPositions.has(player.position))
-    .filter((player) => primaryStatement.includes(player.full_name!.toLowerCase()))
-    .sort((a, b) => b.full_name!.length - a.full_name!.length)[0];
+    .filter((player) => primaryStatement.includes(player.full_name!.toLowerCase()));
+  const injuryIndexes = eventType === "injury"
+    ? [...primaryStatement.matchAll(/injur|tor(?:e|n)|tear|acl|achilles|concussion|surgery|sprain|hamstring|ankle|knee|hip|groin/gi)].map((match) => match.index ?? 0)
+    : [];
+  const mentioned = injuryIndexes.length && mentionedPlayers.length > 1
+    ? [...mentionedPlayers].sort((a, b) => {
+      const distance = (player: SleeperPlayer) => {
+        const nameIndex = primaryStatement.indexOf(player.full_name!.toLowerCase());
+        const nameEnd = nameIndex + player.full_name!.length;
+        return Math.min(...injuryIndexes.map((injuryIndex) => Math.abs(injuryIndex - nameEnd)));
+      };
+      return distance(a) - distance(b);
+    })[0]
+    : mentionedPlayers.sort((a, b) => b.full_name!.length - a.full_name!.length)[0];
   if (!mentioned?.full_name || !mentioned.team || !mentioned.position) return null;
   const order = mentioned.depth_chart_order ?? 0;
   const backups = players

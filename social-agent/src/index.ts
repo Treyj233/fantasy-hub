@@ -18,8 +18,8 @@ type AgentState = {
 const RECENT_STORY_HOURS = 18;
 const POST_FRESHNESS_MINUTES = 60;
 const GAMEDAY_POST_FRESHNESS_MINUTES = 20;
-const DRAFT_FORMAT_VERSION = "x-sources-v31-injury-tense";
-const RETRACTED_STORY_IDS = ["2090186160634986677", "2090197243202609473", "2090202303143747828"];
+const DRAFT_FORMAT_VERSION = "x-sources-v32-event-subject";
+const RETRACTED_STORY_IDS = ["2090186160634986677", "2090197243202609473", "2090202303143747828", "2090493186653249579"];
 
 type StoredStory = {
   id: string;
@@ -434,7 +434,8 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
         this.sql`INSERT OR REPLACE INTO agent_meta (key, value) VALUES (${`${processedPrefix}${stored.id}`}, 'complete')`;
         continue;
       }
-      const context = await findPlayerContext(sourceText);
+      const sourceCategory = categorizeStory(sourceText);
+      const context = await findPlayerContext(sourceText, sourceCategory);
       if (!context) {
         this.sql`UPDATE stories SET status = CASE WHEN status = 'posted' THEN 'posted_suppressed' ELSE 'suppressed' END, error = 'No fantasy-relevant player resolved during feed regeneration' WHERE id = ${stored.id}`;
         this.sql`INSERT OR REPLACE INTO agent_meta (key, value) VALUES (${`${processedPrefix}${stored.id}`}, 'complete')`;
@@ -447,7 +448,7 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
         url: sourceUrl,
         source: evidence?.source || stored.source,
         publishedAt: evidence?.published_at || stored.published_at,
-        category: categorizeStory(sourceText),
+        category: sourceCategory,
       };
       const prepared = await this.enrichStory(sourceStory, context);
       const draft = composeFantasyPost(prepared, context);
@@ -478,6 +479,7 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
 
   async publicFeed() {
     this.ensureStorySchema();
+    this.migrateDraftFormat();
     await this.regenerateCurrentFeed();
     const stories = [...this.sql<StoredStory>`
       SELECT id, title, source, category, draft, status, published_at, confidence, lifecycle_stage, related_players_json, source_count
@@ -487,7 +489,7 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
     const hydratedStories = await Promise.all(stories.map(async (story) => {
       const savedPlayers = parseJson<Array<{ id: string; name: string; position: string; team: string; relationship: "subject" | "beneficiary" | "backup" }>>(story.related_players_json, []);
       if (savedPlayers.length || story.category === "weather") return story;
-      const context = await findPlayerContext(`${story.title}. ${story.draft ?? ""}`);
+      const context = await findPlayerContext(`${story.title}. ${story.draft ?? ""}`, story.category);
       if (!context?.relatedPlayers.length) return story;
       const relatedPlayersJson = JSON.stringify(context.relatedPlayers);
       this.sql`UPDATE stories SET related_players_json = ${relatedPlayersJson} WHERE id = ${story.id}`;
@@ -524,7 +526,7 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
       for (const story of candidates) {
         const existing = [...this.sql<{ id: string }>`SELECT id FROM stories WHERE id = ${story.id} LIMIT 1`];
         if (existing.length) continue;
-        const context = story.category === "weather" ? null : await findPlayerContext(`${story.title} ${story.summary}`);
+        const context = story.category === "weather" ? null : await findPlayerContext(`${story.title} ${story.summary}`, story.category);
         if (!context && story.category !== "weather") continue;
         const storySemanticKey = context ? semanticKey(story, context) : story.id;
         const duplicateWindowMs = story.category === "performance" ? 20 * 60_000 : 24 * 60 * 60_000;
