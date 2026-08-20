@@ -1,5 +1,5 @@
 import { Agent, getAgentByName } from "agents";
-import { categorizeStory, composeFantasyPost, isFantasyRelevant, isLiveContentPost, isPracticeSetting, isSixPointFantasyPlay, splitAtomicUpdates, type Story } from "./content";
+import { categorizeStory, composeFantasyPost, isFantasyRelevant, isLiveContentPost, isPracticeSetting, isSixPointFantasyPlay, splitAtomicUpdates, splitImpactSteps, type Story } from "./content";
 import { createXPost, xApiGet, type XCredentials } from "./x-client";
 import { findPlayerContext, findTeamFantasyPlayers } from "./player-data";
 import { gameDayWeatherStories } from "./weather";
@@ -47,7 +47,7 @@ const feedStory = (story: StoredStory) => {
   const impactSection = sections.find((section) => /^FANTASY IMPACT:/i.test(section)) || "";
   const impact = impactSection.replace(/^FANTASY IMPACT:\s*/i, "").trim();
   const reporterSection = sections.find((section) => /^(?:Reported|Curated) by\s+/i.test(section));
-  const sentences = impact.match(/[^.!?]+[.!?]+|[^.!?]+$/g)?.map((sentence) => sentence.trim()).filter(Boolean) || [];
+  const sentences = splitImpactSteps(impact);
   const headline = (sections[1] || story.title).replace(/^\p{Extended_Pictographic}(?:\uFE0F)?\s*/u, "");
 
   return {

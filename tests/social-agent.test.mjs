@@ -51,6 +51,7 @@ test("social agent is live, sourced, deduplicated, and rate limited", async () =
   assert.match(worker, /x-sources-v31-injury-tense/);
   assert.match(worker, /if \(isLiveContentPost\(primaryText, sourceUrls\)\) return \[\]/);
   assert.match(worker, /await this\.regenerateCurrentFeed\(\)/);
+  assert.match(content, /replace\(\/\\b\(\?:\[A-Z\]\\\.\)\{2,\}\//);
   assert.match(worker, /\.filter\(\(story\) => !processed\.has\(story\.id\)\)\.slice\(0, 2\)/);
   assert.match(worker, /async publicFeed\(\) \{\s*this\.ensureStorySchema\(\);\s*await this\.regenerateCurrentFeed\(\)/);
   assert.match(worker, /Live or media-dependent source cannot be summarized reliably/);
@@ -175,6 +176,15 @@ test("transaction classification distinguishes a signing from an absence note", 
 test("injury classification recognizes past-tense ACL reports", async () => {
   const { categorizeStory } = await import("../social-agent/src/content.ts");
   assert.equal(categorizeStory("Texans WR Jayden Higgins tore his ACL"), "injury");
+});
+
+test("feed bullets keep dotted player initials together", async () => {
+  const { splitImpactSteps } = await import("../social-agent/src/content.ts");
+  assert.deepEqual(splitImpactSteps("Monitor the role. A.J. Brown gets the target boost. Hold for now."), [
+    "Monitor the role.",
+    "A.J. Brown gets the target boost.",
+    "Hold for now.",
+  ]);
 });
 
 test("injury headlines prioritize the diagnosis when attribution consumes the tweet budget", async () => {

@@ -46,6 +46,14 @@ export function splitAtomicUpdates(value: string) {
   return lines.filter((line) => line.length >= 18).slice(0, 12);
 }
 
+export function splitImpactSteps(impact: string) {
+  const protectedImpact = impact.replace(/\b(?:[A-Z]\.){2,}/g, (initials) => initials.replace(/\./g, "\uE000"));
+  return protectedImpact
+    .match(/[^.!?]+[.!?]+|[^.!?]+$/g)
+    ?.map((sentence) => sentence.replace(/\uE000/g, ".").trim())
+    .filter(Boolean) || [];
+}
+
 const decodeEntities = (value: string) => value
   .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1")
   .replace(/&amp;/g, "&")
