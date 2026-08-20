@@ -30,10 +30,11 @@ type NewsPayload = { items?: NewsItem[]; updatedAt?: string | null; error?: stri
 
 const filters = [
   ["all", "All updates"],
+  ["news", "Fantasy Pulse"],
   ["injury", "Injuries"],
   ["depth-chart", "Role watch"],
   ["contract", "Roster moves"],
-  ["performance", "Game day"],
+  ["performance", "Game highlights"],
   ["weather", "Weather"],
 ] as const;
 
