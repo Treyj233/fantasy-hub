@@ -12,6 +12,18 @@ type NewsItem = {
   nextSteps: string[];
   reporter: string | null;
   publishedAt: string;
+  confidence?: "high" | "medium" | "low";
+  lifecycleStage?: string;
+  sourceCount?: number;
+  relatedPlayers?: RelatedPlayer[];
+};
+
+export type RelatedPlayer = {
+  id: string;
+  name: string;
+  position: string;
+  team: string;
+  relationship: "subject" | "beneficiary" | "backup";
 };
 
 type NewsPayload = { items?: NewsItem[]; updatedAt?: string | null; error?: string };
@@ -38,7 +50,7 @@ const timeAgo = (value: string) => {
   return `${Math.round(hours / 24)}d ago`;
 };
 
-export default function NewsAndNotes() {
+export default function NewsAndNotes({ onOpenPlayer }: { onOpenPlayer?: (player: RelatedPlayer) => void }) {
   const [items, setItems] = useState<NewsItem[]>([]);
   const [filter, setFilter] = useState<(typeof filters)[number][0]>("all");
   const [loading, setLoading] = useState(true);
@@ -137,11 +149,21 @@ export default function NewsAndNotes() {
                   {index === 0 && <b>NEW</b>}
                 </header>
                 <h3>{cleanTeamHashtags(item.headline)}</h3>
+                {!!item.relatedPlayers?.length && (
+                  <div className="news-related-players" aria-label="Players affected by this update">
+                    <span>PLAYERS IN THIS UPDATE</span>
+                    <div>{item.relatedPlayers.map((player) => (
+                      <button type="button" key={`${item.id}-${player.id}-${player.relationship}`} onClick={() => onOpenPlayer?.(player)} disabled={!onOpenPlayer}>
+                        <b>{player.name}</b><small>{player.position} · {player.team}</small>
+                      </button>
+                    ))}</div>
+                  </div>
+                )}
                 <section className="news-next-move">
                   <span>YOUR NEXT MOVE</span>
                   <ul>{steps.map((step, stepIndex) => <li key={`${item.id}-${stepIndex}`}>{cleanTeamHashtags(step)}</li>)}</ul>
                 </section>
-                {item.reporter && <footer>Reported by <b>{item.reporter}</b></footer>}
+                <footer>{item.reporter && <>Reported by <b>{item.reporter}</b></>}{(item.sourceCount ?? 1) > 1 && <span>Confirmed by {item.sourceCount} sources</span>}{item.confidence && <span className={`confidence-${item.confidence}`}>{item.confidence} confidence</span>}</footer>
               </div>
             </article>
           );

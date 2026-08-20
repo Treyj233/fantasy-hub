@@ -1,10 +1,11 @@
 import { Agent, getAgentByName } from "agents";
-import { categorizeStory, composeFantasyPost, isFantasyRelevant, isSixPointFantasyPlay, type Story } from "./content";
+import { categorizeStory, composeFantasyPost, isFantasyRelevant, isSixPointFantasyPlay, splitAtomicUpdates, type Story } from "./content";
 import { createXPost, xApiGet, type XCredentials } from "./x-client";
 import { findPlayerContext } from "./player-data";
 import { gameDayWeatherStories } from "./weather";
 import { isNflRegularOrPostseasonGameDay } from "./game-day";
 import { dashboardHtml } from "./dashboard";
+import { extractStoryFacts, validateStoryDraft, type StoryFacts, type ValidationResult } from "./intelligence";
 
 type AgentState = {
   startedAt: string | null;
@@ -17,7 +18,7 @@ type AgentState = {
 const RECENT_STORY_HOURS = 18;
 const POST_FRESHNESS_MINUTES = 60;
 const GAMEDAY_POST_FRESHNESS_MINUTES = 20;
-const DRAFT_FORMAT_VERSION = "x-sources-v17-preseason-injury-beneficiaries";
+const DRAFT_FORMAT_VERSION = "x-sources-v18-intelligence-records";
 const RETRACTED_STORY_IDS = ["2090186160634986677", "2090197243202609473", "2090202303143747828"];
 
 type StoredStory = {
@@ -28,6 +29,15 @@ type StoredStory = {
   draft: string | null;
   status: string;
   published_at: string;
+  confidence: string | null;
+  lifecycle_stage: string | null;
+  related_players_json: string | null;
+  source_count: number | null;
+};
+
+const parseJson = <T,>(value: string | null, fallback: T): T => {
+  if (!value) return fallback;
+  try { return JSON.parse(value) as T; } catch { return fallback; }
 };
 
 const feedStory = (story: StoredStory) => {
@@ -50,6 +60,10 @@ const feedStory = (story: StoredStory) => {
     nextSteps: sentences,
     reporter: reporterSection?.replace(/^(?:Reported|Curated) by\s+/i, "") || null,
     publishedAt: story.published_at,
+    confidence: story.confidence || "medium",
+    lifecycleStage: story.lifecycle_stage || "initial",
+    relatedPlayers: parseJson(story.related_players_json, []),
+    sourceCount: story.source_count || 1,
   };
 };
 
@@ -79,6 +93,28 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
     lastError: null,
     mode: "preview",
   };
+
+  private ensureStorySchema() {
+    const columns = [...this.sql<{ name: string }>`PRAGMA table_info(stories)`];
+    const has = (name: string) => columns.some((column) => column.name === name);
+    if (!has("semantic_key")) this.sql`ALTER TABLE stories ADD COLUMN semantic_key TEXT`;
+    if (!has("parent_story_id")) this.sql`ALTER TABLE stories ADD COLUMN parent_story_id TEXT`;
+    if (!has("confidence")) this.sql`ALTER TABLE stories ADD COLUMN confidence TEXT DEFAULT 'medium'`;
+    if (!has("lifecycle_stage")) this.sql`ALTER TABLE stories ADD COLUMN lifecycle_stage TEXT DEFAULT 'initial'`;
+    if (!has("facts_json")) this.sql`ALTER TABLE stories ADD COLUMN facts_json TEXT`;
+    if (!has("validation_json")) this.sql`ALTER TABLE stories ADD COLUMN validation_json TEXT`;
+    if (!has("related_players_json")) this.sql`ALTER TABLE stories ADD COLUMN related_players_json TEXT`;
+    if (!has("source_count")) this.sql`ALTER TABLE stories ADD COLUMN source_count INTEGER DEFAULT 1`;
+    this.sql`CREATE TABLE IF NOT EXISTS story_evidence (
+      story_id TEXT NOT NULL,
+      source_story_id TEXT NOT NULL,
+      source TEXT NOT NULL,
+      url TEXT NOT NULL,
+      title TEXT NOT NULL,
+      published_at TEXT NOT NULL,
+      PRIMARY KEY (story_id, source_story_id)
+    )`;
+  }
 
   private migrateDraftFormat() {
     this.sql`CREATE TABLE IF NOT EXISTS agent_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)`;
@@ -121,6 +157,7 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
       x_post_id TEXT,
       error TEXT
     )`;
+    this.ensureStorySchema();
     this.migrateDraftFormat();
     this.sql`CREATE TABLE IF NOT EXISTS source_accounts (
       username TEXT PRIMARY KEY,
@@ -188,7 +225,7 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
       }>(
         `https://api.x.com/2/users/${userId}/tweets`,
         {
-          "tweet.fields": "created_at,author_id,referenced_tweets",
+          "tweet.fields": "created_at,author_id,referenced_tweets,context_annotations,conversation_id,entities,display_text_range,lang",
           "user.fields": "username",
           expansions: "referenced_tweets.id,referenced_tweets.id.author_id",
           "max_results": "10",
@@ -198,12 +235,12 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
       );
       const referencedPosts = new Map((timeline.includes?.tweets ?? []).map((post) => [post.id, post]));
       const includedUsers = new Map((timeline.includes?.users ?? []).map((user) => [user.id, user]));
-      return (timeline.data ?? []).map((post): Story => {
-        const cleanText = post.text.replace(/https:\/\/t\.co\/\w+/g, "").replace(/^RT\s+@\w+:\s*/i, "").replace(/\s+/g, " ").trim();
+      return (timeline.data ?? []).flatMap((post): Story[] => {
+        const cleanText = post.text.replace(/https:\/\/t\.co\/\w+/g, "").replace(/^RT\s+@\w+:\s*/i, "").trim();
         const reference = post.referenced_tweets?.find((item) => item.type === "quoted")
           ?? post.referenced_tweets?.find((item) => item.type === "retweeted");
         const referencedPost = reference ? referencedPosts.get(reference.id) : undefined;
-        const referencedText = referencedPost?.text.replace(/https:\/\/t\.co\/\w+/g, "").replace(/\s+/g, " ").trim() ?? "";
+        const referencedText = referencedPost?.text.replace(/https:\/\/t\.co\/\w+/g, "").trim() ?? "";
         const originalReporter = referencedPost?.author_id ? includedUsers.get(referencedPost.author_id) : undefined;
         const curated = handle.toLowerCase() === "32beatwriters";
         const primaryText = curated && referencedText ? referencedText : cleanText;
@@ -211,17 +248,19 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
         const originalUrl = curated && reference && originalReporter
           ? `https://x.com/${originalReporter.username}/status/${reference.id}`
           : `https://x.com/${handle}/status/${post.id}`;
-        return {
-          id: post.id,
-          title: primaryText,
-          summary: contextText,
+        const updates = splitAtomicUpdates(primaryText);
+        return updates.map((update, index) => ({
+          id: updates.length === 1 ? post.id : `${post.id}:${index + 1}`,
+          parentId: post.id,
+          title: update,
+          summary: update,
           url: originalUrl,
           source: `@${handle}`,
           publishedAt: post.created_at ?? new Date().toISOString(),
-          category: categorizeStory(contextText),
+          category: categorizeStory(update),
           reporter: originalReporter ? `@${originalReporter.username}` : curated ? "@32BeatWriters" : undefined,
           curator: curated ? "@32BeatWriters" : undefined,
-        };
+        }));
       });
     }));
     return timelines.flat();
@@ -281,15 +320,49 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
     }
   }
 
+  private async critiqueForPublishing(story: Story, draft: string, facts: StoryFacts, validation: ValidationResult) {
+    if (!validation.approvedForX) return validation;
+    try {
+      const result = await this.env.AI.run("@cf/meta/llama-3.3-70b-instruct-fp8-fast", {
+        messages: [
+          { role: "system", content: "You are the final editor for a fantasy-football news account. Reject a post if it overstates the source, misclassifies the event, recommends an injured/unavailable teammate, ignores preseason versus regular-season timing, or makes an action recommendation unsupported by the evidence. Return JSON only." },
+          { role: "user", content: `Source evidence: ${story.summary}\nStructured facts: ${JSON.stringify(facts)}\nDraft: ${draft}\nApprove only when every factual claim and recommendation is supported.` },
+        ],
+        response_format: {
+          type: "json_schema",
+          json_schema: {
+            type: "object",
+            properties: { approved: { type: "boolean" }, reasons: { type: "array", items: { type: "string" }, maxItems: 4 } },
+            required: ["approved", "reasons"],
+            additionalProperties: false,
+          },
+        },
+        max_tokens: 140,
+        temperature: 0,
+      });
+      const raw = result && typeof result === "object" && "response" in result ? result.response : undefined;
+      if (typeof raw !== "string") return validation;
+      const parsed = JSON.parse(raw) as { approved?: unknown; reasons?: unknown };
+      if (typeof parsed.approved !== "boolean" || !Array.isArray(parsed.reasons)) return validation;
+      const reasons = parsed.reasons.filter((reason): reason is string => typeof reason === "string").slice(0, 4);
+      return parsed.approved ? validation : { approvedForX: false, reasons: reasons.length ? reasons : ["AI critic rejected the publishing draft"] };
+    } catch (error) {
+      console.warn(JSON.stringify({ event: "publishing_critic_fallback", storyId: story.id, error: error instanceof Error ? error.message : "Unknown critic error" }));
+      return validation;
+    }
+  }
+
   private recentDrafts() {
+    this.ensureStorySchema();
     return [...this.sql<{ id: string; title: string; source: string; category: string; draft: string; status: string; published_at: string; x_post_id: string | null }>`
-      SELECT id, title, source, category, draft, status, published_at, x_post_id
+      SELECT id, title, source, category, draft, status, published_at, x_post_id, confidence, lifecycle_stage, source_count, facts_json, validation_json, related_players_json
       FROM stories ORDER BY discovered_at DESC LIMIT 20`];
   }
 
   async publicFeed() {
+    this.ensureStorySchema();
     const stories = [...this.sql<StoredStory>`
-      SELECT id, title, source, category, draft, status, published_at
+      SELECT id, title, source, category, draft, status, published_at, confidence, lifecycle_stage, related_players_json, source_count
       FROM stories
       WHERE status IN ('draft', 'posted') AND draft IS NOT NULL
       ORDER BY published_at DESC LIMIT 30`];
@@ -307,11 +380,8 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
     const now = new Date();
     try {
       const gameDay = await isNflRegularOrPostseasonGameDay();
+      this.ensureStorySchema();
       this.migrateDraftFormat();
-      const storyColumns = [...this.sql<{ name: string }>`PRAGMA table_info(stories)`];
-      if (!storyColumns.some((column) => column.name === "semantic_key")) {
-        this.sql`ALTER TABLE stories ADD COLUMN semantic_key TEXT`;
-      }
       // Remove drafts created by the retired RSS source. X-origin stories use an @handle.
       this.sql`DELETE FROM stories WHERE source NOT LIKE '@%' AND source != 'weather'`;
       const cutoff = now.getTime() - RECENT_STORY_HOURS * 60 * 60 * 1000;
@@ -322,7 +392,7 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
         .sort((a, b) => Date.parse(b.publishedAt) - Date.parse(a.publishedAt));
 
       let selected: Story | null = null;
-      const newlyCreated: Story[] = [];
+      const newlyCreated: Array<{ story: Story; approved: boolean }> = [];
       for (const story of candidates) {
         const existing = [...this.sql<{ id: string }>`SELECT id FROM stories WHERE id = ${story.id} LIMIT 1`];
         if (existing.length) continue;
@@ -331,22 +401,38 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
         const storySemanticKey = context ? semanticKey(story, context) : story.id;
         const duplicateWindowMs = story.category === "performance" ? 20 * 60_000 : 24 * 60 * 60_000;
         const duplicateCutoff = new Date(Date.parse(story.publishedAt) - duplicateWindowMs).toISOString();
-        const semanticDuplicate = [...this.sql<{ id: string }>`SELECT id FROM stories
+        const semanticDuplicate = [...this.sql<{ id: string; source_count: number | null }>`SELECT id, source_count FROM stories
           WHERE semantic_key = ${storySemanticKey} AND published_at >= ${duplicateCutoff}
           ORDER BY published_at DESC LIMIT 1`];
-        if (semanticDuplicate.length) continue;
         const preparedStory = await this.enrichCuratedStory(story, context);
         const draft = composeFantasyPost(preparedStory, context);
-        this.sql`INSERT INTO stories (id, title, url, source, category, published_at, discovered_at, draft, status, semantic_key)
-          VALUES (${preparedStory.id}, ${preparedStory.title}, ${preparedStory.url}, ${preparedStory.source}, ${preparedStory.category}, ${preparedStory.publishedAt}, ${now.toISOString()}, ${draft}, 'draft', ${storySemanticKey})`;
+        const facts = extractStoryFacts(preparedStory, context);
+        const deterministicValidation = validateStoryDraft(preparedStory, context, draft, facts);
+        const validation = Date.parse(preparedStory.publishedAt) >= now.getTime() - POST_FRESHNESS_MINUTES * 60_000
+          ? await this.critiqueForPublishing(preparedStory, draft, facts, deterministicValidation)
+          : deterministicValidation;
+        const relatedPlayers = context?.relatedPlayers ?? [];
+        if (semanticDuplicate.length) {
+          const canonical = semanticDuplicate[0];
+          this.sql`INSERT OR IGNORE INTO story_evidence (story_id, source_story_id, source, url, title, published_at)
+            VALUES (${canonical.id}, ${preparedStory.id}, ${preparedStory.source}, ${preparedStory.url}, ${story.title}, ${preparedStory.publishedAt})`;
+          const [{ count }] = [...this.sql<{ count: number }>`SELECT COUNT(*) AS count FROM story_evidence WHERE story_id = ${canonical.id}`];
+          this.sql`UPDATE stories SET source_count = ${Math.max(1, Number(count))}, lifecycle_stage = ${facts.lifecycleStage}
+            WHERE id = ${canonical.id}`;
+          continue;
+        }
+        this.sql`INSERT INTO stories (id, title, url, source, category, published_at, discovered_at, draft, status, semantic_key, parent_story_id, confidence, lifecycle_stage, facts_json, validation_json, related_players_json, source_count)
+          VALUES (${preparedStory.id}, ${preparedStory.title}, ${preparedStory.url}, ${preparedStory.source}, ${preparedStory.category}, ${preparedStory.publishedAt}, ${now.toISOString()}, ${draft}, 'draft', ${storySemanticKey}, ${preparedStory.parentId ?? preparedStory.id}, ${facts.confidence}, ${facts.lifecycleStage}, ${JSON.stringify(facts)}, ${JSON.stringify(validation)}, ${JSON.stringify(relatedPlayers)}, 1)`;
+        this.sql`INSERT OR IGNORE INTO story_evidence (story_id, source_story_id, source, url, title, published_at)
+          VALUES (${preparedStory.id}, ${preparedStory.id}, ${preparedStory.source}, ${preparedStory.url}, ${story.title}, ${preparedStory.publishedAt})`;
         selected ??= preparedStory;
-        newlyCreated.push(preparedStory);
+        newlyCreated.push({ story: preparedStory, approved: validation.approvedForX });
       }
 
       const mode = this.mode();
       const postFreshnessMinutes = gameDay ? GAMEDAY_POST_FRESHNESS_MINUTES : POST_FRESHNESS_MINUTES;
       const postFreshnessCutoff = now.getTime() - postFreshnessMinutes * 60_000;
-      const publishableStories = newlyCreated.filter((story) => Date.parse(story.publishedAt) >= postFreshnessCutoff);
+      const publishableStories = newlyCreated.filter(({ story, approved }) => approved && Date.parse(story.publishedAt) >= postFreshnessCutoff).map(({ story }) => story);
       if (publishableStories.length && mode === "live" && this.eligibleToPost(gameDay)) {
         const credentials = this.credentials();
         if (Object.values(credentials).some((value) => !value)) throw new Error("X posting credentials are incomplete");

@@ -11,15 +11,26 @@ export type Story = {
   fantasyImpact?: string;
   reporter?: string;
   curator?: string;
+  parentId?: string;
+  sourceContext?: string[];
 };
 
 export type FantasyPlayerContext = {
+  playerId?: string;
   player: string;
   position: string;
   team: string;
   backups: string[];
   affectedPlayers: string[];
+  relatedPlayers?: Array<{ id: string; name: string; position: string; team: string; relationship: "subject" | "beneficiary" | "backup" }>;
 };
+
+export function splitAtomicUpdates(value: string) {
+  const withoutLinks = value.replace(/https:\/\/t\.co\/\w+/g, "").replace(/^RT\s+@\w+:\s*/i, "").trim();
+  const lines = withoutLinks.split(/\n+/).map((line) => line.replace(/^\s*[-•–—]+\s*/, "").replace(/\s+/g, " ").trim()).filter(Boolean);
+  if (lines.length < 2) return [withoutLinks.replace(/\s+/g, " ").trim()].filter(Boolean);
+  return lines.filter((line) => line.length >= 18).slice(0, 12);
+}
 
 const decodeEntities = (value: string) => value
   .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1")

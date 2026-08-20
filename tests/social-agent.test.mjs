@@ -46,7 +46,11 @@ test("social agent is live, sourced, deduplicated, and rate limited", async () =
   assert.match(content, /\\bir\\b/);
   assert.match(content, /arrival changes the \$\{opportunity\}/);
   assert.match(content, /departure opens opportunity/);
-  assert.match(worker, /x-sources-v17-preseason-injury-beneficiaries/);
+  assert.match(worker, /x-sources-v18-intelligence-records/);
+  assert.match(worker, /story_evidence/);
+  assert.match(worker, /critiqueForPublishing/);
+  assert.match(worker, /related_players_json/);
+  assert.match(content, /splitAtomicUpdates/);
   assert.match(worker, /Tyler Warren has a groin injury/);
   assert.match(worker, /Rachaad White tweaked his hamstring; not considered serious/);
   assert.match(worker, /Josh Downs is the target-share watch/);
@@ -70,6 +74,14 @@ test("social agent is live, sourced, deduplicated, and rate limited", async () =
   assert.match(content, /cleanEnding/);
   assert.match(content, /unreliableSignals/);
   assert.match(content, /decodeEntities\(value\)\.replace\(\/<\[\^>\]\+>/);
+});
+
+test("roundup posts are split into atomic player updates", async () => {
+  const { splitAtomicUpdates } = await import("../social-agent/src/content.ts");
+  assert.deepEqual(splitAtomicUpdates("• Player One left with an ankle injury\n• Player Two returned to practice in full"), [
+    "Player One left with an ankle injury",
+    "Player Two returned to practice in full",
+  ]);
 });
 
 test("role classification distinguishes a starting-role change from starting an activity", async () => {

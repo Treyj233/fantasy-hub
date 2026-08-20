@@ -8,4 +8,7 @@ test("News & Notes removes team hashtag markers from displayed copy", async () =
   assert.match(source, /Chiefs\|Colts\|Commanders/);
   assert.match(source, /cleanTeamHashtags\(item\.headline\)/);
   assert.match(source, /cleanTeamHashtags\(step\)/);
+  assert.match(source, /PLAYERS IN THIS UPDATE/);
+  assert.match(source, /onOpenPlayer\?\.\(player\)/);
+  assert.match(source, /sourceCount/);
 });

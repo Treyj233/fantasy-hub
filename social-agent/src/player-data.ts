@@ -1,4 +1,5 @@
 type SleeperPlayer = {
+  player_id?: string;
   full_name?: string;
   first_name?: string;
   last_name?: string;
@@ -13,11 +14,13 @@ type SleeperPlayer = {
 };
 
 export type PlayerContext = {
+  playerId: string;
   player: string;
   position: string;
   team: string;
   backups: string[];
   affectedPlayers: string[];
+  relatedPlayers: Array<{ id: string; name: string; position: string; team: string; relationship: "subject" | "beneficiary" | "backup" }>;
 };
 
 let playerCache: { expires: number; players: SleeperPlayer[] } | null = null;
@@ -53,7 +56,10 @@ export async function findPlayerContext(text: string): Promise<PlayerContext | n
     });
     if (!response.ok) return null;
     const data = await response.json() as Record<string, SleeperPlayer>;
-    playerCache = { expires: Date.now() + 6 * 60 * 60 * 1000, players: Object.values(data) };
+    playerCache = {
+      expires: Date.now() + 6 * 60 * 60 * 1000,
+      players: Object.entries(data).map(([playerId, player]) => ({ ...player, player_id: player.player_id ?? playerId })),
+    };
   }
   const normalized = text.toLowerCase();
   const primaryStatement = normalized.split(/(?<=[.!?])\s+/)[0].slice(0, 260);
@@ -76,13 +82,13 @@ export async function findPlayerContext(text: string): Promise<PlayerContext | n
     : mentioned.position === "WR" || mentioned.position === "TE"
       ? new Set(["WR", "TE"])
       : new Set([mentioned.position]);
-  const affectedPlayers = playerCache.players
+  const affectedPlayerRecords = playerCache.players
     .filter((player) => player.full_name && player.team === mentioned.team && player.position && affectedPositions.has(player.position))
     .filter((player) => player.full_name !== mentioned.full_name && isAvailableForRecommendation(player))
     .filter(isFantasySignificant)
     .sort((a, b) => fantasyRelevanceOrder(a) - fantasyRelevanceOrder(b))
-    .slice(0, 3)
-    .map((player) => player.full_name!);
+    .slice(0, 3);
+  const affectedPlayers = affectedPlayerRecords.map((player) => player.full_name!);
   const hasRelevantAffectedPlayer = playerCache.players
     .filter((player) => player.full_name && player.team === mentioned.team && player.position && affectedPositions.has(player.position))
     .some((player) => player.full_name !== mentioned.full_name && isAvailableForRecommendation(player) && isFantasySignificant(player));
@@ -92,5 +98,12 @@ export async function findPlayerContext(text: string): Promise<PlayerContext | n
     && depthOrder <= 3
     && hasRelevantAffectedPlayer;
   if (!isFantasySignificant(mentioned) && !meaningfulTeammateImpact) return null;
-  return { player: mentioned.full_name, position: mentioned.position, team: mentioned.team, backups, affectedPlayers };
+  const backupRecords = playerCache.players
+    .filter((player) => player.player_id && player.full_name && backups.includes(player.full_name));
+  const relatedPlayers = [
+    { id: mentioned.player_id ?? mentioned.full_name, name: mentioned.full_name, position: mentioned.position, team: mentioned.team, relationship: "subject" as const },
+    ...affectedPlayerRecords.filter((player) => player.player_id && player.full_name && player.position && player.team).map((player) => ({ id: player.player_id!, name: player.full_name!, position: player.position!, team: player.team!, relationship: "beneficiary" as const })),
+    ...backupRecords.filter((player) => !affectedPlayers.includes(player.full_name!)).map((player) => ({ id: player.player_id!, name: player.full_name!, position: player.position!, team: player.team!, relationship: "backup" as const })),
+  ].filter((player, index, players) => players.findIndex((candidate) => candidate.id === player.id) === index);
+  return { playerId: mentioned.player_id ?? mentioned.full_name, player: mentioned.full_name, position: mentioned.position, team: mentioned.team, backups, affectedPlayers, relatedPlayers };
 }

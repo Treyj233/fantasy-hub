@@ -3043,7 +3043,7 @@ export default function FantasyHub({
             players={players}
           />
         )}
-        {view === "News & Notes" && <NewsAndNotes />}
+        {view === "News & Notes" && <NewsAndNotes onOpenPlayer={(player) => setSelectedPlayer(playerShell(player))} />}
         {view === "League Analytics" && !entitlement.pro && <ProGate feature="League Analytics" onUpgrade={() => setView("Fantasy Hub Pro")} />}
         {view === "League Analytics" && entitlement.pro &&
           (rosterReady ? (
