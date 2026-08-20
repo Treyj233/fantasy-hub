@@ -33,9 +33,10 @@ export function isPracticeSetting(value: string) {
 
 const liveContentPattern = /(?:^|\b)(?:live now|going live|we(?:'re| are) live|join (?:us|me) live|watch live|listen live|tune in live|live ?stream|x space|twitter space)(?:\b|:)/i;
 const liveContentUrlPattern = /(?:x|twitter)\.com\/i\/(?:broadcasts|spaces)\/|pscp\.tv\//i;
+const mediaDependentPattern = /\b(?:i|we) had to ask\b|\ba look at what(?:'s| is) ahead\b|\bfull (?:conversation|interview)\b|\bwatch(?: here| now)?\b|\blisten(?: here| now)?\b|^from @\w+:/i;
 
 export function isLiveContentPost(text: string, urls: string[] = []) {
-  return liveContentPattern.test(text) || urls.some((url) => liveContentUrlPattern.test(url));
+  return liveContentPattern.test(text) || mediaDependentPattern.test(text) || urls.some((url) => liveContentUrlPattern.test(url));
 }
 
 export function splitAtomicUpdates(value: string) {

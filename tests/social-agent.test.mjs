@@ -48,8 +48,12 @@ test("social agent is live, sourced, deduplicated, and rate limited", async () =
   assert.match(content, /\\bir\\b/);
   assert.match(content, /arrival adds real competition/);
   assert.match(content, /departure clears an opening/);
-  assert.match(worker, /x-sources-v26-suppress-live-content/);
+  assert.match(worker, /x-sources-v27-regenerated-current-feed/);
   assert.match(worker, /if \(isLiveContentPost\(primaryText, sourceUrls\)\) return \[\]/);
+  assert.match(worker, /await this\.regenerateCurrentFeed\(\)/);
+  assert.match(worker, /Live or media-dependent source cannot be summarized reliably/);
+  assert.match(worker, /status IN \('draft', 'posted'\)/);
+  assert.match(worker, /status IN \('posted', 'posted_suppressed'\)/);
   assert.match(worker, /isMaterialStoryUpdate\(previousFacts, facts, preparedStory\)/);
   assert.match(intelligence, /openingAvailabilityPattern/);
   assert.match(intelligence, /week 1\|start of/);
@@ -115,6 +119,8 @@ test("live content posts are suppressed without blocking complete text reports",
   assert.equal(isLiveContentPost("We're live now—join the show for camp updates"), true);
   assert.equal(isLiveContentPost("Lions camp conversation", ["https://x.com/i/broadcasts/1DXxy" ]), true);
   assert.equal(isLiveContentPost("Join our X Space", ["https://twitter.com/i/spaces/1YpKk"]), true);
+  assert.equal(isLiveContentPost("I had to ask Jaguars WR Brian Thomas Jr."), true);
+  assert.equal(isLiveContentPost("From @GMFB: A look at what's ahead for the Raiders quarterback."), true);
   assert.equal(isLiveContentPost("Sam LaPorta may not be ready for Week 1 after a hip flare-up."), false);
   assert.equal(isLiveContentPost("Live practice update: Sam LaPorta left with a hip injury."), false);
 });
