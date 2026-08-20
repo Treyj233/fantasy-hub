@@ -3,6 +3,196 @@
   max-height: 520px;
 }
 
+.draft-hq-page,
+.draft-room-layout,
+.draft-board {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.draft-board {
+  overflow: hidden;
+}
+
+.draft-board-scroll {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  touch-action: pan-x;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Draft HQ follows the active Fantasy Hub league palette. */
+.draft-hq-page {
+  position: relative;
+  isolation: isolate;
+}
+
+.draft-hq-page .panel,
+.draft-hq-stats article {
+  border-color: color-mix(in srgb, var(--green) 18%, var(--line));
+  box-shadow: 0 10px 28px rgb(var(--brand-primary-rgb, 11 134 80) / .08);
+}
+
+.draft-hq-hero {
+  background:
+    radial-gradient(circle at 84% 15%, rgb(var(--brand-secondary-rgb, 241 180 50) / .3), transparent 30%),
+    repeating-linear-gradient(135deg, transparent 0 28px, rgb(255 255 255 / .025) 29px 30px),
+    linear-gradient(125deg, color-mix(in srgb, var(--green) 84%, #09131d), color-mix(in srgb, var(--deep) 88%, #111827));
+  border-color: color-mix(in srgb, var(--gold) 58%, transparent);
+  box-shadow: 0 20px 55px rgb(var(--brand-primary-rgb, 11 134 80) / .22);
+}
+
+.draft-hq-hero span,
+.draft-setup span,
+.draft-board span,
+.draft-player-pool > header span,
+.draft-results > span {
+  color: var(--gold-light);
+}
+
+.draft-hq-hero h2 em,
+.draft-clock strong {
+  color: var(--gold-light);
+}
+
+.draft-hq-hero nav b {
+  background: rgb(255 255 255 / .09);
+  border-color: color-mix(in srgb, var(--gold-light) 34%, transparent);
+}
+
+.draft-clock {
+  background: color-mix(in srgb, var(--deep) 82%, transparent);
+  border-color: color-mix(in srgb, var(--gold-light) 32%, transparent);
+  box-shadow: inset 0 1px rgb(255 255 255 / .08);
+}
+
+.draft-hq-stats article {
+  background: linear-gradient(135deg, var(--chalk), color-mix(in srgb, var(--gold-light) 8%, var(--chalk)));
+  border-top: 3px solid color-mix(in srgb, var(--green) 58%, var(--gold));
+}
+
+.draft-hq-stats .locked {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--green) 75%, #121722), color-mix(in srgb, var(--deep) 82%, #171b24));
+  border-top-color: var(--gold);
+}
+
+.draft-hq-stats .locked strong,
+.draft-hq-stats .locked span,
+.draft-settings-grid label small {
+  color: var(--gold-light);
+}
+
+.draft-setup,
+.draft-board,
+.draft-roster,
+.draft-player-pool,
+.draft-results {
+  background: linear-gradient(145deg, var(--chalk), color-mix(in srgb, var(--green) 3%, var(--chalk)));
+}
+
+.draft-setup {
+  border-top: 4px solid var(--gold);
+}
+
+.draft-settings-grid select,
+.draft-player-pool input,
+.draft-player-pool select,
+.draft-roster-builder select {
+  background: color-mix(in srgb, var(--green) 4%, var(--chalk));
+  border-color: color-mix(in srgb, var(--green) 24%, var(--line));
+}
+
+.draft-settings-grid select:focus,
+.draft-player-pool input:focus,
+.draft-player-pool select:focus,
+.draft-roster-builder select:focus {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgb(var(--brand-secondary-rgb, 241 180 50) / .16);
+  outline: none;
+}
+
+.draft-setup > header .draft-primary,
+.draft-primary,
+.draft-results button,
+.draft-inline-gate button,
+.draft-elite-gate button {
+  color: var(--deep);
+  background: linear-gradient(135deg, var(--gold-light), var(--gold));
+  border-color: var(--gold);
+  box-shadow: 0 8px 20px rgb(var(--brand-secondary-rgb, 241 180 50) / .2);
+}
+
+.draft-inline-gate,
+.draft-elite-gate,
+.draft-recommendations {
+  background: linear-gradient(120deg, color-mix(in srgb, var(--green) 80%, #131824), color-mix(in srgb, var(--deep) 88%, #171b24));
+  border: 1px solid color-mix(in srgb, var(--gold) 34%, transparent);
+}
+
+.draft-inline-gate b,
+.draft-elite-gate b,
+.draft-recommendations button i {
+  color: var(--deep);
+  background: var(--gold-light);
+}
+
+.draft-board-grid article.user-team {
+  outline-color: var(--gold);
+  box-shadow: 0 0 0 3px rgb(var(--brand-secondary-rgb, 241 180 50) / .13);
+}
+
+.draft-roster article i {
+  background: linear-gradient(135deg, var(--green), var(--green-2));
+}
+
+.draft-roster article.filled {
+  background: color-mix(in srgb, var(--gold-light) 8%, var(--cream));
+  border: 1px solid color-mix(in srgb, var(--gold) 28%, var(--line));
+}
+
+.draft-player-list > button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--gold-light) 9%, var(--chalk));
+  border-color: color-mix(in srgb, var(--gold) 62%, var(--line));
+}
+
+.draft-player-list strong,
+.draft-player-history b,
+.draft-player-market b {
+  color: var(--green);
+}
+
+.draft-roster-builder {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--gold-light) 7%, var(--cream)), color-mix(in srgb, var(--green) 4%, var(--cream)));
+  border-color: color-mix(in srgb, var(--gold) 36%, var(--line));
+  box-shadow: inset 4px 0 var(--gold);
+}
+
+html[data-theme="dark"] .draft-hq-page .panel,
+html[data-theme="dark"] .draft-hq-stats article {
+  border-color: color-mix(in srgb, var(--green) 34%, var(--line));
+  box-shadow: 0 12px 30px rgb(0 0 0 / .24);
+}
+
+html[data-theme="dark"] .draft-hq-stats article,
+html[data-theme="dark"] .draft-setup,
+html[data-theme="dark"] .draft-board,
+html[data-theme="dark"] .draft-roster,
+html[data-theme="dark"] .draft-player-pool,
+html[data-theme="dark"] .draft-results {
+  background: linear-gradient(145deg, color-mix(in srgb, var(--green) 8%, var(--chalk)), var(--chalk));
+}
+
+html[data-theme="dark"] .draft-roster-builder,
+html[data-theme="dark"] .draft-roster-builder label,
+html[data-theme="dark"] .draft-player-list > button,
+html[data-theme="dark"] .draft-board-grid article,
+html[data-theme="dark"] .draft-roster article {
+  background: color-mix(in srgb, var(--green) 7%, var(--chalk));
+}
+
 .draft-player-list > button {
   grid-template-columns: 40px minmax(150px, 1.25fr) minmax(360px, 2fr) 90px 56px;
   gap: 14px;
@@ -34,7 +224,7 @@
 
 .draft-player-history b,
 .draft-player-market b {
-  color: var(--deep);
+  color: var(--green);
   font-size: 9px;
 }
 
@@ -60,12 +250,28 @@
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+.draft-setup-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.draft-setup > header .draft-primary {
+  padding: 10px 15px;
+  color: var(--deep);
+  background: linear-gradient(135deg, var(--gold-light), var(--gold));
+  border-color: var(--gold);
+  font-size: 9px;
+  box-shadow: 0 8px 20px rgb(var(--brand-secondary-rgb, 241 180 50) / .2);
+}
+
 .draft-roster-builder {
   margin-top: 18px;
   padding: 16px;
-  background: var(--cream);
-  border: 1px solid var(--line);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--gold-light) 7%, var(--cream)), color-mix(in srgb, var(--green) 4%, var(--cream)));
+  border: 1px solid color-mix(in srgb, var(--gold) 36%, var(--line));
   border-radius: 13px;
+  box-shadow: inset 4px 0 var(--gold);
 }
 
 .draft-roster-builder.gated {
@@ -116,8 +322,8 @@
   gap: 16px;
   min-height: 48px;
   padding: 8px 10px 8px 13px;
-  background: var(--chalk);
-  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--green) 3%, var(--chalk));
+  border: 1px solid color-mix(in srgb, var(--green) 18%, var(--line));
   border-radius: 10px;
 }
 
@@ -144,8 +350,8 @@
   width: 74px;
   padding: 9px;
   color: var(--ink);
-  background: var(--cream);
-  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--green) 4%, var(--chalk));
+  border: 1px solid color-mix(in srgb, var(--green) 24%, var(--line));
   border-radius: 8px;
   font: inherit;
   font-weight: 900;
@@ -166,8 +372,37 @@
 }
 
 @media (max-width: 560px) {
+  .draft-hq-page {
+    width: 100%;
+    overflow-x: clip;
+  }
+
+  .draft-board {
+    width: 100%;
+    padding-right: 12px;
+    padding-left: 12px;
+  }
+
+  .draft-board-scroll {
+    scrollbar-width: thin;
+  }
+
+  .draft-board-grid {
+    width: max-content;
+    max-width: none;
+  }
+
   .draft-settings-grid {
     grid-template-columns: 1fr;
+  }
+
+  .draft-setup > header {
+    align-items: flex-start;
+  }
+
+  .draft-setup-actions {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .draft-player-list > button {
