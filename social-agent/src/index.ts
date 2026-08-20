@@ -1,5 +1,5 @@
 import { Agent, getAgentByName } from "agents";
-import { categorizeStory, composeFantasyPost, isFantasyRelevant, isSixPointFantasyPlay, splitAtomicUpdates, type Story } from "./content";
+import { categorizeStory, composeFantasyPost, isFantasyRelevant, isPracticeSetting, isSixPointFantasyPlay, splitAtomicUpdates, type Story } from "./content";
 import { createXPost, xApiGet, type XCredentials } from "./x-client";
 import { findPlayerContext } from "./player-data";
 import { gameDayWeatherStories } from "./weather";
@@ -18,7 +18,7 @@ type AgentState = {
 const RECENT_STORY_HOURS = 18;
 const POST_FRESHNESS_MINUTES = 60;
 const GAMEDAY_POST_FRESHNESS_MINUTES = 20;
-const DRAFT_FORMAT_VERSION = "x-sources-v19-practice-performance-guard";
+const DRAFT_FORMAT_VERSION = "x-sources-v20-parent-practice-context";
 const RETRACTED_STORY_IDS = ["2090186160634986677", "2090197243202609473", "2090202303143747828"];
 
 type StoredStory = {
@@ -128,7 +128,12 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
     this.sql`UPDATE stories
       SET status = 'suppressed', error = 'Practice highlight incorrectly classified as game performance'
       WHERE category = 'performance'
-        AND (LOWER(title) LIKE '%practice%' OR LOWER(title) LIKE '%training camp%' OR LOWER(title) LIKE '%scrimmage%')`;
+        AND (
+          LOWER(title) LIKE '%practice%'
+          OR LOWER(title) LIKE '%training camp%'
+          OR LOWER(title) LIKE '%scrimmage%'
+          OR parent_story_id = '2090197243202609473'
+        )`;
     this.sql`UPDATE stories
       SET title = 'Rachaad White tweaked his hamstring; not considered serious.',
           draft = REPLACE(
@@ -253,7 +258,10 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
           ? `https://x.com/${originalReporter.username}/status/${reference.id}`
           : `https://x.com/${handle}/status/${post.id}`;
         const updates = splitAtomicUpdates(primaryText);
-        return updates.map((update, index) => ({
+        const parentIsPractice = isPracticeSetting(primaryText);
+        return updates.map((update, index) => {
+          const category = categorizeStory(update);
+          return ({
           id: updates.length === 1 ? post.id : `${post.id}:${index + 1}`,
           parentId: post.id,
           title: update,
@@ -261,10 +269,12 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
           url: originalUrl,
           source: `@${handle}`,
           publishedAt: post.created_at ?? new Date().toISOString(),
-          category: categorizeStory(update),
+          category: parentIsPractice && category === "performance" ? "news" : category,
           reporter: originalReporter ? `@${originalReporter.username}` : curated ? "@32BeatWriters" : undefined,
           curator: curated ? "@32BeatWriters" : undefined,
-        }));
+          sourceContext: parentIsPractice ? ["practice"] : undefined,
+        });
+        });
       });
     }));
     return timelines.flat();
@@ -391,7 +401,7 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
       const cutoff = now.getTime() - RECENT_STORY_HOURS * 60 * 60 * 1000;
       const candidates = [...await this.sourceStories(), ...await gameDayWeatherStories()]
         .filter(isFantasyRelevant)
-        .filter((story) => story.category !== "performance" || !/\b(?:practice|training camp|camp practice|joint practice|walkthrough|seven-on-seven|7-on-7|team drills?|individual drills?|scrimmage)\b/i.test(`${story.title} ${story.summary}`))
+        .filter((story) => story.category !== "performance" || (!isPracticeSetting(`${story.title} ${story.summary}`) && !story.sourceContext?.includes("practice")))
         .filter((story) => !gameDay || story.category !== "performance" || isSixPointFantasyPlay(story))
         .filter((story) => Date.parse(story.publishedAt) >= cutoff)
         .sort((a, b) => Date.parse(b.publishedAt) - Date.parse(a.publishedAt));

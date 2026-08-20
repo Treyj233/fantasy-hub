@@ -46,7 +46,8 @@ test("social agent is live, sourced, deduplicated, and rate limited", async () =
   assert.match(content, /\\bir\\b/);
   assert.match(content, /arrival changes the \$\{opportunity\}/);
   assert.match(content, /departure opens opportunity/);
-  assert.match(worker, /x-sources-v19-practice-performance-guard/);
+  assert.match(worker, /x-sources-v20-parent-practice-context/);
+  assert.match(worker, /parentIsPractice && category === "performance" \? "news"/);
   assert.match(worker, /story_evidence/);
   assert.match(worker, /critiqueForPublishing/);
   assert.match(worker, /related_players_json/);

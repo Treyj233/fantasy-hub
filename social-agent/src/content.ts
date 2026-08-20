@@ -25,6 +25,12 @@ export type FantasyPlayerContext = {
   relatedPlayers?: Array<{ id: string; name: string; position: string; team: string; relationship: "subject" | "beneficiary" | "backup" }>;
 };
 
+const practiceSettingPattern = /\b(?:practice|training camp|camp practice|joint practice|walkthrough|seven-on-seven|7-on-7|team drills?|individual drills?|scrimmage)\b/i;
+
+export function isPracticeSetting(value: string) {
+  return practiceSettingPattern.test(value);
+}
+
 export function splitAtomicUpdates(value: string) {
   const withoutLinks = value.replace(/https:\/\/t\.co\/\w+/g, "").replace(/^RT\s+@\w+:\s*/i, "").trim();
   const lines = withoutLinks.split(/\n+/).map((line) => line.replace(/^\s*[-•–—]+\s*/, "").replace(/\s+/g, " ").trim()).filter(Boolean);
@@ -59,7 +65,7 @@ export function categorizeStory(text: string): StoryCategory {
   if (/injur|out for|questionable|doubtful|\bir\b|concussion|surgery|torn|sprain|hamstring|ankle|knee/.test(normalized)) return "injury";
   if (/\b(?:signs|signed|signing|re-signs|re-signed)\b|extension|contract|released|waived|traded|trade\b|franchise tag/.test(normalized)) return "contract";
   if (/\bstarter\b|\bnamed (?:the )?starter\b|\b(?:will|expected to|set to) start\b|\bstarting (?:at )?(?:quarterback|running back|wide receiver|tight end|kicker|role|job|lineup|offense)\b|depth chart|promoted|demoted|backup|committee|workload/.test(normalized)) return "depth-chart";
-  if (/\b(?:practice|training camp|camp practice|joint practice|walkthrough|seven-on-seven|7-on-7|team drills?|individual drills?|scrimmage)\b/.test(normalized)) return "news";
+  if (isPracticeSetting(normalized)) return "news";
   if (/yards|touchdowns?|targets|receptions|carries|snaps|breakout|record/.test(normalized)) return "performance";
   return "news";
 }
@@ -189,7 +195,6 @@ const confirmedAbsence = /ruled out|will not play|won't play|will miss (?:the )?
 const highConcernWeeklyInjury = /doubtful|game-time decision|week-to-week|miss(?:ed|es|ing) (?:a |the )?(?:practice|walkthrough)|did not practice|dnp|concussion/i;
 const mildInjury = /day-to-day|limited|soreness|tightness|bruise|contusion|precautionary|minor|managing|rest day/i;
 const gameDayPlay = /\b(?:touchdown|td|scores?|two-point|[4-9]\d-yard|1\d{2}\s+yards|100-yard|150-yard|200-yard)\b/i;
-const practiceSetting = /\b(?:practice|training camp|camp practice|joint practice|walkthrough|seven-on-seven|7-on-7|team drills?|individual drills?|scrimmage)\b/i;
 const playerAdded = /\b(?:signs|signed|signing|re-signs|re-signed)\b|agreed|acquired|traded for|claimed/i;
 const playerRemoved = /released|waived|cut|traded away|departed|not re-sign/i;
 const availabilitySignal = /absen|practice|sideline|no helmet|returned|limited|held out|did not participate|dnp/i;
@@ -207,7 +212,7 @@ const isPreseasonPeriod = (publishedAt: string) => {
 
 export function isSixPointFantasyPlay(story: Pick<Story, "title" | "summary">) {
   const text = `${story.title} ${story.summary}`;
-  if (practiceSetting.test(text)) return false;
+  if (isPracticeSetting(text)) return false;
   if (/\b(?:touchdown|td|pick-six|fumble return)\b/i.test(text)) return true;
   const yardage = [...text.matchAll(/\b(\d{2,3})[- ]yard/gi)].map((match) => Number(match[1]));
   return yardage.some((yards) => yards >= 60) && /rush|run|reception|receiv|catch|caught/i.test(text);
@@ -244,7 +249,7 @@ const specificImpact = (story: Story, context: FantasyPlayerContext | null) => {
     }
     return `Monitor ${context.player} through the next practice report. Keep ${backupText} on the watchlist, then act only if the injury worsens or an absence becomes likely.`;
   }
-  if (story.category === "performance" && gameDayPlay.test(`${story.title} ${story.summary}`) && !practiceSetting.test(`${story.title} ${story.summary}`)) {
+  if (story.category === "performance" && gameDayPlay.test(`${story.title} ${story.summary}`) && !isPracticeSetting(`${story.title} ${story.summary}`)) {
     return context
       ? `${context.player} just swung matchups. Keep the celebration going—but use snaps, routes and touches to decide whether it is sticky. 🚀`
       : "That play just flipped fantasy matchups everywhere. Points on the board, victory laps in the group chat. 🚀";
@@ -280,7 +285,7 @@ const specificImpact = (story: Story, context: FantasyPlayerContext | null) => {
 };
 
 export function composeFantasyPost(story: Story, context: FantasyPlayerContext | null) {
-  const isGameDay = story.category === "performance" && gameDayPlay.test(`${story.title} ${story.summary}`) && !practiceSetting.test(`${story.title} ${story.summary}`);
+  const isGameDay = story.category === "performance" && gameDayPlay.test(`${story.title} ${story.summary}`) && !isPracticeSetting(`${story.title} ${story.summary}`);
   const label = isGameDay ? "🏈 SUNDAY PULSE" : labels[story.category];
   const impact = specificImpact(story, context);
   const reporter = story.reporter || creditedReporters[story.source.toLowerCase()];
