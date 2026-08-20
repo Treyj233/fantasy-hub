@@ -18,6 +18,10 @@ test("social agent is live, sourced, deduplicated, and rate limited", async () =
   assert.match(worker, /CREATE TABLE IF NOT EXISTS stories/);
   assert.match(worker, /SELECT id FROM stories WHERE id/);
   assert.match(worker, /RECENT_STORY_HOURS = 18/);
+  assert.match(worker, /POST_FRESHNESS_MINUTES = 60/);
+  assert.match(worker, /GAMEDAY_POST_FRESHNESS_MINUTES = 20/);
+  assert.match(worker, /publishableStories = newlyCreated\.filter/);
+  assert.match(worker, /publishableStories\.slice\(0, 1\)/);
   assert.match(worker, /safeEqual\(provided, env\.ADMIN_TOKEN\)/);
   assert.match(content, /FANTASY IMPACT:/);
   assert.doesNotMatch(content, /Source:/);

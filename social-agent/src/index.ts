@@ -15,6 +15,8 @@ type AgentState = {
 };
 
 const RECENT_STORY_HOURS = 18;
+const POST_FRESHNESS_MINUTES = 60;
+const GAMEDAY_POST_FRESHNESS_MINUTES = 20;
 const DRAFT_FORMAT_VERSION = "x-sources-v12-actionable-original-attribution";
 const RETRACTED_STORY_IDS = ["2090186160634986677"];
 
@@ -323,11 +325,13 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
       }
 
       const mode = this.mode();
-      if (selected && mode === "live" && this.eligibleToPost(gameDay)) {
+      const postFreshnessMinutes = gameDay ? GAMEDAY_POST_FRESHNESS_MINUTES : POST_FRESHNESS_MINUTES;
+      const postFreshnessCutoff = now.getTime() - postFreshnessMinutes * 60_000;
+      const publishableStories = newlyCreated.filter((story) => Date.parse(story.publishedAt) >= postFreshnessCutoff);
+      if (publishableStories.length && mode === "live" && this.eligibleToPost(gameDay)) {
         const credentials = this.credentials();
         if (Object.values(credentials).some((value) => !value)) throw new Error("X posting credentials are incomplete");
-        const freshnessCutoff = now.getTime() - 20 * 60_000;
-        const queue = gameDay ? newlyCreated.filter((story) => Date.parse(story.publishedAt) >= freshnessCutoff) : [selected];
+        const queue = gameDay ? publishableStories : publishableStories.slice(0, 1);
         let lastPostAt = this.state.lastPostAt;
         for (const story of queue) {
           if (!this.eligibleToPost(gameDay)) break;
