@@ -130,8 +130,8 @@ const cpuScore = (player: DraftPlayer, profile: CpuProfile, teamPicks: Pick[], o
   const market = blendedAdp(player, profile, settings);
   let score = 260 - market;
   const elite = market <= (player.position === "QB" ? (settings.lineup === "Superflex" ? 34 : 45) : player.position === "TE" ? 38 : 28);
-  if (profile.strategy === "volume" && player.position === profile.position) score += round <= 6 ? 20 : 10;
-  if (profile.strategy === "elite" && player.position === profile.position && elite && !counts[player.position]) score += 38;
+  if (profile.strategy === "volume" && player.position === profile.position) score += round <= 6 ? 12 : 7;
+  if (profile.strategy === "elite" && player.position === profile.position && elite && !counts[player.position]) score += 18;
   if (profile.strategy === "zero-rb" && player.position === "RB") score += round <= 5 ? -42 : 20;
   if (profile.strategy === "hero-rb") {
     if (player.position === "RB" && !counts.RB && round <= 3) score += 34;
@@ -140,11 +140,8 @@ const cpuScore = (player: DraftPlayer, profile: CpuProfile, teamPicks: Pick[], o
   }
   if (settings.lineup === "Superflex" && player.position === "QB") score += counts.QB < 2 ? 34 : round <= 5 ? -24 : 0;
   if (settings.lineup === "1QB" && player.position === "QB") {
-    // A single-QB room should never behave like superflex, regardless of CPU personality.
-    if (round === 1) return -1_000;
-    if (counts.QB >= 1 && round <= 9) return -1_000;
-    if (round <= 3) score -= elite ? 20 : 58;
-    else if (!elite && round <= 5) score -= 34;
+    if (counts.QB >= 1 && round <= 9) score -= 105;
+    else if (!elite && round <= 4) score -= 18;
   }
   if (player.position === "TE") {
     if (settings.scoring === "TE Premium") score += counts.TE < 2 ? 20 : -6;
@@ -153,13 +150,15 @@ const cpuScore = (player: DraftPlayer, profile: CpuProfile, teamPicks: Pick[], o
   }
   if ((player.position === "RB" || player.position === "WR") && counts[player.position] < 3) score += 5;
   if (settings.format === "Dynasty" && typeof player.age === "number") score += Math.max(-12, 28 - player.age) * 1.4;
+  const reach = market - overall;
+  const reachAllowance = settings.cpu === "Competitive" ? 5 : settings.cpu === "Chaotic" ? 12 : 8;
+  const reachPenalty = settings.cpu === "Competitive" ? 4 : settings.cpu === "Chaotic" ? 3 : 3.4;
+  if (reach > reachAllowance) score -= (reach - reachAllowance) * reachPenalty;
   if (settings.cpu === "Competitive") {
     const marketScore = 260 - market;
     score = marketScore + (score - marketScore) * .3;
-    if (settings.lineup === "1QB" && counts.QB >= 1 && round <= 10 && player.position === "QB") return -1_000;
+    if (settings.lineup === "1QB" && counts.QB >= 1 && round <= 10 && player.position === "QB") score -= 120;
     if (settings.scoring !== "TE Premium" && counts.TE >= 1 && round <= 10 && player.position === "TE") return -1_000;
-    const reach = market - overall;
-    if (reach > 10) score -= (reach - 10) * 2.4;
     if (round >= 6 && (player.position === "RB" || player.position === "WR") && (counts[player.position] || 0) < 2) score += 14;
     if (settings.lineup === "Superflex" && round >= 5 && player.position === "QB" && (counts.QB || 0) < 2) score += 18;
   }
