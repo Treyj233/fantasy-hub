@@ -140,8 +140,11 @@ const cpuScore = (player: DraftPlayer, profile: CpuProfile, teamPicks: Pick[], o
   }
   if (settings.lineup === "Superflex" && player.position === "QB") score += counts.QB < 2 ? 34 : round <= 5 ? -24 : 0;
   if (settings.lineup === "1QB" && player.position === "QB") {
-    if (counts.QB >= 1 && round <= 9) score -= 90;
-    else if (!elite && round <= 4) score -= 26;
+    // A single-QB room should never behave like superflex, regardless of CPU personality.
+    if (round === 1) return -1_000;
+    if (counts.QB >= 1 && round <= 9) return -1_000;
+    if (round <= 3) score -= elite ? 20 : 58;
+    else if (!elite && round <= 5) score -= 34;
   }
   if (player.position === "TE") {
     if (settings.scoring === "TE Premium") score += counts.TE < 2 ? 20 : -6;
@@ -153,7 +156,6 @@ const cpuScore = (player: DraftPlayer, profile: CpuProfile, teamPicks: Pick[], o
   if (settings.cpu === "Competitive") {
     const marketScore = 260 - market;
     score = marketScore + (score - marketScore) * .3;
-    if (round === 1 && player.position === "QB") return -1_000;
     if (settings.lineup === "1QB" && counts.QB >= 1 && round <= 10 && player.position === "QB") return -1_000;
     if (settings.scoring !== "TE Premium" && counts.TE >= 1 && round <= 10 && player.position === "TE") return -1_000;
     const reach = market - overall;
