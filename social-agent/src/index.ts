@@ -18,7 +18,7 @@ type AgentState = {
 const RECENT_STORY_HOURS = 18;
 const POST_FRESHNESS_MINUTES = 60;
 const GAMEDAY_POST_FRESHNESS_MINUTES = 20;
-const DRAFT_FORMAT_VERSION = "x-sources-v28-complete-feed-regeneration";
+const DRAFT_FORMAT_VERSION = "x-sources-v29-batched-feed-regeneration";
 const RETRACTED_STORY_IDS = ["2090186160634986677", "2090197243202609473", "2090202303143747828"];
 
 type StoredStory = {
@@ -179,7 +179,6 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
     )`;
     this.ensureStorySchema();
     this.migrateDraftFormat();
-    await this.regenerateCurrentFeed();
     this.sql`CREATE TABLE IF NOT EXISTS source_accounts (
       username TEXT PRIMARY KEY,
       x_user_id TEXT NOT NULL,
@@ -386,14 +385,17 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
   }
 
   private async regenerateCurrentFeed() {
-    const regenerationKey = "regenerated_feed_v28";
+    const regenerationKey = "regenerated_feed_v29";
     const [completed] = [...this.sql<{ value: string }>`SELECT value FROM agent_meta WHERE key = ${regenerationKey} LIMIT 1`];
     if (completed?.value === "complete") return;
     const stories = [...this.sql<{ id: string; title: string; url: string; source: string; category: Story["category"]; published_at: string; status: string }>`
       SELECT id, title, url, source, category, published_at, status FROM stories
       WHERE status IN ('draft', 'posted')
       ORDER BY published_at DESC LIMIT 100`];
-    for (const stored of stories) {
+    const processedPrefix = `${regenerationKey}:`;
+    const processed = new Set([...this.sql<{ key: string }>`SELECT key FROM agent_meta WHERE key LIKE ${`${processedPrefix}%`}`].map((row) => row.key.slice(processedPrefix.length)));
+    const batch = stories.filter((story) => !processed.has(story.id)).slice(0, 2);
+    for (const stored of batch) {
       const [evidence] = [...this.sql<{ title: string; url: string; source: string; published_at: string }>`
         SELECT title, url, source, published_at FROM story_evidence
         WHERE story_id = ${stored.id} ORDER BY published_at DESC LIMIT 1`];
@@ -401,11 +403,13 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
       const sourceUrl = evidence?.url || stored.url;
       if (isLiveContentPost(sourceText, [sourceUrl])) {
         this.sql`UPDATE stories SET status = CASE WHEN status = 'posted' THEN 'posted_suppressed' ELSE 'suppressed' END, error = 'Live or media-dependent source cannot be summarized reliably' WHERE id = ${stored.id}`;
+        this.sql`INSERT OR REPLACE INTO agent_meta (key, value) VALUES (${`${processedPrefix}${stored.id}`}, 'complete')`;
         continue;
       }
       const context = await findPlayerContext(sourceText);
       if (!context) {
         this.sql`UPDATE stories SET status = CASE WHEN status = 'posted' THEN 'posted_suppressed' ELSE 'suppressed' END, error = 'No fantasy-relevant player resolved during feed regeneration' WHERE id = ${stored.id}`;
+        this.sql`INSERT OR REPLACE INTO agent_meta (key, value) VALUES (${`${processedPrefix}${stored.id}`}, 'complete')`;
         continue;
       }
       const sourceStory: Story = {
@@ -423,14 +427,18 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
       const validation = await this.critiqueForPublishing(prepared, context, draft, facts, validateStoryDraft(prepared, context, draft, facts));
       if (!validation.approvedForX) {
         this.sql`UPDATE stories SET status = CASE WHEN status = 'posted' THEN 'posted_suppressed' ELSE 'suppressed' END, error = ${validation.reasons.join('; ')}, validation_json = ${JSON.stringify(validation)} WHERE id = ${stored.id}`;
+        this.sql`INSERT OR REPLACE INTO agent_meta (key, value) VALUES (${`${processedPrefix}${stored.id}`}, 'complete')`;
         continue;
       }
       this.sql`UPDATE stories SET
         title = ${prepared.title}, category = ${prepared.category}, draft = ${draft}, confidence = ${facts.confidence}, lifecycle_stage = ${facts.lifecycleStage},
         facts_json = ${JSON.stringify(facts)}, validation_json = ${JSON.stringify(validation)}, related_players_json = ${JSON.stringify(context.relatedPlayers)}, error = NULL
         WHERE id = ${stored.id}`;
+      this.sql`INSERT OR REPLACE INTO agent_meta (key, value) VALUES (${`${processedPrefix}${stored.id}`}, 'complete')`;
     }
-    this.sql`INSERT OR REPLACE INTO agent_meta (key, value) VALUES (${regenerationKey}, 'complete')`;
+    if (!batch.length || processed.size + batch.length >= stories.length) {
+      this.sql`INSERT OR REPLACE INTO agent_meta (key, value) VALUES (${regenerationKey}, 'complete')`;
+    }
   }
 
   private recentDrafts() {
