@@ -16,13 +16,21 @@ const FantasyHub = dynamic(() => import("./FantasyHub"), {
   loading: InitialLoadingShell,
 });
 
-export default function FantasyHubLoader({
-  accountUser,
-  clientBootstrap = false,
-}: {
+type FantasyHubLoaderProps = {
   accountUser: { displayName: string; email: string; provider: "clerk" | "chatgpt"; signOutPath: string } | null;
   clientBootstrap?: boolean;
-}) {
+  localPreview?: boolean;
+};
+
+export default function FantasyHubLoader({ accountUser, clientBootstrap = false, localPreview = false }: FantasyHubLoaderProps) {
+  if (localPreview && accountUser) return <FantasyHub accountUser={accountUser} />;
+  return <AuthAwareFantasyHubLoader accountUser={accountUser} clientBootstrap={clientBootstrap} />;
+}
+
+function AuthAwareFantasyHubLoader({
+  accountUser,
+  clientBootstrap = false,
+}: FantasyHubLoaderProps) {
   const { isLoaded, isSignedIn } = useAuth();
   const router = useRouter();
   const sessionRefreshRequested = useRef(false);

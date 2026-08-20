@@ -23,7 +23,7 @@ export async function POST() {
         if (!subscription) continue;
         customerId = customer.id;
         const periodEnd = subscription.items.data.reduce((latest, item) => Math.max(latest, item.current_period_end ?? 0), 0);
-        const recovered = { userId: user.userId, email: user.email, plan: "pro", status: subscription.status === "trialing" ? "trialing" : "active", provider: "stripe", providerCustomerId: customer.id, providerSubscriptionId: subscription.id, currentPeriodEnd: periodEnd ? new Date(periodEnd * 1000).toISOString() : null, updatedAt: new Date().toISOString() };
+        const recovered = { userId: user.userId, email: user.email, plan: subscription.metadata.fantasyHubTier === "elite" || subscription.metadata.fantasyHubPlan?.startsWith("elite_") ? "elite" : "pro", status: subscription.status === "trialing" ? "trialing" : "active", provider: "stripe", providerCustomerId: customer.id, providerSubscriptionId: subscription.id, currentPeriodEnd: periodEnd ? new Date(periodEnd * 1000).toISOString() : null, updatedAt: new Date().toISOString() };
         await db.insert(subscriptions).values(recovered).onConflictDoUpdate({ target: subscriptions.userId, set: recovered });
         break;
       }

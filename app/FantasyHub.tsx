@@ -14,6 +14,7 @@ import { useProductMonitoring } from "./use-product-monitoring";
 import { isProtectedWaiverDrop, waiverMarketProtection } from "./waiver-drop-model.mjs";
 import LaunchSplash from "./LaunchSplash";
 import NewsAndNotes from "./NewsAndNotes";
+import DraftDashboard from "./DraftDashboard";
 import { cacheActiveLeagueBootstrap, readSessionCache, safeLocalStorageSet, writeSessionCache } from "./local-storage";
 
 type View =
@@ -29,6 +30,7 @@ type View =
   | "Team Rankings"
   | "Player Rankings"
   | "ADP"
+  | "Draft HQ"
   | "Start / Sit"
   | "Waiver Wire"
   | "Trade Lab"
@@ -457,7 +459,7 @@ function startVisiblePolling(refresh: () => Promise<void>, intervalMs = 30_000) 
   };
 }
 
-type AccountEntitlement = { plan: "free" | "pro"; status: string; pro: boolean; currentPeriodEnd: string | null; provider: "stripe" | "apple" | "manual" | null };
+type AccountEntitlement = { plan: "free" | "pro" | "elite"; status: string; pro: boolean; elite: boolean; currentPeriodEnd: string | null; provider: "stripe" | "apple" | "manual" | null; owner: boolean };
 type RivalryWeek = { active: true; leagueId: string; week: number; season: string; opponentRosterId: number; opponentName: string; managerName: string };
 type AccountPreferences = {
   colorMode: Theme;
@@ -832,6 +834,7 @@ const nav: { label: View; displayLabel?: string; mark: string; tone: string; gro
   { label: "Team Rankings", mark: "↥", tone: "team-jade", group: "Analyze League" },
   { label: "Player Rankings", mark: "♛", tone: "player-gold", group: "Analyze League" },
   { label: "ADP", mark: "⌁", tone: "adp-cyan", group: "Analyze League" },
+  { label: "Draft HQ", mark: "D", tone: "pro-gold", group: "Analyze League" },
   { label: "Scoreboard", displayLabel: "Fantasy Scoreboard", mark: "▣", tone: "score-crimson", group: "Game Day" },
   { label: "NFL Games", mark: "🏈", tone: "football-bronze", group: "Game Day" },
   { label: "News & Notes", mark: "🗞", tone: "news-pulse", group: "Game Day" },
@@ -854,6 +857,7 @@ const glossaryDetails: Record<View, { summary: string; use: string }> = {
   "Team Rankings": { summary: "Ranks every team using league-relative starters, depth, balance, scoring settings, and—when applicable—runway and draft capital.", use: "Use to identify genuine league strengths, weaknesses, and trade partners." },
   "Player Rankings": { summary: "Tier-based player rankings tailored to league format, scoring, lineup demand, and positional importance.", use: "Use for rest-of-season player comparison and roster-value context." },
   "ADP": { summary: "Shows market draft position by available source, separated from Fantasy Hub’s internal player rankings.", use: "Use for draft preparation and to compare market cost with your player evaluation." },
+  "Draft HQ": { summary: "A configurable mock-draft room with a live board, roster construction, rankings, and tiered draft intelligence.", use: "Use before your draft to rehearse your slot, settings, and roster-building plan." },
   "Scoreboard": { summary: "The all-day Fantasy Scoreboard with live fantasy scores, win odds, What Do I Need paths, rooting interests, swings, and the Sunday Pulse ticker.", use: "Leave open on game day to follow every matchup that matters." },
   "NFL Games": { summary: "Tracks the NFL schedule, scores, weather, and the fantasy players from your matchup involved in each game.", use: "Use to follow real games and understand why each one matters to your leagues." },
   "News & Notes": { summary: "A live Fantasy Hub news desk that translates league-wide developments into clear fantasy impact and suggested next steps.", use: "Use throughout the week to catch injuries, role changes, roster moves, and game-day performances that affect your decisions." },
@@ -1479,6 +1483,10 @@ export default function FantasyHub({
   useEffect(() => {
     if (view === "Trade Lab") void import("./trade-calculator.css");
     if (view === "Player Rankings" || view === "ADP") void import("./player-ranks.css");
+    if (view === "Draft HQ") {
+      void import("./draft-dashboard.css");
+      void import("./draft-dashboard-list.css");
+    }
   }, [view]);
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: "auto" });
@@ -1526,7 +1534,10 @@ export default function FantasyHub({
   const [scoreboardScope, setScoreboardScope] = useState<"all" | "league">("all");
   const [accountLoading, setAccountLoading] = useState(Boolean(accountUser && !cachedAccount));
   const [accountError, setAccountError] = useState("");
-  const [entitlement, setEntitlement] = useState<AccountEntitlement>(cachedAccount?.entitlement ?? { plan: "free", status: "inactive", pro: false, currentPeriodEnd: null, provider: null });
+  const [entitlement, setEntitlement] = useState<AccountEntitlement>(cachedAccount?.entitlement ?? { plan: "free", status: "inactive", pro: false, elite: false, currentPeriodEnd: null, provider: null, owner: false });
+  useEffect(() => {
+    if (!entitlement.owner && view === "Draft HQ") setView("All Leagues");
+  }, [entitlement.owner, view]);
   const [rivalryWeek, setRivalryWeek] = useState<RivalryWeek | null>(null);
   const [needsOnboarding, setNeedsOnboarding] = useState(cachedAccount?.preferences ? !cachedAccount.preferences.onboardingCompletedAt : false);
   const [theme, setTheme] = useState<Theme>(() => {
@@ -1824,7 +1835,7 @@ export default function FantasyHub({
         })();
         if (!active) return;
         setConnection(data.connection ?? null);
-        const nextEntitlement = data.entitlement ?? { plan: "free" as const, status: "inactive", pro: false, currentPeriodEnd: null, provider: null };
+        const nextEntitlement = data.entitlement ?? { plan: "free" as const, status: "inactive", pro: false, elite: false, currentPeriodEnd: null, provider: null, owner: false };
         setEntitlement(nextEntitlement);
         setManagedLeagues(data.leagues ?? []);
         const savedLeagueOrder = (() => {
@@ -1894,7 +1905,7 @@ export default function FantasyHub({
               entitlement?: AccountEntitlement;
             };
             if (!active) return;
-            const reconciledEntitlement = reconciled.entitlement ?? { plan: "free" as const, status: "inactive", pro: false, currentPeriodEnd: null, provider: null };
+            const reconciledEntitlement = reconciled.entitlement ?? { plan: "free" as const, status: "inactive", pro: false, elite: false, currentPeriodEnd: null, provider: null, owner: false };
             setEntitlement(reconciledEntitlement);
             if (reconciled.preferences) {
               const reconciledTeamTheme = reconciledEntitlement.pro ? reconciled.preferences.teamTheme : "LAC";
@@ -2433,7 +2444,7 @@ export default function FantasyHub({
   const visibleLeagues = availableLeagues.filter(
     (league) => !hiddenLeagueIds.includes(league.id),
   );
-  const visibleNav = nav;
+  const visibleNav = nav.filter((item) => item.label !== "Draft HQ" || entitlement.owner);
   const activeRivalryWeek = entitlement.pro && rivalryWeek?.leagueId === leagueId && leaguePlatform.toLowerCase() === "sleeper" ? rivalryWeek : null;
   const activeNavGroup = nav.find((item) => item.label === view)?.group ?? "Home";
   const proViews = new Set<View>(["Command Center", "League Stories", "Manager Report", "League Analytics", "Trade Lab", "Simulator"]);
@@ -3098,6 +3109,14 @@ export default function FantasyHub({
             setSelectedPlayer={setSelectedPlayer}
           />
         )}
+        {view === "Draft HQ" && entitlement.owner && (
+          <DraftDashboard
+            players={leagueRankings}
+            isPro={entitlement.pro}
+            isElite={entitlement.elite}
+            onUpgrade={() => setView("Fantasy Hub Pro")}
+          />
+        )}
         {view === "Start / Sit" &&
           (rosterReady ? (
             <StartSit
@@ -3539,8 +3558,8 @@ function AccessAccount({ accountUser, entitlement, onPlans }: { accountUser: Acc
       <button type="button" role="switch" aria-checked={vibrationsEnabled} className={vibrationsEnabled ? "enabled" : ""} onClick={toggleVibrations}><i aria-hidden="true" /><span>{vibrationsEnabled ? "On" : "Off"}</span></button>
     </section>}
     <section className="account-settings-grid">
-      <article className="panel account-profile-card"><header><span>{accountUser.displayName.slice(0,1).toUpperCase()}</span><div><small>ACCOUNT PROFILE</small><h3>{accountUser.displayName}</h3><p>{accountUser.email}</p></div></header><dl><div><dt>Sign-in provider</dt><dd>{accountUser.provider === "clerk" ? "Fantasy Hub account" : "ChatGPT"}</dd></div><div><dt>Membership</dt><dd>{entitlement.pro ? "Fantasy Hub Pro" : "Fantasy Hub Free"}</dd></div></dl><p className="account-edit-note">Name, email, password, and connected sign-in methods are securely managed by your authentication provider.</p></article>
-      <article className="panel account-plan-card"><header><div><small>MEMBERSHIP & BILLING</small><h3>{entitlement.pro ? "Pro is active" : "Free plan"}</h3></div><b className={entitlement.pro ? "active" : "free"}>{entitlement.pro ? "PRO" : "FREE"}</b></header><p>{entitlement.pro ? recurringBilling ? `Your membership is billed through ${billingProvider === "stripe" ? "Fantasy Hub billing" : "the App Store"}.` : "Your account has Pro access without a recurring subscription." : "Upgrade for advanced intelligence, simulations, stories, and customization."}</p><div className="account-plan-actions"><button onClick={onPlans}>{entitlement.pro ? "View Pro benefits" : "Explore Pro plans"}</button>{entitlement.pro && recurringBilling && <button disabled={billingBusy} onClick={() => void openSubscriptionManagement()}>{billingBusy ? "Opening…" : "Manage billing"}</button>}</div>{nativeIos && <button className="restore-purchases-link" type="button" disabled={billingBusy} onClick={() => void restoreAppStorePurchases()}>{billingBusy ? "Checking purchases…" : "Restore App Store purchases"}</button>}{billingError && <p className="billing-error" role="alert">{billingError}</p>}</article>
+      <article className="panel account-profile-card"><header><span>{accountUser.displayName.slice(0,1).toUpperCase()}</span><div><small>ACCOUNT PROFILE</small><h3>{accountUser.displayName}</h3><p>{accountUser.email}</p></div></header><dl><div><dt>Sign-in provider</dt><dd>{accountUser.provider === "clerk" ? "Fantasy Hub account" : "ChatGPT"}</dd></div><div><dt>Membership</dt><dd>{entitlement.elite ? "Fantasy Hub Elite" : entitlement.pro ? "Fantasy Hub Pro" : "Fantasy Hub Free"}</dd></div></dl><p className="account-edit-note">Name, email, password, and connected sign-in methods are securely managed by your authentication provider.</p></article>
+      <article className="panel account-plan-card"><header><div><small>MEMBERSHIP & BILLING</small><h3>{entitlement.elite ? "Elite is active" : entitlement.pro ? "Pro is active" : "Free plan"}</h3></div><b className={entitlement.pro ? "active" : "free"}>{entitlement.elite ? "ELITE" : entitlement.pro ? "PRO" : "FREE"}</b></header><p>{entitlement.pro ? recurringBilling ? `Your membership is billed through ${billingProvider === "stripe" ? "Fantasy Hub billing" : "the App Store"}.` : `Your account has ${entitlement.elite ? "Elite" : "Pro"} access without a recurring subscription.` : "Upgrade for advanced intelligence, simulations, stories, and customization."}</p><div className="account-plan-actions"><button onClick={onPlans}>{entitlement.pro ? "View plan benefits" : "Explore plans"}</button>{entitlement.pro && recurringBilling && <button disabled={billingBusy} onClick={() => void openSubscriptionManagement()}>{billingBusy ? "Opening…" : "Manage billing"}</button>}</div>{nativeIos && <button className="restore-purchases-link" type="button" disabled={billingBusy} onClick={() => void restoreAppStorePurchases()}>{billingBusy ? "Checking purchases…" : "Restore App Store purchases"}</button>}{billingError && <p className="billing-error" role="alert">{billingError}</p>}</article>
     </section>
     {entitlement.pro && recurringBilling && <section className="panel account-cancel-card"><div><span>SUBSCRIPTION CONTROL</span><h3>Cancel subscription</h3><p>Cancellation stops automatic renewal. Pro access normally remains available through the end of the paid or trial period shown by your billing provider.</p></div>{!confirmCancel ? <button onClick={() => setConfirmCancel(true)}>Review cancellation</button> : <div className="cancel-confirm"><strong>Are you sure you want to continue to subscription cancellation?</strong><small>You will leave Fantasy Hub to confirm the cancellation with {billingProvider === "stripe" ? "our secure billing portal" : "Apple"}. Your subscription is not canceled until you finish there.</small><div><button onClick={() => setConfirmCancel(false)}>Keep subscription</button><button className="danger" disabled={billingBusy} onClick={() => void openSubscriptionManagement()}>{billingBusy ? "Opening…" : "Continue to cancel"}</button></div></div>}</section>}
     <section className="panel account-security-card"><div><span>SECURE ACCESS</span><h3>Sign out of Fantasy Hub</h3><p>End this session on the current device. Your connected leagues and saved account preferences remain available the next time you sign in.</p><a href="/privacy">Privacy Policy</a></div><a href={accountUser.signOutPath}>Sign out</a></section>
@@ -3564,14 +3583,15 @@ function AccessAccount({ accountUser, entitlement, onPlans }: { accountUser: Acc
 }
 
 function ProPlans({ entitlement }: { entitlement: AccountEntitlement }) {
+  type BillingPlan = "monthly" | "season" | "annual" | "elite_monthly" | "elite_season" | "elite_annual";
   const nativeIos = useSyncExternalStore(
     () => () => undefined,
     isNativeIosApp,
     () => false,
   );
-  const [billingBusy, setBillingBusy] = useState<"monthly" | "season" | "annual" | "portal" | "">("");
+  const [billingBusy, setBillingBusy] = useState<BillingPlan | "portal" | "">("");
   const [billingError, setBillingError] = useState("");
-  const [pendingPlan, setPendingPlan] = useState<"monthly" | "season" | "annual" | "">("");
+  const [pendingPlan, setPendingPlan] = useState<BillingPlan | "">("");
   const [nativePrices, setNativePrices] = useState<Record<string, string>>({});
   useEffect(() => {
     if (!nativeIos) return;
@@ -3601,14 +3621,16 @@ function ProPlans({ entitlement }: { entitlement: AccountEntitlement }) {
       document.removeEventListener("visibilitychange", refreshOnFocus);
     };
   }, [nativeIos, pendingPlan]);
-  async function openBilling(path: "/api/billing/checkout" | "/api/billing/portal", plan?: "monthly" | "season" | "annual") {
+  async function openBilling(path: "/api/billing/checkout" | "/api/billing/portal", plan?: BillingPlan) {
     if (nativeIos) {
       setBillingBusy(plan ?? "portal");
       setBillingError("");
       try {
         if (!plan) await nativeManageSubscriptions();
         else {
-          const productId = `com.fantasyhubapp.pro.${plan}`;
+          const productId = plan.startsWith("elite_")
+            ? `com.fantasyhubapp.elite.${plan.replace("elite_", "")}`
+            : `com.fantasyhubapp.pro.${plan}`;
           const status = await nativePurchase(productId);
           if (status === "active") window.location.reload();
           else if (status === "pending") {
@@ -3678,26 +3700,43 @@ function ProPlans({ entitlement }: { entitlement: AccountEntitlement }) {
     "Current weekly player rankings with projection, ceiling, matchup, and weather context",
     "All 32 NFL-inspired themes and all 16 navigation icon packs",
   ];
-  const appStorePrice = (plan: "monthly" | "season" | "annual", webPrice: string) =>
-    nativeIos ? nativePrices[`com.fantasyhubapp.pro.${plan}`] ?? webPrice : webPrice;
-  const monthlyPrice = appStorePrice("monthly", "$4.99");
-  const seasonPrice = appStorePrice("season", "$24.99");
-  const annualPrice = appStorePrice("annual", "$39.99");
+  const eliteFeatures = [
+    "Everything included in Fantasy Hub Pro",
+    "Adaptive CPU draft rooms with balanced, aggressive, and chaotic strategies",
+    "Custom mock settings for league size, rounds, draft slot, format, and scoring",
+    "Post-draft grades, positional build review, value report, and next-mock plan",
+    "Every future Fantasy Hub theme pack included while Elite is active",
+  ];
+  const appStorePrice = (tier: "pro" | "elite", plan: "monthly" | "season" | "annual", webPrice: string) =>
+    nativeIos ? nativePrices[`com.fantasyhubapp.${tier}.${plan}`] ?? webPrice : webPrice;
+  const monthlyPrice = appStorePrice("pro", "monthly", "$4.99");
+  const seasonPrice = appStorePrice("pro", "season", "$24.99");
+  const annualPrice = appStorePrice("pro", "annual", "$39.99");
+  const eliteMonthlyPrice = appStorePrice("elite", "monthly", "$7.99");
+  const eliteSeasonPrice = appStorePrice("elite", "season", "$34.99");
+  const eliteAnnualPrice = appStorePrice("elite", "annual", "$59.99");
   const billingProvider = entitlement.provider;
   const canManageBilling = entitlement.pro && (nativeIos ? billingProvider === "apple" : billingProvider === "stripe");
   const purchaseButton = (plan: "monthly" | "season" | "annual", label: string) => entitlement.pro
     ? <strong>PRO IS ACTIVE</strong>
     : <button disabled={Boolean(billingBusy || pendingPlan)} onClick={() => void openBilling("/api/billing/checkout", plan)}>{pendingPlan ? (pendingPlan === plan ? "Purchase pending…" : "Another purchase is pending") : billingBusy === plan ? "Opening secure checkout…" : label}</button>;
+  const elitePurchaseButton = (plan: "elite_monthly" | "elite_season" | "elite_annual", label: string) => entitlement.elite
+    ? <strong>ELITE IS ACTIVE</strong>
+    : entitlement.pro
+      ? <button disabled={Boolean(billingBusy)} onClick={() => void openBilling("/api/billing/portal")}>{billingBusy === "portal" ? "Opening plan options…" : "Upgrade from Pro →"}</button>
+    : <button disabled={Boolean(billingBusy || pendingPlan)} onClick={() => void openBilling("/api/billing/checkout", plan)}>{pendingPlan ? (pendingPlan === plan ? "Purchase pending…" : "Another purchase is pending") : billingBusy === plan ? "Opening secure checkout…" : label}</button>;
   return <div className="page-content pro-plans-page">
-    <section className="pro-plans-hero"><div className="pro-hero-copy"><span>FANTASY HUB PRO</span><h2>Turn every league into<br/><em>a better Sunday.</em></h2><p>Live game-day energy meets original strategy tools, simulations, storytelling, and accountability—built around every team you manage.</p><div className="pro-hero-pills"><b>∞ LEAGUES</b><b>LIVE GAME DAY</b><b>32 TEAM THEMES</b></div></div><div className="pro-hero-mark"><FHLogo label="Fantasy Hub Pro"/><strong>PRO</strong></div><b className="pro-status-badge">{entitlement.pro ? "PRO ACTIVE" : `7 DAYS FREE · THEN ${monthlyPrice}/MO`}</b>{canManageBilling && <button className="billing-manage" disabled={billingBusy === "portal"} onClick={() => void openBilling("/api/billing/portal")}>{billingBusy === "portal" ? "Opening billing…" : nativeIos ? "Manage in App Store" : "Manage billing"}</button>}{entitlement.pro && billingProvider === "manual" && <p className="billing-access-note">Owner access is active. There is no recurring subscription or billing account to manage.</p>}{entitlement.pro && billingProvider === "apple" && !nativeIos && <p className="billing-access-note">This membership is billed through Apple. Manage it from Subscriptions on your Apple device.</p>}</section>
+    <section className="pro-plans-hero"><div className="pro-hero-copy"><span>FANTASY HUB PLANS</span><h2>Turn every league into<br/><em>a better Sunday.</em></h2><p>Live game-day energy meets original strategy tools, simulations, storytelling, and accountability—built around every team you manage.</p><div className="pro-hero-pills"><b>∞ LEAGUES</b><b>LIVE GAME DAY</b><b>SMARTER DECISIONS</b></div></div><div className="pro-hero-mark"><FHLogo label="Fantasy Hub plans"/><strong>{entitlement.elite ? "ELITE" : "PRO"}</strong></div><b className="pro-status-badge">{entitlement.elite ? "ELITE ACTIVE" : entitlement.pro ? "PRO ACTIVE" : `7 DAYS FREE · THEN ${monthlyPrice}/MO`}</b>{canManageBilling && <button className="billing-manage" disabled={billingBusy === "portal"} onClick={() => void openBilling("/api/billing/portal")}>{billingBusy === "portal" ? "Opening billing…" : nativeIos ? "Manage in App Store" : "Manage billing"}</button>}{entitlement.pro && billingProvider === "manual" && <p className="billing-access-note">Owner access is active. There is no recurring subscription or billing account to manage.</p>}{entitlement.pro && billingProvider === "apple" && !nativeIos && <p className="billing-access-note">This membership is billed through Apple. Manage it from Subscriptions on your Apple device.</p>}</section>
     <section className="pro-showcase">
       <article className="pro-feature-card"><div><span>TRADE INTELLIGENCE</span><h3>Find the deal that fits.</h3><p>Model value, roster impact, partner fit, and acceptance before you send the offer.</p></div><ProFeatureArtwork type="trade" /></article>
       <article className="pro-feature-card reverse"><div><span>START / SIT</span><h3>Turn close calls into confidence.</h3><p>Balance floor, ceiling, matchup, and the way you want to play before locking your lineup.</p></div><ProFeatureArtwork type="start" /></article>
       <article className="pro-feature-card"><div><span>SUNDAY PULSE</span><h3>Know what you need—live.</h3><p>Follow win paths, hot performers, and every Sunday swing across all your leagues.</p></div><ProFeatureArtwork type="pulse" /></article>
     </section>
-    <section className="pro-theme-gallery panel"><header><div><span>PRO THEME LOCKER</span><h3>Your leagues. Your Sunday look.</h3></div><p>Choose any NFL-inspired palette and four sidebar badge packs.</p></header><div>{[{name:"Midway Night",colors:["#0b162a","#c83803"]},{name:"South Beach",colors:["#008e97","#fc4c02"]},{name:"Purple Reign",colors:["#241773","#9e7c0c"]},{name:"Gold Rush",colors:["#aa0000","#b3995d"]}].map((theme) => <article key={theme.name} style={{"--preview-primary":theme.colors[0],"--preview-secondary":theme.colors[1]} as CSSProperties}><i/><b>{theme.name}</b><small>Dashboard + badge pack</small></article>)}</div></section>
+    <section className="pro-theme-gallery panel"><header><div><span>THEME LOCKER</span><h3>Your leagues. Your Sunday look.</h3></div><p>Pro keeps every current NFL-inspired palette and icon pack. Elite also includes every future premium theme pack.</p></header><div>{[{name:"Midway Night",colors:["#0b162a","#c83803"]},{name:"South Beach",colors:["#008e97","#fc4c02"]},{name:"Purple Reign",colors:["#241773","#9e7c0c"]},{name:"Gold Rush",colors:["#aa0000","#b3995d"]}].map((theme) => <article key={theme.name} style={{"--preview-primary":theme.colors[0],"--preview-secondary":theme.colors[1]} as CSSProperties}><i/><b>{theme.name}</b><small>Dashboard + badge pack</small></article>)}</div></section>
     {billingError && <p className="billing-error" role="alert">{billingError}</p>}
-    <section className="plan-grid"><article className="panel"><span>FREE</span><h3>$0</h3><p>Every essential tool for connecting leagues, following game day, and managing weekly decisions.</p><ul>{freeFeatures.map((feature) => <li key={feature}>{feature}</li>)}</ul><strong>CURRENT PLAN</strong></article><article className="panel featured"><span>FANTASY HUB PRO · MONTHLY</span><h3 className="plan-price">{monthlyPrice} <small>/ month</small></h3><p>The complete Fantasy Hub intelligence suite for every roster, decision, and Sunday.</p><div className="trial-callout"><b>7-day free trial</b><small>No charge today. On day 8, your subscription automatically begins at {monthlyPrice}/month and renews monthly until canceled.</small></div><ul>{proFeatures.map((feature) => <li key={feature}>{feature}</li>)}</ul>{purchaseButton("monthly", "Start 7-day trial →")}</article><article className="panel season"><span>FANTASY HUB PRO · SEASON</span><h3 className="plan-price">{seasonPrice} <small>/ 6 months</small></h3><p>The complete Pro toolkit from preparation through the fantasy playoffs.</p><div className="annual-savings"><b>Six months of Pro access</b><small>Stay supported from draft preparation through the fantasy playoffs.</small></div><ul>{proFeatures.map((feature) => <li key={feature}>{feature}</li>)}</ul>{purchaseButton("season", "Choose season access →")}<small className="plan-renewal">{seasonPrice} billed every six months until canceled.</small></article><article className="panel annual"><span>FANTASY HUB PRO · YEAR</span><h3 className="plan-price">{annualPrice} <small>/ year</small></h3><p>The complete Pro toolkit for dynasty, offseason, draft, and game-day management.</p><div className="annual-savings"><b>{nativeIos ? "Best year-round value" : "Save $19.89 per year"}</b><small>About 33% less than paying monthly for 12 months.</small></div><ul>{proFeatures.map((feature) => <li key={feature}>{feature}</li>)}</ul>{purchaseButton("annual", "Choose year-round access →")}<small className="plan-renewal">{annualPrice} billed annually until canceled. The monthly seven-day trial is a separate offer.</small></article></section>
+    <section className="free-plan-summary panel"><header><div><span>FANTASY HUB FREE</span><h3>The essentials stay free.</h3><p>Connect leagues, follow game day, and manage the weekly decisions that matter.</p></div>{!entitlement.pro && <b>CURRENT PLAN</b>}</header><ul>{freeFeatures.map((feature) => <li key={feature}>{feature}</li>)}</ul></section>
+    <section className="tier-plans pro-tier-plans panel"><header><div><span>FANTASY HUB PRO</span><h3>Advanced intelligence for every league.</h3><p>Unlock the complete strategy, simulation, analytics, storytelling, and customization toolkit.</p></div><b>{entitlement.pro && !entitlement.elite ? "ACTIVE" : "FULL TOOLKIT"}</b></header><ul>{proFeatures.map((feature) => <li key={feature}>{feature}</li>)}</ul><div className="tier-price-grid"><article><span>MONTHLY</span><h4>{monthlyPrice} <small>/ month</small></h4><b>7-day free trial</b>{purchaseButton("monthly", "Start 7-day trial →")}</article><article className="recommended"><span>6 MONTHS</span><h4>{seasonPrice} <small>/ 6 months</small></h4><b>Season access</b>{purchaseButton("season", "Choose six months →")}<small>{seasonPrice} billed every six months until canceled.</small></article><article><span>YEARLY</span><h4>{annualPrice} <small>/ year</small></h4><b>{nativeIos ? "Best year-round value" : "Save $19.89"}</b>{purchaseButton("annual", "Choose Pro yearly →")}<small>{annualPrice} billed annually until canceled.</small></article></div></section>
+    <section className="tier-plans elite-plans panel"><header><div><span>FANTASY HUB ELITE</span><h3>Deeper intelligence. Every future theme.</h3><p>Elite includes every Pro tool and every future premium theme pack while your subscription is active.</p></div><b>{entitlement.elite ? "ACTIVE" : "NEW TIER"}</b></header><ul>{eliteFeatures.map((feature) => <li key={feature}>{feature}</li>)}</ul><div className="tier-price-grid"><article><span>MONTHLY</span><h4>{eliteMonthlyPrice} <small>/ month</small></h4>{elitePurchaseButton("elite_monthly", "Choose Elite monthly →")}</article><article className="recommended"><span>6 MONTHS</span><h4>{eliteSeasonPrice} <small>/ 6 months</small></h4><b>Save $12.95</b>{elitePurchaseButton("elite_season", "Choose six months →")}</article><article><span>YEARLY</span><h4>{eliteAnnualPrice} <small>/ year</small></h4><b>Save $35.89</b>{elitePurchaseButton("elite_annual", "Choose Elite yearly →")}</article></div><small className="elite-scaffold-note">Elite products are implemented in this development build. Checkout remains unavailable until the matching Stripe and App Store products are configured.</small></section>
     <section className="pro-principle panel"><b>OUR FREEMIUM PROMISE</b><p>Fantasy Hub will not charge merely to display a connected league. Paid access is reserved for original Fantasy Hub analysis and experiences. Payments and subscription management are securely handled by {nativeIos ? "Apple" : "Stripe"}.</p><nav className="subscription-legal-links" aria-label="Subscription legal information"><a href="/privacy">Privacy Policy</a><a href="https://www.apple.com/legal/internet-services/itunes/dev/stdeula/" target="_blank" rel="noreferrer">Terms of Use</a></nav></section>
   </div>;
 }

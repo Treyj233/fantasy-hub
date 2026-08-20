@@ -21,7 +21,7 @@ export async function persistAppleEntitlement(
   const subscriptionRecord = {
     userId,
     email,
-    plan: active ? "pro" : "free",
+    plan: active ? verified.productId.includes(".elite.") ? "elite" : "pro" : "free",
     status: active ? "active" : "canceled",
     provider: "apple",
     providerCustomerId: null,

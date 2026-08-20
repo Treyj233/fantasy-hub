@@ -171,12 +171,18 @@ class FantasyHubStoreKitPlugin: CAPPlugin, CAPBridgedPlugin {
         "com.fantasyhubapp.pro.monthly",
         "com.fantasyhubapp.pro.season",
         "com.fantasyhubapp.pro.annual",
+        "com.fantasyhubapp.elite.monthly",
+        "com.fantasyhubapp.elite.season",
+        "com.fantasyhubapp.elite.annual",
     ]
 
-    private let seasonProductId = "com.fantasyhubapp.pro.season"
+    private let seasonProductIds: Set<String> = [
+        "com.fantasyhubapp.pro.season",
+        "com.fantasyhubapp.elite.season",
+    ]
 
     private func validateProduct(_ product: Product) throws {
-        guard product.id == seasonProductId else { return }
+        guard seasonProductIds.contains(product.id) else { return }
         guard let period = product.subscription?.subscriptionPeriod,
               period.unit == .month,
               period.value == 6 else {

@@ -1,12 +1,26 @@
 import { eq } from "drizzle-orm";
 import { getDb } from "../../../db";
 import { sleeperConnections, userPreferences } from "../../../db/schema";
-import { getChatGPTUser } from "../../chatgpt-auth";
+import { getChatGPTUser, LOCAL_PREVIEW_USER_ID } from "../../chatgpt-auth";
 import { entitlementFor } from "../../entitlements";
 
 export async function GET() {
   const user = await getChatGPTUser();
   if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
+  if (user.userId === LOCAL_PREVIEW_USER_ID) return Response.json({
+    user: { displayName: user.displayName, email: user.email },
+    connection: null,
+    preferences: {
+      colorMode: "light",
+      teamTheme: "LAC",
+      badgeTheme: "arcade",
+      leagueOrderJson: "[]",
+      hiddenLeagueIdsJson: "[]",
+      onboardingCompletedAt: "local-preview",
+    },
+    entitlement: { plan: "elite", status: "active", pro: true, elite: true, currentPeriodEnd: null, provider: "manual", owner: true },
+    leagues: [],
+  });
   const db = await getDb();
   const [[connection], [preferences], entitlement] = await Promise.all([
     db.select().from(sleeperConnections).where(eq(sleeperConnections.userId, user.userId)).limit(1),

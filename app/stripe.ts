@@ -6,6 +6,9 @@ type StripeRuntimeConfig = {
   monthlyPriceId: string;
   seasonPriceId: string;
   annualPriceId: string;
+  eliteMonthlyPriceId: string;
+  eliteSeasonPriceId: string;
+  eliteAnnualPriceId: string;
   appUrl: string;
 };
 
@@ -25,6 +28,9 @@ export async function getStripeConfig(): Promise<StripeRuntimeConfig> {
     monthlyPriceId: String(env.STRIPE_PRICE_MONTHLY ?? ""),
     seasonPriceId: String(env.STRIPE_PRICE_SEASON ?? ""),
     annualPriceId: String(env.STRIPE_PRICE_ANNUAL ?? ""),
+    eliteMonthlyPriceId: String(env.STRIPE_PRICE_ELITE_MONTHLY ?? ""),
+    eliteSeasonPriceId: String(env.STRIPE_PRICE_ELITE_SEASON ?? ""),
+    eliteAnnualPriceId: String(env.STRIPE_PRICE_ELITE_ANNUAL ?? ""),
     appUrl: String(env.NEXT_PUBLIC_APP_URL ?? "https://www.fantasyhubapp.com"),
   };
   if (!config.secretKey) throw new Error("Stripe is not configured");
@@ -36,8 +42,13 @@ export async function getStripe() {
   return { stripe: new Stripe(config.secretKey, { typescript: true }), config };
 }
 
-export type FantasyHubBillingPlan = "monthly" | "season" | "annual";
+export type FantasyHubBillingPlan = "monthly" | "season" | "annual" | "elite_monthly" | "elite_season" | "elite_annual";
 
 export function priceForPlan(config: StripeRuntimeConfig, plan: FantasyHubBillingPlan) {
-  return plan === "monthly" ? config.monthlyPriceId : plan === "season" ? config.seasonPriceId : config.annualPriceId;
+  if (plan === "monthly") return config.monthlyPriceId;
+  if (plan === "season") return config.seasonPriceId;
+  if (plan === "annual") return config.annualPriceId;
+  if (plan === "elite_monthly") return config.eliteMonthlyPriceId;
+  if (plan === "elite_season") return config.eliteSeasonPriceId;
+  return config.eliteAnnualPriceId;
 }

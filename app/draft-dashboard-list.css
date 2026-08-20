@@ -1,0 +1,90 @@
+.draft-player-list {
+  grid-template-columns: 1fr;
+  max-height: 520px;
+}
+
+.draft-player-list > button {
+  grid-template-columns: 40px minmax(150px, 1.25fr) minmax(360px, 2fr) 90px 56px;
+  gap: 14px;
+  padding: 10px 12px;
+}
+
+.draft-player-identity {
+  gap: 2px;
+}
+
+.draft-player-history {
+  grid-template-columns: repeat(4, minmax(58px, 1fr));
+  gap: 8px;
+}
+
+.draft-player-history > span,
+.draft-player-market {
+  gap: 2px;
+  padding-left: 10px;
+  border-left: 1px solid var(--line);
+}
+
+.draft-player-history small,
+.draft-player-market small {
+  font-size: 6px;
+  font-weight: 850;
+  letter-spacing: .08em;
+}
+
+.draft-player-history b,
+.draft-player-market b {
+  color: var(--deep);
+  font-size: 9px;
+}
+
+.draft-player-list strong {
+  justify-self: end;
+}
+
+.draft-roster article.empty {
+  background: transparent;
+  border: 1px dashed var(--line);
+}
+
+.draft-roster article.empty i {
+  color: var(--muted);
+  background: var(--cream);
+}
+
+.draft-roster article.empty b {
+  color: var(--muted);
+}
+
+.draft-settings-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+@media (max-width: 850px) {
+  .draft-settings-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .draft-player-list > button {
+    grid-template-columns: 34px minmax(120px, 1fr) 70px 48px;
+  }
+
+  .draft-player-history {
+    display: none;
+  }
+}
+
+@media (max-width: 560px) {
+  .draft-settings-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .draft-player-list > button {
+    grid-template-columns: 30px minmax(0, 1fr) 42px;
+    gap: 8px;
+  }
+
+  .draft-player-market {
+    display: none;
+  }
+}

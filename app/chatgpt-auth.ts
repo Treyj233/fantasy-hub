@@ -16,6 +16,23 @@ export type ChatGPTUser = {
   signOutPath: string;
 };
 
+export const LOCAL_PREVIEW_USER_ID = "local-preview:owner";
+
+async function localPreviewUser(): Promise<ChatGPTUser | null> {
+  if (process.env.FANTASY_HUB_LOCAL_PREVIEW !== "1") return null;
+  const requestHeaders = await headers();
+  const host = (requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host") ?? "").split(":")[0];
+  if (host !== "localhost" && host !== "127.0.0.1" && host !== "[::1]") return null;
+  return {
+    userId: LOCAL_PREVIEW_USER_ID,
+    displayName: "Fantasy Hub Preview",
+    email: "preview@fantasyhub.local",
+    fullName: "Fantasy Hub Preview",
+    provider: "clerk",
+    signOutPath: "/",
+  };
+}
+
 const USER_ID_HEADER = "oai-authenticated-user-id";
 const USER_EMAIL_HEADER = "oai-authenticated-user-email";
 const USER_FULL_NAME_HEADER = "oai-authenticated-user-full-name";
@@ -27,6 +44,8 @@ const SIGN_OUT_PATH = "/signout-with-chatgpt";
 const CALLBACK_PATH = "/callback";
 
 export async function getChatGPTUser(): Promise<ChatGPTUser | null> {
+  const previewUser = await localPreviewUser();
+  if (previewUser) return previewUser;
   const clerkUser = await getClerkUser();
   if (clerkUser) return clerkUser;
 

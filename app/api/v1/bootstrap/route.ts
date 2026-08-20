@@ -1,7 +1,7 @@
 import { desc, eq } from "drizzle-orm";
 import { getDb } from "../../../../db";
 import { managedLeagues, sleeperConnections, userPreferences } from "../../../../db/schema";
-import { getChatGPTUser } from "../../../chatgpt-auth";
+import { getChatGPTUser, LOCAL_PREVIEW_USER_ID } from "../../../chatgpt-auth";
 import { apiError, apiJson } from "../_shared/http";
 import { checkLocalRateLimit, clientKey } from "../_shared/rate-limit";
 import { entitlementFor } from "../../../entitlements";
@@ -9,6 +9,22 @@ import { entitlementFor } from "../../../entitlements";
 export async function GET(request: Request) {
   const user = await getChatGPTUser();
   if (!user) return apiError("AUTH_REQUIRED", "Sign in required", 401);
+  if (user.userId === LOCAL_PREVIEW_USER_ID) return apiJson({
+    user: { id: user.userId, displayName: user.displayName, email: user.email },
+    connection: null,
+    preferences: {
+      colorMode: "light",
+      teamTheme: "LAC",
+      badgeTheme: "arcade",
+      leagueOrderJson: "[]",
+      hiddenLeagueIdsJson: "[]",
+      onboardingCompletedAt: "local-preview",
+    },
+    leagues: [],
+    connectedLeagues: [],
+    entitlement: { plan: "elite", status: "active", pro: true, elite: true, currentPeriodEnd: null, provider: "manual", owner: true },
+    serverTime: new Date().toISOString(),
+  });
   const rate = checkLocalRateLimit(clientKey(request, user.userId), 90);
   if (!rate.allowed)
     return apiError("RATE_LIMITED", "Too many requests. Try again shortly.", 429);

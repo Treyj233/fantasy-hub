@@ -40,7 +40,7 @@ async function syncSubscription(subscription: Stripe.Subscription, fallbackUserI
   const record = {
     userId,
     email: existing?.email ?? "stripe-managed",
-    plan: status === "canceled" ? "free" : "pro",
+    plan: status === "canceled" ? "free" : subscription.metadata.fantasyHubTier === "elite" || subscription.metadata.fantasyHubPlan?.startsWith("elite_") ? "elite" : "pro",
     status,
     provider: "stripe",
     providerCustomerId: customerId,
