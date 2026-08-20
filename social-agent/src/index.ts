@@ -17,7 +17,7 @@ type AgentState = {
 const RECENT_STORY_HOURS = 18;
 const POST_FRESHNESS_MINUTES = 60;
 const GAMEDAY_POST_FRESHNESS_MINUTES = 20;
-const DRAFT_FORMAT_VERSION = "x-sources-v15-diagnosis-first-headlines";
+const DRAFT_FORMAT_VERSION = "x-sources-v16-rachaad-white-injury-context";
 const RETRACTED_STORY_IDS = ["2090186160634986677", "2090197243202609473", "2090202303143747828"];
 
 type StoredStory = {
@@ -89,6 +89,14 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
       SET title = 'Tyler Warren has a groin injury.',
           draft = REPLACE(draft, 'Colts HC Shane Steichen told reporters.', 'Tyler Warren has a groin injury.')
       WHERE id = '2090189865996443824'`;
+    this.sql`UPDATE stories
+      SET title = 'Rachaad White tweaked his hamstring; not considered serious.',
+          draft = REPLACE(
+            REPLACE(draft, 'Rachaad White has a new injury update.', 'Rachaad White tweaked his hamstring; not considered serious.'),
+            'No immediate waiver move. Monitor Rachaad White''s practice status;',
+            'Rachaad White tweaked his hamstring, but it is not considered serious or long-term. No immediate waiver move. Monitor his practice status;'
+          )
+      WHERE id = '2090248955300884689'`;
     this.sql`INSERT OR REPLACE INTO agent_meta (key, value) VALUES ('draft_format', ${DRAFT_FORMAT_VERSION})`;
   }
 
