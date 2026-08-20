@@ -5,7 +5,7 @@
   "compatibility_date": "2026-08-19",
   "compatibility_flags": ["nodejs_compat"],
   "vars": {
-    "POSTING_MODE": "preview",
+    "POSTING_MODE": "live",
     "POLL_INTERVAL_SECONDS": "300",
     "MIN_POST_INTERVAL_MINUTES": "12",
     "MAX_POSTS_PER_DAY": "20",
