@@ -108,17 +108,29 @@ export default function NewsAndNotes({ onOpenPlayer }: { onOpenPlayer?: (player:
 
   useEffect(() => {
     const feed = feedRef.current;
-    if (!feed || visibleItems.length <= 10) return;
+    if (!feed) return;
+    if (visibleItems.length <= 10) {
+      feed.style.removeProperty("--news-feed-pane-height");
+      return;
+    }
     const sizePane = () => {
       const cards = Array.from(feed.children).slice(0, 10) as HTMLElement[];
       const gap = Number.parseFloat(window.getComputedStyle(feed).rowGap || "0") || 0;
-      const height = cards.reduce((total, card) => total + card.getBoundingClientRect().height, 0) + gap * Math.max(0, cards.length - 1);
+      const cardHeights = cards.map((card) => card.getBoundingClientRect().height);
+      if (cards.length < 10 || cardHeights.some((height) => height <= 0)) {
+        feed.style.removeProperty("--news-feed-pane-height");
+        return;
+      }
+      const height = cardHeights.reduce((total, cardHeight) => total + cardHeight, 0) + gap * Math.max(0, cards.length - 1);
       feed.style.setProperty("--news-feed-pane-height", `${Math.ceil(height)}px`);
     };
-    sizePane();
+    const animationFrame = window.requestAnimationFrame(sizePane);
     const observer = new ResizeObserver(sizePane);
     Array.from(feed.children).slice(0, 10).forEach((card) => observer.observe(card));
-    return () => observer.disconnect();
+    return () => {
+      window.cancelAnimationFrame(animationFrame);
+      observer.disconnect();
+    };
   }, [visibleItems]);
 
   return (
