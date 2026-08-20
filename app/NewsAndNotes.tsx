@@ -25,6 +25,9 @@ const filters = [
   ["weather", "Weather"],
 ] as const;
 
+const teamHashtag = /#(?=(?:49ers|Bears|Bengals|Bills|Broncos|Browns|Buccaneers|Bucs|Cardinals|Chargers|Chiefs|Colts|Commanders|Cowboys|Dolphins|Eagles|Falcons|Giants|Jaguars|Jags|Jets|Lions|Packers|Panthers|Patriots|Pats|Raiders|Rams|Ravens|Saints|Seahawks|Steelers|Texans|Titans|Vikings)\b)/gi;
+const cleanTeamHashtags = (value: string) => value.replace(teamHashtag, "");
+
 const timeAgo = (value: string) => {
   const elapsed = Date.now() - Date.parse(value);
   if (!Number.isFinite(elapsed)) return "Recently";
@@ -133,10 +136,10 @@ export default function NewsAndNotes() {
                   <div><span>{item.title}</span><small>{timeAgo(item.publishedAt)}</small></div>
                   {index === 0 && <b>NEW</b>}
                 </header>
-                <h3>{item.headline}</h3>
+                <h3>{cleanTeamHashtags(item.headline)}</h3>
                 <section className="news-next-move">
                   <span>YOUR NEXT MOVE</span>
-                  <ul>{steps.map((step, stepIndex) => <li key={`${item.id}-${stepIndex}`}>{step}</li>)}</ul>
+                  <ul>{steps.map((step, stepIndex) => <li key={`${item.id}-${stepIndex}`}>{cleanTeamHashtags(step)}</li>)}</ul>
                 </section>
                 {item.reporter && <footer>Reported by <b>{item.reporter}</b></footer>}
               </div>
