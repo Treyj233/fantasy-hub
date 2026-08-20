@@ -47,7 +47,7 @@ export function categorizeStory(text: string): StoryCategory {
   const normalized = text.toLowerCase();
   if (/injur|out for|questionable|doubtful|\bir\b|concussion|surgery|torn|sprain|hamstring|ankle|knee/.test(normalized)) return "injury";
   if (/signs?|signed|extension|contract|released|waived|traded|trade\b|franchise tag/.test(normalized)) return "contract";
-  if (/starter|starting|depth chart|promoted|demoted|backup|committee|workload/.test(normalized)) return "depth-chart";
+  if (/\bstarter\b|\bnamed (?:the )?starter\b|\b(?:will|expected to|set to) start\b|\bstarting (?:at )?(?:quarterback|running back|wide receiver|tight end|kicker|role|job|lineup|offense)\b|depth chart|promoted|demoted|backup|committee|workload/.test(normalized)) return "depth-chart";
   if (/yards|touchdowns?|targets|receptions|carries|snaps|breakout|record/.test(normalized)) return "performance";
   return "news";
 }
@@ -175,7 +175,7 @@ const gameDayPlay = /\b(?:touchdown|td|scores?|two-point|[4-9]\d-yard|1\d{2}\s+y
 const playerAdded = /sign(?:s|ed)?|agreed|acquired|traded for|claimed/i;
 const playerRemoved = /released|waived|cut|traded away|departed|not re-sign/i;
 const availabilitySignal = /absen|practice|sideline|no helmet|returned|limited|held out|did not participate|dnp/i;
-const positiveCampSignal = /impressive|excel|standout|strong camp|making plays|first-team|starter reps|breakout/i;
+const positiveCampSignal = /impressive|excel|standout|strong camp|making plays|first-team|starter reps|breakout|\bhot\b/i;
 
 const lateInGameWeek = (publishedAt: string) => {
   const day = new Date(publishedAt).getUTCDay();

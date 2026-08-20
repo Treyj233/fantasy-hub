@@ -17,8 +17,8 @@ type AgentState = {
 const RECENT_STORY_HOURS = 18;
 const POST_FRESHNESS_MINUTES = 60;
 const GAMEDAY_POST_FRESHNESS_MINUTES = 20;
-const DRAFT_FORMAT_VERSION = "x-sources-v12-actionable-original-attribution";
-const RETRACTED_STORY_IDS = ["2090186160634986677"];
+const DRAFT_FORMAT_VERSION = "x-sources-v13-role-phrase-classification";
+const RETRACTED_STORY_IDS = ["2090186160634986677", "2090197243202609473"];
 
 type StoredStory = {
   id: string;
