@@ -90,6 +90,7 @@ const filterRedundantFeedStories = (stories: StoredStory[]) => stories.filter((s
   return !all.slice(0, index).some((newer) => {
     if (feedSubjectId(newer) !== subjectId) return false;
     const newerInferred = categorizeStory(`${newer.title} ${newer.draft ?? ""}`);
+    if (story.category === "injury" && newer.category === "news" && newerInferred === "injury") return false;
     const newerCategory = newer.category === "news" && newerInferred === "injury" ? "injury" : newer.category;
     return newerCategory === effectiveCategory && Math.abs(Date.parse(newer.published_at) - Date.parse(story.published_at)) <= 24 * 60 * 60_000;
   });
