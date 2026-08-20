@@ -31,6 +31,8 @@ export const userPreferences = sqliteTable("user_preferences", {
   badgeTheme: text("badge_theme").notNull().default("arcade"),
   leagueOrderJson: text("league_order_json").notNull().default("[]"),
   hiddenLeagueIdsJson: text("hidden_league_ids_json").notNull().default("[]"),
+  ownedTeamThemesJson: text("owned_team_themes_json").notNull().default("[\"LAC\"]"),
+  ownedBadgeThemesJson: text("owned_badge_themes_json").notNull().default("[\"arcade\"]"),
   pushPreferencesJson: text("push_preferences_json").notNull().default("{}"),
   onboardingCompletedAt: text("onboarding_completed_at"),
   updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),

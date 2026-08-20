@@ -331,7 +331,7 @@ type PlayerHistory = {
 };
 type TradeStyle = "Aggressive" | "Neutral" | "Strict";
 type Theme = "light" | "dark";
-type BadgeTheme = "arcade" | "team" | "neon" | "minimal" | "stadium" | "broadcast" | "playbook" | "varsity" | "championship" | "gridiron" | "neon-sunday" | "retro" | "glass" | "carbon" | "helmet" | "trading-cards";
+type BadgeTheme = "arcade" | "team" | "neon" | "minimal" | "stadium" | "broadcast" | "playbook" | "varsity" | "championship" | "gridiron" | "neon-sunday" | "retro" | "glass" | "carbon" | "helmet" | "trading-cards" | "crown-chrome" | "neon-endzone" | "heritage-gridiron";
 const badgeThemeOptions: { id: BadgeTheme; name: string; detail: string; preview: string[] }[] = [
   { id: "arcade", name: "Arcade", detail: "Colorful page-by-page gradients", preview: ["★", "⚡", "↔"] },
   { id: "team", name: "Team Colors", detail: "Your NFL palette across every badge", preview: ["♟", "+", "◈"] },
@@ -349,7 +349,11 @@ const badgeThemeOptions: { id: BadgeTheme; name: string; detail: string; preview
   { id: "carbon", name: "Carbon Pro", detail: "Black carbon with metallic accents", preview: ["PRO", "◆", "↗"] },
   { id: "helmet", name: "Team Helmet", detail: "Helmet-inspired category color shells", preview: ["H", "G", "M"] },
   { id: "trading-cards", name: "Trading Cards", detail: "Collectible frames with rarity shine", preview: ["R", "SR", "★"] },
+  { id: "crown-chrome", name: "Crown & Chrome", detail: "Mirror-polished championship crests with royal gold light", preview: ["♛", "FH", "◆"] },
+  { id: "neon-endzone", name: "Neon End Zone", detail: "Electric glass badges energized by prime-time color", preview: ["TD", "⚡", "◎"] },
+  { id: "heritage-gridiron", name: "Heritage Gridiron", detail: "Hand-tooled leather insignias with heirloom brass trim", preview: ["1892", "🏈", "H"] },
 ];
+const premiumBadgeThemeIds = new Set<BadgeTheme>(["crown-chrome", "neon-endzone", "heritage-gridiron"]);
 type DraftPick = {
   season: number;
   round: number;
@@ -483,6 +487,8 @@ type AccountPreferences = {
   badgeTheme: BadgeTheme;
   leagueOrderJson: string;
   hiddenLeagueIdsJson: string;
+  ownedTeamThemesJson: string;
+  ownedBadgeThemesJson: string;
   onboardingCompletedAt: string | null;
 };
 type SleeperConnection = {
@@ -846,12 +852,12 @@ const nav: { label: View; displayLabel?: string; mark: string; tone: string; gro
   { label: "Trade Lab", mark: "↔", tone: "trade-rose", group: "Manage Team" },
   { label: "Simulator", mark: "✦", tone: "simulator-indigo", group: "Manage Team" },
   { label: "Manager Report", mark: "✓", tone: "report-mint", group: "Manage Team" },
+  { label: "Draft HQ", mark: "D", tone: "pro-gold", group: "Analyze League" },
   { label: "League Stories", mark: "✎", tone: "stories-sunset", group: "Analyze League" },
   { label: "League Analytics", mark: "◈", tone: "analytics-violet", group: "Analyze League" },
   { label: "Team Rankings", mark: "↥", tone: "team-jade", group: "Analyze League" },
   { label: "Player Rankings", mark: "♛", tone: "player-gold", group: "Analyze League" },
   { label: "ADP", mark: "⌁", tone: "adp-cyan", group: "Analyze League" },
-  { label: "Draft HQ", mark: "D", tone: "pro-gold", group: "Analyze League" },
   { label: "Scoreboard", displayLabel: "Fantasy Scoreboard", mark: "▣", tone: "score-crimson", group: "Game Day" },
   { label: "NFL Games", mark: "🏈", tone: "football-bronze", group: "Game Day" },
   { label: "News & Notes", mark: "🗞", tone: "news-pulse", group: "Game Day" },
@@ -899,7 +905,10 @@ const leagueRelativeGrade = (value: number, values: number[]) => {
   return Math.max(42, Math.min(97, 72 + ((value - mean) / deviation) * 12));
 };
 const formatRosterSlot = (slot: string) => slot.replace(/_/g, " ");
-const nflThemes = [
+const nflThemes: { id: string; name: string; primary: string; secondary: string; premium?: boolean; detail?: string }[] = [
+  { id: "CROWN", name: "Crown & Chrome", primary: "#11131A", secondary: "#E6C568", premium: true, detail: "Obsidian lacquer, liquid chrome, and championship gold." },
+  { id: "NEONX", name: "Neon End Zone", primary: "#30106B", secondary: "#27F5FF", premium: true, detail: "Prime-time violet illuminated by electric cyan and laser glow." },
+  { id: "HERITAGE", name: "Heritage Gridiron", primary: "#4A1718", secondary: "#D6A84B", premium: true, detail: "Oxblood leather, parchment warmth, and heirloom brass." },
   {
     id: "ARI",
     name: "Arizona Cardinals",
@@ -1565,8 +1574,14 @@ export default function FantasyHub({
   });
   const [teamTheme, setTeamTheme] = useState(cachedAccount?.preferences?.teamTheme ?? "LAC");
   const [badgeTheme, setBadgeTheme] = useState<BadgeTheme>(cachedAccount?.preferences?.badgeTheme ?? "arcade");
-  const effectiveTeamTheme = entitlement.pro ? teamTheme : "LAC";
-  const effectiveBadgeTheme: BadgeTheme = entitlement.pro ? badgeTheme : "arcade";
+  const parseOwnedThemes = (value: string | undefined, fallback: string) => {
+    try { return [...new Set([fallback, ...(JSON.parse(value ?? "[]") as string[])])]; }
+    catch { return [fallback]; }
+  };
+  const [ownedTeamThemes, setOwnedTeamThemes] = useState<string[]>(() => parseOwnedThemes(cachedAccount?.preferences?.ownedTeamThemesJson, cachedAccount?.preferences?.teamTheme ?? "LAC"));
+  const [ownedBadgeThemes, setOwnedBadgeThemes] = useState<string[]>(() => parseOwnedThemes(cachedAccount?.preferences?.ownedBadgeThemesJson, cachedAccount?.preferences?.badgeTheme ?? "arcade"));
+  const effectiveTeamTheme = teamTheme;
+  const effectiveBadgeTheme: BadgeTheme = badgeTheme;
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     if (typeof window === "undefined") return false;
     const isIPadLayout = window.matchMedia(
@@ -1888,10 +1903,12 @@ export default function FantasyHub({
         );
         if (data.preferences) {
           setTheme(data.preferences.colorMode);
-          const effectiveTeamTheme = nextEntitlement.pro ? data.preferences.teamTheme : "LAC";
-          const effectiveBadgeTheme = nextEntitlement.pro ? data.preferences.badgeTheme : "arcade";
+          const effectiveTeamTheme = data.preferences.teamTheme;
+          const effectiveBadgeTheme = data.preferences.badgeTheme;
           setTeamTheme(effectiveTeamTheme);
           setBadgeTheme(effectiveBadgeTheme);
+          setOwnedTeamThemes(parseOwnedThemes(data.preferences.ownedTeamThemesJson, data.preferences.teamTheme));
+          setOwnedBadgeThemes(parseOwnedThemes(data.preferences.ownedBadgeThemesJson, data.preferences.badgeTheme));
           safeLocalStorageSet("fantasy-hub-theme", data.preferences.colorMode);
           safeLocalStorageSet("fantasy-hub-team-theme", effectiveTeamTheme);
           safeLocalStorageSet("fantasy-hub-badge-theme", effectiveBadgeTheme);
@@ -1923,10 +1940,12 @@ export default function FantasyHub({
             const reconciledEntitlement = reconciled.entitlement ?? { plan: "free" as const, status: "inactive", pro: false, elite: false, currentPeriodEnd: null, provider: null, owner: false };
             setEntitlement(reconciledEntitlement);
             if (reconciled.preferences) {
-              const reconciledTeamTheme = reconciledEntitlement.pro ? reconciled.preferences.teamTheme : "LAC";
-              const reconciledBadgeTheme = reconciledEntitlement.pro ? reconciled.preferences.badgeTheme : "arcade";
+              const reconciledTeamTheme = reconciled.preferences.teamTheme;
+              const reconciledBadgeTheme = reconciled.preferences.badgeTheme;
               setTeamTheme(reconciledTeamTheme);
               setBadgeTheme(reconciledBadgeTheme);
+              setOwnedTeamThemes(parseOwnedThemes(reconciled.preferences.ownedTeamThemesJson, reconciled.preferences.teamTheme));
+              setOwnedBadgeThemes(parseOwnedThemes(reconciled.preferences.ownedBadgeThemesJson, reconciled.preferences.badgeTheme));
               safeLocalStorageSet("fantasy-hub-team-theme", reconciledTeamTheme);
               safeLocalStorageSet("fantasy-hub-badge-theme", reconciledBadgeTheme);
             }
@@ -1964,6 +1983,29 @@ export default function FantasyHub({
       await queuedSave;
     } catch {
       setAccountError("Your changes are applied on this device, but account sync will retry later.");
+    }
+  }
+
+  async function acquireThemeItem(kind: "team" | "badge", id: string) {
+    try {
+      const response = await fetch("/api/account/preferences", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(kind === "team" ? { acquireTeamTheme: id } : { acquireBadgeTheme: id }),
+      });
+      if (!response.ok) {
+        if (response.status === 402) setView("Fantasy Hub Pro");
+        return false;
+      }
+      const data = await response.json() as { preferences?: AccountPreferences };
+      if (data.preferences) {
+        setOwnedTeamThemes(parseOwnedThemes(data.preferences.ownedTeamThemesJson, data.preferences.teamTheme));
+        setOwnedBadgeThemes(parseOwnedThemes(data.preferences.ownedBadgeThemesJson, data.preferences.badgeTheme));
+      }
+      return true;
+    } catch {
+      setAccountError("The theme could not be added to your library. Try again.");
+      return false;
     }
   }
 
@@ -3126,9 +3168,13 @@ export default function FantasyHub({
         )}
         {view === "Draft HQ" && entitlement.owner && (
           <DraftDashboard
+            key={`${leagueId}:${rankingContext?.teams ?? 0}:${rankingContext?.rosterSlots.join(",") ?? ""}:${selectedTeamId}`}
             players={leagueRankings}
+            leagueContext={rankingContext}
+            draftSlot={selectedTeamId}
             isPro={entitlement.pro}
             isElite={entitlement.elite}
+            isOwner={entitlement.owner}
             onUpgrade={() => setView("Fantasy Hub Pro")}
           />
         )}
@@ -3204,6 +3250,10 @@ export default function FantasyHub({
             badgeTheme={effectiveBadgeTheme}
             onBadgeThemeChange={(value) => { setBadgeTheme(value); void saveAccountPreferences({ badgeTheme: value }); }}
             isPro={entitlement.pro}
+            isElite={entitlement.elite}
+            ownedTeamThemes={ownedTeamThemes}
+            ownedBadgeThemes={ownedBadgeThemes}
+            onAcquire={acquireThemeItem}
             onUpgrade={() => setView("Fantasy Hub Pro")}
           />
         )}
@@ -3745,6 +3795,11 @@ function ThemeStore({
   badgeTheme,
   onBadgeThemeChange,
   isPro,
+  isElite,
+  isOwner,
+  ownedTeamThemes,
+  ownedBadgeThemes,
+  onAcquire,
   onUpgrade,
 }: {
   teamTheme: string;
@@ -3752,24 +3807,55 @@ function ThemeStore({
   badgeTheme: BadgeTheme;
   onBadgeThemeChange: (theme: BadgeTheme) => void;
   isPro: boolean;
+  isElite: boolean;
+  isOwner: boolean;
+  ownedTeamThemes: string[];
+  ownedBadgeThemes: string[];
+  onAcquire: (kind: "team" | "badge", id: string) => Promise<boolean>;
   onUpgrade: () => void;
 }) {
+  const [tab, setTab] = useState<"library" | "store">("library");
+  const [adding, setAdding] = useState("");
   const selectedNflTheme = nflThemes.find((team) => team.id === teamTheme) ?? nflThemes[0];
-  const selectedBadgeTheme = badgeThemeOptions.find((pack) => pack.id === badgeTheme) ?? badgeThemeOptions[0];
+  const libraryTeams = nflThemes.filter((team) => ownedTeamThemes.includes(team.id));
+  const libraryBadges = badgeThemeOptions.filter((pack) => ownedBadgeThemes.includes(pack.id));
+  const premiumBundles = [
+    { theme: nflThemes.find((theme) => theme.id === "CROWN")!, badge: badgeThemeOptions.find((pack) => pack.id === "crown-chrome")!, label: "THE CHAMPIONSHIP SUITE" },
+    { theme: nflThemes.find((theme) => theme.id === "NEONX")!, badge: badgeThemeOptions.find((pack) => pack.id === "neon-endzone")!, label: "THE PRIME-TIME SUITE" },
+    { theme: nflThemes.find((theme) => theme.id === "HERITAGE")!, badge: badgeThemeOptions.find((pack) => pack.id === "heritage-gridiron")!, label: "THE LEGACY SUITE" },
+  ];
+  const acquire = async (kind: "team" | "badge", id: string) => {
+    setAdding(`${kind}:${id}`);
+    await onAcquire(kind, id);
+    setAdding("");
+  };
+  const acquireBundle = async (themeId: string, badgeId: BadgeTheme) => {
+    setAdding(`bundle:${themeId}`);
+    const themeAdded = ownedTeamThemes.includes(themeId) || await onAcquire("team", themeId);
+    if (themeAdded && !ownedBadgeThemes.includes(badgeId)) await onAcquire("badge", badgeId);
+    setAdding("");
+  };
   return <div className="page-content theme-store-page">
     <section className="theme-store-hero">
       <div><span>FANTASY HUB THEME STORE</span><h2>Your leagues.<br/><em>Your Sunday look.</em></h2><p>Choose an NFL-inspired color system and pair it with a navigation badge pack. One selection carries across the complete Fantasy Hub experience.</p></div>
-      <div className="theme-store-counts"><article><strong>{nflThemes.length}</strong><span>NFL THEMES</span></article><article><strong>{badgeThemeOptions.length}</strong><span>BADGE PACKS</span></article><small>Built to expand with future theme collections</small></div>
+      <div className="theme-store-counts"><article><strong>{libraryTeams.length}</strong><span>THEMES OWNED</span></article><article><strong>{libraryBadges.length}</strong><span>BADGES OWNED</span></article><small>Build your personal Fantasy Hub collection</small></div>
     </section>
-    <section id="theme-store-catalog" className={`appearance-panel theme-store-catalog panel ${isPro ? "" : "appearance-pro-locked"}`}>
-      <div className="panel-header"><div><span>NFL THEME COLLECTION</span><h3>Choose your team palette</h3></div><label>Team<select value={teamTheme} disabled={!isPro} onChange={(event) => onTeamThemeChange(event.target.value)}>{nflThemes.map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}</select></label></div>
-      <p>The selected palette carries across dashboard backgrounds, navigation, feature headers, cards, and highlights in both light and dark mode. Your selection is saved to your Fantasy Hub account.</p>
+    <nav className="theme-store-tabs" role="tablist" aria-label="Theme Store sections"><button role="tab" aria-selected={tab === "library"} className={tab === "library" ? "active" : ""} onClick={()=>setTab("library")}><span>MY LIBRARY</span><b>{libraryTeams.length + libraryBadges.length}</b><small>Apply themes you own</small></button><button role="tab" aria-selected={tab === "store"} className={tab === "store" ? "active" : ""} onClick={()=>setTab("store")}><span>STORE</span><b>{nflThemes.length + badgeThemeOptions.length}</b><small>Browse and add collections</small></button></nav>
+    {tab === "library" ? <section className="appearance-panel theme-store-catalog panel" role="tabpanel">
+      <div className="panel-header"><div><span>MY THEME LIBRARY</span><h3>Choose an owned team palette</h3></div><label>Team<select value={teamTheme} onChange={(event) => onTeamThemeChange(event.target.value)}>{libraryTeams.map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}</select></label></div>
       <div className="selected-team-theme"><i style={{background:`linear-gradient(135deg, ${selectedNflTheme.primary} 0 50%, ${selectedNflTheme.secondary} 50%)`}}/><span><strong>{selectedNflTheme.name}</strong><small>{selectedNflTheme.primary} · {selectedNflTheme.secondary}</small></span><b>ACTIVE THEME</b></div>
-      <div className="team-theme-grid" role="group" aria-label="NFL team themes">{nflThemes.map((team) => <button type="button" key={team.id} className={team.id === teamTheme ? "active" : ""} onClick={() => onTeamThemeChange(team.id)} aria-pressed={team.id === teamTheme} disabled={!isPro}><i style={{background:`linear-gradient(135deg, ${team.primary} 0 50%, ${team.secondary} 50%)`}}/><span>{team.id}</span><small>{team.name.replace(/^(Arizona|Atlanta|Baltimore|Buffalo|Carolina|Chicago|Cincinnati|Cleveland|Dallas|Denver|Detroit|Green Bay|Houston|Indianapolis|Jacksonville|Kansas City|Las Vegas|Los Angeles|Miami|Minnesota|New England|New Orleans|New York|Philadelphia|Pittsburgh|San Francisco|Seattle|Tampa Bay|Tennessee|Washington) /, "")}</small></button>)}</div>
-      <div className="badge-theme-builder"><header><div><span>NAVIGATION BADGE COLLECTION</span><h4>Choose your navigation style</h4></div><small>{badgeThemeOptions.length} packs</small></header><details className="badge-theme-picker"><summary><span className={`badge-pack-preview ${selectedBadgeTheme.id}`}>{selectedBadgeTheme.preview.map((icon,index)=><i key={`${icon}-${index}`}>{icon}</i>)}</span><span><strong>{selectedBadgeTheme.name}</strong><small>{selectedBadgeTheme.detail}</small></span><b>Browse packs</b></summary><div className="badge-theme-grid" role="radiogroup" aria-label="Navigation badge packs">{badgeThemeOptions.map((pack)=><button type="button" role="radio" aria-checked={badgeTheme === pack.id} disabled={!isPro} className={`${pack.id} ${badgeTheme === pack.id ? "active" : ""}`} key={pack.id} onClick={()=>onBadgeThemeChange(pack.id)}><span>{pack.preview.map((icon,index)=><i key={`${icon}-${index}`}>{icon}</i>)}</span><strong>{pack.name}</strong><small>{pack.detail}</small></button>)}</div></details></div>
-      <aside className="theme-store-future"><span>MORE COLLECTIONS AHEAD</span><strong>Future theme packs will arrive here.</strong><p>The store catalog is ready for seasonal, event, and premium collections without changing where you customize Fantasy Hub.</p></aside>
-      {!isPro && <div className="appearance-pro-callout"><span>FANTASY HUB PRO</span><strong>Make the Hub yours.</strong><p>Unlock every NFL-inspired dashboard palette and all 16 navigation badge packs.</p><button onClick={onUpgrade}>Explore Pro themes →</button></div>}
-    </section>
+      <div className="team-theme-grid" role="group" aria-label="Owned NFL team themes">{libraryTeams.map((team) => <button type="button" key={team.id} className={team.id === teamTheme ? "active" : ""} onClick={() => onTeamThemeChange(team.id)} aria-pressed={team.id === teamTheme}><i style={{background:`linear-gradient(135deg, ${team.primary} 0 50%, ${team.secondary} 50%)`}}/><span>{team.id}</span><small>{team.name}</small></button>)}</div>
+      <div className="badge-theme-builder"><header><div><span>MY BADGE LIBRARY</span><h4>Choose an owned navigation style</h4></div><small>{libraryBadges.length} packs</small></header><div className="badge-theme-grid" role="radiogroup" aria-label="Owned navigation badge packs">{libraryBadges.map((pack)=><button type="button" role="radio" aria-checked={badgeTheme === pack.id} className={`${pack.id} ${badgeTheme === pack.id ? "active" : ""}`} key={pack.id} onClick={()=>onBadgeThemeChange(pack.id)}><span>{pack.preview.map((icon,index)=><i key={`${icon}-${index}`}>{icon}</i>)}</span><strong>{pack.name}</strong><small>{pack.detail}</small></button>)}</div></div>
+      <aside className="theme-store-future"><span>BUILD YOUR LIBRARY</span><strong>Looking for another Sunday look?</strong><p>Open the Store tab to add more palettes and badge packs to your account.</p></aside>
+    </section> : <section className="appearance-panel theme-store-catalog theme-market panel" role="tabpanel">
+      <div className="panel-header"><div><span>THEME STORE</span><h3>Add themes to your library</h3></div><b className="theme-membership-price">{isElite ? "ELITE · FREE" : isPro ? "PRO COLLECTION" : "MEMBERSHIP REQUIRED"}</b></div>
+      <p>Items are added only when you choose them. Elite membership makes eligible theme packs free, but does not automatically add them to your library.</p>
+      <aside className="elite-theme-promise"><span>FANTASY HUB ELITE</span><strong>Every current and future theme. Included.</strong><p>Elite members can claim every eligible release from the Store for free and keep it organized in My Library.</p><button onClick={onUpgrade}>{isElite ? "View Elite membership →" : "Explore Elite →"}</button></aside>
+      <section className="premium-theme-releases"><header><span>PREMIUM PACKS</span><h4>Three complete identities. Built beyond a color swap.</h4><p>Each release pairs a cinematic dashboard palette with a handcrafted matching badge system.</p></header><div>{premiumBundles.map(({theme,badge,label})=>{const owned=ownedTeamThemes.includes(theme.id)&&ownedBadgeThemes.includes(badge.id);return <article key={theme.id} className={`premium-pack-card premium-bundle premium-${theme.id.toLowerCase()}`}><div className="premium-bundle-art" style={{background:`radial-gradient(circle at 78% 18%,${theme.secondary}88,transparent 31%),linear-gradient(135deg,${theme.primary},color-mix(in srgb,${theme.primary} 65%,#000))`}}><span className={`badge-pack-preview ${badge.id}`}>{badge.preview.map((icon,index)=><i key={`${icon}-${index}`}>{icon}</i>)}</span></div><em>{label}</em><h5>{theme.name}</h5><p>{theme.detail}</p><small>Includes {badge.name} badge pack</small><button disabled={owned||!isOwner||adding===`bundle:${theme.id}`} onClick={()=>void acquireBundle(theme.id,badge.id)}>{owned?"IN LIBRARY":!isOwner?"COMING SOON":adding===`bundle:${theme.id}`?"ADDING PACK…":"OWNER PREVIEW · ADD FREE"}</button></article>})}</div></section>
+      <div className="theme-market-grid">{nflThemes.filter((team)=>!team.premium).map((team)=>{const owned=ownedTeamThemes.includes(team.id);return <article key={team.id}><i style={{background:`linear-gradient(135deg, ${team.primary} 0 50%, ${team.secondary} 50%)`}}/><span><strong>{team.name}</strong><small>NFL dashboard palette</small></span><button disabled={owned||adding===`team:${team.id}`} onClick={()=>void acquire("team",team.id)}>{owned?"IN LIBRARY":adding===`team:${team.id}`?"ADDING…":isElite?"FREE · ADD":isPro?"ADD":"UNLOCK"}</button></article>})}</div>
+      <div className="badge-theme-builder"><header><div><span>BADGE PACK STORE</span><h4>Add navigation styles</h4></div><small>{badgeThemeOptions.length - premiumBadgeThemeIds.size} packs</small></header><div className="theme-market-grid badge-market-grid">{badgeThemeOptions.filter((pack)=>!premiumBadgeThemeIds.has(pack.id)).map((pack)=>{const owned=ownedBadgeThemes.includes(pack.id);return <article key={pack.id}><span className={`badge-pack-preview ${pack.id}`}>{pack.preview.map((icon,index)=><i key={`${icon}-${index}`}>{icon}</i>)}</span><span><strong>{pack.name}</strong><small>{pack.detail}</small></span><button disabled={owned||adding===`badge:${pack.id}`} onClick={()=>void acquire("badge",pack.id)}>{owned?"IN LIBRARY":adding===`badge:${pack.id}`?"ADDING…":isElite?"FREE · ADD":isPro?"ADD":"UNLOCK"}</button></article>})}</div></div>
+      {!isPro && <div className="appearance-pro-callout"><span>FANTASY HUB MEMBERSHIP</span><strong>Unlock theme collections.</strong><p>Upgrade to add premium themes and badge packs to your personal library.</p><button onClick={onUpgrade}>Explore plans →</button></div>}
+    </section>}
   </div>;
 }
 

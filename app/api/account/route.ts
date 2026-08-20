@@ -16,6 +16,8 @@ export async function GET() {
       badgeTheme: "arcade",
       leagueOrderJson: "[]",
       hiddenLeagueIdsJson: "[]",
+      ownedTeamThemesJson: "[\"LAC\"]",
+      ownedBadgeThemesJson: "[\"arcade\"]",
       onboardingCompletedAt: "local-preview",
     },
     entitlement: { plan: "elite", status: "active", pro: true, elite: true, currentPeriodEnd: null, provider: "manual", owner: true },
@@ -27,11 +29,7 @@ export async function GET() {
     db.select().from(userPreferences).where(eq(userPreferences.userId, user.userId)).limit(1),
     entitlementFor(user.userId, user.email),
   ]);
-  const effectivePreferences = preferences ? {
-    ...preferences,
-    teamTheme: entitlement.pro ? preferences.teamTheme : "LAC",
-    badgeTheme: entitlement.pro ? preferences.badgeTheme : "arcade",
-  } : null;
+  const effectivePreferences = preferences ?? null;
   return Response.json({ user: { displayName: user.displayName, email: user.email }, connection: connection ?? null, preferences: effectivePreferences, entitlement });
 }
 

@@ -18,6 +18,8 @@ export async function GET(request: Request) {
       badgeTheme: "arcade",
       leagueOrderJson: "[]",
       hiddenLeagueIdsJson: "[]",
+      ownedTeamThemesJson: "[\"LAC\"]",
+      ownedBadgeThemesJson: "[\"arcade\"]",
       onboardingCompletedAt: "local-preview",
     },
     leagues: [],
@@ -35,11 +37,7 @@ export async function GET(request: Request) {
     db.select().from(managedLeagues).where(eq(managedLeagues.userId, user.userId)).orderBy(desc(managedLeagues.updatedAt)),
     entitlementFor(user.userId, user.email),
   ]);
-  const effectivePreferences = preferences ? {
-    ...preferences,
-    teamTheme: entitlement.pro ? preferences.teamTheme : "LAC",
-    badgeTheme: entitlement.pro ? preferences.badgeTheme : "arcade",
-  } : null;
+  const effectivePreferences = preferences ?? null;
   const connectedLeagues = leagues.flatMap((record) => {
     if (record.status !== "live" || record.identifierType !== "league_id") return [];
     let meta: { teams?: number; format?: string; scoring?: string; starterCount?: number } = {};

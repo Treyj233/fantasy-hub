@@ -1,0 +1,2 @@
+ALTER TABLE `user_preferences` ADD `owned_team_themes_json` text DEFAULT '["LAC"]' NOT NULL;--> statement-breakpoint
+ALTER TABLE `user_preferences` ADD `owned_badge_themes_json` text DEFAULT '["arcade"]' NOT NULL;

@@ -6,6 +6,7 @@ type DraftPlayer = { id: string; name: string; position: string; team: string; o
 type RosterConfig = { QB: number; RB: number; WR: number; TE: number; FLEX: number; BENCH: number };
 type BoardOrder = "Fantasy Hub Rankings" | "Consensus ADP" | "Underdog ADP" | "Sleeper ADP" | "ESPN ADP";
 type DraftSettings = { teams: number; slot: number; format: "Redraft" | "Keeper" | "Dynasty"; lineup: "1QB" | "Superflex"; scoring: "Standard" | "Half PPR" | "Full PPR" | "TE Premium"; cpu: "Balanced" | "Competitive" | "Chaotic"; boardOrder: BoardOrder; timer: number; roster: RosterConfig };
+type LeagueDraftContext = { format: "Dynasty" | "Keeper" | "Redraft"; scoring: string; teams: number; rosterSlots: string[]; positionDemand: Record<string, number>; tePremium: number };
 type Pick = DraftPlayer & { overall: number; round: number; draftTeam: number; user: boolean };
 type RosterSlot = { id: string; label: "QB" | "RB" | "WR" | "TE" | "FLEX" | "SUPERFLEX" | "BENCH"; player?: Pick };
 type AdpWeights = { underdog: number; sleeper: number; espn: number };
@@ -33,6 +34,41 @@ const demoPlayers: DraftPlayer[] = [
 ].map(([name, position, team], index) => ({ id: `demo-${index + 1}`, name, position, team, overallRank: index + 1, rankingValue: 100 - index * .7 }));
 
 const defaultSettings: DraftSettings = { teams: 10, slot: 5, format: "Redraft", lineup: "1QB", scoring: "Half PPR", cpu: "Balanced", boardOrder: "Fantasy Hub Rankings", timer: 60, roster: { QB: 1, RB: 2, WR: 2, TE: 1, FLEX: 1, BENCH: 1 } };
+const settingsForLeague = (context: LeagueDraftContext | null, draftSlot?: string) => {
+  if (!context) return defaultSettings;
+  const counts = context.rosterSlots.reduce<Record<string, number>>((values, rawSlot) => {
+    const slot = rawSlot.toUpperCase();
+    values[slot] = (values[slot] ?? 0) + 1;
+    return values;
+  }, {});
+  const count = (...slots: string[]) => slots.reduce((total, slot) => total + (counts[slot] ?? 0), 0);
+  const superflexSlots = count("SUPER_FLEX", "SUPERFLEX", "QB_FLEX", "OP");
+  const qbSlots = count("QB");
+  const isSuperflex = superflexSlots > 0 || qbSlots > 1 || (context.positionDemand.QB ?? 0) > 1.4;
+  const parsedSlot = Number(draftSlot);
+  const teams = Math.max(2, context.teams || defaultSettings.teams);
+  const scoring: DraftSettings["scoring"] = context.tePremium > 0
+    ? "TE Premium"
+    : /half/i.test(context.scoring) ? "Half PPR"
+    : /ppr/i.test(context.scoring) ? "Full PPR"
+    : "Standard";
+  return {
+    ...defaultSettings,
+    teams,
+    slot: Number.isInteger(parsedSlot) && parsedSlot >= 1 && parsedSlot <= teams ? parsedSlot : Math.ceil(teams / 2),
+    format: context.format,
+    lineup: isSuperflex ? "Superflex" as const : "1QB" as const,
+    scoring,
+    roster: {
+      QB: Math.max(1, qbSlots - (isSuperflex && !superflexSlots ? 1 : 0)),
+      RB: Math.max(0, count("RB")),
+      WR: Math.max(0, count("WR")),
+      TE: Math.max(0, count("TE")),
+      FLEX: Math.max(0, count("FLEX", "WR_RB_FLEX", "W_R_T", "REC_FLEX")),
+      BENCH: Math.max(0, count("BN", "BE", "BENCH")),
+    },
+  } satisfies DraftSettings;
+};
 const rosterRounds = (settings: DraftSettings) => Object.values(settings.roster).reduce((sum, count) => sum + count, 0) + (settings.lineup === "Superflex" ? 1 : 0);
 const rosterSlots = (settings: DraftSettings, picks: Pick[]) => {
   const slots: RosterSlot[] = [];
@@ -143,6 +179,40 @@ const historicalContext = (player: DraftPlayer) => {
     common[1], common[2],
   ];
 };
+const nextPickForTeam = (overall: number, team: number, settings: DraftSettings) => {
+  const finalPick = settings.teams * rosterRounds(settings);
+  for (let pick = overall + 1; pick <= finalPick; pick += 1) if (teamForPick(pick, settings.teams) === team) return pick;
+  return null;
+};
+const elitePickRecommendation = (player: DraftPlayer, settings: DraftSettings, userPicks: Pick[], available: DraftPlayer[], overall: number) => {
+  const market = boardOrderValue(player, settings);
+  const nextPick = nextPickForTeam(overall, settings.slot, settings);
+  const counts = userPicks.reduce<Record<string, number>>((values, pick) => {
+    values[pick.position] = (values[pick.position] ?? 0) + 1;
+    return values;
+  }, {});
+  const targets: Record<string, number> = {
+    QB: settings.roster.QB + (settings.lineup === "Superflex" ? 1 : 0),
+    RB: settings.roster.RB + Math.ceil(settings.roster.FLEX * .4),
+    WR: settings.roster.WR + Math.ceil(settings.roster.FLEX * .45),
+    TE: settings.roster.TE,
+  };
+  const need = Math.max(0, (targets[player.position] ?? 0) - (counts[player.position] ?? 0));
+  const value = Math.round((overall - market) * 10) / 10;
+  const playersBeforeNextPick = nextPick == null ? 0 : Math.max(0, nextPick - overall - 1);
+  const samePositionBeforeNextPick = available.filter((candidate) => candidate.position === player.position && boardOrderValue(candidate, settings) <= (nextPick ?? overall + settings.teams)).length;
+  const scarcity = samePositionBeforeNextPick <= Math.max(2, Math.ceil(playersBeforeNextPick / settings.teams));
+  const unlikelyToReturn = nextPick != null && market < nextPick - 2;
+  let formatBoost = 0;
+  if (settings.lineup === "Superflex" && player.position === "QB") formatBoost += 16;
+  if (settings.scoring === "TE Premium" && player.position === "TE") formatBoost += 13;
+  if (settings.scoring === "Full PPR" && player.position === "WR") formatBoost += 5;
+  if (settings.format === "Dynasty" && player.age != null) formatBoost += Math.max(-7, 28 - player.age) * 1.2;
+  const score = 180 - market + Math.max(-12, value * 2.2) + need * 14 + (scarcity ? 8 : 0) + formatBoost;
+  const reason = value >= 5 ? `${value.toFixed(1)} picks past market value` : need > 0 ? `Fills your remaining ${player.position} need` : scarcity ? `${player.position} tier is thinning before your next turn` : "Best blend of market value and roster fit";
+  const signal = unlikelyToReturn ? "UNLIKELY TO RETURN" : scarcity ? "POSITION RUN RISK" : value > 0 ? `VALUE +${value.toFixed(1)}` : "BEST FIT";
+  return { player, score, reason, signal };
+};
 const cpuScore = (player: DraftPlayer, profile: CpuProfile, teamPicks: Pick[], overall: number, settings: DraftSettings) => {
   if (!canRosterPlayer(settings, teamPicks, player.position)) return -1_000;
   const round = Math.ceil(overall / settings.teams);
@@ -186,8 +256,8 @@ const cpuScore = (player: DraftPlayer, profile: CpuProfile, teamPicks: Pick[], o
   return score + (Math.random() - .5) * volatility * profile.risk;
 };
 
-export default function DraftDashboard({ players, isPro, isElite, onUpgrade }: { players: DraftPlayer[]; isPro: boolean; isElite: boolean; onUpgrade: () => void }) {
-  const [settings, setSettings] = useState(defaultSettings);
+export default function DraftDashboard({ players, leagueContext, draftSlot, isPro, isElite, onUpgrade }: { players: DraftPlayer[]; leagueContext: LeagueDraftContext | null; draftSlot?: string; isPro: boolean; isElite: boolean; onUpgrade: () => void }) {
+  const [settings, setSettings] = useState(() => settingsForLeague(leagueContext, draftSlot));
   const [started, setStarted] = useState(false);
   const [picks, setPicks] = useState<Pick[]>([]);
   const [query, setQuery] = useState("");
@@ -195,7 +265,22 @@ export default function DraftDashboard({ players, isPro, isElite, onUpgrade }: {
   const [showSetup, setShowSetup] = useState(true);
   const [workspaceTab, setWorkspaceTab] = useState<"players" | "roster">("players");
   const [cpuProfiles, setCpuProfiles] = useState<Record<number, CpuProfile>>({});
-  const pool = useMemo(() => (players.length >= 40 ? players : demoPlayers).map((player, index) => ({ ...player, overallRank: player.overallRank ?? index + 1 })).sort((a,b) => boardOrderValue(a, settings) - boardOrderValue(b, settings)), [players, settings]);
+  const [fallbackPlayers, setFallbackPlayers] = useState<DraftPlayer[]>([]);
+  useEffect(() => {
+    let active = true;
+    void fetch("/api/draft-player-pool")
+      .then((response) => response.ok ? response.json() : Promise.reject(new Error("Draft player pool unavailable")))
+      .then((data: { players?: DraftPlayer[] }) => { if (active) setFallbackPlayers(data.players ?? []); })
+      .catch(() => undefined);
+    return () => { active = false; };
+  }, []);
+  const pool = useMemo(() => {
+    const merged = new Map<string, DraftPlayer>();
+    for (const player of fallbackPlayers) merged.set(player.id, player);
+    for (const player of players) merged.set(player.id, { ...merged.get(player.id), ...player });
+    const source = merged.size ? [...merged.values()] : demoPlayers;
+    return source.map((player, index) => ({ ...player, overallRank: player.overallRank ?? index + 1 })).sort((a,b) => boardOrderValue(a, settings) - boardOrderValue(b, settings));
+  }, [fallbackPlayers, players, settings]);
   const drafted = useMemo(() => new Set(picks.map((pick) => pick.id)), [picks]);
   const available = useMemo(() => pool.filter((player) => !drafted.has(player.id)), [pool, drafted]);
   const overall = picks.length + 1;
@@ -205,7 +290,11 @@ export default function DraftDashboard({ players, isPro, isElite, onUpgrade }: {
   const complete = started && (picks.length >= settings.teams * rounds || !available.length);
   const userPicks = picks.filter((pick) => pick.user);
   const userRosterSlots = rosterSlots(settings, userPicks);
-  const recommendation = available.map((player) => ({ player, score: 100 - (player.overallRank ?? 200) + (player.position === positionNeed(userPicks) ? 9 : 0) })).sort((a,b) => b.score - a.score).slice(0,3);
+  const recommendation = available
+    .filter((player) => canRosterPlayer(settings, userPicks, player.position))
+    .map((player) => elitePickRecommendation(player, settings, userPicks, available, overall))
+    .sort((a,b) => b.score - a.score)
+    .slice(0,3);
 
   const draft = (player: DraftPlayer) => {
     if (complete || drafted.has(player.id)) return;
@@ -245,14 +334,14 @@ export default function DraftDashboard({ players, isPro, isElite, onUpgrade }: {
     <section className="draft-hq-stats"><article><span>YOUR SLOT</span><strong>{settings.slot}</strong><small>Snake position</small></article><article><span>ROSTER</span><strong>{userPicks.length}</strong><small>of {rounds} picks</small></article><article><span>BEST NEED</span><strong>{positionNeed(userPicks)}</strong><small>Current build</small></article><article className={!isElite ? "locked" : ""}><span>DRAFT GRADE</span><strong>{isElite ? `${grade}` : "ELITE"}</strong><small>{isElite ? "Live team score" : "Unlock analysis"}</small></article></section>
 
     {showSetup && <section className="draft-setup panel"><header><div><span>ROOM SETTINGS</span><h3>Make this mock yours.</h3></div><div className="draft-setup-actions"><button type="button" onClick={() => setShowSetup(false)}>Collapse</button><button className="draft-primary" onClick={start}>{started ? "Restart Mock Draft" : "Start Mock Draft"} <b>→</b></button></div></header><div className={!isPro ? "draft-settings-grid gated" : "draft-settings-grid"}>
-      <label>Teams<select disabled={!isPro} value={settings.teams} onChange={(event) => setSettings({...settings, teams:Number(event.target.value), slot:Math.min(settings.slot,Number(event.target.value))})}>{[8,10,12,14].map((value)=><option key={value}>{value}</option>)}</select></label>
+      <label>Teams<select disabled={!isPro} value={settings.teams} onChange={(event) => setSettings({...settings, teams:Number(event.target.value), slot:Math.min(settings.slot,Number(event.target.value))})}>{Array.from({length:15},(_,index)=>index+2).map((value)=><option key={value}>{value}</option>)}</select></label>
       <label>Draft slot<select disabled={!isPro} value={settings.slot} onChange={(event) => setSettings({...settings, slot:Number(event.target.value)})}>{Array.from({length:settings.teams},(_,i)=><option key={i+1}>{i+1}</option>)}</select></label>
       <label>Format<select disabled={!isPro} value={settings.format} onChange={(event) => setSettings({...settings, format:event.target.value as DraftSettings["format"]})}>{["Redraft","Keeper","Dynasty"].map((value)=><option key={value}>{value}</option>)}</select></label>
       <label>QB format<select disabled={!isPro} value={settings.lineup} onChange={(event) => setSettings({...settings, lineup:event.target.value as DraftSettings["lineup"]})}>{["1QB","Superflex"].map((value)=><option key={value}>{value}</option>)}</select></label>
       <label>Scoring<select disabled={!isPro} value={settings.scoring} onChange={(event) => setSettings({...settings, scoring:event.target.value as DraftSettings["scoring"]})}>{["Standard","Half PPR","Full PPR","TE Premium"].map((value)=><option key={value}>{value}</option>)}</select></label>
-      <label>CPU behavior<select disabled={!isElite} value={settings.cpu} onChange={(event) => setSettings({...settings, cpu:event.target.value as DraftSettings["cpu"]})}>{["Balanced","Competitive","Chaotic"].map((value)=><option key={value}>{value}</option>)}</select><small>{!isElite ? "Elite control" : settings.cpu === "Competitive" ? "Tight ADP discipline · no Round 1 QBs" : "Randomized room personalities"}</small></label>
-      <label>Player board<select disabled={!isPro} value={settings.boardOrder} onChange={(event) => setSettings({...settings, boardOrder:event.target.value as BoardOrder})}>{["Fantasy Hub Rankings","Consensus ADP","Underdog ADP","Sleeper ADP","ESPN ADP"].map((value)=><option key={value}>{value}</option>)}</select><small>{isPro ? "Choose your ranking rule" : "Pro market controls"}</small></label>
-    </div><section className={`draft-roster-builder ${!isPro ? "gated" : ""}`}><header><div><span>ROSTER SIZE</span><h4>Build your lineup.</h4></div><div><b>{rounds} ROUNDS</b><small>{settings.lineup === "Superflex" ? "Includes 1 Superflex spot" : "Single-QB roster"}</small></div></header><div>{(["QB","RB","WR","TE","FLEX","BENCH"] as const).map((rosterPosition)=><label key={rosterPosition}><span><b>{rosterPosition === "BENCH" ? "Bench" : rosterPosition}</b><small>{rosterPosition === "QB" && settings.lineup === "Superflex" ? "+ 1 Superflex starter" : rosterPosition === "FLEX" ? "RB / WR / TE" : rosterPosition === "BENCH" ? "Any position" : `${rosterPosition} starters`}</small></span><select disabled={!isPro} value={settings.roster[rosterPosition]} onChange={(event)=>setRosterCount(rosterPosition,Number(event.target.value))}>{Array.from({length:rosterPosition==="QB"?2:rosterPosition==="BENCH"?13:5},(_,index)=>rosterPosition==="QB"?index+1:index).map((value)=><option key={value}>{value}</option>)}</select></label>)}</div></section>{!isPro && <div className="draft-inline-gate"><b>PRO</b><span>Unlock custom teams, roster size, formats, scoring, and draft position.</span><button onClick={onUpgrade}>View plans</button></div>}<footer><small>{players.length >= 40 ? "Using your league-adjusted rankings" : "Previewing with the Fantasy Hub demo player pool"}</small></footer></section>}
+      <label>CPU behavior<select disabled={!isElite} value={settings.cpu} onChange={(event) => setSettings({...settings, cpu:event.target.value as DraftSettings["cpu"]})}>{["Balanced","Competitive","Chaotic"].map((value)=><option key={value}>{value}</option>)}</select></label>
+      <label>Player board<select disabled={!isPro} value={settings.boardOrder} onChange={(event) => setSettings({...settings, boardOrder:event.target.value as BoardOrder})}>{["Fantasy Hub Rankings","Consensus ADP","Underdog ADP","Sleeper ADP","ESPN ADP"].map((value)=><option key={value}>{value}</option>)}</select></label>
+    </div><section className={`draft-roster-builder ${!isPro ? "gated" : ""}`}><header><div><span>ROSTER SIZE</span><h4>Build your lineup.</h4></div><div><b>{rounds} ROUNDS</b><small>{settings.lineup === "Superflex" ? "Includes 1 Superflex spot" : "Single-QB roster"}</small></div></header><div>{(["QB","RB","WR","TE","FLEX","BENCH"] as const).map((rosterPosition)=><label key={rosterPosition}><span><b>{rosterPosition === "BENCH" ? "Bench" : rosterPosition}</b><small>{rosterPosition === "QB" && settings.lineup === "Superflex" ? "+ 1 Superflex starter" : rosterPosition === "FLEX" ? "RB / WR / TE" : rosterPosition === "BENCH" ? "Any position" : `${rosterPosition} starters`}</small></span><select disabled={!isPro} value={settings.roster[rosterPosition]} onChange={(event)=>setRosterCount(rosterPosition,Number(event.target.value))}>{Array.from({length:rosterPosition==="QB"?2:rosterPosition==="BENCH"?13:5},(_,index)=>rosterPosition==="QB"?index+1:index).map((value)=><option key={value}>{value}</option>)}</select></label>)}</div></section>{!isPro && <div className="draft-inline-gate"><b>PRO</b><span>Unlock custom teams, roster size, formats, scoring, and draft position.</span><button onClick={onUpgrade}>View plans</button></div>}<footer><small>{players.length ? "Using your league-adjusted rankings and historical player data" : fallbackPlayers.length ? "Using the Fantasy Hub player pool with prior-season production" : "Loading the Fantasy Hub player pool"}</small></footer></section>}
     {!showSetup && <button className="draft-settings-toggle" onClick={() => setShowSetup(true)}>⚙ Draft settings</button>}
 
     {started && <div className="draft-room-layout draft-board-only">
@@ -263,7 +352,7 @@ export default function DraftDashboard({ players, isPro, isElite, onUpgrade }: {
 
     {started && workspaceTab === "roster" && <section className="draft-roster draft-roster-tab panel" role="tabpanel"><header><span>YOUR ROSTER</span><b>TEAM {settings.slot}</b></header><div>{userRosterSlots.map((slot)=><article key={slot.id} className={slot.player?"filled":"empty"}><i>{slot.label === "SUPERFLEX" ? "SF" : slot.label === "BENCH" ? "BN" : slot.label}</i><span>{slot.player?<><b>{slot.player.name}</b><small>{slot.player.team} · Pick {slot.player.overall}</small></>:<><b>{slot.label}</b><small>Open roster spot</small></>}</span></article>)}</div></section>}
 
-    {started && workspaceTab === "players" && !complete && <section className="draft-player-pool panel" role="tabpanel"><header><div><span>AVAILABLE PLAYERS</span><h3>{userTurn ? "Your board is live." : "Scouting the next turn."}</h3><small>Ordered by {settings.boardOrder}{settings.boardOrder === "Fantasy Hub Rankings" ? " · 60% Underdog · 30% Sleeper · 10% ESPN" : ""}</small></div><div><input aria-label="Search available players" value={query} onChange={(event)=>setQuery(event.target.value)} placeholder="Search players"/><select aria-label="Filter players by position" value={position} onChange={(event)=>setPosition(event.target.value)}>{["ALL","QB","RB","WR","TE"].map((value)=><option key={value}>{value}</option>)}</select></div></header>{isElite?<div className="draft-recommendations"><span>ELITE PICK INTELLIGENCE</span>{recommendation.map(({player},index)=>{const eligible=canRosterPlayer(settings,userPicks,player.position);return <button key={player.id} disabled={!userTurn||!eligible} onClick={()=>draft(player)}><i>{index+1}</i><b>{player.name}</b><small>{eligible?`${player.position} · ${index===0?"Best roster fit":"Strong value"}`:"Roster position full"}</small></button>})}</div>:<div className="draft-elite-gate"><b>ELITE</b><span>Unlock live pick recommendations, roster construction scores, adaptive CPU rooms, and post-draft grades.</span><button onClick={onUpgrade}>Explore Elite</button></div>}<div className="draft-player-list">{filtered.map((player,index)=>{const stats=historicalContext(player);const adp=settings.boardOrder === "Fantasy Hub Rankings" ? fantasyHubAdp(player,settings) : displayAdp(player,settings);const eligible=canRosterPlayer(settings,userPicks,player.position);return <button key={player.id} disabled={!userTurn||!eligible} onClick={()=>draft(player)}><i>#{index+1}</i><span className="draft-player-identity"><b>{player.name}</b><small>{player.team} · {player.position}</small></span><span className="draft-player-history">{stats.map((stat)=><span key={stat.label}><small>{stat.label}</small><b>{stat.value}</b></span>)}</span><span className="draft-player-market"><small>{settings.boardOrder === "Fantasy Hub Rankings" ? "FH BLENDED ADP" : "CONSENSUS ADP"}</small><b>{adp == null ? "—" : adp.toFixed(1)}</b></span><strong>{!eligible?"FULL":userTurn?"DRAFT":"WATCH"}</strong></button>})}</div></section>}
+    {started && workspaceTab === "players" && !complete && <section className="draft-player-pool panel" role="tabpanel"><header><div><span>AVAILABLE PLAYERS</span><h3>{userTurn ? "Your board is live." : "Scouting the next turn."}</h3><small>Ordered by {settings.boardOrder}{settings.boardOrder === "Fantasy Hub Rankings" ? " · 60% Underdog · 30% Sleeper · 10% ESPN" : ""}</small></div><div><input aria-label="Search available players" value={query} onChange={(event)=>setQuery(event.target.value)} placeholder="Search players"/><select aria-label="Filter players by position" value={position} onChange={(event)=>setPosition(event.target.value)}>{["ALL","QB","RB","WR","TE"].map((value)=><option key={value}>{value}</option>)}</select></div></header>{isElite?<div className="draft-recommendations"><span>ELITE PICK INTELLIGENCE</span>{recommendation.map(({player,reason,signal},index)=><button key={player.id} disabled={!userTurn} onClick={()=>draft(player)}><i>{index+1}</i><b>{player.name}</b><small>{player.position} · {reason}</small><em>{signal}</em></button>)}</div>:<div className="draft-elite-gate"><b>ELITE</b><span>Unlock live recommendations that account for roster needs, ADP value, positional scarcity, scoring, format, and next-pick availability.</span><button onClick={onUpgrade}>Explore Elite</button></div>}<div className="draft-player-list">{filtered.map((player,index)=>{const stats=historicalContext(player);const adp=settings.boardOrder === "Fantasy Hub Rankings" ? fantasyHubAdp(player,settings) : displayAdp(player,settings);const eligible=canRosterPlayer(settings,userPicks,player.position);return <button key={player.id} disabled={!userTurn||!eligible} onClick={()=>draft(player)}><i>#{index+1}</i><span className="draft-player-identity"><b>{player.name}</b><small>{player.team} · {player.position}</small></span><span className="draft-player-history">{stats.map((stat)=><span key={stat.label}><small>{stat.label}</small><b>{stat.value}</b></span>)}</span><span className="draft-player-market"><small>{settings.boardOrder === "Fantasy Hub Rankings" ? "FH BLENDED ADP" : "CONSENSUS ADP"}</small><b>{adp == null ? "—" : adp.toFixed(1)}</b></span><strong>{!eligible?"FULL":userTurn?"DRAFT":"WATCH"}</strong></button>})}</div></section>}
     {complete && <section className="draft-results panel"><span>MOCK COMPLETE</span><h3>Your draft room has a final grade.</h3><strong>{isElite ? grade : "—"}</strong><p>{isElite ? `You built around ${userPicks[0]?.name ?? "your first-round anchor"} with ${positionNeed(userPicks)} as the clearest post-draft need.` : "Elite turns the completed board into a roster grade, positional build review, value report, and next-mock plan."}</p><div><button onClick={start}>Run it back</button>{!isElite && <button onClick={onUpgrade}>Unlock Elite report</button>}</div></section>}
   </div>;
 }

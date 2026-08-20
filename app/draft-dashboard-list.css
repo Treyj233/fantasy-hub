@@ -3,6 +3,18 @@
   max-height: 520px;
 }
 
+.draft-recommendations button i {
+  grid-row: 1 / 4;
+}
+
+.draft-recommendations button em {
+  color: #ffc20e;
+  font-size: 6px;
+  font-style: normal;
+  font-weight: 950;
+  letter-spacing: .08em;
+}
+
 .draft-hq-page,
 .draft-room-layout,
 .draft-board {
