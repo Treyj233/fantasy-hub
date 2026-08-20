@@ -18,7 +18,7 @@ type AgentState = {
 const RECENT_STORY_HOURS = 18;
 const POST_FRESHNESS_MINUTES = 60;
 const GAMEDAY_POST_FRESHNESS_MINUTES = 20;
-const DRAFT_FORMAT_VERSION = "x-sources-v21-depth-chart-beneficiaries";
+const DRAFT_FORMAT_VERSION = "x-sources-v22-curator-practice-context";
 const RETRACTED_STORY_IDS = ["2090186160634986677", "2090197243202609473", "2090202303143747828"];
 
 type StoredStory = {
@@ -147,6 +147,9 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
           related_players_json = '[{"id":"8136","name":"Rachaad White","position":"RB","team":"WAS","relationship":"subject"},{"id":"12533","name":"Jacory Croskey-Merritt","position":"RB","team":"WAS","relationship":"beneficiary"},{"id":"13405","name":"Kaytron Allen","position":"RB","team":"WAS","relationship":"backup"}]'
       WHERE id = '2090248955300884689'`;
     this.sql`UPDATE stories
+      SET status = 'suppressed', error = 'Preseason practice roundup incorrectly classified as game performance'
+      WHERE parent_story_id = '2090288557701074968' AND category = 'performance'`;
+    this.sql`UPDATE stories
       SET draft = REPLACE(
         draft,
         'Tyler Warren is dealing with a groin injury. No immediate waiver move. Monitor Tyler Warren''s practice status; if ruled out, reassess Mo Alie-Cox and Will Mallory and other IND playmakers.',
@@ -262,7 +265,7 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
           ? `https://x.com/${originalReporter.username}/status/${reference.id}`
           : `https://x.com/${handle}/status/${post.id}`;
         const updates = splitAtomicUpdates(primaryText);
-        const parentIsPractice = isPracticeSetting(primaryText);
+        const parentIsPractice = isPracticeSetting(`${cleanText} ${primaryText}`);
         return updates.map((update, index) => {
           const category = categorizeStory(update);
           return ({

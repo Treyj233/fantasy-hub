@@ -66,6 +66,7 @@ export function categorizeStory(text: string): StoryCategory {
   if (/\b(?:signs|signed|signing|re-signs|re-signed)\b|extension|contract|released|waived|traded|trade\b|franchise tag/.test(normalized)) return "contract";
   if (/\bstarter\b|\bnamed (?:the )?starter\b|\b(?:will|expected to|set to) start\b|\bstarting (?:at )?(?:quarterback|running back|wide receiver|tight end|kicker|role|job|lineup|offense)\b|depth chart|promoted|demoted|backup|committee|workload/.test(normalized)) return "depth-chart";
   if (isPracticeSetting(normalized)) return "news";
+  if (/\b(?:will|expected to|set to|scheduled to|slated to) play\b/.test(normalized)) return "news";
   if (/yards|touchdowns?|targets|receptions|carries|snaps|breakout|record/.test(normalized)) return "performance";
   return "news";
 }

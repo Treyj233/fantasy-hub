@@ -47,7 +47,7 @@ test("social agent is live, sourced, deduplicated, and rate limited", async () =
   assert.match(content, /\\bir\\b/);
   assert.match(content, /arrival changes the \$\{opportunity\}/);
   assert.match(content, /departure opens opportunity/);
-  assert.match(worker, /x-sources-v21-depth-chart-beneficiaries/);
+  assert.match(worker, /x-sources-v22-curator-practice-context/);
   assert.match(worker, /Jacory Croskey-Merritt is the primary workload beneficiary/);
   assert.match(worker, /parentIsPractice && category === "performance" \? "news"/);
   assert.match(worker, /story_evidence/);
@@ -96,6 +96,7 @@ test("role classification distinguishes a starting-role change from starting an 
   assert.equal(categorizeStory("The rookie was promoted to the starting lineup"), "depth-chart");
   assert.equal(categorizeStory("Jaylen Waddle caught a 60-yard touchdown during practice"), "news");
   assert.equal(categorizeStory("Evan Engram scored twice in Broncos training camp"), "news");
+  assert.equal(categorizeStory("Bo Nix will play about 14 snaps in the preseason game"), "news");
   assert.equal(isSixPointFantasyPlay({ title: "Touchdown in practice", summary: "Evan Engram scored during team drills" }), false);
 });
 
