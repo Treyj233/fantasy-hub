@@ -25,6 +25,7 @@ test("social agent is live, sourced, deduplicated, and rate limited", async () =
   assert.match(worker, /source_accounts/);
   assert.match(worker, /xApiGet/);
   assert.match(worker, /DRAFT_FORMAT_VERSION/);
+  assert.doesNotMatch(worker, /DELETE FROM stories WHERE status = 'draft'/);
   assert.match(worker, /if \(!context && story\.category !== "weather"\) continue/);
   assert.match(worker, /semantic_key/);
   assert.match(worker, /duplicateWindowMs/);

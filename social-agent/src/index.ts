@@ -82,7 +82,6 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
     this.sql`CREATE TABLE IF NOT EXISTS agent_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)`;
     const [format] = [...this.sql<{ value: string }>`SELECT value FROM agent_meta WHERE key = 'draft_format' LIMIT 1`];
     if (format?.value === DRAFT_FORMAT_VERSION) return;
-    this.sql`DELETE FROM stories WHERE status = 'draft'`;
     for (const storyId of RETRACTED_STORY_IDS) this.sql`DELETE FROM stories WHERE id = ${storyId}`;
     this.sql`INSERT OR REPLACE INTO agent_meta (key, value) VALUES ('draft_format', ${DRAFT_FORMAT_VERSION})`;
   }
