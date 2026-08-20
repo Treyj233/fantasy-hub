@@ -105,6 +105,7 @@ const creditedReporters: Record<string, string> = {
   "@adamschefter": "@AdamSchefter",
   "@tompelissero": "@TomPelissero",
   "@mikegarafolo": "@MikeGarafolo",
+  "@schultz_report": "@Schultz_Report",
 };
 
 const compact = (value: string, length: number) => value.length <= length

@@ -25,7 +25,7 @@ test("social agent is live, sourced, deduplicated, and rate limited", async () =
   assert.match(worker, /safeEqual\(provided, env\.ADMIN_TOKEN\)/);
   assert.match(content, /FANTASY IMPACT:/);
   assert.doesNotMatch(content, /Source:/);
-  assert.match(config, /RapSheet,AdamSchefter,TomPelissero,MikeGarafolo,UnderdogNFL/);
+  assert.match(config, /RapSheet,AdamSchefter,TomPelissero,MikeGarafolo,UnderdogNFL,32BeatWriters,Schultz_Report/);
   assert.match(worker, /source_accounts/);
   assert.match(worker, /xApiGet/);
   assert.match(worker, /DRAFT_FORMAT_VERSION/);
@@ -61,6 +61,7 @@ test("social agent is live, sourced, deduplicated, and rate limited", async () =
   assert.doesNotMatch(content, /Monitor the depth chart and projections before making your next move/);
   assert.match(worker, /const originalUrl = curated && reference && originalReporter/);
   assert.match(content, /"@rapsheet": "@RapSheet"/);
+  assert.match(content, /"@schultz_report": "@Schultz_Report"/);
   assert.doesNotMatch(content, /"@underdognfl":/);
   assert.match(content, /summarizeHeadline/);
   assert.match(content, /cleanEnding/);
