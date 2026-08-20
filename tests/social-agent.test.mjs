@@ -50,6 +50,7 @@ test("social agent is live, sourced, deduplicated, and rate limited", async () =
   assert.match(content, /departure clears an opening/);
   assert.match(worker, /x-sources-v32-event-subject/);
   assert.match(worker, /2090493186653249579/);
+  assert.match(worker, /filter\(\(story\) => !RETRACTED_STORY_IDS\.includes\(story\.id\)\)/);
   assert.match(worker, /if \(isLiveContentPost\(primaryText, sourceUrls\)\) return \[\]/);
   assert.match(worker, /await this\.regenerateCurrentFeed\(\)/);
   assert.match(content, /replace\(\/\\b\(\?:\[A-Z\]\\\.\)\{2,\}\//);

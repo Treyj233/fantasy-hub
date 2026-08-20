@@ -515,6 +515,7 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
       this.sql`DELETE FROM stories WHERE source NOT LIKE '@%' AND source != 'weather'`;
       const cutoff = now.getTime() - RECENT_STORY_HOURS * 60 * 60 * 1000;
       const candidates = [...await this.sourceStories(), ...await gameDayWeatherStories()]
+        .filter((story) => !RETRACTED_STORY_IDS.includes(story.id))
         .filter(isFantasyRelevant)
         .filter((story) => story.category !== "performance" || (!isPracticeSetting(`${story.title} ${story.summary}`) && !story.sourceContext?.includes("practice")))
         .filter((story) => !gameDay || story.category !== "performance" || isSixPointFantasyPlay(story))
