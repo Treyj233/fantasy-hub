@@ -260,39 +260,45 @@ const specificImpact = (story: Story, context: FantasyPlayerContext | null) => {
   }
   if (story.category === "performance" && gameDayPlay.test(`${story.title} ${story.summary}`) && !isPracticeSetting(`${story.title} ${story.summary}`)) {
     return context
-      ? `${context.player} just swung matchups. Keep the celebration going—but use snaps, routes and touches to decide whether it is sticky. 🚀`
+      ? `${context.player} just swung matchups. Enjoy the points, but only chase them next week if the play came from a role the offense is likely to repeat. 🚀`
       : "That play just flipped fantasy matchups everywhere. Points on the board, victory laps in the group chat. 🚀";
   }
   if (story.category === "depth-chart" && context) {
-    return `${context.player}'s role is moving. Track first-team reps, routes and touches before waivers lock; opportunity beats name value.`;
+    const beneficiary = context.affectedPlayers[0] ?? context.backups[0];
+    return beneficiary
+      ? `${context.player}'s role change puts ${beneficiary} on the actionable watchlist. Hold off on a move until the team confirms who inherits the first opportunity.`
+      : `${context.player}'s role is unsettled. Hold for now; the next confirmed starter designation is the signal to act.`;
   }
   if (story.category === "contract" && context) {
     const move = `${story.title} ${story.summary}`;
     const affected = context.affectedPlayers.length ? context.affectedPlayers.slice(0, 2).join(" and ") : `the other ${context.team} ${context.position}s`;
     if (playerRemoved.test(move)) {
-      return `${context.player}'s departure opens opportunity for ${affected}. Recheck the depth chart, but wait for role evidence before making a major valuation change.`;
+      return `${context.player}'s departure clears an opening for ${affected}. Add the likely replacement to your watchlist now, but wait for the team to assign the vacated role before spending meaningful FAAB.`;
     }
     if (playerAdded.test(move)) {
-      const opportunity = context.position === "QB" ? "passing-game outlook" : context.position === "K" ? "kicking role" : "touch and target competition";
-      return `${context.player}'s arrival changes the ${opportunity} for ${affected}. Reassess roles and projections before waivers, trades or drafts.`;
+      const action = context.position === "QB" ? "Hold the surrounding pass catchers until the team confirms the pecking order" : context.position === "K" ? "Do not roster either kicker until the competition is settled" : `Treat ${affected} as the immediate value-pressure point`;
+      return `${context.player}'s arrival adds real competition. ${action}; avoid buying at the old price until the role is clear.`;
     }
   }
   if (story.category === "news" && context) {
     const update = `${story.title} ${story.summary}`;
     const affected = context.affectedPlayers.length ? context.affectedPlayers.slice(0, 2).join(" and ") : `the other ${context.team} playmakers`;
     if (isPracticeSetting(update) && practiceStatLine.test(update)) {
-      const evidence = context.position === "QB" ? "accuracy, first-team reps and passing volume" : context.position === "RB" ? "carries, routes and targets" : "routes, targets and first-team snaps";
-      return `Treat this as one practice sample, not a game result. Track ${context.player}'s ${evidence} across multiple sessions before moving projections.`;
+      const confirmation = context.position === "QB" ? "another day running the first-team offense" : context.position === "RB" ? "repeat work with the starters or at the goal line" : "a repeated place with the starters and designed involvement";
+      return `Keep ${context.player}'s price unchanged after one practice. ${confirmation[0].toUpperCase()}${confirmation.slice(1)} would make the report worth acting on.`;
     }
     if (availabilitySignal.test(update)) {
       return `Check ${context.player}'s next practice participation before changing a lineup or projection. If the absence continues, reassess ${affected}.`;
     }
     if (positiveCampSignal.test(update)) {
-      const evidence = context.position === "QB" ? "first-team reps and passing volume" : context.position === "RB" ? "carries, routes and targets" : "routes, targets and first-team snaps";
-      return `Do not chase one camp highlight. Verify ${context.player}'s ${evidence}; move rankings only when the opportunity is repeatable.`;
+      const trigger = context.position === "QB" ? "the first-team job or a designed package" : context.position === "RB" ? "starter work or goal-line responsibility" : "a stable first-team role";
+      return `Do not pay up for one camp highlight. Hold ${context.player}'s current value unless the team confirms ${trigger}.`;
     }
-    const evidence = context.position === "QB" ? "first-team reps and passing volume" : context.position === "RB" ? "carries, routes and targets" : context.position === "K" ? "roster status and field-goal opportunities" : context.position === "DEF" ? "matchup personnel and injury availability" : "routes, targets and snaps";
-    return `Compare this report with ${context.player}'s ${evidence}. Adjust projections only if it changes the expected role or availability.`;
+    if (context.position === "QB") return `Keep ${context.player}'s value steady. A confirmed change in starting status or designed usage would be actionable; this report alone is not.`;
+    if (context.position === "RB") return `No move yet on ${context.player}. Act only if the next report changes who gets the opening drive or goal-line work.`;
+    if (context.position === "K") return `Leave ${context.player} off draft and waiver priorities for now. A confirmed job win is the next actionable signal.`;
+    if (context.position === "DEF") return `This does not change the streaming call by itself. Revisit only if it materially changes the unit's personnel for the upcoming opponent.`;
+    return `Hold ${context.player} at the current price. A confirmed starting-role or target-order change—not another general update—is what should trigger a move.`;
   }
   return impacts[story.category];
 };

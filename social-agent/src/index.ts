@@ -18,7 +18,7 @@ type AgentState = {
 const RECENT_STORY_HOURS = 18;
 const POST_FRESHNESS_MINUTES = 60;
 const GAMEDAY_POST_FRESHNESS_MINUTES = 20;
-const DRAFT_FORMAT_VERSION = "x-sources-v23-practice-stat-context";
+const DRAFT_FORMAT_VERSION = "x-sources-v24-natural-fantasy-impact";
 const RETRACTED_STORY_IDS = ["2090186160634986677", "2090197243202609473", "2090202303143747828"];
 
 type StoredStory = {
@@ -302,18 +302,20 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
     return Number(count) < Math.max(1, dailyLimit);
   }
 
-  private async enrichCuratedStory(story: Story, context: Awaited<ReturnType<typeof findPlayerContext>>) {
-    if (story.source.toLowerCase() !== "@32beatwriters" || !context) return story;
+  private async enrichStory(story: Story, context: Awaited<ReturnType<typeof findPlayerContext>>) {
+    if (!context) return story;
     try {
+      const isCurated = story.source.toLowerCase() === "@32beatwriters";
+      const candidates = [...new Set([...context.affectedPlayers, ...context.backups])].slice(0, 5);
       const result = await this.env.AI.run("@cf/meta/llama-3.3-70b-instruct-fp8-fast", {
         messages: [
           {
             role: "system",
-            content: "You edit a fantasy-football news wire. Paraphrase the evidence; never copy a full quote. Explain only what the report reasonably implies. Distinguish observation from confirmation, avoid certainty when a role is not official, and never invent stats, injuries, transactions, depth-chart facts, or recommendations. Return JSON only.",
+            content: "You are Fantasy Hub's sharp, conversational fantasy-football editor. Write like a knowledgeable human analyst, not a template. Stay strictly inside the supplied evidence. Distinguish practice from games, observation from confirmation, and preseason from lineup season. Never invent stats, injuries, transactions, roles, teammates, or recommendations. Return JSON only.",
           },
           {
             role: "user",
-            content: `Player: ${context.player} (${context.position}, ${context.team})\nCategory: ${story.category}\nSource material: ${story.title} ${story.summary}\nWrite a headline under 130 characters and a fantasyImpact under 230 characters. For injury news, retain the reported body part or diagnosis, absence/practice context, and severity or timetable when the source provides them. The impact must say what the report implies and the appropriate action (monitor, adjust projection, waiver, draft, or lineup) with calibrated confidence.`,
+            content: `Player: ${context.player} (${context.position}, ${context.team})\nCategory: ${story.category}\nPublished: ${story.publishedAt}\nSetting: ${isPracticeSetting(`${story.title} ${story.summary}`) ? "practice/camp" : "not identified as practice"}\nPotentially affected players you may name: ${candidates.length ? candidates.join(", ") : "none supplied"}\nSource material: ${story.title} ${story.summary}\n\nWrite a factual headline under 130 characters${isCurated ? " that paraphrases the source" : ""} and a fantasyImpact under 230 characters in one or two natural sentences. State the practical fantasy meaning and one concrete action now. If no action is warranted, say to hold and identify the specific future development that would change the decision. Injury advice must reflect timing, severity, and season phase. Practice stats are samples, not game production. Only recommend named players from the supplied list. Avoid canned phrases such as “adjust projections,” “monitor the depth chart,” “compare routes, targets and snaps,” or generic metric checklists. Vary the rhythm and opening from post to post.`,
           },
         ],
         response_format: {
@@ -328,8 +330,8 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
             additionalProperties: false,
           },
         },
-        max_tokens: 180,
-        temperature: 0.1,
+        max_tokens: 220,
+        temperature: 0.25,
       });
       const raw = result && typeof result === "object" && "response" in result ? result.response : undefined;
       if (typeof raw !== "string") return story;
@@ -340,18 +342,18 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
       if (!headline || headline.length > 130 || !fantasyImpact || fantasyImpact.length > 230) return story;
       return { ...story, title: headline, fantasyImpact };
     } catch (error) {
-      console.warn(JSON.stringify({ event: "curated_story_enrichment_fallback", storyId: story.id, error: error instanceof Error ? error.message : "Unknown enrichment error" }));
+      console.warn(JSON.stringify({ event: "story_enrichment_fallback", storyId: story.id, error: error instanceof Error ? error.message : "Unknown enrichment error" }));
       return story;
     }
   }
 
-  private async critiqueForPublishing(story: Story, draft: string, facts: StoryFacts, validation: ValidationResult) {
+  private async critiqueForPublishing(story: Story, context: Awaited<ReturnType<typeof findPlayerContext>>, draft: string, facts: StoryFacts, validation: ValidationResult) {
     if (!validation.approvedForX) return validation;
     try {
       const result = await this.env.AI.run("@cf/meta/llama-3.3-70b-instruct-fp8-fast", {
         messages: [
-          { role: "system", content: "You are the final editor for a fantasy-football news account. Reject a post if it overstates the source, misclassifies the event, recommends an injured/unavailable teammate, ignores preseason versus regular-season timing, or makes an action recommendation unsupported by the evidence. Return JSON only." },
-          { role: "user", content: `Source evidence: ${story.summary}\nStructured facts: ${JSON.stringify(facts)}\nDraft: ${draft}\nApprove only when every factual claim and recommendation is supported.` },
+          { role: "system", content: "You are the final editor for a fantasy-football news account. Reject a post if it overstates the source, misclassifies the event, recommends an injured, unavailable, or unlisted teammate, ignores preseason versus regular-season timing, gives vague boilerplate advice, or makes an action recommendation unsupported by the evidence. Return JSON only." },
+          { role: "user", content: `Source evidence: ${story.summary}\nStructured facts: ${JSON.stringify(facts)}\nAllowed affected-player names: ${JSON.stringify(context ? [...new Set([...context.affectedPlayers, ...context.backups])] : [])}\nDraft: ${draft}\nApprove only when every factual claim and recommendation is supported and the fantasy impact gives a specific, useful next step.` },
         ],
         response_format: {
           type: "json_schema",
@@ -439,12 +441,12 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
         const semanticDuplicate = [...this.sql<{ id: string; source_count: number | null }>`SELECT id, source_count FROM stories
           WHERE semantic_key = ${storySemanticKey} AND published_at >= ${duplicateCutoff}
           ORDER BY published_at DESC LIMIT 1`];
-        const preparedStory = await this.enrichCuratedStory(story, context);
+        const preparedStory = await this.enrichStory(story, context);
         const draft = composeFantasyPost(preparedStory, context);
         const facts = extractStoryFacts(preparedStory, context);
         const deterministicValidation = validateStoryDraft(preparedStory, context, draft, facts);
         const validation = Date.parse(preparedStory.publishedAt) >= now.getTime() - POST_FRESHNESS_MINUTES * 60_000
-          ? await this.critiqueForPublishing(preparedStory, draft, facts, deterministicValidation)
+          ? await this.critiqueForPublishing(preparedStory, context, draft, facts, deterministicValidation)
           : deterministicValidation;
         const relatedPlayers = context?.relatedPlayers ?? (story.category === "weather" ? await findTeamFantasyPlayers(story.sourceContext ?? []) : []);
         if (semanticDuplicate.length) {

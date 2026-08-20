@@ -81,5 +81,6 @@ export function validateStoryDraft(story: Story, context: PlayerContext | null, 
   if (/told reporters\.$|according to (?:a )?source\.$|has a new (?:injury )?update\.$/im.test(draft)) reasons.push("Headline ends before the actionable fact");
   if (story.category === "injury" && facts.diagnosis && !draft.toLowerCase().includes(facts.diagnosis.toLowerCase().replace(/^(?:tweaked)\s+(?:his|her|their)\s+/, ""))) reasons.push("Draft omits the reported injury detail");
   if (!/FANTASY IMPACT:/i.test(draft)) reasons.push("Fantasy impact is missing");
+  if (/adjust projections|monitor the depth chart|compare (?:this report )?(?:with )?(?:routes|targets|snaps)|routes, targets and snaps/i.test(draft)) reasons.push("Fantasy impact uses vague boilerplate");
   return { approvedForX: reasons.length === 0, reasons };
 }

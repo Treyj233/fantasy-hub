@@ -45,9 +45,9 @@ test("social agent is live, sourced, deduplicated, and rate limited", async () =
   assert.match(content, /if ruled out, reassess \$\{backupText\}/);
   assert.doesNotMatch(content, /Add now where available and monitor pregame status/);
   assert.match(content, /\\bir\\b/);
-  assert.match(content, /arrival changes the \$\{opportunity\}/);
-  assert.match(content, /departure opens opportunity/);
-  assert.match(worker, /x-sources-v23-practice-stat-context/);
+  assert.match(content, /arrival adds real competition/);
+  assert.match(content, /departure clears an opening/);
+  assert.match(worker, /x-sources-v24-natural-fantasy-impact/);
   assert.match(worker, /Jacory Croskey-Merritt is the primary workload beneficiary/);
   assert.match(worker, /parentIsPractice && category === "performance" \? "news"/);
   assert.match(worker, /story_evidence/);
@@ -68,9 +68,12 @@ test("social agent is live, sourced, deduplicated, and rate limited", async () =
   assert.match(await readFile(new URL("../social-agent/src/player-data.ts", import.meta.url), "utf8"), /primaryStatement/);
   assert.match(content, /Reported by \$\{reporter\}/);
   assert.doesNotMatch(content, /via \$\{story\.curator\}/);
-  assert.match(content, /Do not chase one camp highlight/);
+  assert.match(content, /Do not pay up for one camp highlight/);
   assert.match(content, /Check \$\{context\.player\}'s next practice participation/);
+  assert.match(worker, /one concrete action now/);
+  assert.match(worker, /specific, useful next step/);
   assert.doesNotMatch(content, /Monitor the depth chart and projections before making your next move/);
+  assert.doesNotMatch(content, /Compare this report|routes, targets and snaps|before moving projections/);
   assert.match(worker, /const originalUrl = curated && reference && originalReporter/);
   assert.match(content, /"@rapsheet": "@RapSheet"/);
   assert.match(content, /"@schultz_report": "@Schultz_Report"/);
@@ -112,8 +115,24 @@ test("practice stat lines retain versus context and never imply an absence", asy
     category: "news",
   }, { player: "Drake Maye", position: "QB", team: "NE", backups: [], affectedPlayers: ["Stefon Diggs", "Hunter Henry"] });
   assert.match(post, /vs\. Eagles on day 2 of joint practice/);
-  assert.match(post, /one practice sample, not a game result/);
+  assert.match(post, /price unchanged after one practice/);
+  assert.match(post, /running the first-team offense would make the report worth acting on/);
   assert.doesNotMatch(post, /next practice participation|absence continues/);
+});
+
+test("generic news fallbacks give a decision trigger instead of projection boilerplate", async () => {
+  const { composeFantasyPost } = await import("../social-agent/src/content.ts");
+  const post = composeFantasyPost({
+    id: "natural-impact-test",
+    title: "The team shared a new update on Drake Maye.",
+    summary: "The team shared a new update on Drake Maye.",
+    url: "https://example.com/natural-impact-test",
+    source: "@UnderdogNFL",
+    publishedAt: "2026-08-20T16:05:57.000Z",
+    category: "news",
+  }, { player: "Drake Maye", position: "QB", team: "NE", backups: [], affectedPlayers: [] });
+  assert.match(post, /confirmed change in starting status or designed usage/);
+  assert.doesNotMatch(post, /adjust projections|compare this report|routes, targets and snaps/i);
 });
 
 test("transaction classification distinguishes a signing from an absence note", async () => {
