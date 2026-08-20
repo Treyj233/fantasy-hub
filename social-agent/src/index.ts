@@ -72,6 +72,24 @@ const semanticKey = (story: Story, player: { player: string; team: string; posit
     .map((value) => value.toLowerCase().replace(/[^a-z0-9]+/g, "-"))
     .join(":");
 
+const feedSubjectId = (story: StoredStory) => parseJson<Array<{ id: string; relationship: string }>>(story.related_players_json, [])
+  .find((player) => player.relationship === "subject")?.id;
+
+const filterRedundantFeedStories = (stories: StoredStory[]) => stories.filter((story, index, all) => {
+  const subjectId = feedSubjectId(story);
+  if (!subjectId) return true;
+  const inferredCategory = categorizeStory(`${story.title} ${story.draft ?? ""}`);
+  const effectiveCategory = story.category === "news" && inferredCategory === "injury" ? "injury" : story.category;
+  const materialStage = ["game-status", "confirmed", "return"].includes(story.lifecycle_stage || "initial");
+  if (materialStage) return true;
+  return !all.slice(0, index).some((newer) => {
+    if (feedSubjectId(newer) !== subjectId) return false;
+    const newerInferred = categorizeStory(`${newer.title} ${newer.draft ?? ""}`);
+    const newerCategory = newer.category === "news" && newerInferred === "injury" ? "injury" : newer.category;
+    return newerCategory === effectiveCategory && Math.abs(Date.parse(newer.published_at) - Date.parse(story.published_at)) <= 24 * 60 * 60_000;
+  });
+});
+
 const safeEqual = async (left: string, right: string) => {
   const encoder = new TextEncoder();
   const [leftHash, rightHash] = await Promise.all([
@@ -467,7 +485,7 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
     }));
     return {
       updatedAt: this.state.lastRunAt,
-      items: hydratedStories.map(feedStory),
+      items: filterRedundantFeedStories(hydratedStories).map(feedStory),
     };
   }
 
