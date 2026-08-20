@@ -34,6 +34,10 @@ export async function POST(request: Request) {
     ownedTeamThemes.push(...proTeamIds);
     ownedBadgeThemes.push(...proBadgeThemes);
   }
+  if (entitlement.owner) {
+    ownedTeamThemes.push(...premiumTeamIds);
+    ownedBadgeThemes.push(...premiumBadgeThemes);
+  }
   if (payload.acquireTeamTheme) {
     if (!teamIds.has(payload.acquireTeamTheme)) return Response.json({ error: "Invalid team theme" }, { status: 400 });
     if (!entitlement.pro) return Response.json({ error: "Theme purchase required" }, { status: 402 });
