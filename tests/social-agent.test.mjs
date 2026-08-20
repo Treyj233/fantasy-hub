@@ -48,7 +48,7 @@ test("social agent is live, sourced, deduplicated, and rate limited", async () =
   assert.match(content, /\\bir\\b/);
   assert.match(content, /arrival adds real competition/);
   assert.match(content, /departure clears an opening/);
-  assert.match(worker, /x-sources-v30-feed-quality-cleanup/);
+  assert.match(worker, /x-sources-v31-injury-tense/);
   assert.match(worker, /if \(isLiveContentPost\(primaryText, sourceUrls\)\) return \[\]/);
   assert.match(worker, /await this\.regenerateCurrentFeed\(\)/);
   assert.match(worker, /\.filter\(\(story\) => !processed\.has\(story\.id\)\)\.slice\(0, 2\)/);
@@ -170,6 +170,11 @@ test("transaction classification distinguishes a signing from an absence note", 
   assert.equal(categorizeStory("No sign of Carnell Tate at practice"), "news");
   assert.equal(categorizeStory("The Titans signed a running back"), "contract");
   assert.equal(categorizeStory("The receiver re-signed with the team"), "contract");
+});
+
+test("injury classification recognizes past-tense ACL reports", async () => {
+  const { categorizeStory } = await import("../social-agent/src/content.ts");
+  assert.equal(categorizeStory("Texans WR Jayden Higgins tore his ACL"), "injury");
 });
 
 test("injury headlines prioritize the diagnosis when attribution consumes the tweet budget", async () => {
