@@ -15,7 +15,8 @@ type AgentState = {
 };
 
 const RECENT_STORY_HOURS = 18;
-const DRAFT_FORMAT_VERSION = "x-sources-v8-weather-watch";
+const DRAFT_FORMAT_VERSION = "x-sources-v9-player-relevance-gate";
+const RETRACTED_STORY_IDS = ["2090186160634986677"];
 
 type StoredStory = {
   id: string;
@@ -212,6 +213,7 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
       const [format] = [...this.sql<{ value: string }>`SELECT value FROM agent_meta WHERE key = 'draft_format' LIMIT 1`];
       if (format?.value !== DRAFT_FORMAT_VERSION) {
         this.sql`DELETE FROM stories WHERE status = 'draft'`;
+        for (const storyId of RETRACTED_STORY_IDS) this.sql`DELETE FROM stories WHERE id = ${storyId}`;
         this.sql`INSERT OR REPLACE INTO agent_meta (key, value) VALUES ('draft_format', ${DRAFT_FORMAT_VERSION})`;
       }
       // Remove drafts created by the retired RSS source. X-origin stories use an @handle.
