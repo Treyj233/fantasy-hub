@@ -18,8 +18,8 @@ type AgentState = {
 const RECENT_STORY_HOURS = 18;
 const POST_FRESHNESS_MINUTES = 60;
 const GAMEDAY_POST_FRESHNESS_MINUTES = 20;
-const DRAFT_FORMAT_VERSION = "x-sources-v33-retracted-feed-guard";
-const RETRACTED_STORY_IDS = ["2090186160634986677", "2090197243202609473", "2090202303143747828", "2090493186653249579"];
+const DRAFT_FORMAT_VERSION = "x-sources-v34-potential-roster-move";
+const RETRACTED_STORY_IDS = ["2090186160634986677", "2090197243202609473", "2090202303143747828"];
 
 type StoredStory = {
   id: string;
@@ -177,6 +177,13 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
     this.sql`UPDATE stories
       SET status = 'suppressed', error = 'Preseason practice roundup incorrectly classified as game performance'
       WHERE parent_story_id = '2090288557701074968' AND category = 'performance'`;
+    this.sql`UPDATE stories
+      SET title = 'Kayshon Boutte is a potential trade candidate for Houston after Jayden Higgins'' injury.',
+          category = 'contract',
+          draft = '📝 ROSTER MOVE\n\nKayshon Boutte is a potential trade candidate for Houston after Jayden Higgins'' injury.\n\nFANTASY IMPACT: Treat this as a watchlist item, not a value change. Hold Kayshon Boutte at the current price until a deal is reported; then reassess his path to touches and both teams'' depth charts.',
+          confidence = 'medium', lifecycle_stage = 'initial', error = NULL,
+          related_players_json = '[{"id":"9504","name":"Kayshon Boutte","position":"WR","team":"NE","relationship":"subject"},{"id":"12484","name":"Jayden Higgins","position":"WR","team":"HOU","relationship":"beneficiary"}]'
+      WHERE id = '2090493186653249579'`;
     this.sql`UPDATE stories
       SET draft = REPLACE(
         draft,

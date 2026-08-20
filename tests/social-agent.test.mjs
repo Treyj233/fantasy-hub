@@ -48,7 +48,7 @@ test("social agent is live, sourced, deduplicated, and rate limited", async () =
   assert.match(content, /\\bir\\b/);
   assert.match(content, /arrival adds real competition/);
   assert.match(content, /departure clears an opening/);
-  assert.match(worker, /x-sources-v33-retracted-feed-guard/);
+  assert.match(worker, /x-sources-v34-potential-roster-move/);
   assert.match(worker, /2090493186653249579/);
   assert.match(worker, /filter\(\(story\) => !RETRACTED_STORY_IDS\.includes\(story\.id\)\)/);
   assert.match(worker, /stories\.filter\(\(story\) => !RETRACTED_STORY_IDS\.includes\(story\.id\)\)\.map/);
@@ -177,6 +177,11 @@ test("transaction classification distinguishes a signing from an absence note", 
   assert.equal(categorizeStory("The receiver re-signed with the team"), "contract");
 });
 
+test("potential trade reports remain roster moves when an injury provides context", async () => {
+  const { categorizeStory } = await import("../social-agent/src/content.ts");
+  assert.equal(categorizeStory("Kayshon Boutte is a potential trade candidate following Jayden Higgins injury"), "contract");
+});
+
 test("injury classification recognizes past-tense ACL reports", async () => {
   const { categorizeStory } = await import("../social-agent/src/content.ts");
   assert.equal(categorizeStory("Texans WR Jayden Higgins tore his ACL"), "injury");
@@ -204,6 +209,11 @@ test("injury context follows the player nearest the injury language", async () =
       "injury",
     );
     assert.equal(context?.player, "Jayden Higgins");
+    const rosterMoveContext = await findPlayerContext(
+      "Kayshon Boutte makes sense as a potential trade candidate for Texans following Jayden Higgins injury.",
+      "contract",
+    );
+    assert.equal(rosterMoveContext?.player, "Kayshon Boutte");
   } finally {
     globalThis.fetch = originalFetch;
   }

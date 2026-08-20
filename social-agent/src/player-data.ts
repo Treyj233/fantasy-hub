@@ -85,15 +85,17 @@ export async function findPlayerContext(text: string, eventType?: string): Promi
   const mentionedPlayers = players
     .filter((player) => player.full_name && player.team && player.position && skillPositions.has(player.position))
     .filter((player) => primaryStatement.includes(player.full_name!.toLowerCase()));
-  const injuryIndexes = eventType === "injury"
+  const eventIndexes = eventType === "injury"
     ? [...primaryStatement.matchAll(/injur|tor(?:e|n)|tear|acl|achilles|concussion|surgery|sprain|hamstring|ankle|knee|hip|groin/gi)].map((match) => match.index ?? 0)
-    : [];
-  const mentioned = injuryIndexes.length && mentionedPlayers.length > 1
+    : eventType === "contract"
+      ? [...primaryStatement.matchAll(/trade|sign|release|waive|contract|roster move/gi)].map((match) => match.index ?? 0)
+      : [];
+  const mentioned = eventIndexes.length && mentionedPlayers.length > 1
     ? [...mentionedPlayers].sort((a, b) => {
       const distance = (player: SleeperPlayer) => {
         const nameIndex = primaryStatement.indexOf(player.full_name!.toLowerCase());
         const nameEnd = nameIndex + player.full_name!.length;
-        return Math.min(...injuryIndexes.map((injuryIndex) => Math.abs(injuryIndex - nameEnd)));
+        return Math.min(...eventIndexes.map((eventIndex) => Math.abs(eventIndex - nameEnd)));
       };
       return distance(a) - distance(b);
     })[0]

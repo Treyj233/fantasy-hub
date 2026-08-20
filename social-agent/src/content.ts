@@ -78,6 +78,7 @@ const atomLink = (xml: string) => {
 
 export function categorizeStory(text: string): StoryCategory {
   const normalized = text.toLowerCase();
+  if (/potential trade candidate|trade candidate|trade target|drawing trade interest|interested in trading for/.test(normalized)) return "contract";
   if (/injur|out for|questionable|doubtful|\bir\b|concussion|surgery|tor(?:e|n)|sprain|flare-up|hamstring|ankle|knee/.test(normalized)) return "injury";
   if (/\b(?:signs|signed|signing|re-signs|re-signed)\b|extension|contract|released|waived|traded|trade\b|franchise tag/.test(normalized)) return "contract";
   if (/\bstarter\b|\bnamed (?:the )?starter\b|\b(?:will|expected to|set to) start\b|\bstarting (?:at )?(?:quarterback|running back|wide receiver|tight end|kicker|role|job|lineup|offense)\b|depth chart|promoted|demoted|backup|committee|workload/.test(normalized)) return "depth-chart";
@@ -220,6 +221,7 @@ const mildInjury = /day-to-day|limited|soreness|tightness|bruise|contusion|preca
 const gameDayPlay = /\b(?:touchdown|td|scores?|two-point|[4-9]\d-yard|1\d{2}\s+yards|100-yard|150-yard|200-yard)\b/i;
 const playerAdded = /\b(?:signs|signed|signing|re-signs|re-signed)\b|agreed|acquired|traded for|claimed/i;
 const playerRemoved = /released|waived|cut|traded away|departed|not re-sign/i;
+const potentialTrade = /potential trade candidate|trade candidate|trade target|drawing trade interest|interested in trading for/i;
 const availabilitySignal = /absen|sideline|no helmet|returned to practice|limited(?: in practice)?|held out|did not participate|\bdnp\b|miss(?:ed|es|ing) (?:a |the )?(?:practice|walkthrough)|not practicing|left practice|exited practice|did not finish practice/i;
 const positiveCampSignal = /impressive|excel|standout|strong camp|making plays|first-team|starter reps|breakout|\bhot\b/i;
 const practiceStatLine = /\b\d+\s*[-–]of[-–]\s*\d+\b|\b\d+\s*(?:tds?|touchdowns?|ints?|interceptions?|targets?|receptions?|carries|yards)\b/i;
@@ -290,6 +292,9 @@ const specificImpact = (story: Story, context: FantasyPlayerContext | null) => {
   if (story.category === "contract" && context) {
     const move = `${story.title} ${story.summary}`;
     const affected = context.affectedPlayers.length ? context.affectedPlayers.slice(0, 2).join(" and ") : `the other ${context.team} ${context.position}s`;
+    if (potentialTrade.test(move)) {
+      return `Treat this as a watchlist item, not a value change. Hold ${context.player} at the current price until a deal is reported; then reassess his path to touches and both teams' depth charts.`;
+    }
     if (playerRemoved.test(move)) {
       return `${context.player}'s departure clears an opening for ${affected}. Add the likely replacement to your watchlist now, but wait for the team to assign the vacated role before spending meaningful FAAB.`;
     }
