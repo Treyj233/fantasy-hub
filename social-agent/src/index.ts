@@ -18,7 +18,7 @@ type AgentState = {
 const RECENT_STORY_HOURS = 18;
 const POST_FRESHNESS_MINUTES = 60;
 const GAMEDAY_POST_FRESHNESS_MINUTES = 20;
-const DRAFT_FORMAT_VERSION = "x-sources-v32-event-subject";
+const DRAFT_FORMAT_VERSION = "x-sources-v33-retracted-feed-guard";
 const RETRACTED_STORY_IDS = ["2090186160634986677", "2090197243202609473", "2090202303143747828", "2090493186653249579"];
 
 type StoredStory = {
@@ -486,7 +486,7 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
       FROM stories
       WHERE status IN ('draft', 'posted') AND draft IS NOT NULL
       ORDER BY published_at DESC LIMIT 100`];
-    const hydratedStories = await Promise.all(stories.map(async (story) => {
+    const hydratedStories = await Promise.all(stories.filter((story) => !RETRACTED_STORY_IDS.includes(story.id)).map(async (story) => {
       const savedPlayers = parseJson<Array<{ id: string; name: string; position: string; team: string; relationship: "subject" | "beneficiary" | "backup" }>>(story.related_players_json, []);
       if (savedPlayers.length || story.category === "weather") return story;
       const context = await findPlayerContext(`${story.title}. ${story.draft ?? ""}`, story.category);
