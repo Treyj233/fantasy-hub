@@ -18,7 +18,7 @@ type AgentState = {
 const RECENT_STORY_HOURS = 18;
 const POST_FRESHNESS_MINUTES = 60;
 const GAMEDAY_POST_FRESHNESS_MINUTES = 20;
-const DRAFT_FORMAT_VERSION = "x-sources-v22-curator-practice-context";
+const DRAFT_FORMAT_VERSION = "x-sources-v23-practice-stat-context";
 const RETRACTED_STORY_IDS = ["2090186160634986677", "2090197243202609473", "2090202303143747828"];
 
 type StoredStory = {
@@ -156,6 +156,10 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
         'Preseason: track Tyler Warren''s recovery, not the waiver wire. If the absence lingers, Josh Downs is the target-share watch. Mo Alie-Cox is depth-chart insurance.'
       )
       WHERE id = '2090189865996443824'`;
+    this.sql`UPDATE stories
+      SET title = 'Drake Maye went 9-of-18 with four touchdowns and two interceptions in 11-on-11 work vs. the Eagles.',
+          draft = '🏈 FANTASY PULSE\n\nDrake Maye went 9-of-18 with four touchdowns and two interceptions in 11-on-11 work vs. the Eagles.\n\nFANTASY IMPACT: Treat this as one joint-practice sample, not a game result. Track Drake Maye''s accuracy, first-team reps and passing volume across multiple sessions before moving projections.'
+      WHERE id = '2090470400706609501'`;
     this.sql`INSERT OR REPLACE INTO agent_meta (key, value) VALUES ('draft_format', ${DRAFT_FORMAT_VERSION})`;
   }
 

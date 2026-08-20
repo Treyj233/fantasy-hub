@@ -133,6 +133,12 @@ const compact = (value: string, length: number) => value.length <= length
 
 const cleanEnding = (value: string) => value.replace(/[,:;\-–—\s]+$/g, "").replace(/[.!?]?$/, ".");
 
+const firstSentence = (value: string) => {
+  const protectedAbbreviations = value.replace(/\b(vs|mr|mrs|ms|dr|st)\./gi, "$1<period>");
+  return (protectedAbbreviations.split(/(?<=[.!?])\s+|\s+[•|]\s+/)[0] || protectedAbbreviations)
+    .replace(/<period>/g, ".");
+};
+
 const injuryDetails = (value: string) => {
   const action = value.match(/\b(?:tweaked|strained|sprained|injured|hurt|aggravated)(?:\s+(?:his|her|their))?\s+(?:(?:left|right)\s+)?(?:hamstring|ankle|knee|groin|calf|quad|shoulder|foot|toe|back|hip|wrist|hand)\b/i)?.[0];
   const diagnosis = value.match(/torn ACL|ACL tear|torn Achilles|Achilles tear|groin injury|thigh injury|hamstring injury|ankle injury|knee injury|calf injury|quad injury|shoulder injury|foot injury|toe injury|back injury|hip injury|concussion|sprained MCL|sprained ACL|turf toe/i)?.[0];
@@ -156,7 +162,7 @@ const summarizeHeadline = (story: Story, context: FantasyPlayerContext | null, b
     .replace(/https?:\/\/\S+/g, "")
     .replace(/\s+/g, " ")
     .trim();
-  const firstThought = cleaned.split(/(?<=[.!?])\s+|\s+[•|]\s+/)[0] || cleaned;
+  const firstThought = firstSentence(cleaned);
   if (firstThought.length <= budget) return cleanEnding(firstThought);
 
   if (context && story.category === "injury") {
@@ -198,8 +204,9 @@ const mildInjury = /day-to-day|limited|soreness|tightness|bruise|contusion|preca
 const gameDayPlay = /\b(?:touchdown|td|scores?|two-point|[4-9]\d-yard|1\d{2}\s+yards|100-yard|150-yard|200-yard)\b/i;
 const playerAdded = /\b(?:signs|signed|signing|re-signs|re-signed)\b|agreed|acquired|traded for|claimed/i;
 const playerRemoved = /released|waived|cut|traded away|departed|not re-sign/i;
-const availabilitySignal = /absen|practice|sideline|no helmet|returned|limited|held out|did not participate|dnp/i;
+const availabilitySignal = /absen|sideline|no helmet|returned to practice|limited(?: in practice)?|held out|did not participate|\bdnp\b|miss(?:ed|es|ing) (?:a |the )?(?:practice|walkthrough)|not practicing|left practice|exited practice|did not finish practice/i;
 const positiveCampSignal = /impressive|excel|standout|strong camp|making plays|first-team|starter reps|breakout|\bhot\b/i;
+const practiceStatLine = /\b\d+\s*[-–]of[-–]\s*\d+\b|\b\d+\s*(?:tds?|touchdowns?|ints?|interceptions?|targets?|receptions?|carries|yards)\b/i;
 
 const lateInGameWeek = (publishedAt: string) => {
   const day = new Date(publishedAt).getUTCDay();
@@ -273,6 +280,10 @@ const specificImpact = (story: Story, context: FantasyPlayerContext | null) => {
   if (story.category === "news" && context) {
     const update = `${story.title} ${story.summary}`;
     const affected = context.affectedPlayers.length ? context.affectedPlayers.slice(0, 2).join(" and ") : `the other ${context.team} playmakers`;
+    if (isPracticeSetting(update) && practiceStatLine.test(update)) {
+      const evidence = context.position === "QB" ? "accuracy, first-team reps and passing volume" : context.position === "RB" ? "carries, routes and targets" : "routes, targets and first-team snaps";
+      return `Treat this as one practice sample, not a game result. Track ${context.player}'s ${evidence} across multiple sessions before moving projections.`;
+    }
     if (availabilitySignal.test(update)) {
       return `Check ${context.player}'s next practice participation before changing a lineup or projection. If the absence continues, reassess ${affected}.`;
     }

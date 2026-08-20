@@ -47,7 +47,7 @@ test("social agent is live, sourced, deduplicated, and rate limited", async () =
   assert.match(content, /\\bir\\b/);
   assert.match(content, /arrival changes the \$\{opportunity\}/);
   assert.match(content, /departure opens opportunity/);
-  assert.match(worker, /x-sources-v22-curator-practice-context/);
+  assert.match(worker, /x-sources-v23-practice-stat-context/);
   assert.match(worker, /Jacory Croskey-Merritt is the primary workload beneficiary/);
   assert.match(worker, /parentIsPractice && category === "performance" \? "news"/);
   assert.match(worker, /story_evidence/);
@@ -98,6 +98,22 @@ test("role classification distinguishes a starting-role change from starting an 
   assert.equal(categorizeStory("Evan Engram scored twice in Broncos training camp"), "news");
   assert.equal(categorizeStory("Bo Nix will play about 14 snaps in the preseason game"), "news");
   assert.equal(isSixPointFantasyPlay({ title: "Touchdown in practice", summary: "Evan Engram scored during team drills" }), false);
+});
+
+test("practice stat lines retain versus context and never imply an absence", async () => {
+  const { composeFantasyPost } = await import("../social-agent/src/content.ts");
+  const post = composeFantasyPost({
+    id: "practice-stat-test",
+    title: "Drake Maye in 11-on-11 vs. Eagles on day 2 of joint practice: 9-of-18, 4 TDs, 2 INTs",
+    summary: "Drake Maye in 11-on-11 vs. Eagles on day 2 of joint practice: 9-of-18, 4 TDs, 2 INTs",
+    url: "https://example.com/practice-stat-test",
+    source: "@UnderdogNFL",
+    publishedAt: "2026-08-20T16:05:57.000Z",
+    category: "news",
+  }, { player: "Drake Maye", position: "QB", team: "NE", backups: [], affectedPlayers: ["Stefon Diggs", "Hunter Henry"] });
+  assert.match(post, /vs\. Eagles on day 2 of joint practice/);
+  assert.match(post, /one practice sample, not a game result/);
+  assert.doesNotMatch(post, /next practice participation|absence continues/);
 });
 
 test("transaction classification distinguishes a signing from an absence note", async () => {
