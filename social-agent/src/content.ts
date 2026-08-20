@@ -46,7 +46,7 @@ const atomLink = (xml: string) => {
 export function categorizeStory(text: string): StoryCategory {
   const normalized = text.toLowerCase();
   if (/injur|out for|questionable|doubtful|\bir\b|concussion|surgery|torn|sprain|hamstring|ankle|knee/.test(normalized)) return "injury";
-  if (/signs?|signed|extension|contract|released|waived|traded|trade\b|franchise tag/.test(normalized)) return "contract";
+  if (/\b(?:signs|signed|signing|re-signs|re-signed)\b|extension|contract|released|waived|traded|trade\b|franchise tag/.test(normalized)) return "contract";
   if (/\bstarter\b|\bnamed (?:the )?starter\b|\b(?:will|expected to|set to) start\b|\bstarting (?:at )?(?:quarterback|running back|wide receiver|tight end|kicker|role|job|lineup|offense)\b|depth chart|promoted|demoted|backup|committee|workload/.test(normalized)) return "depth-chart";
   if (/yards|touchdowns?|targets|receptions|carries|snaps|breakout|record/.test(normalized)) return "performance";
   return "news";
@@ -172,7 +172,7 @@ const confirmedAbsence = /ruled out|will not play|won't play|will miss (?:the )?
 const highConcernWeeklyInjury = /doubtful|game-time decision|week-to-week|miss(?:ed|es|ing) (?:a |the )?(?:practice|walkthrough)|did not practice|dnp|concussion/i;
 const mildInjury = /day-to-day|limited|soreness|tightness|bruise|contusion|precautionary|minor|managing|rest day/i;
 const gameDayPlay = /\b(?:touchdown|td|scores?|two-point|[4-9]\d-yard|1\d{2}\s+yards|100-yard|150-yard|200-yard)\b/i;
-const playerAdded = /sign(?:s|ed)?|agreed|acquired|traded for|claimed/i;
+const playerAdded = /\b(?:signs|signed|signing|re-signs|re-signed)\b|agreed|acquired|traded for|claimed/i;
 const playerRemoved = /released|waived|cut|traded away|departed|not re-sign/i;
 const availabilitySignal = /absen|practice|sideline|no helmet|returned|limited|held out|did not participate|dnp/i;
 const positiveCampSignal = /impressive|excel|standout|strong camp|making plays|first-team|starter reps|breakout|\bhot\b/i;

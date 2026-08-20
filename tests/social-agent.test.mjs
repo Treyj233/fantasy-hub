@@ -46,7 +46,7 @@ test("social agent is live, sourced, deduplicated, and rate limited", async () =
   assert.match(content, /\\bir\\b/);
   assert.match(content, /arrival changes the \$\{opportunity\}/);
   assert.match(content, /departure opens opportunity/);
-  assert.match(worker, /x-sources-v13-role-phrase-classification/);
+  assert.match(worker, /x-sources-v14-transaction-verb-classification/);
   assert.match(worker, /gameDayWeatherStories/);
   assert.match(content, /WEATHER WATCH/);
   assert.match(content, /isSixPointFantasyPlay/);
@@ -73,6 +73,13 @@ test("role classification distinguishes a starting-role change from starting an 
   assert.equal(categorizeStory("Bo Nix starting off the day hot"), "news");
   assert.equal(categorizeStory("Bo Nix named the starting quarterback"), "depth-chart");
   assert.equal(categorizeStory("The rookie was promoted to the starting lineup"), "depth-chart");
+});
+
+test("transaction classification distinguishes a signing from an absence note", async () => {
+  const { categorizeStory } = await import("../social-agent/src/content.ts");
+  assert.equal(categorizeStory("No sign of Carnell Tate at practice"), "news");
+  assert.equal(categorizeStory("The Titans signed a running back"), "contract");
+  assert.equal(categorizeStory("The receiver re-signed with the team"), "contract");
 });
 
 test("X posting uses signed user context and never stores credentials in source", async () => {
