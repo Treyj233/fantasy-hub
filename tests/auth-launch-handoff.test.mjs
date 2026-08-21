@@ -23,12 +23,15 @@ test("an existing Clerk session skips the sign-in screen on launch", async () =>
 
 test("native sign-in clears stale Clerk state without a server redirect", async () => {
   const nativeSignIn = await readFile(new URL("../app/native-sign-in/page.tsx", import.meta.url), "utf8");
+  const nativeEmailSignIn = await readFile(new URL("../app/native-email-sign-in.tsx", import.meta.url), "utf8");
   assert.match(nativeSignIn, /useSessionList/);
   assert.match(nativeSignIn, /sessions\.reduce/);
   assert.match(nativeSignIn, /signOut\(\{ sessionId: session\.id \}\)/);
   assert.match(nativeSignIn, /client\.resetSignIn\(\)/);
   assert.match(nativeSignIn, /client\.resetSignUp\(\)/);
   assert.match(nativeSignIn, /if \(!isLoaded \|\| !resetComplete\)/);
-  assert.match(nativeSignIn, /path="\/native-sign-in"/);
+  assert.match(nativeSignIn, /<NativeEmailSignIn \/>/);
+  assert.match(nativeEmailSignIn, /signIn\.password\(\{ emailAddress: normalizedEmail, password \}\)/);
+  assert.match(nativeEmailSignIn, /signIn\.finalize/);
   assert.match(nativeSignIn, /<NativeAppleSignIn \/>/);
 });

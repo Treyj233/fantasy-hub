@@ -9,6 +9,7 @@ test("native Apple authentication returns from the web flow to the iOS app", asy
   const callback = await readFile(new URL("../app/native-auth-return/page.tsx", import.meta.url), "utf8");
   const callbackClient = await readFile(new URL("../app/native-auth-return/return-client.tsx", import.meta.url), "utf8");
   const authIntent = await readFile(new URL("../app/native-auth-intent.tsx", import.meta.url), "utf8");
+  const nativeEmailSignIn = await readFile(new URL("../app/native-email-sign-in.tsx", import.meta.url), "utf8");
   const runtime = await readFile(new URL("../app/native-runtime.ts", import.meta.url), "utf8");
   assert.match(hub, /const nativeIos = isNativeIosApp\(\)/);
   assert.match(hub, /const signInHref = nativeIos \? "\/native-sign-in" : "\/sign-in"/);
@@ -33,6 +34,7 @@ test("native Apple authentication returns from the web flow to the iOS app", asy
   assert.doesNotMatch(authIntent, /useSignIn/);
   assert.doesNotMatch(authIntent, /signIn\.identifier/);
   assert.match(authIntent, /document\.addEventListener\("input", rememberTypedEmail, true\)/);
+  assert.match(nativeEmailSignIn, /localStorage\.setItem\(NATIVE_AUTH_EMAIL_KEY, normalizedEmail\)/);
   assert.match(callbackClient, /body: JSON\.stringify\(\{ expectedEmail \}\)/);
   assert.match(callbackClient, /setError\(cause instanceof Error \? cause\.message/);
   assert.match(runtime, /url\.hostname === "auth" && url\.pathname === "\/complete"/);
