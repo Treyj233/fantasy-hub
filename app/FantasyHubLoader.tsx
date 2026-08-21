@@ -43,12 +43,28 @@ function AuthAwareFantasyHubLoader({
     }
   });
 
+  function clearNativeBootstrapCache() {
+    for (let index = window.localStorage.length - 1; index >= 0; index -= 1) {
+      const key = window.localStorage.key(index);
+      if (key?.startsWith("fantasy-hub-account-bootstrap:") || key?.startsWith("fantasy-hub-league-bootstrap:"))
+        window.localStorage.removeItem(key);
+    }
+    window.localStorage.removeItem("fantasy-hub-native-user");
+    window.localStorage.removeItem("fantasy-hub-active-league");
+  }
+
   useEffect(() => {
     if (!clientBootstrap) return;
     const controller = new AbortController();
     const timeout = window.setTimeout(() => controller.abort(), 8000);
     void fetch("/api/v1/bootstrap", { signal: controller.signal })
       .then(async (response) => {
+        if (response.status === 401) {
+          clearNativeBootstrapCache();
+          setNativeAccountUser(null);
+          window.location.replace("/sign-in?native=ios");
+          return;
+        }
         if (!response.ok) throw new Error("Native bootstrap unavailable");
         const payload = await response.json() as { user?: { displayName?: string; email?: string } };
         if (!payload.user?.email) throw new Error("Native session unavailable");

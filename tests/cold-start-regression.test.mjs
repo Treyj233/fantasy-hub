@@ -40,6 +40,9 @@ test("native bootstrap cannot remain indefinitely on the launch splash", async (
   const loader = await readFile(new URL("../app/FantasyHubLoader.tsx", import.meta.url), "utf8");
   assert.match(loader, /window\.setTimeout\(\(\) => controller\.abort\(\), 8000\)/);
   assert.match(loader, /window\.location\.replace\("\/sign-in\?native=ios"\)/);
+  assert.match(loader, /if \(response\.status === 401\)/);
+  assert.match(loader, /clearNativeBootstrapCache\(\)/);
+  assert.match(loader, /window\.localStorage\.removeItem\("fantasy-hub-native-user"\)/);
 });
 
 test("cached native shells from every year-cached release retain their entry bundles", async () => {
