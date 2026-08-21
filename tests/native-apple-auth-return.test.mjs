@@ -36,6 +36,11 @@ test("native Apple authentication returns from the web flow to the iOS app", asy
   assert.doesNotMatch(authIntent, /signIn\.identifier/);
   assert.match(authIntent, /document\.addEventListener\("input", rememberTypedEmail, true\)/);
   assert.match(nativeEmailSignIn, /localStorage\.setItem\(NATIVE_AUTH_EMAIL_KEY, normalizedEmail\)/);
+  assert.match(nativeEmailSignIn, /new FormData\(event\.currentTarget\)/);
+  assert.match(nativeEmailSignIn, /formData\.get\("email"\)/);
+  assert.match(nativeEmailSignIn, /await client\.setActive\(\{ session: null \}\)/);
+  assert.match(nativeEmailSignIn, /name="email"/);
+  assert.match(nativeEmailSignIn, /name="password"/);
   assert.match(nativeAppleSignIn, /if \(!result\.redirect\) throw new Error/);
   assert.match(nativeAppleSignIn, /window\.location\.replace\("\/native-app\?handoff=1"\)/);
   assert.match(callbackClient, /body: JSON\.stringify\(\{ expectedEmail \}\)/);
