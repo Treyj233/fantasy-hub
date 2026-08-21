@@ -113,12 +113,14 @@ test("Apple renewals reconcile from server notifications and native app launch",
   assert.match(dashboard, /isNativeIosApp\(\)\) await nativeRestorePurchases\(\)/);
 });
 
-test("Apple purchases migrate across Clerk identities only for the same verified email", async () => {
+test("Apple purchases migrate for the same verified email or an authenticated owner recovery", async () => {
   const source = await readFile(new URL("../app/api/billing/apple/route.ts", import.meta.url), "utf8");
   assert.match(source, /previousSubscription/);
   assert.match(source, /previousSubscription\?\.email\?\.trim\(\)\.toLowerCase\(\)/);
   assert.match(source, /user\.email\.trim\(\)\.toLowerCase\(\)/);
-  assert.match(source, /previousEmail !== currentEmail/);
+  assert.match(source, /previousEmail === currentEmail/);
+  assert.match(source, /entitlementFor\(user\.userId, user\.email\)\)\.owner/);
+  assert.match(source, /!sameVerifiedEmail && !ownerRecovery/);
   assert.match(source, /linked to another Fantasy Hub login/);
   assert.match(source, /eq\(subscriptions\.userId, claimed\.userId\)/);
   assert.match(source, /persistAppleEntitlement\(verified, user\.userId, user\.email\)/);
