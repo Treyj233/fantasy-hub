@@ -20,8 +20,32 @@ export async function POST(request: Request) {
     const db = await getDb();
     const [claimed] = await db.select().from(appStoreTransactions)
       .where(eq(appStoreTransactions.originalTransactionId, verified.originalTransactionId)).limit(1);
-    if (claimed && claimed.userId !== user.userId)
-      return Response.json({ error: "This App Store purchase belongs to another Fantasy Hub account" }, { status: 409 });
+    if (claimed && claimed.userId !== user.userId) {
+      const [previousSubscription] = await db.select({ email: subscriptions.email })
+        .from(subscriptions)
+        .where(eq(subscriptions.userId, claimed.userId))
+        .limit(1);
+      const previousEmail = previousSubscription?.email?.trim().toLowerCase();
+      const currentEmail = user.email.trim().toLowerCase();
+      if (!previousEmail || previousEmail !== currentEmail) {
+        return Response.json({
+          error: "This App Store subscription is linked to another Fantasy Hub login. Sign in with the Fantasy Hub email that originally claimed it, then restore purchases.",
+        }, { status: 409 });
+      }
+
+      // Clerk can issue a new user ID for the same verified email after an auth
+      // migration. Move the entitlement forward instead of stranding the Apple
+      // subscription on the stale identity, while preventing duplicate access.
+      await db.update(subscriptions).set({
+        plan: "free",
+        status: "canceled",
+        currentPeriodEnd: null,
+        updatedAt: new Date().toISOString(),
+      }).where(and(
+        eq(subscriptions.userId, claimed.userId),
+        inArray(subscriptions.provider, ["apple", "app_store"]),
+      ));
+    }
     const entitlement = await persistAppleEntitlement(verified, user.userId, user.email);
     return Response.json({ verified: true, active: entitlement.active, productId: verified.productId, currentPeriodEnd: entitlement.currentPeriodEnd });
   } catch (error) {
