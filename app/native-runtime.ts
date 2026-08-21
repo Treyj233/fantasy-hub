@@ -88,6 +88,14 @@ export async function nativePurchase(productId: string) {
       ? Date.parse(transaction.expirationDate)
       : Number.NaN;
     if (Number.isFinite(expirationTime) && expirationTime <= Date.now()) {
+      // Force StoreKit to reconcile its subscription-group state after the
+      // expired transaction is finished. Without this sync, TestFlight can
+      // immediately replay the same historical monthly/annual transaction and
+      // never present a fresh Apple confirmation sheet.
+      const restored = await StoreKit.restore();
+      for (const entitlement of restored.transactions) {
+        if (await verifyNativeTransaction(entitlement)) return "active";
+      }
       transaction = await StoreKit.purchase({ productId });
       if (transaction.status === "cancelled") return "cancelled";
       if (transaction.status === "pending") return "pending";
