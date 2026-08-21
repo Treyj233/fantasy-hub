@@ -18,6 +18,7 @@ test("native Apple authentication returns from the web flow to the iOS app", asy
   assert.match(callback, /<NativeAuthReturnClient \/>/);
   assert.match(callbackClient, /window\.location\.replace\("\/native-app\?handoff=1"\)/);
   assert.match(callbackClient, /sessions\.find/);
+  assert.match(callbackClient, /newestSession/);
   assert.match(callbackClient, /setActive\(\{ session: matchingSession\.id \}\)/);
   assert.match(callbackClient, /body: JSON\.stringify\(\{ expectedEmail \}\)/);
   assert.match(runtime, /url\.hostname === "auth" && url\.pathname === "\/complete"/);

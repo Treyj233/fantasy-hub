@@ -11,12 +11,16 @@ export default function NativeAuthReturnClient() {
   async function finishSignIn() {
     if (!isLoaded) return;
     try {
-      const expectedEmail = window.sessionStorage.getItem(NATIVE_AUTH_EMAIL_KEY)?.trim().toLowerCase() ?? "";
-      const matchingSession = expectedEmail
-        ? sessions.find((session) => session.user.primaryEmailAddress?.emailAddress.trim().toLowerCase() === expectedEmail)
-        : undefined;
-      if (expectedEmail && !matchingSession) throw new Error("Selected account session was not created");
-      if (matchingSession) await setActive({ session: matchingSession.id });
+      const enteredEmail = window.localStorage.getItem(NATIVE_AUTH_EMAIL_KEY)?.trim().toLowerCase() ?? "";
+      const newestSession = [...sessions].sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime())[0];
+      const matchingSession = enteredEmail
+        ? sessions.find((session) => session.user?.primaryEmailAddress?.emailAddress.trim().toLowerCase() === enteredEmail)
+        : newestSession;
+      if (!matchingSession) throw new Error("Selected account session was not created");
+      const expectedEmail = matchingSession.user?.primaryEmailAddress?.emailAddress.trim().toLowerCase() ?? "";
+      if (!expectedEmail || (enteredEmail && expectedEmail !== enteredEmail))
+        throw new Error("Selected account session did not match the entered email");
+      await setActive({ session: matchingSession.id });
       const response = await fetch("/api/native-auth/session", {
         method: "POST",
         credentials: "include",
@@ -25,7 +29,7 @@ export default function NativeAuthReturnClient() {
         body: JSON.stringify({ expectedEmail }),
       });
       if (!response.ok) throw new Error("Unable to activate the native session");
-      window.sessionStorage.removeItem(NATIVE_AUTH_EMAIL_KEY);
+      window.localStorage.removeItem(NATIVE_AUTH_EMAIL_KEY);
       window.location.replace("/native-app?handoff=1");
     } catch {
       setError(true);
