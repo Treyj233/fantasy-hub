@@ -38,8 +38,10 @@ test("native Apple authentication returns from the web flow to the iOS app", asy
   assert.match(nativeEmailSignIn, /localStorage\.setItem\(NATIVE_AUTH_EMAIL_KEY, normalizedEmail\)/);
   assert.match(nativeEmailSignIn, /new FormData\(event\.currentTarget\)/);
   assert.match(nativeEmailSignIn, /formData\.get\("email"\)/);
-  assert.match(nativeEmailSignIn, /const \{ client, setActive \} = useClerk\(\)/);
-  assert.match(nativeEmailSignIn, /await setActive\(\{ session: null \}\)/);
+  assert.match(nativeEmailSignIn, /const \{ client, signOut \} = useClerk\(\)/);
+  assert.match(nativeEmailSignIn, /fetch\("\/api\/native-auth\/session\?native=ios"/);
+  assert.match(nativeEmailSignIn, /signOut\(\{ sessionId: session\.id \}\)/);
+  assert.match(nativeEmailSignIn, /client\.resetSignIn\(\)/);
   assert.match(nativeEmailSignIn, /name="email"/);
   assert.match(nativeEmailSignIn, /name="password"/);
   assert.match(nativeAppleSignIn, /if \(!result\.redirect\) throw new Error/);

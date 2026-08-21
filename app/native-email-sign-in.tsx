@@ -5,7 +5,7 @@ import { FormEvent, useState } from "react";
 import { NATIVE_AUTH_EMAIL_KEY } from "./native-auth-intent";
 
 export default function NativeEmailSignIn() {
-  const { client, setActive } = useClerk();
+  const { client, signOut } = useClerk();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [working, setWorking] = useState(false);
@@ -26,10 +26,21 @@ export default function NativeEmailSignIn() {
     setError("");
     window.localStorage.setItem(NATIVE_AUTH_EMAIL_KEY, normalizedEmail);
     try {
-      // Do not let a Clerk session left in the WebView satisfy a new email
-      // attempt. The password attempt below must create a session for the
-      // identifier that was explicitly submitted.
-      await setActive({ session: null });
+      // Remove both authentication layers before trying another identifier.
+      // Otherwise Clerk's multi-session state or the native cookie can restore
+      // the previously used Gmail account when this identifier is unavailable.
+      const resetResponse = await fetch("/api/native-auth/session?native=ios", {
+        method: "DELETE",
+        cache: "no-store",
+        credentials: "include",
+      });
+      if (!resetResponse.ok) throw new Error("Fantasy Hub could not clear the previous account");
+      await client.sessions.reduce(
+        (pending, session) => pending.then(() => signOut({ sessionId: session.id })),
+        Promise.resolve(),
+      );
+      client.resetSignIn();
+      client.clearCache();
       const completedSignIn = await client.signIn.create({
         identifier: normalizedEmail,
         password: submittedPassword,
