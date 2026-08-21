@@ -1,20 +1,19 @@
 "use client";
 
-import { useSessionList, useSignIn, useSignUp } from "@clerk/nextjs";
+import { useClerk, useSessionList } from "@clerk/nextjs";
 import { useEffect, useState } from "react";
 import { NATIVE_AUTH_EMAIL_KEY } from "../native-auth-intent";
 
 export default function NativeAuthReturnClient() {
   const { isLoaded, sessions, setActive } = useSessionList();
-  const { isLoaded: signInLoaded, signIn } = useSignIn();
-  const { isLoaded: signUpLoaded, signUp } = useSignUp();
+  const { client } = useClerk();
   const [error, setError] = useState(false);
 
   async function finishSignIn() {
-    if (!isLoaded || !signInLoaded || !signUpLoaded) return;
+    if (!isLoaded) return;
     try {
-      const createdSessionId = signIn.createdSessionId ?? signUp.createdSessionId;
-      const clerkIdentifier = signIn.identifier ?? signUp.emailAddress;
+      const createdSessionId = client.signIn.createdSessionId ?? client.signUp.createdSessionId;
+      const clerkIdentifier = client.signIn.identifier ?? client.signUp.emailAddress;
       const enteredEmail = (clerkIdentifier ?? window.localStorage.getItem(NATIVE_AUTH_EMAIL_KEY) ?? "").trim().toLowerCase();
       const matchingSession = createdSessionId
         ? sessions.find((session) => session.id === createdSessionId)
@@ -52,10 +51,10 @@ export default function NativeAuthReturnClient() {
   }
 
   useEffect(() => {
-    if (isLoaded && signInLoaded && signUpLoaded) void finishSignIn();
+    if (isLoaded) void finishSignIn();
     // The destination is stable for the lifetime of this handoff.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoaded, signInLoaded, signUpLoaded]);
+  }, [isLoaded]);
 
   return <main className="launch-splash" role="status" aria-live="polite">
     <section className="launch-splash-lockup">
