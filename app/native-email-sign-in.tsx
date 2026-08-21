@@ -22,9 +22,12 @@ export default function NativeEmailSignIn() {
     try {
       const result = await signIn.password({ emailAddress: normalizedEmail, password });
       if (result.error) throw new Error(result.error.message || "Email or password was not accepted");
-      const finalized = await signIn.finalize();
+      const finalized = await signIn.finalize({
+        navigate: async ({ decorateUrl }) => {
+          window.location.href = decorateUrl("/native-auth-return");
+        },
+      });
       if (finalized.error) throw new Error(finalized.error.message || "Email sign-in could not be completed");
-      window.location.replace("/native-auth-return");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Email sign-in could not be completed");
       setWorking(false);

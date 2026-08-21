@@ -32,7 +32,8 @@ test("native sign-in clears stale Clerk state without a server redirect", async 
   assert.match(nativeSignIn, /if \(!isLoaded \|\| !resetComplete\)/);
   assert.match(nativeSignIn, /<NativeEmailSignIn \/>/);
   assert.match(nativeEmailSignIn, /signIn\.password\(\{ emailAddress: normalizedEmail, password \}\)/);
-  assert.match(nativeEmailSignIn, /signIn\.finalize\(\)/);
-  assert.match(nativeEmailSignIn, /window\.location\.replace\("\/native-auth-return"\)/);
+  assert.match(nativeEmailSignIn, /signIn\.finalize\(\{/);
+  assert.match(nativeEmailSignIn, /navigate: async \(\{ decorateUrl \}\)/);
+  assert.match(nativeEmailSignIn, /window\.location\.href = decorateUrl\("\/native-auth-return"\)/);
   assert.match(nativeSignIn, /<NativeAppleSignIn \/>/);
 });
