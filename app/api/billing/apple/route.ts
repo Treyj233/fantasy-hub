@@ -4,7 +4,6 @@ import { appStoreTransactions, subscriptions } from "../../../../db/schema";
 import { verifyAppleTransaction } from "../../../app-store";
 import { persistAppleEntitlement } from "../../../apple-entitlement-sync";
 import { getChatGPTUser } from "../../../chatgpt-auth";
-import { entitlementFor } from "../../../entitlements";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -29,8 +28,7 @@ export async function POST(request: Request) {
       const previousEmail = previousSubscription?.email?.trim().toLowerCase();
       const currentEmail = user.email.trim().toLowerCase();
       const sameVerifiedEmail = Boolean(previousEmail && previousEmail === currentEmail);
-      const ownerRecovery = sameVerifiedEmail ? false : (await entitlementFor(user.userId, user.email)).owner;
-      if (!sameVerifiedEmail && !ownerRecovery) {
+      if (!sameVerifiedEmail) {
         return Response.json({
           error: "This App Store subscription is linked to another Fantasy Hub login. Sign in with the Fantasy Hub email that originally claimed it, then restore purchases.",
         }, { status: 409 });
