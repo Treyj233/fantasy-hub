@@ -1507,14 +1507,20 @@ export default function FantasyHub({
 }) {
   const cachedAccount = cachedAccountBootstrap(accountUser?.email);
   const [view, setView] = useState<View>("All Leagues");
+  const [draftStylesReady, setDraftStylesReady] = useState(false);
   useEffect(() => {
     if (view === "Trade Lab") void import("./trade-calculator.css");
     if (view === "Player Rankings" || view === "ADP") void import("./player-ranks.css");
-    if (view === "Draft HQ") {
-      void import("./draft-dashboard.css");
-      void import("./draft-dashboard-list.css");
-    }
-  }, [view]);
+    if (view !== "Draft HQ" || draftStylesReady) return;
+    let active = true;
+    void Promise.all([
+      import("./draft-dashboard.css"),
+      import("./draft-dashboard-list.css"),
+    ]).then(() => {
+      if (active) setDraftStylesReady(true);
+    });
+    return () => { active = false; };
+  }, [view, draftStylesReady]);
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: "auto" });
     document.documentElement.scrollTop = 0;
@@ -3143,7 +3149,15 @@ export default function FantasyHub({
             setSelectedPlayer={setSelectedPlayer}
           />
         )}
-        {view === "Draft HQ" && entitlement.owner && (
+        {view === "Draft HQ" && entitlement.owner && !draftStylesReady && (
+          <section className="draft-hq-style-loader panel" aria-live="polite">
+            <span>DRAFT HQ</span>
+            <strong>Setting your draft room…</strong>
+            <p>Loading the board, player pool, roster settings, and theme.</p>
+            <div className="load-progress indeterminate" role="progressbar" aria-label="Loading Draft HQ"><span /></div>
+          </section>
+        )}
+        {view === "Draft HQ" && entitlement.owner && draftStylesReady && (
           <DraftDashboard
             key={`${leagueId}:${rankingContext?.teams ?? 0}:${rankingContext?.rosterSlots.join(",") ?? ""}:${selectedTeamId}`}
             players={leagueRankings}
