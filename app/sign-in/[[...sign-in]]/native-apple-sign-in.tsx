@@ -17,7 +17,7 @@ export default function NativeAppleSignIn({ mode = "sign-in" }: { mode?: "sign-i
       if (result.cancelled) return;
       if (!result.authenticated) throw new Error(signingUp ? "Clerk did not create your secure account." : "Clerk did not create a secure session.");
       if (!result.redirect) throw new Error("Fantasy Hub did not receive a secure browser session.");
-      window.location.replace(result.redirect);
+      window.location.replace("/native-app?handoff=1");
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : signingUp ? "Apple account creation could not be completed." : "Apple sign-in could not be completed.");
     } finally {
