@@ -61,15 +61,12 @@ class FantasyHubAppleAuthPlugin: CAPPlugin, CAPBridgedPlugin {
         Clerk.configure(publishableKey: Self.clerkPublishableKey)
         defer { finishRequest() }
         do {
-            let sessionToken: String
-            if let existingToken = try await Clerk.shared.auth.getToken(.init(skipCache: true)) {
-                sessionToken = existingToken
-            } else {
-                _ = try await Clerk.shared.auth.signInWithApple()
-                guard let newToken = try await Clerk.shared.auth.getToken(.init(skipCache: true)) else {
-                    throw NativeAppleAuthError.missingClerkSession
-                }
-                sessionToken = newToken
+            // Account selection must always be explicit. Reusing Clerk's
+            // persisted token can silently restore a previously used account.
+            try? await Clerk.shared.auth.signOut()
+            _ = try await Clerk.shared.auth.signInWithApple()
+            guard let sessionToken = try await Clerk.shared.auth.getToken(.init(skipCache: true)) else {
+                throw NativeAppleAuthError.missingClerkSession
             }
             let nativeSession = try await exchangeForNativeSession(sessionToken)
             try await installNativeSessionCookie(nativeSession)
