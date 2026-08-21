@@ -28,15 +28,18 @@ export async function POST(request: Request) {
       const previousEmail = previousSubscription?.email?.trim().toLowerCase();
       const currentEmail = user.email.trim().toLowerCase();
       const sameVerifiedEmail = Boolean(previousEmail && previousEmail === currentEmail);
-      if (!sameVerifiedEmail) {
+      const isSandboxTransaction = verified.environment.trim().toLowerCase() === "sandbox";
+      if (!sameVerifiedEmail && !isSandboxTransaction) {
         return Response.json({
           error: "This App Store subscription is linked to another Fantasy Hub login. Sign in with the Fantasy Hub email that originally claimed it, then restore purchases.",
         }, { status: 409 });
       }
 
       // Clerk can issue a new user ID for the same verified email after an auth
-      // migration. Move the entitlement forward instead of stranding the Apple
-      // subscription on the stale identity, while preventing duplicate access.
+      // migration. TestFlight also reuses sandbox Apple subscriptions across
+      // app logins on the same test device. Move either entitlement forward
+      // while preventing duplicate access. Production purchases remain locked
+      // to the original verified Fantasy Hub email.
       await db.update(subscriptions).set({
         plan: "free",
         status: "canceled",
