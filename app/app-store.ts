@@ -5,6 +5,9 @@ export const APP_STORE_PRODUCTS = new Set([
   "com.fantasyhubapp.elite.monthly",
   "com.fantasyhubapp.elite.season",
   "com.fantasyhubapp.elite.annual",
+  "com.fantasyhubapp.theme.aurora",
+  "com.fantasyhubapp.theme.primetime",
+  "com.fantasyhubapp.theme.sunset",
 ]);
 
 export type VerifiedAppleTransaction = {

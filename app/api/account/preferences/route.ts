@@ -41,13 +41,13 @@ export async function POST(request: Request) {
   if (payload.acquireTeamTheme) {
     if (!teamIds.has(payload.acquireTeamTheme)) return Response.json({ error: "Invalid team theme" }, { status: 400 });
     if (!entitlement.pro) return Response.json({ error: "Theme purchase required" }, { status: 402 });
-    if (premiumTeamIds.has(payload.acquireTeamTheme) && !entitlement.owner) return Response.json({ error: "Coming soon" }, { status: 403 });
+    if (premiumTeamIds.has(payload.acquireTeamTheme) && !entitlement.owner && !entitlement.elite) return Response.json({ error: "Theme purchase required" }, { status: 402 });
     ownedTeamThemes.push(payload.acquireTeamTheme);
   }
   if (payload.acquireBadgeTheme) {
     if (!badgeThemes.has(payload.acquireBadgeTheme)) return Response.json({ error: "Invalid badge theme" }, { status: 400 });
     if (!entitlement.pro) return Response.json({ error: "Theme purchase required" }, { status: 402 });
-    if (premiumBadgeThemes.has(payload.acquireBadgeTheme) && !entitlement.owner) return Response.json({ error: "Coming soon" }, { status: 403 });
+    if (premiumBadgeThemes.has(payload.acquireBadgeTheme) && !entitlement.owner && !entitlement.elite) return Response.json({ error: "Theme purchase required" }, { status: 402 });
     ownedBadgeThemes.push(payload.acquireBadgeTheme);
   }
   const nextTeamTheme = payload.teamTheme ?? current?.teamTheme ?? "LAC";

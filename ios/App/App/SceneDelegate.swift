@@ -174,6 +174,9 @@ class FantasyHubStoreKitPlugin: CAPPlugin, CAPBridgedPlugin {
         "com.fantasyhubapp.elite.monthly",
         "com.fantasyhubapp.elite.season",
         "com.fantasyhubapp.elite.annual",
+        "com.fantasyhubapp.theme.aurora",
+        "com.fantasyhubapp.theme.primetime",
+        "com.fantasyhubapp.theme.sunset",
     ]
 
     private let seasonProductIds: Set<String> = [

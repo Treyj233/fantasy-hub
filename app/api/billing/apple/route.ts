@@ -21,7 +21,7 @@ export async function POST(request: Request) {
     const [claimed] = await db.select().from(appStoreTransactions)
       .where(eq(appStoreTransactions.originalTransactionId, verified.originalTransactionId)).limit(1);
     if (claimed && claimed.userId !== user.userId)
-      return Response.json({ error: "This App Store subscription belongs to another Fantasy Hub account" }, { status: 409 });
+      return Response.json({ error: "This App Store purchase belongs to another Fantasy Hub account" }, { status: 409 });
     const entitlement = await persistAppleEntitlement(verified, user.userId, user.email);
     return Response.json({ verified: true, active: entitlement.active, productId: verified.productId, currentPeriodEnd: entitlement.currentPeriodEnd });
   } catch (error) {
