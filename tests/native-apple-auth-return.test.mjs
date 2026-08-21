@@ -20,6 +20,7 @@ test("native Apple authentication returns from the web flow to the iOS app", asy
   assert.match(callbackClient, /window\.location\.replace\("\/native-app\?handoff=1"\)/);
   assert.match(callbackClient, /useClerk/);
   assert.match(callbackClient, /client\.signIn\.createdSessionId \?\? client\.signUp\.createdSessionId/);
+  assert.match(callbackClient, /window\.localStorage\.getItem\(NATIVE_AUTH_EMAIL_KEY\) \?\? clerkIdentifier/);
   assert.match(callbackClient, /sessions\.find\(\(session\) => session\.id === createdSessionId\)/);
   assert.match(callbackClient, /setActive\(\{ session: matchingSession\.id \}\)/);
   assert.match(callbackClient, /matchingSession\.getToken\(\{ skipCache: true \}\)/);

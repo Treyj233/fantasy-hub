@@ -14,7 +14,10 @@ export default function NativeAuthReturnClient() {
     try {
       const createdSessionId = client.signIn.createdSessionId ?? client.signUp.createdSessionId;
       const clerkIdentifier = client.signIn.identifier ?? client.signUp.emailAddress;
-      const enteredEmail = (clerkIdentifier ?? window.localStorage.getItem(NATIVE_AUTH_EMAIL_KEY) ?? "").trim().toLowerCase();
+      // Clerk can retain the identifier from an older attempt after a new
+      // session has completed. Prefer the address captured from the current
+      // native form so a stale account cannot invalidate the new session.
+      const enteredEmail = (window.localStorage.getItem(NATIVE_AUTH_EMAIL_KEY) ?? clerkIdentifier ?? "").trim().toLowerCase();
       const matchingSession = createdSessionId
         ? sessions.find((session) => session.id === createdSessionId)
         : undefined;
