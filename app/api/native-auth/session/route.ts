@@ -15,9 +15,16 @@ export async function DELETE(request: Request) {
   return new Response(null, { status: 204, headers });
 }
 
-export async function POST() {
+export async function POST(request: Request) {
   const headers = new Headers({ "Cache-Control": "no-store" });
   headers.append("Set-Cookie", `fh_native_signed_out=; ${cookieBase}; Max-Age=0`);
+  let expectedEmail = "";
+  try {
+    const body = await request.json() as { expectedEmail?: string };
+    expectedEmail = body.expectedEmail?.trim().toLowerCase() ?? "";
+  } catch {
+    // Native Apple exchange and older clients do not provide an email guard.
+  }
   const [{ userId }, keys] = await Promise.all([auth(), getClerkRuntimeKeys()]);
   if (!userId || !keys) return new Response(null, { status: 204, headers });
 
@@ -26,7 +33,9 @@ export async function POST() {
     const primaryEmail = user.emailAddresses.find((entry) => entry.id === user.primaryEmailAddressId);
     if (primaryEmail?.verification?.status !== "verified")
       return Response.json({ error: "A verified email is required" }, { status: 401, headers });
-    const email = primaryEmail.emailAddress;
+    const email = primaryEmail.emailAddress.trim().toLowerCase();
+    if (expectedEmail && email !== expectedEmail)
+      return Response.json({ error: "The authenticated account did not match the selected email" }, { status: 409, headers });
     const displayName = [user.firstName, user.lastName].filter(Boolean).join(" ") || user.username || email;
     const session = await createNativeSession(userId, keys.secretKey, { email, displayName });
     headers.append("Set-Cookie", `fh_native_session=${session}; ${cookieBase}; Max-Age=2592000`);

@@ -3,6 +3,7 @@
 import { SignIn, useClerk, useSessionList } from "@clerk/nextjs";
 import { useEffect, useRef, useState } from "react";
 import { nativeEmailOnlyClerkAppearance } from "../entry-theme";
+import NativeAuthIntent from "../native-auth-intent";
 import NativeAppleSignIn from "../sign-in/[[...sign-in]]/native-apple-sign-in";
 
 export default function NativeSignInPage() {
@@ -37,6 +38,7 @@ export default function NativeSignInPage() {
   return <main className="clerk-auth-shell chargers-entry-shell">
     <a className="clerk-auth-brand" href="/" aria-label="Fantasy Hub home">FH</a>
     <div className="native-auth-card-stack">
+      <NativeAuthIntent />
       <NativeAppleSignIn />
       <SignIn
         routing="path"
