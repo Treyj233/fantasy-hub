@@ -5,13 +5,14 @@ import test from "node:test";
 test("signing out clears native and browser sessions with branded feedback", async () => {
   const source = await readFile(new URL("../app/sign-out/page.tsx", import.meta.url), "utf8");
 
-  assert.match(source, /signOut\(\{ redirectUrl: "\/sign-in" \}\)/);
+  assert.match(source, /useSessionList/);
+  assert.match(source, /signOut\(\{ sessionId: session\.id \}\)/);
   assert.match(source, /nativeIos \? "\?native=ios" : ""/);
   assert.match(source, /method: "DELETE"/);
   assert.match(source, /nativeAppleSignOut/);
   assert.match(
     source,
-    /if \(nativeIos\) \{[\s\S]*?await nativeAppleSignOut\(\)\.catch\(\(\) => undefined\);[\s\S]*?await signOut\(\{ redirectUrl: "\/native-sign-in" \}\);/,
+    /if \(nativeIos\) \{[\s\S]*?await nativeAppleSignOut\(\)\.catch\(\(\) => undefined\);[\s\S]*?sessions\.reduce[\s\S]*?window\.location\.replace\("\/native-sign-in"\)/,
   );
   assert.doesNotMatch(source, /window\.location\.replace\("\/sign-in\?native=ios"\)/);
   assert.match(source, /chargers-entry-shell/);

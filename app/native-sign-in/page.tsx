@@ -1,27 +1,32 @@
 "use client";
 
-import { SignIn, useAuth, useClerk } from "@clerk/nextjs";
+import { SignIn, useClerk, useSessionList } from "@clerk/nextjs";
 import { useEffect, useRef, useState } from "react";
 import { nativeEmailOnlyClerkAppearance } from "../entry-theme";
 import NativeAppleSignIn from "../sign-in/[[...sign-in]]/native-apple-sign-in";
 
 export default function NativeSignInPage() {
-  const { isLoaded, isSignedIn } = useAuth();
+  const { isLoaded, sessions } = useSessionList();
   const { signOut } = useClerk();
   const resetRequested = useRef(false);
+  const [resetComplete, setResetComplete] = useState(false);
   const [resetError, setResetError] = useState(false);
 
   useEffect(() => {
-    if (!isLoaded || !isSignedIn || resetRequested.current) return;
+    if (!isLoaded || resetRequested.current) return;
     resetRequested.current = true;
-    void signOut()
+    void sessions.reduce(
+      (pending, session) => pending.then(() => signOut({ sessionId: session.id })),
+      Promise.resolve(),
+    )
+      .then(() => setResetComplete(true))
       .catch(() => {
         resetRequested.current = false;
         setResetError(true);
       });
-  }, [isLoaded, isSignedIn, signOut]);
+  }, [isLoaded, sessions, signOut]);
 
-  if (!isLoaded || isSignedIn) return <main className="launch-splash" role="status" aria-live="polite">
+  if (!isLoaded || !resetComplete) return <main className="launch-splash" role="status" aria-live="polite">
     <section className="launch-splash-lockup">
       <div className="launch-splash-logo"><span aria-hidden="true" /><img src="/marketing/app-store/fh-blue-app-mark.png" alt="Fantasy Hub" /></div>
       <p>{resetError ? "Fantasy Hub could not switch accounts" : "Preparing secure sign-in"}</p>

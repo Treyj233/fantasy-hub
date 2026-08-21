@@ -1,15 +1,17 @@
 "use client";
 
-import { useClerk } from "@clerk/nextjs";
+import { useClerk, useSessionList } from "@clerk/nextjs";
 import { useEffect, useState } from "react";
 import { isNativeIosApp, nativeAppleSignOut } from "../native-runtime";
 
 export default function SignOutPage() {
   const { signOut } = useClerk();
+  const { isLoaded, sessions } = useSessionList();
   const [error, setError] = useState(false);
   const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
+    if (!isLoaded) return;
     void (async () => {
       try {
         const nativeIos = isNativeIosApp();
@@ -30,16 +32,24 @@ export default function SignOutPage() {
           // Its absence must never prevent the active Clerk WebView account
           // from being cleared and replaced with a different login.
           await nativeAppleSignOut().catch(() => undefined);
-          await signOut({ redirectUrl: "/native-sign-in" });
+          await sessions.reduce(
+            (pending, session) => pending.then(() => signOut({ sessionId: session.id })),
+            Promise.resolve(),
+          );
+          window.location.replace("/native-sign-in");
           return;
         }
-        await signOut({ redirectUrl: "/sign-in" });
+        await sessions.reduce(
+          (pending, session) => pending.then(() => signOut({ sessionId: session.id })),
+          Promise.resolve(),
+        );
+        window.location.replace("/sign-in");
       } catch (signOutError) {
         console.error("Fantasy Hub sign-out failed", signOutError);
         setError(true);
       }
     })();
-  }, [attempt, signOut]);
+  }, [attempt, isLoaded, sessions, signOut]);
 
   return (
     <main className="clerk-auth-shell chargers-entry-shell">
