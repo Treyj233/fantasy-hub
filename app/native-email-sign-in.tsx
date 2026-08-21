@@ -45,6 +45,9 @@ export default function NativeEmailSignIn() {
         const payload = await response.json().catch(() => ({})) as { error?: string };
         throw new Error(payload.error || "Unable to activate the native email session");
       }
+      const nativeSession = await response.json() as { session?: string; email?: string };
+      if (!nativeSession.session || nativeSession.email?.trim().toLowerCase() !== normalizedEmail)
+        throw new Error("Native email session did not match the selected account");
       for (let index = window.localStorage.length - 1; index >= 0; index -= 1) {
         const key = window.localStorage.key(index);
         if (key?.startsWith("fantasy-hub-account-bootstrap:") || key?.startsWith("fantasy-hub-league-bootstrap:"))
@@ -53,7 +56,18 @@ export default function NativeEmailSignIn() {
       window.localStorage.removeItem("fantasy-hub-native-user");
       window.localStorage.removeItem("fantasy-hub-active-league");
       window.localStorage.removeItem(NATIVE_AUTH_EMAIL_KEY);
-      window.location.replace("/native-app?handoff=1");
+      const installForm = document.createElement("form");
+      installForm.method = "POST";
+      installForm.action = "/api/native-auth/install";
+      for (const [name, value] of Object.entries({ session: nativeSession.session, expectedEmail: normalizedEmail })) {
+        const input = document.createElement("input");
+        input.type = "hidden";
+        input.name = name;
+        input.value = value;
+        installForm.appendChild(input);
+      }
+      document.body.appendChild(installForm);
+      installForm.submit();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Email sign-in could not be completed");
       setWorking(false);

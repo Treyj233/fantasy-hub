@@ -39,6 +39,7 @@ test("native sign-in clears stale Clerk state without a server redirect", async 
   assert.match(nativeEmailSignIn, /fetch\("\/api\/native-auth\/session"/);
   assert.match(nativeEmailSignIn, /body: JSON\.stringify\(\{ expectedEmail: normalizedEmail \}\)/);
   assert.doesNotMatch(nativeEmailSignIn, /signIn\.finalize/);
-  assert.match(nativeEmailSignIn, /window\.location\.replace\("\/native-app\?handoff=1"\)/);
+  assert.match(nativeEmailSignIn, /installForm\.action = "\/api\/native-auth\/install"/);
+  assert.match(nativeEmailSignIn, /installForm\.submit\(\)/);
   assert.match(nativeSignIn, /<NativeAppleSignIn \/>/);
 });

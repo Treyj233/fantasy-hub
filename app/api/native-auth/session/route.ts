@@ -53,7 +53,7 @@ export async function POST(request: Request) {
     const session = await createNativeSession(userId, keys.secretKey, { email, displayName });
     headers.append("Set-Cookie", `fh_native_signed_out=; ${cookieBase}; Max-Age=0`);
     headers.append("Set-Cookie", `fh_native_session=${session}; ${cookieBase}; Max-Age=2592000`);
-    return new Response(null, { status: 204, headers });
+    return Response.json({ session, email }, { status: 200, headers });
   } catch {
     return Response.json({ error: "Native session could not be created" }, { status: 500, headers });
   }
