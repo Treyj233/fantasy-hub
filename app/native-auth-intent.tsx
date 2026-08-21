@@ -1,10 +1,18 @@
 "use client";
 
+import { useSignIn } from "@clerk/nextjs";
 import { useEffect } from "react";
 
 export const NATIVE_AUTH_EMAIL_KEY = "fantasy-hub-native-auth-email";
 
 export default function NativeAuthIntent() {
+  const { isLoaded, signIn } = useSignIn();
+
+  useEffect(() => {
+    const identifier = isLoaded ? signIn.identifier?.trim().toLowerCase() : "";
+    if (identifier?.includes("@")) window.localStorage.setItem(NATIVE_AUTH_EMAIL_KEY, identifier);
+  }, [isLoaded, signIn]);
+
   useEffect(() => {
     function rememberEmail(input: HTMLInputElement | null) {
       const email = input?.value.trim().toLowerCase();

@@ -26,6 +26,8 @@ test("native sign-in clears stale Clerk state without a server redirect", async 
   assert.match(nativeSignIn, /useSessionList/);
   assert.match(nativeSignIn, /sessions\.reduce/);
   assert.match(nativeSignIn, /signOut\(\{ sessionId: session\.id \}\)/);
+  assert.match(nativeSignIn, /client\.resetSignIn\(\)/);
+  assert.match(nativeSignIn, /client\.resetSignUp\(\)/);
   assert.match(nativeSignIn, /if \(!isLoaded \|\| !resetComplete\)/);
   assert.match(nativeSignIn, /path="\/native-sign-in"/);
   assert.match(nativeSignIn, /<NativeAppleSignIn \/>/);

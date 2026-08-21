@@ -8,6 +8,7 @@ test("native Apple authentication returns from the web flow to the iOS app", asy
   const signUp = await readFile(new URL("../app/sign-up/[[...sign-up]]/page.tsx", import.meta.url), "utf8");
   const callback = await readFile(new URL("../app/native-auth-return/page.tsx", import.meta.url), "utf8");
   const callbackClient = await readFile(new URL("../app/native-auth-return/return-client.tsx", import.meta.url), "utf8");
+  const authIntent = await readFile(new URL("../app/native-auth-intent.tsx", import.meta.url), "utf8");
   const runtime = await readFile(new URL("../app/native-runtime.ts", import.meta.url), "utf8");
   assert.match(hub, /const nativeIos = isNativeIosApp\(\)/);
   assert.match(hub, /const signInHref = nativeIos \? "\/native-sign-in" : "\/sign-in"/);
@@ -22,6 +23,8 @@ test("native Apple authentication returns from the web flow to the iOS app", asy
   assert.match(callbackClient, /setActive\(\{ session: matchingSession\.id \}\)/);
   assert.match(callbackClient, /matchingSession\.getToken\(\{ skipCache: true \}\)/);
   assert.match(callbackClient, /"Authorization": `Bearer \$\{sessionToken\}`/);
+  assert.match(authIntent, /useSignIn/);
+  assert.match(authIntent, /signIn\.identifier/);
   assert.match(callbackClient, /body: JSON\.stringify\(\{ expectedEmail \}\)/);
   assert.match(runtime, /url\.hostname === "auth" && url\.pathname === "\/complete"/);
   assert.match(runtime, /`\/native-auth-ticket\?ticket=\$\{encodeURIComponent\(ticket\)\}`/);

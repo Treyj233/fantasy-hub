@@ -8,7 +8,7 @@ import NativeAppleSignIn from "../sign-in/[[...sign-in]]/native-apple-sign-in";
 
 export default function NativeSignInPage() {
   const { isLoaded, sessions } = useSessionList();
-  const { signOut } = useClerk();
+  const { client, signOut } = useClerk();
   const resetRequested = useRef(false);
   const [resetComplete, setResetComplete] = useState(false);
   const [resetError, setResetError] = useState(false);
@@ -20,12 +20,18 @@ export default function NativeSignInPage() {
       (pending, session) => pending.then(() => signOut({ sessionId: session.id })),
       Promise.resolve(),
     )
-      .then(() => setResetComplete(true))
+      .then(() => {
+        client.resetSignIn();
+        client.resetSignUp();
+        client.clearCache();
+        window.localStorage.removeItem("fantasy-hub-native-auth-email");
+        setResetComplete(true);
+      })
       .catch(() => {
         resetRequested.current = false;
         setResetError(true);
       });
-  }, [isLoaded, sessions, signOut]);
+  }, [client, isLoaded, sessions, signOut]);
 
   if (!isLoaded || !resetComplete) return <main className="launch-splash" role="status" aria-live="polite">
     <section className="launch-splash-lockup">

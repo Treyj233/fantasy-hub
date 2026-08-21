@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { isNativeIosApp, nativeAppleSignOut } from "../native-runtime";
 
 export default function SignOutPage() {
-  const { signOut } = useClerk();
+  const { client, signOut } = useClerk();
   const { isLoaded, sessions } = useSessionList();
   const [error, setError] = useState(false);
   const [attempt, setAttempt] = useState(0);
@@ -24,6 +24,10 @@ export default function SignOutPage() {
         }
         window.localStorage.removeItem("fantasy-hub-native-user");
         window.localStorage.removeItem("fantasy-hub-active-league");
+        window.localStorage.removeItem("fantasy-hub-native-auth-email");
+        client.resetSignIn();
+        client.resetSignUp();
+        client.clearCache();
         if (nativeIos) {
           // The iOS app has both a Clerk session in the WebView and a native
           // Clerk session. Clear both: otherwise the persisted WebView cookie
@@ -49,7 +53,7 @@ export default function SignOutPage() {
         setError(true);
       }
     })();
-  }, [attempt, isLoaded, sessions, signOut]);
+  }, [attempt, client, isLoaded, sessions, signOut]);
 
   return (
     <main className="clerk-auth-shell chargers-entry-shell">
