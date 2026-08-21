@@ -67,7 +67,7 @@ function isAlreadySubscribedError(message: string) {
 export async function nativePurchase(productId: string) {
   if (!isNativeIosApp()) throw new Error("App Store purchasing requires the iOS app");
   try {
-    const transaction = await StoreKit.purchase({ productId });
+    let transaction = await StoreKit.purchase({ productId });
     if (
       transaction.status !== "verified" &&
       transaction.status !== "pending" &&
@@ -77,7 +77,24 @@ export async function nativePurchase(productId: string) {
     }
     if (transaction.status === "cancelled") return "cancelled";
     if (transaction.status === "pending") return "pending";
-    return await verifyNativeTransaction(transaction) ? "active" : "inactive";
+    if (await verifyNativeTransaction(transaction)) return "active";
+
+    // StoreKit can replay an unfinished transaction before presenting a new
+    // purchase sheet. This commonly happens in TestFlight after server-side
+    // verification rejected the original attempt. Once the stale transaction
+    // has been verified and finished above, retry the requested product once so
+    // the user can complete the actual App Store confirmation in the same tap.
+    const expirationTime = transaction.expirationDate
+      ? Date.parse(transaction.expirationDate)
+      : Number.NaN;
+    if (Number.isFinite(expirationTime) && expirationTime <= Date.now()) {
+      transaction = await StoreKit.purchase({ productId });
+      if (transaction.status === "cancelled") return "cancelled";
+      if (transaction.status === "pending") return "pending";
+      if (transaction.status !== "verified") return "inactive";
+      return await verifyNativeTransaction(transaction) ? "active" : "inactive";
+    }
+    return "inactive";
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error ?? "");
     if (isAlreadySubscribedError(message)) {
