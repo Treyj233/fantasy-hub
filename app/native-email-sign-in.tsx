@@ -22,6 +22,7 @@ export default function NativeEmailSignIn() {
     try {
       const result = await signIn.password({ emailAddress: normalizedEmail, password });
       if (result.error) throw new Error(result.error.message || "Email or password was not accepted");
+      let nativeSessionReady = false;
       const finalized = await signIn.finalize({
         navigate: async ({ session }) => {
           const sessionToken = await session.getToken({ skipCache: true });
@@ -48,10 +49,12 @@ export default function NativeEmailSignIn() {
           window.localStorage.removeItem("fantasy-hub-native-user");
           window.localStorage.removeItem("fantasy-hub-active-league");
           window.localStorage.removeItem(NATIVE_AUTH_EMAIL_KEY);
-          window.location.replace("/native-app?handoff=1");
+          nativeSessionReady = true;
         },
       });
       if (finalized.error) throw new Error(finalized.error.message || "Email sign-in could not be completed");
+      if (!nativeSessionReady) throw new Error("Native email session was not activated");
+      window.location.replace("/native-app?handoff=1");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Email sign-in could not be completed");
       setWorking(false);
