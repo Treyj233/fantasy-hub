@@ -109,6 +109,16 @@ const siteAdp = (player: DraftPlayer, source: keyof AdpWeights, settings: DraftS
   const scoring = settings.scoring === "Full PPR" || settings.scoring === "TE Premium" ? "Full PPR" : "Half PPR";
   return sites[`Underdog ${settings.lineup === "Superflex" ? "Superflex Half PPR" : `Single-QB ${scoring}`}`];
 };
+const dynastyAgeAdpAdjustment = (player: DraftPlayer) => {
+  if (typeof player.age !== "number") return 0;
+  const age = player.age;
+  let adjustment = 0;
+  if (player.position === "QB") adjustment = age <= 25 ? -4 - (25 - age) * 2 : age <= 31 ? -2 : age <= 32 ? 0 : 3 + (age - 33) * 3;
+  else if (player.position === "RB") adjustment = age <= 23 ? -5 - (23 - age) * 3 : age <= 24 ? -3 : age <= 25 ? 0 : age <= 26 ? 5 : 8 + (age - 27) * 6;
+  else if (player.position === "WR") adjustment = age <= 24 ? -4 - (24 - age) * 2 : age <= 27 ? -2 : age <= 28 ? 2 : 5 + (age - 29) * 4;
+  else if (player.position === "TE") adjustment = age <= 25 ? -3 - (25 - age) * 1.5 : age <= 29 ? -1 : age <= 30 ? 3 : 5 + (age - 31) * 3.5;
+  return Math.max(-14, Math.min(24, adjustment));
+};
 const blendedAdp = (player: DraftPlayer, profile: CpuProfile, settings: DraftSettings) => {
   const fallback = player.overallRank ?? 220;
   let total = 0;
@@ -120,7 +130,8 @@ const blendedAdp = (player: DraftPlayer, profile: CpuProfile, settings: DraftSet
     const value = siteAdp(player, source, settings);
     if (typeof value === "number" && value > 0) { total += value * profile.weights[source]; weight += profile.weights[source]; }
   }
-  return weight ? total / weight : fallback;
+  const market = weight ? total / weight : fallback;
+  return Math.max(1, market + (settings.format === "Dynasty" ? dynastyAgeAdpAdjustment(player) : 0));
 };
 const displayAdp = (player: DraftPlayer, settings: DraftSettings) => {
   const values = (["underdog", "sleeper", "espn"] as const)
@@ -139,7 +150,8 @@ const fantasyHubAdp = (player: DraftPlayer, settings: DraftSettings) => {
       availableWeight += weights[source];
     }
   }
-  return availableWeight ? weightedTotal / availableWeight : player.overallRank ?? null;
+  const market = availableWeight ? weightedTotal / availableWeight : player.overallRank ?? null;
+  return market == null ? null : Math.max(1, market + (settings.format === "Dynasty" ? dynastyAgeAdpAdjustment(player) : 0));
 };
 const boardOrderValue = (player: DraftPlayer, settings: DraftSettings) => {
   if (settings.boardOrder === "Fantasy Hub Rankings") return fantasyHubAdp(player, settings) ?? 999;
@@ -210,7 +222,6 @@ const elitePickRecommendation = (player: DraftPlayer, settings: DraftSettings, u
   if (settings.lineup === "Superflex" && player.position === "QB") formatBoost += 16;
   if (settings.scoring === "TE Premium" && player.position === "TE") formatBoost += 13;
   if (settings.scoring === "Full PPR" && player.position === "WR") formatBoost += 5;
-  if (settings.format === "Dynasty" && player.age != null) formatBoost += Math.max(-7, 28 - player.age) * 1.2;
   const score = 180 - market + Math.max(-12, value * 2.2) + need * 14 + (scarcity ? 8 : 0) + formatBoost;
   const reason = value >= 5 ? `${value.toFixed(1)} picks past market value` : need > 0 ? `Fills your remaining ${player.position} need` : scarcity ? `${player.position} tier is thinning before your next turn` : "Best blend of market value and roster fit";
   const signal = unlikelyToReturn ? "UNLIKELY TO RETURN" : scarcity ? "POSITION RUN RISK" : value > 0 ? `VALUE +${value.toFixed(1)}` : "BEST FIT";
@@ -244,7 +255,6 @@ const cpuScore = (player: DraftPlayer, profile: CpuProfile, teamPicks: Pick[], o
     else if (!elite && round <= 5) score -= 30;
   }
   if ((player.position === "RB" || player.position === "WR") && counts[player.position] < 3) score += 5;
-  if (settings.format === "Dynasty" && typeof player.age === "number") score += Math.max(-12, 28 - player.age) * 1.4;
   const reach = market - overall;
   const reachAllowance = settings.cpu === "Competitive" ? 5 : settings.cpu === "Chaotic" ? 12 : 8;
   const reachPenalty = settings.cpu === "Competitive" ? 4 : settings.cpu === "Chaotic" ? 3 : 3.4;
