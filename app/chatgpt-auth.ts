@@ -76,10 +76,19 @@ async function getClerkUser(): Promise<ChatGPTUser | null> {
   if (!keys) return null;
   const session = await auth();
   const cookieStore = await cookies();
+  const selectedNativeSessions = (await Promise.all(
+    cookieStore.getAll("fh_native_selected_session").map(({ value }) => verifyNativeSession(value, keys.secretKey)),
+  )).filter((candidate): candidate is NonNullable<typeof candidate> => Boolean(candidate));
   const nativeSessions = (await Promise.all(
     cookieStore.getAll("fh_native_session").map(({ value }) => verifyNativeSession(value, keys.secretKey)),
   )).filter((candidate): candidate is NonNullable<typeof candidate> => Boolean(candidate));
-  const nativeSession = nativeSessions.sort((left, right) => (right.iat ?? 0) - (left.iat ?? 0))[0] ?? null;
+  // Email sign-in is installed through the web layer while Apple sign-in is
+  // installed by WKHTTPCookieStore. WebKit can retain both cookies with the
+  // same legacy name, so an explicitly selected email session gets its own
+  // cookie and always wins over an older native Apple/Gmail session.
+  const nativeSession = selectedNativeSessions.sort((left, right) => (right.iat ?? 0) - (left.iat ?? 0))[0]
+    ?? nativeSessions.sort((left, right) => (right.iat ?? 0) - (left.iat ?? 0))[0]
+    ?? null;
   const signedOutValue = cookieStore.get("fh_native_signed_out")?.value;
   const signedOutAt = Number(signedOutValue);
   const nativeSessionPredatesSignOut = signedOutValue === "1"

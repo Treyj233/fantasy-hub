@@ -17,12 +17,13 @@ test("native Apple auth exchanges its token for a durable signed Fantasy Hub ses
   assert.match(installRoute, /verifyNativeSession/);
   assert.match(installRoute, /verifiedEmail !== expectedEmail/);
   assert.match(installRoute, /status: 303/);
-  assert.match(installRoute, /fh_native_session=\$\{session\}/);
+  assert.match(installRoute, /fh_native_selected_session=\$\{session\}/);
   assert.match(session, /crypto\.subtle\.sign\("HMAC"/);
   assert.match(session, /iat: Math\.floor\(Date\.now\(\) \/ 1000\)/);
   assert.match(session, /v: identity \? 3 : 1/);
   assert.match(session, /crypto\.subtle\.verify/);
   assert.match(auth, /getAll\("fh_native_session"\)/);
+  assert.match(auth, /getAll\("fh_native_selected_session"\)/);
   assert.match(auth, /nativeSessions\.sort/);
   assert.match(auth, /const nativeSession[\s\S]*const signedOutValue[\s\S]*nativeSessionPredatesSignOut[\s\S]*if \(nativeSession\?\.email && nativeSession\.displayName\)/);
   assert.match(swift, /api\/native-auth\/exchange/);

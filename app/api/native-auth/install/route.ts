@@ -18,6 +18,6 @@ export async function POST(request: Request) {
     "Location": "/native-app?handoff=1",
   });
   headers.append("Set-Cookie", `fh_native_signed_out=; ${cookieBase}; Max-Age=0`);
-  headers.append("Set-Cookie", `fh_native_session=${session}; ${cookieBase}; Max-Age=2592000`);
+  headers.append("Set-Cookie", `fh_native_selected_session=${session}; ${cookieBase}; Max-Age=2592000`);
   return new Response(null, { status: 303, headers });
 }

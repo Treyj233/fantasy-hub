@@ -6,6 +6,7 @@ const cookieBase = "Path=/; Domain=fantasyhubapp.com; Secure; HttpOnly; SameSite
 
 export async function DELETE(request: Request) {
   const headers = new Headers({ "Cache-Control": "no-store" });
+  headers.append("Set-Cookie", `fh_native_selected_session=; ${cookieBase}; Max-Age=0`);
   headers.append("Set-Cookie", `fh_native_session=; ${cookieBase}; Max-Age=0`);
   if (new URL(request.url).searchParams.get("native") === "ios") {
     // This durable tombstone prevents a stale Clerk WebView cookie from
@@ -52,6 +53,8 @@ export async function POST(request: Request) {
     const displayName = [user.firstName, user.lastName].filter(Boolean).join(" ") || user.username || email;
     const session = await createNativeSession(userId, keys.secretKey, { email, displayName });
     headers.append("Set-Cookie", `fh_native_signed_out=; ${cookieBase}; Max-Age=0`);
+    if (expectedEmail)
+      headers.append("Set-Cookie", `fh_native_selected_session=${session}; ${cookieBase}; Max-Age=2592000`);
     headers.append("Set-Cookie", `fh_native_session=${session}; ${cookieBase}; Max-Age=2592000`);
     return Response.json({ session, email }, { status: 200, headers });
   } catch {
