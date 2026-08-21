@@ -32,7 +32,9 @@ test("native sign-out survives a force-close even when a WebView session cookie 
   assert.match(route, /Max-Age=31536000/);
   assert.match(auth, /fh_native_signed_out/);
   assert.match(auth, /return null/);
-  assert.match(runtime, /fetch\("\/api\/native-auth\/session", \{ method: "POST" \}\)/);
+  assert.match(auth, /const nativeSession[\s\S]*if \(nativeSession\?\.email && nativeSession\.displayName\)[\s\S]*fh_native_signed_out/);
+  assert.match(runtime, /return AppleAuth\.signIn\(\)/);
+  assert.doesNotMatch(runtime, /fetch\("\/api\/native-auth\/session", \{ method: "POST" \}\)/);
   assert.match(route, /fh_native_signed_out=;/);
   assert.match(route, /createNativeSession/);
   assert.match(route, /fh_native_session=\$\{session\}/);

@@ -16,10 +16,11 @@ test("native Apple auth exchanges its token for a durable signed Fantasy Hub ses
   assert.match(session, /crypto\.subtle\.sign\("HMAC"/);
   assert.match(session, /crypto\.subtle\.verify/);
   assert.match(auth, /cookies\(\).*fh_native_session/s);
+  assert.match(auth, /const nativeSession[\s\S]*if \(nativeSession\?\.email && nativeSession\.displayName\)[\s\S]*fh_native_signed_out/);
   assert.match(swift, /api\/native-auth\/exchange/);
   assert.doesNotMatch(swift, /name: "__session"/);
   assert.match(swift, /name: "fh_native_session"/);
-  assert.match(signInPage, /window\.location\.replace\(result\.redirect\)/);
+  assert.match(signInPage, /window\.location\.replace\("\/native-app\?handoff=1"\)/);
   assert.match(signInPage, /Create account with Apple/);
   assert.match(signInPage, /Start securely with Apple without leaving the app/);
 });

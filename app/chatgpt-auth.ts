@@ -76,7 +76,6 @@ async function getClerkUser(): Promise<ChatGPTUser | null> {
   if (!keys) return null;
   const session = await auth();
   const cookieStore = await cookies();
-  if (cookieStore.get("fh_native_signed_out")?.value === "1") return null;
   const nativeCookie = cookieStore.get("fh_native_session")?.value;
   const nativeSession = nativeCookie ? await verifyNativeSession(nativeCookie, keys.secretKey) : null;
   if (nativeSession?.email && nativeSession.displayName) {
@@ -90,6 +89,7 @@ async function getClerkUser(): Promise<ChatGPTUser | null> {
       signOutPath: "/sign-out",
     };
   }
+  if (cookieStore.get("fh_native_signed_out")?.value === "1") return null;
   let user = session.userId ? await currentUser() : null;
   if (!user && nativeSession) {
     try {
