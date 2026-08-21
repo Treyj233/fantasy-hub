@@ -23,6 +23,8 @@ test("native Apple authentication returns from the web flow to the iOS app", asy
   assert.match(callbackClient, /setActive\(\{ session: matchingSession\.id \}\)/);
   assert.match(callbackClient, /matchingSession\.getToken\(\{ skipCache: true \}\)/);
   assert.match(callbackClient, /"Authorization": `Bearer \$\{sessionToken\}`/);
+  assert.match(callbackClient, /window\.localStorage\.removeItem\("fantasy-hub-native-user"\)/);
+  assert.match(callbackClient, /window\.localStorage\.removeItem\("fantasy-hub-active-league"\)/);
   assert.match(authIntent, /useSignIn/);
   assert.match(authIntent, /signIn\.identifier/);
   assert.match(callbackClient, /body: JSON\.stringify\(\{ expectedEmail \}\)/);

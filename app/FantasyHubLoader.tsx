@@ -36,6 +36,7 @@ function AuthAwareFantasyHubLoader({
   const sessionRefreshRequested = useRef(false);
   const [nativeAccountUser, setNativeAccountUser] = useState<typeof accountUser>(() => {
     if (!clientBootstrap || typeof window === "undefined") return null;
+    if (new URLSearchParams(window.location.search).get("handoff") === "1") return null;
     try {
       return JSON.parse(window.localStorage.getItem("fantasy-hub-native-user") ?? "null") as typeof accountUser;
     } catch {
@@ -118,7 +119,7 @@ function AuthAwareFantasyHubLoader({
 
   if (clientBootstrap) {
     if (!nativeAccountUser) return <InitialLoadingShell />;
-    return <FantasyHub accountUser={nativeAccountUser} />;
+    return <FantasyHub key={nativeAccountUser.email.trim().toLowerCase()} accountUser={nativeAccountUser} />;
   }
 
   if (!accountUser && (!isLoaded || isSignedIn)) return <InitialLoadingShell />;

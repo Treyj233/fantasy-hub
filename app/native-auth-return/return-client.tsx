@@ -34,6 +34,13 @@ export default function NativeAuthReturnClient() {
         body: JSON.stringify({ expectedEmail }),
       });
       if (!response.ok) throw new Error("Unable to activate the native session");
+      for (let index = window.localStorage.length - 1; index >= 0; index -= 1) {
+        const key = window.localStorage.key(index);
+        if (key?.startsWith("fantasy-hub-account-bootstrap:") || key?.startsWith("fantasy-hub-league-bootstrap:"))
+          window.localStorage.removeItem(key);
+      }
+      window.localStorage.removeItem("fantasy-hub-native-user");
+      window.localStorage.removeItem("fantasy-hub-active-league");
       window.localStorage.removeItem(NATIVE_AUTH_EMAIL_KEY);
       window.location.replace("/native-app?handoff=1");
     } catch {

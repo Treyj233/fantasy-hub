@@ -21,6 +21,12 @@ test("native cold launch paints locally before opening the uncached app entry", 
   assert.match(nativePage, /clientBootstrap/);
 });
 
+test("native account handoff never renders a cached account", async () => {
+  const loader = await readFile(new URL("../app/FantasyHubLoader.tsx", import.meta.url), "utf8");
+  assert.match(loader, /new URLSearchParams\(window\.location\.search\)\.get\("handoff"\) === "1"/);
+  assert.match(loader, /key=\{nativeAccountUser\.email\.trim\(\)\.toLowerCase\(\)\}/);
+});
+
 test("native sessions carry verified identity claims to avoid launch-time Clerk lookup", async () => {
   const [session, exchange, auth] = await Promise.all([
     readFile(new URL("../app/native-session.ts", import.meta.url), "utf8"),
