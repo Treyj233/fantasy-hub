@@ -1,11 +1,11 @@
 "use client";
 
-import { useClerk } from "@clerk/nextjs";
+import { useSignIn } from "@clerk/nextjs";
 import { FormEvent, useState } from "react";
 import { NATIVE_AUTH_EMAIL_KEY } from "./native-auth-intent";
 
 export default function NativeEmailSignIn() {
-  const { client, setActive } = useClerk();
+  const { signIn } = useSignIn();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [working, setWorking] = useState(false);
@@ -20,12 +20,10 @@ export default function NativeEmailSignIn() {
     setError("");
     window.localStorage.setItem(NATIVE_AUTH_EMAIL_KEY, normalizedEmail);
     try {
-      const result = await client.signIn.password({ emailAddress: normalizedEmail, password });
+      const result = await signIn.password({ emailAddress: normalizedEmail, password });
       if (result.error) throw new Error(result.error.message || "Email or password was not accepted");
-      const completedSignIn = client.signIn;
-      if (completedSignIn.status !== "complete" || !completedSignIn.createdSessionId)
-        throw new Error("This account needs an additional verification step");
-      await setActive({ session: completedSignIn.createdSessionId });
+      const finalized = await signIn.finalize();
+      if (finalized.error) throw new Error(finalized.error.message || "Email sign-in could not be completed");
       window.location.replace("/native-auth-return");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Email sign-in could not be completed");

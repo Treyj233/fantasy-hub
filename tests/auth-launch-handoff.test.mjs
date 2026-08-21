@@ -31,9 +31,8 @@ test("native sign-in clears stale Clerk state without a server redirect", async 
   assert.match(nativeSignIn, /client\.resetSignUp\(\)/);
   assert.match(nativeSignIn, /if \(!isLoaded \|\| !resetComplete\)/);
   assert.match(nativeSignIn, /<NativeEmailSignIn \/>/);
-  assert.match(nativeEmailSignIn, /client\.signIn\.password\(\{ emailAddress: normalizedEmail, password \}\)/);
-  assert.match(nativeEmailSignIn, /const completedSignIn = client\.signIn/);
-  assert.match(nativeEmailSignIn, /completedSignIn\.createdSessionId/);
-  assert.match(nativeEmailSignIn, /setActive\(\{ session: completedSignIn\.createdSessionId \}\)/);
+  assert.match(nativeEmailSignIn, /signIn\.password\(\{ emailAddress: normalizedEmail, password \}\)/);
+  assert.match(nativeEmailSignIn, /signIn\.finalize\(\)/);
+  assert.match(nativeEmailSignIn, /window\.location\.replace\("\/native-auth-return"\)/);
   assert.match(nativeSignIn, /<NativeAppleSignIn \/>/);
 });
