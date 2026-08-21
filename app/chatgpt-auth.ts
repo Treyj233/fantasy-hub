@@ -76,8 +76,16 @@ async function getClerkUser(): Promise<ChatGPTUser | null> {
   if (!keys) return null;
   const session = await auth();
   const cookieStore = await cookies();
-  const nativeCookie = cookieStore.get("fh_native_session")?.value;
-  const nativeSession = nativeCookie ? await verifyNativeSession(nativeCookie, keys.secretKey) : null;
+  const nativeSessions = (await Promise.all(
+    cookieStore.getAll("fh_native_session").map(({ value }) => verifyNativeSession(value, keys.secretKey)),
+  )).filter((candidate): candidate is NonNullable<typeof candidate> => Boolean(candidate));
+  const nativeSession = nativeSessions.sort((left, right) => (right.iat ?? 0) - (left.iat ?? 0))[0] ?? null;
+  const signedOutValue = cookieStore.get("fh_native_signed_out")?.value;
+  const signedOutAt = Number(signedOutValue);
+  const nativeSessionPredatesSignOut = signedOutValue === "1"
+    ? nativeSession?.v !== 3
+    : Number.isFinite(signedOutAt) && signedOutAt > 1 && (!nativeSession?.iat || nativeSession.iat <= signedOutAt);
+  if (signedOutValue && nativeSessionPredatesSignOut) return null;
   if (nativeSession?.email && nativeSession.displayName) {
     const verifiedEmail = nativeSession.email.trim().toLowerCase();
     return {
@@ -89,7 +97,7 @@ async function getClerkUser(): Promise<ChatGPTUser | null> {
       signOutPath: "/sign-out",
     };
   }
-  if (cookieStore.get("fh_native_signed_out")?.value === "1") return null;
+  if (signedOutValue) return null;
   let user = session.userId ? await currentUser() : null;
   if (!user && nativeSession) {
     try {

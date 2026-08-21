@@ -10,7 +10,7 @@ export async function DELETE(request: Request) {
   if (new URL(request.url).searchParams.get("native") === "ios") {
     // This durable tombstone prevents a stale Clerk WebView cookie from
     // restoring authentication after the native app is force-closed.
-    headers.append("Set-Cookie", `fh_native_signed_out=1; ${cookieBase}; Max-Age=31536000`);
+    headers.append("Set-Cookie", `fh_native_signed_out=${Math.floor(Date.now() / 1000)}; ${cookieBase}; Max-Age=31536000`);
   }
   return new Response(null, { status: 204, headers });
 }

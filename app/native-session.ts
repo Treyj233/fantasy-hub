@@ -1,7 +1,8 @@
 export type NativeSessionPayload = {
   sub: string;
   exp: number;
-  v: 1 | 2;
+  iat?: number;
+  v: 1 | 2 | 3;
   email?: string;
   displayName?: string;
 };
@@ -37,8 +38,9 @@ export async function createNativeSession(
 ) {
   const payload: NativeSessionPayload = {
     sub: userId,
+    iat: Math.floor(Date.now() / 1000),
     exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 30,
-    v: identity ? 2 : 1,
+    v: identity ? 3 : 1,
     ...(identity
       ? { email: identity.email.trim().toLowerCase(), displayName: identity.displayName }
       : {}),
@@ -60,7 +62,7 @@ export async function verifyNativeSession(value: string, secret: string) {
     );
     if (!valid) return null;
     const payload = JSON.parse(new TextDecoder().decode(decodeBase64Url(encodedPayload))) as NativeSessionPayload;
-    if (![1, 2].includes(payload.v) || !payload.sub || payload.exp <= Math.floor(Date.now() / 1000)) return null;
+    if (![1, 2, 3].includes(payload.v) || !payload.sub || payload.exp <= Math.floor(Date.now() / 1000)) return null;
     return payload;
   } catch {
     return null;
