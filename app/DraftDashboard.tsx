@@ -114,6 +114,9 @@ const blendedAdp = (player: DraftPlayer, profile: CpuProfile, settings: DraftSet
   let total = 0;
   let weight = 0;
   for (const source of ["underdog", "sleeper", "espn"] as const) {
+    // ESPN currently supplies a single-QB market. CPU profiles redistribute its
+    // weight to format-specific sources in Superflex and 2-QB rooms.
+    if (settings.lineup === "Superflex" && source === "espn") continue;
     const value = siteAdp(player, source, settings);
     if (typeof value === "number" && value > 0) { total += value * profile.weights[source]; weight += profile.weights[source]; }
   }
@@ -192,7 +195,7 @@ const elitePickRecommendation = (player: DraftPlayer, settings: DraftSettings, u
     return values;
   }, {});
   const targets: Record<string, number> = {
-    QB: settings.roster.QB + (settings.lineup === "Superflex" ? 1 : 0),
+    QB: settings.roster.QB + settings.roster.SUPERFLEX,
     RB: settings.roster.RB + Math.ceil(settings.roster.FLEX * .4),
     WR: settings.roster.WR + Math.ceil(settings.roster.FLEX * .45),
     TE: settings.roster.TE,
@@ -217,6 +220,8 @@ const cpuScore = (player: DraftPlayer, profile: CpuProfile, teamPicks: Pick[], o
   if (!canRosterPlayer(settings, teamPicks, player.position)) return -1_000;
   const round = Math.ceil(overall / settings.teams);
   const counts = teamPicks.reduce<Record<string, number>>((map, pick) => { map[pick.position] = (map[pick.position] || 0) + 1; return map; }, {});
+  const quarterbackStarters = settings.roster.QB + settings.roster.SUPERFLEX;
+  const multiQuarterback = quarterbackStarters >= 2 || settings.lineup === "Superflex";
   const market = blendedAdp(player, profile, settings);
   let score = 260 - market;
   const elite = market <= (player.position === "QB" ? (settings.lineup === "Superflex" ? 34 : 45) : player.position === "TE" ? 38 : 28);
@@ -228,7 +233,7 @@ const cpuScore = (player: DraftPlayer, profile: CpuProfile, teamPicks: Pick[], o
     if (player.position === "RB" && counts.RB) score += round <= 7 ? -28 : 4;
     if (player.position === "WR" && counts.RB) score += 15;
   }
-  if (settings.lineup === "Superflex" && player.position === "QB") score += counts.QB < 2 ? 34 : round <= 5 ? -24 : 0;
+  if (multiQuarterback && player.position === "QB") score += counts.QB < quarterbackStarters ? 42 : round <= 5 ? -24 : 0;
   if (settings.lineup === "1QB" && player.position === "QB") {
     if (counts.QB >= 1 && round <= 9) score -= 105;
     else if (!elite && round <= 4) score -= 18;
@@ -250,7 +255,13 @@ const cpuScore = (player: DraftPlayer, profile: CpuProfile, teamPicks: Pick[], o
     if (settings.lineup === "1QB" && counts.QB >= 1 && round <= 10 && player.position === "QB") score -= 120;
     if (settings.scoring !== "TE Premium" && counts.TE >= 1 && round <= 10 && player.position === "TE") return -1_000;
     if (round >= 6 && (player.position === "RB" || player.position === "WR") && (counts[player.position] || 0) < 2) score += 14;
-    if (settings.lineup === "Superflex" && round >= 5 && player.position === "QB" && (counts.QB || 0) < 2) score += 18;
+    if (multiQuarterback && round >= 5 && player.position === "QB" && (counts.QB || 0) < quarterbackStarters) score += 18;
+  }
+  // Preserve format urgency after Competitive mode tightens personality-based
+  // adjustments. Starting quarterbacks should follow their Superflex market,
+  // especially before a CPU has filled every QB-eligible starting slot.
+  if (multiQuarterback && player.position === "QB" && (counts.QB || 0) < quarterbackStarters) {
+    score += Math.max(20, 52 - round * 4);
   }
   const volatility = settings.cpu === "Competitive" ? 2 : settings.cpu === "Chaotic" ? 22 : 6;
   return score + (Math.random() - .5) * volatility * profile.risk;
