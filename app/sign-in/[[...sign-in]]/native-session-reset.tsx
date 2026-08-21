@@ -9,7 +9,7 @@ export default function NativeSessionReset() {
 
   useEffect(() => {
     void signOut()
-      .then(() => window.location.replace("/sign-in?native=ios"))
+      .then(() => window.location.replace("/native-sign-in"))
       .catch(() => setError(true));
   }, [signOut]);
 

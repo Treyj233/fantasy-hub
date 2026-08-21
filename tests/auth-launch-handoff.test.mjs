@@ -20,3 +20,11 @@ test("an existing Clerk session skips the sign-in screen on launch", async () =>
   assert.match(signIn, /appearance=\{nativeIos \? nativeEmailOnlyClerkAppearance : chargersClerkAppearance\}/);
   assert.match(signIn, /!nativeIos \? <a className="clerk-chatgpt-option"/);
 });
+
+test("native sign-in clears stale Clerk state without a server redirect", async () => {
+  const nativeSignIn = await readFile(new URL("../app/native-sign-in/page.tsx", import.meta.url), "utf8");
+  assert.match(nativeSignIn, /useAuth/);
+  assert.match(nativeSignIn, /void signOut\(\)/);
+  assert.match(nativeSignIn, /path="\/native-sign-in"/);
+  assert.match(nativeSignIn, /<NativeAppleSignIn \/>/);
+});

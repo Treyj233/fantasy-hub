@@ -65,7 +65,7 @@ function AuthAwareFantasyHubLoader({
     } finally {
       // The explicit reset flag also handles WebViews that fail to persist the
       // signed-out cookie before this navigation completes.
-      window.location.replace("/sign-in?native=ios&reset=1");
+      window.location.replace("/native-sign-in");
     }
   }
 
@@ -98,7 +98,7 @@ function AuthAwareFantasyHubLoader({
         );
       })
       .catch(() => {
-        if (!nativeAccountUser) window.location.replace("/sign-in?native=ios");
+        if (!nativeAccountUser) void resetNativeSessionAndShowSignIn();
       })
       .finally(() => window.clearTimeout(timeout));
     return () => {
