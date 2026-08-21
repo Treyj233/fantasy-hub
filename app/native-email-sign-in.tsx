@@ -5,7 +5,7 @@ import { FormEvent, useState } from "react";
 import { NATIVE_AUTH_EMAIL_KEY } from "./native-auth-intent";
 
 export default function NativeEmailSignIn() {
-  const { client } = useClerk();
+  const { client, setActive } = useClerk();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [working, setWorking] = useState(false);
@@ -29,7 +29,7 @@ export default function NativeEmailSignIn() {
       // Do not let a Clerk session left in the WebView satisfy a new email
       // attempt. The password attempt below must create a session for the
       // identifier that was explicitly submitted.
-      await client.setActive({ session: null });
+      await setActive({ session: null });
       const completedSignIn = await client.signIn.create({
         identifier: normalizedEmail,
         password: submittedPassword,
