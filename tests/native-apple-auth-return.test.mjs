@@ -39,6 +39,9 @@ test("native Apple authentication returns from the web flow to the iOS app", asy
   assert.match(callbackClient, /setError\(cause instanceof Error \? cause\.message/);
   assert.match(runtime, /url\.hostname === "auth" && url\.pathname === "\/complete"/);
   assert.match(runtime, /`\/native-auth-ticket\?ticket=\$\{encodeURIComponent\(ticket\)\}`/);
+  assert.match(runtime, /if \(!isNativeIosApp\(\)\) throw new Error\("Native Apple sign-in requires the iOS app"\)/);
+  assert.match(runtime, /return AppleAuth\.signIn\(\)/);
+  assert.doesNotMatch(runtime, /fetch\("\/api\/native-auth\/session", \{ method: "POST" \}\)/);
 });
 
 test("native email authentication keeps the production Clerk handoff inside the app", async () => {
