@@ -34,9 +34,12 @@ export function isPracticeSetting(value: string) {
 const liveContentPattern = /(?:^|\b)(?:live now|going live|we(?:'re| are) live|join (?:us|me) live|watch live|listen live|tune in live|live ?stream|x space|twitter space)(?:\b|:)/i;
 const liveContentUrlPattern = /(?:x|twitter)\.com\/i\/(?:broadcasts|spaces)\/|pscp\.tv\//i;
 const mediaDependentPattern = /\b(?:i|we) had to ask\b|\ba look at what(?:'s| is) ahead\b|\bfull (?:conversation|interview)\b|\bwatch(?: here| now)?\b|\blisten(?: here| now)?\b|^from @\w+:/i;
+const ambiguousHighlightPattern = /\b(?:defenders? bouncing off|making (?:a )?defenders? miss|what a (?:play|run|catch)|look at (?:this|him)|refuses? to go down|showing off)\b/i;
+const explicitHighlightResultPattern = /\b(?:touchdowns?|td|end zone|scores?|\d{1,3}[- ]yards?|receptions?|catches?|carries?|interceptions?|sacks?|field goals?)\b/i;
 
 export function isLiveContentPost(text: string, urls: string[] = []) {
-  return liveContentPattern.test(text) || mediaDependentPattern.test(text) || urls.some((url) => liveContentUrlPattern.test(url));
+  const incompleteHighlight = ambiguousHighlightPattern.test(text) && !explicitHighlightResultPattern.test(text);
+  return liveContentPattern.test(text) || mediaDependentPattern.test(text) || incompleteHighlight || urls.some((url) => liveContentUrlPattern.test(url));
 }
 
 export function splitAtomicUpdates(value: string) {

@@ -48,7 +48,7 @@ test("social agent is live, sourced, deduplicated, and rate limited", async () =
   assert.match(content, /\\bir\\b/);
   assert.match(content, /arrival adds real competition/);
   assert.match(content, /departure clears an opening/);
-  assert.match(worker, /x-sources-v37-context-list-gate/);
+  assert.match(worker, /x-sources-v38-complete-highlight-context/);
   assert.match(worker, /2090517793737158739:2/);
   assert.match(worker, /2090493186653249579/);
   assert.match(worker, /filter\(\(story\) => !RETRACTED_STORY_IDS\.includes\(story\.id\)\)/);
@@ -138,6 +138,8 @@ test("live content posts are suppressed without blocking complete text reports",
   assert.equal(isLiveContentPost("From @GMFB: A look at what's ahead for the Raiders quarterback."), true);
   assert.equal(isLiveContentPost("Sam LaPorta may not be ready for Week 1 after a hip flare-up."), false);
   assert.equal(isLiveContentPost("Live practice update: Sam LaPorta left with a hip injury."), false);
+  assert.equal(isLiveContentPost("Woody Marks with defenders bouncing off him."), true);
+  assert.equal(isLiveContentPost("Woody Marks bounces off defenders and scores a touchdown."), false);
 });
 
 test("practice stat lines retain versus context and never imply an absence", async () => {
