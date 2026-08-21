@@ -7,6 +7,12 @@ import { getStripe, priceForPlan, type FantasyHubBillingPlan } from "../../../st
 
 const plans = new Set<FantasyHubBillingPlan>(["monthly", "season", "annual", "elite_monthly", "elite_season", "elite_annual"]);
 
+const elitePriceSpecs = {
+  elite_monthly: { amount: 799, interval: "month" as const, intervalCount: 1 },
+  elite_season: { amount: 3499, interval: "month" as const, intervalCount: 6 },
+  elite_annual: { amount: 5999, interval: "year" as const, intervalCount: 1 },
+};
+
 function isSeasonPrice(price: Stripe.Price, unitAmount: number) {
   return price.active
     && price.currency === "usd"
@@ -36,6 +42,38 @@ async function resolveSeasonPrice(stripe: Stripe, configuredPriceId: string, uni
   return newPrice.id;
 }
 
+async function resolveElitePrice(stripe: Stripe, plan: keyof typeof elitePriceSpecs, configuredPriceId: string) {
+  const spec = elitePriceSpecs[plan];
+  if (configuredPriceId) {
+    try {
+      const configured = await stripe.prices.retrieve(configuredPriceId);
+      if (configured.active && configured.currency === "usd" && configured.unit_amount === spec.amount
+        && configured.recurring?.interval === spec.interval && configured.recurring.interval_count === spec.intervalCount) return configured.id;
+    } catch {
+      // Recover from a missing or stale configured price by resolving the live Elite catalog below.
+    }
+  }
+  const products = await stripe.products.list({ active: true, limit: 100 });
+  let product = products.data.find((candidate) => candidate.metadata.fantasyHubTier === "elite" || candidate.name === "Fantasy Hub Elite");
+  if (!product) product = await stripe.products.create({
+    name: "Fantasy Hub Elite",
+    description: "Premium Draft HQ intelligence, Manager Reports, every theme, and all future Fantasy Hub Elite tools.",
+    metadata: { fantasyHubTier: "elite" },
+  });
+  const prices = await stripe.prices.list({ product: product.id, active: true, limit: 100 });
+  const matching = prices.data.find((price) => price.currency === "usd" && price.unit_amount === spec.amount
+    && price.recurring?.interval === spec.interval && price.recurring.interval_count === spec.intervalCount);
+  if (matching) return matching.id;
+  const price = await stripe.prices.create({
+    product: product.id,
+    currency: "usd",
+    unit_amount: spec.amount,
+    recurring: { interval: spec.interval, interval_count: spec.intervalCount },
+    metadata: { fantasyHubPlan: plan, fantasyHubTier: "elite" },
+  });
+  return price.id;
+}
+
 export async function POST(request: Request) {
   const user = await getChatGPTUser();
   if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
@@ -45,17 +83,33 @@ export async function POST(request: Request) {
 
   const db = await getDb();
   const [existing] = await db.select().from(subscriptions).where(eq(subscriptions.userId, user.userId)).limit(1);
-  if (existing && (existing.status === "active" || existing.status === "trialing")) {
-    return Response.json({ error: "Your Pro membership is already active", manageBilling: true }, { status: 409 });
-  }
-
   try {
     const { stripe, config } = await getStripe();
-    let price = priceForPlan(config, billingPlan);
-    if (!price) return Response.json({ error: "This billing plan is not available yet" }, { status: 503 });
     const tier = billingPlan.startsWith("elite_") ? "elite" : "pro";
-    if (billingPlan === "season" || billingPlan === "elite_season") {
-      price = await resolveSeasonPrice(stripe, price, tier === "elite" ? 3499 : 2499, tier);
+    let price = tier === "elite"
+      ? await resolveElitePrice(stripe, billingPlan as keyof typeof elitePriceSpecs, priceForPlan(config, billingPlan))
+      : priceForPlan(config, billingPlan);
+    if (!price) return Response.json({ error: "This billing plan is not available yet" }, { status: 503 });
+    if (billingPlan === "season") price = await resolveSeasonPrice(stripe, price, 2499, tier);
+    const membershipActive = existing && (existing.status === "active" || existing.status === "trialing");
+    if (membershipActive) {
+      if (existing.plan === "elite" || tier === "pro") return Response.json({ error: `Your ${existing.plan === "elite" ? "Elite" : "Pro"} membership is already active`, manageBilling: true }, { status: 409 });
+      if (existing.provider !== "stripe" || !existing.providerCustomerId || !existing.providerSubscriptionId) {
+        return Response.json({ error: "Manage or end your current subscription with its billing provider before upgrading to Elite." }, { status: 409 });
+      }
+      const subscription = await stripe.subscriptions.retrieve(existing.providerSubscriptionId);
+      const item = subscription.items.data[0];
+      if (!item) return Response.json({ error: "Your current subscription could not be upgraded. Open billing management and try again." }, { status: 409 });
+      const portal = await stripe.billingPortal.sessions.create({
+        customer: existing.providerCustomerId,
+        return_url: `${config.appUrl}/?checkout=upgrade-return`,
+        flow_data: {
+          type: "subscription_update_confirm",
+          subscription_update_confirm: { subscription: subscription.id, items: [{ id: item.id, price, quantity: 1 }] },
+          after_completion: { type: "redirect", redirect: { return_url: `${config.appUrl}/?checkout=success` } },
+        },
+      });
+      return Response.json({ url: portal.url }, { headers: { "Cache-Control": "private, no-store" } });
     }
     const storedStripeCustomerId = existing?.provider === "stripe" && existing.providerCustomerId?.startsWith("cus_")
       ? existing.providerCustomerId
