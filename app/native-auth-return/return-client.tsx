@@ -2,14 +2,14 @@
 
 import { useEffect, useState } from "react";
 
-export default function NativeAuthReturnClient({ appUrl }: { appUrl: string }) {
+export default function NativeAuthReturnClient() {
   const [error, setError] = useState(false);
 
   function finishSignIn() {
-    void fetch("/api/native-auth/session", { method: "POST" })
+    void fetch("/api/native-auth/session", { method: "POST", credentials: "include", cache: "no-store" })
       .then((response) => {
         if (!response.ok) throw new Error("Unable to activate the native session");
-        window.location.replace(appUrl);
+        window.location.replace("/native-app?handoff=1");
       })
       .catch(() => setError(true));
   }
@@ -18,7 +18,7 @@ export default function NativeAuthReturnClient({ appUrl }: { appUrl: string }) {
     finishSignIn();
     // The destination is stable for the lifetime of this handoff.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [appUrl]);
+  }, []);
 
   return <main className="launch-splash" role="status" aria-live="polite">
     <section className="launch-splash-lockup">

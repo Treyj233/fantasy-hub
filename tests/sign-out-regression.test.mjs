@@ -33,4 +33,6 @@ test("native sign-out survives a force-close even when a WebView session cookie 
   assert.match(auth, /return null/);
   assert.match(runtime, /fetch\("\/api\/native-auth\/session", \{ method: "POST" \}\)/);
   assert.match(route, /fh_native_signed_out=;/);
+  assert.match(route, /createNativeSession/);
+  assert.match(route, /fh_native_session=\$\{session\}/);
 });

@@ -15,9 +15,9 @@ test("native Apple authentication returns from the web flow to the iOS app", asy
   assert.match(signUp, /forceRedirectUrl=\{nativeIos \? "\/native-auth-return" : "\/"\}/);
   assert.match(signUp, /<NativeAppleSignIn mode="sign-up" \/>/);
   assert.match(signUp, /nativeEmailOnlyClerkAppearance/);
-  assert.match(callback, /fantasyhub:\/\/auth\/complete\?ticket=/);
-  assert.match(callbackClient, /window\.location\.replace\(appUrl\)/);
-  assert.match(callbackClient, /fetch\("\/api\/native-auth\/session", \{ method: "POST" \}\)/);
+  assert.match(callback, /<NativeAuthReturnClient \/>/);
+  assert.match(callbackClient, /window\.location\.replace\("\/native-app\?handoff=1"\)/);
+  assert.match(callbackClient, /fetch\("\/api\/native-auth\/session", \{ method: "POST", credentials: "include", cache: "no-store" \}\)/);
   assert.match(runtime, /url\.hostname === "auth" && url\.pathname === "\/complete"/);
   assert.match(runtime, /`\/native-auth-ticket\?ticket=\$\{encodeURIComponent\(ticket\)\}`/);
 });
