@@ -1,21 +1,24 @@
 "use client";
 
-import { useSessionList } from "@clerk/nextjs";
+import { useSessionList, useSignIn, useSignUp } from "@clerk/nextjs";
 import { useEffect, useState } from "react";
 import { NATIVE_AUTH_EMAIL_KEY } from "../native-auth-intent";
 
 export default function NativeAuthReturnClient() {
   const { isLoaded, sessions, setActive } = useSessionList();
+  const { isLoaded: signInLoaded, signIn } = useSignIn();
+  const { isLoaded: signUpLoaded, signUp } = useSignUp();
   const [error, setError] = useState(false);
 
   async function finishSignIn() {
-    if (!isLoaded) return;
+    if (!isLoaded || !signInLoaded || !signUpLoaded) return;
     try {
-      const enteredEmail = window.localStorage.getItem(NATIVE_AUTH_EMAIL_KEY)?.trim().toLowerCase() ?? "";
-      const newestSession = [...sessions].sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime())[0];
-      const matchingSession = enteredEmail
-        ? sessions.find((session) => session.user?.primaryEmailAddress?.emailAddress.trim().toLowerCase() === enteredEmail)
-        : newestSession;
+      const createdSessionId = signIn.createdSessionId ?? signUp.createdSessionId;
+      const clerkIdentifier = signIn.identifier ?? signUp.emailAddress;
+      const enteredEmail = (clerkIdentifier ?? window.localStorage.getItem(NATIVE_AUTH_EMAIL_KEY) ?? "").trim().toLowerCase();
+      const matchingSession = createdSessionId
+        ? sessions.find((session) => session.id === createdSessionId)
+        : undefined;
       if (!matchingSession) throw new Error("Selected account session was not created");
       const expectedEmail = matchingSession.user?.primaryEmailAddress?.emailAddress.trim().toLowerCase() ?? "";
       if (!expectedEmail || (enteredEmail && expectedEmail !== enteredEmail))
@@ -49,10 +52,10 @@ export default function NativeAuthReturnClient() {
   }
 
   useEffect(() => {
-    if (isLoaded) void finishSignIn();
+    if (isLoaded && signInLoaded && signUpLoaded) void finishSignIn();
     // The destination is stable for the lifetime of this handoff.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoaded]);
+  }, [isLoaded, signInLoaded, signUpLoaded]);
 
   return <main className="launch-splash" role="status" aria-live="polite">
     <section className="launch-splash-lockup">
