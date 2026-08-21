@@ -21,11 +21,16 @@ export default function NativeAuthReturnClient() {
       if (!expectedEmail || (enteredEmail && expectedEmail !== enteredEmail))
         throw new Error("Selected account session did not match the entered email");
       await setActive({ session: matchingSession.id });
+      const sessionToken = await matchingSession.getToken({ skipCache: true });
+      if (!sessionToken) throw new Error("Selected account session did not provide a secure token");
       const response = await fetch("/api/native-auth/session", {
         method: "POST",
         credentials: "include",
         cache: "no-store",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Authorization": `Bearer ${sessionToken}`,
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({ expectedEmail }),
       });
       if (!response.ok) throw new Error("Unable to activate the native session");

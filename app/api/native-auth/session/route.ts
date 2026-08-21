@@ -1,4 +1,4 @@
-import { auth, clerkClient } from "@clerk/nextjs/server";
+import { auth, clerkClient, verifyToken } from "@clerk/nextjs/server";
 import { getClerkRuntimeKeys } from "../../../clerk-config";
 import { createNativeSession } from "../../../native-session";
 
@@ -17,7 +17,6 @@ export async function DELETE(request: Request) {
 
 export async function POST(request: Request) {
   const headers = new Headers({ "Cache-Control": "no-store" });
-  headers.append("Set-Cookie", `fh_native_signed_out=; ${cookieBase}; Max-Age=0`);
   let expectedEmail = "";
   try {
     const body = await request.json() as { expectedEmail?: string };
@@ -25,8 +24,22 @@ export async function POST(request: Request) {
   } catch {
     // Native Apple exchange and older clients do not provide an email guard.
   }
-  const [{ userId }, keys] = await Promise.all([auth(), getClerkRuntimeKeys()]);
-  if (!userId || !keys) return new Response(null, { status: 204, headers });
+  const keys = await getClerkRuntimeKeys();
+  if (!keys) return Response.json({ error: "Native authentication is unavailable" }, { status: 503, headers });
+  const authorization = request.headers.get("authorization") ?? "";
+  const token = authorization.startsWith("Bearer ") ? authorization.slice(7).trim() : "";
+  let userId = "";
+  if (token) {
+    try {
+      const payload = await verifyToken(token, { secretKey: keys.secretKey });
+      userId = payload.sub ?? "";
+    } catch {
+      return Response.json({ error: "Native session could not be verified" }, { status: 401, headers });
+    }
+  } else {
+    userId = (await auth()).userId ?? "";
+  }
+  if (!userId) return Response.json({ error: "A signed-in account is required" }, { status: 401, headers });
 
   try {
     const user = await (await clerkClient()).users.getUser(userId);
@@ -38,6 +51,7 @@ export async function POST(request: Request) {
       return Response.json({ error: "The authenticated account did not match the selected email" }, { status: 409, headers });
     const displayName = [user.firstName, user.lastName].filter(Boolean).join(" ") || user.username || email;
     const session = await createNativeSession(userId, keys.secretKey, { email, displayName });
+    headers.append("Set-Cookie", `fh_native_signed_out=; ${cookieBase}; Max-Age=0`);
     headers.append("Set-Cookie", `fh_native_session=${session}; ${cookieBase}; Max-Age=2592000`);
     return new Response(null, { status: 204, headers });
   } catch {

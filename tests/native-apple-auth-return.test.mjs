@@ -20,6 +20,8 @@ test("native Apple authentication returns from the web flow to the iOS app", asy
   assert.match(callbackClient, /sessions\.find/);
   assert.match(callbackClient, /newestSession/);
   assert.match(callbackClient, /setActive\(\{ session: matchingSession\.id \}\)/);
+  assert.match(callbackClient, /matchingSession\.getToken\(\{ skipCache: true \}\)/);
+  assert.match(callbackClient, /"Authorization": `Bearer \$\{sessionToken\}`/);
   assert.match(callbackClient, /body: JSON\.stringify\(\{ expectedEmail \}\)/);
   assert.match(runtime, /url\.hostname === "auth" && url\.pathname === "\/complete"/);
   assert.match(runtime, /`\/native-auth-ticket\?ticket=\$\{encodeURIComponent\(ticket\)\}`/);
