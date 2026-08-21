@@ -22,6 +22,8 @@ test("native Apple authentication returns from the web flow to the iOS app", asy
   assert.match(callbackClient, /client\.signIn\.createdSessionId \?\? client\.signUp\.createdSessionId/);
   assert.match(callbackClient, /window\.localStorage\.getItem\(NATIVE_AUTH_EMAIL_KEY\) \?\? clerkIdentifier/);
   assert.match(callbackClient, /sessions\.find\(\(session\) => session\.id === createdSessionId\)/);
+  assert.match(callbackClient, /sessions\.length === 1 \? sessions\[0\] : undefined/);
+  assert.match(callbackClient, /session\.user\?\.primaryEmailAddress\?\.emailAddress/);
   assert.match(callbackClient, /setActive\(\{ session: matchingSession\.id \}\)/);
   assert.match(callbackClient, /matchingSession\.getToken\(\{ skipCache: true \}\)/);
   assert.match(callbackClient, /"Authorization": `Bearer \$\{sessionToken\}`/);
@@ -31,6 +33,7 @@ test("native Apple authentication returns from the web flow to the iOS app", asy
   assert.doesNotMatch(authIntent, /signIn\.identifier/);
   assert.match(authIntent, /document\.addEventListener\("input", rememberTypedEmail, true\)/);
   assert.match(callbackClient, /body: JSON\.stringify\(\{ expectedEmail \}\)/);
+  assert.match(callbackClient, /setError\(cause instanceof Error \? cause\.message/);
   assert.match(runtime, /url\.hostname === "auth" && url\.pathname === "\/complete"/);
   assert.match(runtime, /`\/native-auth-ticket\?ticket=\$\{encodeURIComponent\(ticket\)\}`/);
 });
