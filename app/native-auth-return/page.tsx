@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 
 export default async function NativeAuthReturn() {
   const { userId } = await auth();
-  if (!userId) redirect("/sign-in?native=ios");
+  if (!userId) redirect("/native-sign-in");
 
   return <NativeAuthReturnClient />;
 }

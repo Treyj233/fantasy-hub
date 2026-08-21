@@ -3352,7 +3352,7 @@ function AccountOnboarding({ displayName, colorMode, teamTheme, badgeTheme, isPr
 function SignInScreen() {
   const nativeIos = isNativeIosApp();
   const [currentNflWeek, setCurrentNflWeek] = useState<number | null>(null);
-  const signInHref = nativeIos ? "/sign-in?native=ios" : "/sign-in";
+  const signInHref = nativeIos ? "/native-sign-in" : "/sign-in";
   const signUpHref = nativeIos ? "/sign-up?native=ios" : "/sign-up";
   useEffect(() => {
     const controller = new AbortController();

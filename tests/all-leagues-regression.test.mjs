@@ -62,7 +62,7 @@ test("the landing screen offers dedicated login and signup routes while ChatGPT 
   const signIn = await readFile(new URL("../app/sign-in/[[...sign-in]]/page.tsx", import.meta.url), "utf8");
 
   assert.match(dashboard, /const nativeIos = isNativeIosApp\(\)/);
-  assert.match(dashboard, /const signInHref = nativeIos \? "\/sign-in\?native=ios" : "\/sign-in"/);
+  assert.match(dashboard, /const signInHref = nativeIos \? "\/native-sign-in" : "\/sign-in"/);
   assert.match(dashboard, /const signUpHref = nativeIos \? "\/sign-up\?native=ios" : "\/sign-up"/);
   assert.match(dashboard, /className="auth-landing-login" href=\{signInHref\}>Log in/);
   assert.match(dashboard, /className="auth-landing-signup" href=\{signUpHref\}>Create account/);

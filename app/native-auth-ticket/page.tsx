@@ -59,7 +59,7 @@ export default function NativeAuthTicket() {
     <section className="launch-splash-lockup">
       <div className="launch-splash-logo"><span aria-hidden="true" /><img src="/marketing/app-store/fh-blue-app-mark.png" alt="Fantasy Hub" /></div>
       <p>{visibleError || "Finishing Apple sign-in"}</p>
-      {visibleError ? <Link className="native-auth-return-link" href="/sign-in?native=ios">Try sign-in again</Link> : null}
+      {visibleError ? <Link className="native-auth-return-link" href="/native-sign-in">Try sign-in again</Link> : null}
     </section>
   </main>;
 }

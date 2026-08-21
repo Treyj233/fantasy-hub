@@ -10,7 +10,7 @@ test("native Apple authentication returns from the web flow to the iOS app", asy
   const callbackClient = await readFile(new URL("../app/native-auth-return/return-client.tsx", import.meta.url), "utf8");
   const runtime = await readFile(new URL("../app/native-runtime.ts", import.meta.url), "utf8");
   assert.match(hub, /const nativeIos = isNativeIosApp\(\)/);
-  assert.match(hub, /const signInHref = nativeIos \? "\/sign-in\?native=ios" : "\/sign-in"/);
+  assert.match(hub, /const signInHref = nativeIos \? "\/native-sign-in" : "\/sign-in"/);
   assert.match(signIn, /forceRedirectUrl=\{nativeIos \? "\/native-auth-return" : "\/"\}/);
   assert.match(signUp, /forceRedirectUrl=\{nativeIos \? "\/native-auth-return" : "\/"\}/);
   assert.match(signUp, /<NativeAppleSignIn mode="sign-up" \/>/);
