@@ -26,7 +26,10 @@ export default function SignOutPage() {
           // The iOS app has both a Clerk session in the WebView and a native
           // Clerk session. Clear both: otherwise the persisted WebView cookie
           // authenticates the next cold launch even after native sign-out.
-          await nativeAppleSignOut();
+          // Email-authenticated users may not have a native Apple SDK session.
+          // Its absence must never prevent the active Clerk WebView account
+          // from being cleared and replaced with a different login.
+          await nativeAppleSignOut().catch(() => undefined);
           await signOut({ redirectUrl: "/native-sign-in" });
           return;
         }
