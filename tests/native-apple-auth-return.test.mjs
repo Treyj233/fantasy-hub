@@ -27,8 +27,9 @@ test("native Apple authentication returns from the web flow to the iOS app", asy
   assert.match(callbackClient, /"Authorization": `Bearer \$\{sessionToken\}`/);
   assert.match(callbackClient, /window\.localStorage\.removeItem\("fantasy-hub-native-user"\)/);
   assert.match(callbackClient, /window\.localStorage\.removeItem\("fantasy-hub-active-league"\)/);
-  assert.match(authIntent, /useSignIn/);
-  assert.match(authIntent, /signIn\.identifier/);
+  assert.doesNotMatch(authIntent, /useSignIn/);
+  assert.doesNotMatch(authIntent, /signIn\.identifier/);
+  assert.match(authIntent, /document\.addEventListener\("input", rememberTypedEmail, true\)/);
   assert.match(callbackClient, /body: JSON\.stringify\(\{ expectedEmail \}\)/);
   assert.match(runtime, /url\.hostname === "auth" && url\.pathname === "\/complete"/);
   assert.match(runtime, /`\/native-auth-ticket\?ticket=\$\{encodeURIComponent\(ticket\)\}`/);
