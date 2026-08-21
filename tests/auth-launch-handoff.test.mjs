@@ -13,7 +13,8 @@ test("an existing Clerk session skips the sign-in screen on launch", async () =>
   assert.match(loader, /if \(!accountUser && \(!isLoaded \|\| isSignedIn\)\) return <InitialLoadingShell/);
   assert.match(signIn, /Promise\.all\(\[auth\(\), cookies\(\)\]\)/);
   assert.match(signIn, /nativeSignedOut/);
-  assert.match(signIn, /if \(userId && nativeSignedOut\) return <NativeSessionReset \/>/);
+  assert.match(signIn, /forceNativeReset/);
+  assert.match(signIn, /if \(userId && \(nativeSignedOut \|\| forceNativeReset\)\) return <NativeSessionReset \/>/);
   assert.match(signIn, /if \(userId\) redirect\(nativeIos \? "\/native-auth-return" : "\/"\)/);
   assert.match(signIn, /nativeIos \? <div className="native-auth-card-stack"><NativeAppleSignIn \/>\{emailSignIn\}<\/div> : emailSignIn/);
   assert.match(signIn, /appearance=\{nativeIos \? nativeEmailOnlyClerkAppearance : chargersClerkAppearance\}/);

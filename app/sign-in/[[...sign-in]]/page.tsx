@@ -7,11 +7,13 @@ import { chargersClerkAppearance, nativeEmailOnlyClerkAppearance } from "../../e
 import NativeAppleSignIn from "./native-apple-sign-in";
 import NativeSessionReset from "./native-session-reset";
 
-export default async function SignInPage({ searchParams }: { searchParams: Promise<{ native?: string }> }) {
-  const nativeIos = (await searchParams).native === "ios";
+export default async function SignInPage({ searchParams }: { searchParams: Promise<{ native?: string; reset?: string }> }) {
+  const params = await searchParams;
+  const nativeIos = params.native === "ios";
+  const forceNativeReset = nativeIos && params.reset === "1";
   const [{ userId }, cookieStore] = await Promise.all([auth(), cookies()]);
   const nativeSignedOut = nativeIos && cookieStore.get("fh_native_signed_out")?.value === "1";
-  if (userId && nativeSignedOut) return <NativeSessionReset />;
+  if (userId && (nativeSignedOut || forceNativeReset)) return <NativeSessionReset />;
   if (userId) redirect(nativeIos ? "/native-auth-return" : "/");
   const emailSignIn = <SignIn routing="path" path="/sign-in" signUpUrl={nativeIos ? "/sign-up?native=ios" : "/sign-up"} forceRedirectUrl={nativeIos ? "/native-auth-return" : "/"} appearance={nativeIos ? nativeEmailOnlyClerkAppearance : chargersClerkAppearance} />;
   return <main className="clerk-auth-shell chargers-entry-shell">

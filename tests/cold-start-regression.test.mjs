@@ -45,6 +45,8 @@ test("native bootstrap cannot remain indefinitely on the launch splash", async (
   assert.match(loader, /window\.setTimeout\(\(\) => controller\.abort\(\), 8000\)/);
   assert.match(loader, /window\.location\.replace\("\/sign-in\?native=ios"\)/);
   assert.match(loader, /if \(response\.status === 401\)/);
+  assert.match(loader, /api\/native-auth\/session\?native=ios/);
+  assert.match(loader, /sign-in\?native=ios&reset=1/);
   assert.match(loader, /clearNativeBootstrapCache\(\)/);
   assert.match(loader, /window\.localStorage\.removeItem\("fantasy-hub-native-user"\)/);
 });

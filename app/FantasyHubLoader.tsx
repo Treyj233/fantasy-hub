@@ -53,6 +53,22 @@ function AuthAwareFantasyHubLoader({
     window.localStorage.removeItem("fantasy-hub-active-league");
   }
 
+  async function resetNativeSessionAndShowSignIn() {
+    clearNativeBootstrapCache();
+    setNativeAccountUser(null);
+    try {
+      await fetch("/api/native-auth/session?native=ios", {
+        method: "DELETE",
+        cache: "no-store",
+        credentials: "include",
+      });
+    } finally {
+      // The explicit reset flag also handles WebViews that fail to persist the
+      // signed-out cookie before this navigation completes.
+      window.location.replace("/sign-in?native=ios&reset=1");
+    }
+  }
+
   useEffect(() => {
     if (!clientBootstrap) return;
     const controller = new AbortController();
@@ -60,9 +76,7 @@ function AuthAwareFantasyHubLoader({
     void fetch("/api/v1/bootstrap", { signal: controller.signal })
       .then(async (response) => {
         if (response.status === 401) {
-          clearNativeBootstrapCache();
-          setNativeAccountUser(null);
-          window.location.replace("/sign-in?native=ios");
+          await resetNativeSessionAndShowSignIn();
           return;
         }
         if (!response.ok) throw new Error("Native bootstrap unavailable");
