@@ -434,6 +434,69 @@ html[data-theme="dark"] .draft-roster article {
   font-weight: 900;
 }
 
+/* Premium draft-room controls */
+.draft-hq-page :is(.draft-settings-grid select, .draft-roster-builder select, .draft-player-pool select) {
+  min-height: 46px;
+  padding: 0 46px 0 14px;
+  color: var(--ink);
+  background-color: var(--draft-surface-raised);
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--gold) 50%),
+    linear-gradient(135deg, var(--gold) 50%, transparent 50%),
+    linear-gradient(90deg, color-mix(in srgb, var(--green) 7%, transparent), color-mix(in srgb, var(--gold) 16%, var(--draft-surface-raised)));
+  background-position:
+    calc(100% - 20px) 20px,
+    calc(100% - 14px) 20px,
+    100% 0;
+  background-repeat: no-repeat;
+  background-size: 6px 6px, 6px 6px, 42px 100%;
+  border: 1px solid color-mix(in srgb, var(--gold) 38%, var(--line));
+  border-radius: 11px;
+  box-shadow: inset 0 1px rgb(255 255 255 / .45), 0 6px 14px rgb(var(--brand-primary-rgb, 11 134 80) / .07);
+  appearance: none;
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 900;
+  transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease;
+}
+
+.draft-hq-page :is(.draft-settings-grid select, .draft-roster-builder select, .draft-player-pool select):hover:not(:disabled) {
+  border-color: var(--gold);
+  box-shadow: inset 0 1px rgb(255 255 255 / .55), 0 9px 20px rgb(var(--brand-secondary-rgb, 241 180 50) / .13);
+  transform: translateY(-1px);
+}
+
+.draft-hq-page :is(.draft-settings-grid select, .draft-roster-builder select, .draft-player-pool select):focus-visible {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgb(var(--brand-secondary-rgb, 241 180 50) / .2), 0 10px 24px rgb(var(--brand-primary-rgb, 11 134 80) / .12);
+  outline: none;
+}
+
+.draft-hq-page :is(.draft-settings-grid select, .draft-roster-builder select):disabled {
+  cursor: not-allowed;
+  filter: saturate(.55);
+  opacity: .62;
+}
+
+.draft-settings-grid label {
+  gap: 8px;
+  padding: 11px;
+  background: linear-gradient(145deg, color-mix(in srgb, var(--gold-light) 6%, var(--draft-surface-raised)), var(--draft-surface-raised));
+  border: 1px solid color-mix(in srgb, var(--green) 15%, var(--line));
+  border-radius: 13px;
+  box-shadow: inset 0 1px rgb(255 255 255 / .35);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.draft-roster-builder select {
+  width: 86px;
+}
+
+html[data-theme="dark"] .draft-hq-page :is(.draft-settings-grid select, .draft-roster-builder select, .draft-player-pool select) {
+  box-shadow: inset 0 1px rgb(255 255 255 / .08), 0 7px 16px rgb(0 0 0 / .22);
+}
+
 @media (max-width: 850px) {
   .draft-settings-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
