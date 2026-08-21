@@ -21,7 +21,10 @@
     <script>
       requestAnimationFrame(function () {
         requestAnimationFrame(function () {
-          location.replace("https://fantasyhubapp.com/native-app");
+          // Keep the installed shell's entry document tied to its native build.
+          // This prevents WKWebView from restoring an older /native-app document
+          // whose hashed JavaScript bundles no longer exist after a deployment.
+          location.replace("https://fantasyhubapp.com/native-app?nativeBuild=37");
         });
       });
     </script>

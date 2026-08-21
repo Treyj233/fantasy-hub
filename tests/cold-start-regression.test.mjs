@@ -3,14 +3,18 @@ import { access, readFile } from "node:fs/promises";
 import test from "node:test";
 
 test("native cold launch paints locally before opening the uncached app entry", async () => {
-  const [config, shell, nativePage] = await Promise.all([
+  const [config, shell, nativePage, nextConfig] = await Promise.all([
     readFile(new URL("../capacitor.config.ts", import.meta.url), "utf8"),
     readFile(new URL("../native-shell/index.html", import.meta.url), "utf8"),
     readFile(new URL("../app/native-app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../next.config.ts", import.meta.url), "utf8"),
   ]);
   assert.doesNotMatch(config, /url:\s*"https:\/\/fantasyhubapp\.com"/);
   assert.match(shell, /requestAnimationFrame/);
   assert.match(shell, /fantasyhubapp\.com\/native-app/);
+  assert.match(shell, /nativeBuild=\d+/);
+  assert.match(nextConfig, /source: "\/native-app"/);
+  assert.match(nextConfig, /private, no-store, no-cache, must-revalidate, max-age=0/);
   assert.doesNotMatch(shell, /<img[^>]+https:\/\//);
   assert.match(nativePage, /force-dynamic/);
   assert.doesNotMatch(nativePage, /force-static/);

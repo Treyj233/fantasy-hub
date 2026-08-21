@@ -17,6 +17,7 @@ const config: CapacitorConfig = {
     allowNavigation: [
       "fantasyhubapp.com",
       "www.fantasyhubapp.com",
+      "clerk.fantasyhubapp.com",
       "innocent-falcon-20.clerk.accounts.dev",
     ],
     cleartext: false,
