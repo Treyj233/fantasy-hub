@@ -24,6 +24,7 @@ test("native Apple authentication returns from the web flow to the iOS app", asy
   assert.match(callbackClient, /sessions\.find\(\(session\) => session\.id === createdSessionId\)/);
   assert.match(callbackClient, /sessions\.length === 1 \? sessions\[0\] : undefined/);
   assert.match(callbackClient, /session\.user\?\.primaryEmailAddress\?\.emailAddress/);
+  assert.match(callbackClient, /const matchingSession = enteredEmail/);
   assert.match(callbackClient, /setActive\(\{ session: matchingSession\.id \}\)/);
   assert.match(callbackClient, /matchingSession\.getToken\(\{ skipCache: true \}\)/);
   assert.match(callbackClient, /"Authorization": `Bearer \$\{sessionToken\}`/);

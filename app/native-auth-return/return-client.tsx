@@ -18,16 +18,17 @@ export default function NativeAuthReturnClient() {
       // session has completed. Prefer the address captured from the current
       // native form so a stale account cannot invalidate the new session.
       const enteredEmail = (window.localStorage.getItem(NATIVE_AUTH_EMAIL_KEY) ?? clerkIdentifier ?? "").trim().toLowerCase();
-      const matchingSession = (createdSessionId
-        ? sessions.find((session) => session.id === createdSessionId)
-        : undefined)
-        ?? (enteredEmail
-          ? sessions.find((session) => session.user?.primaryEmailAddress?.emailAddress.trim().toLowerCase() === enteredEmail)
+      // A typed email is authoritative. Never fall back to another session
+      // (including a retained Gmail session) when the user chose an account.
+      const matchingSession = enteredEmail
+        ? sessions.find((session) => session.user?.primaryEmailAddress?.emailAddress.trim().toLowerCase() === enteredEmail)
+        : ((createdSessionId
+          ? sessions.find((session) => session.id === createdSessionId)
           : undefined)
-        // The native sign-in page signs out every pre-existing Clerk session
-        // before rendering. If Clerk clears its transient createdSessionId on
-        // redirect, the sole remaining session is therefore the new one.
-        ?? (sessions.length === 1 ? sessions[0] : undefined);
+          // The native sign-in page signs out every pre-existing Clerk session
+          // before rendering. This fallback is only safe when no email intent
+          // was captured from the current form.
+          ?? (sessions.length === 1 ? sessions[0] : undefined));
       if (!matchingSession) throw new Error("Selected account session was not created");
       const expectedEmail = matchingSession.user?.primaryEmailAddress?.emailAddress.trim().toLowerCase() ?? "";
       if (!expectedEmail)
