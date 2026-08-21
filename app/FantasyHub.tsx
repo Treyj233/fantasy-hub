@@ -349,9 +349,9 @@ const badgeThemeOptions: { id: BadgeTheme; name: string; detail: string; preview
   { id: "carbon", name: "Carbon Pro", detail: "Black carbon with metallic accents", preview: ["PRO", "◆", "↗"] },
   { id: "helmet", name: "Team Helmet", detail: "Helmet-inspired category color shells", preview: ["H", "G", "M"] },
   { id: "trading-cards", name: "Trading Cards", detail: "Collectible frames with rarity shine", preview: ["R", "SR", "★"] },
-  { id: "crown-chrome", name: "Crown & Chrome", detail: "Mirror-polished championship crests with royal gold light", preview: ["♛", "FH", "◆"] },
+  { id: "crown-chrome", name: "Aurora Orbit", detail: "Frosted orbital badges illuminated by polar lime signals", preview: ["◌", "N", "✦"] },
   { id: "neon-endzone", name: "Neon End Zone", detail: "Electric glass badges energized by prime-time color", preview: ["TD", "⚡", "◎"] },
-  { id: "heritage-gridiron", name: "Heritage Gridiron", detail: "Hand-tooled leather insignias with heirloom brass trim", preview: ["1892", "🏈", "H"] },
+  { id: "heritage-gridiron", name: "Sunset Signal", detail: "Warm translucent badges tuned to a coral game-day frequency", preview: ["◒", "FH", "↗"] },
 ];
 const premiumBadgeThemeIds = new Set<BadgeTheme>(["crown-chrome", "neon-endzone", "heritage-gridiron"]);
 type DraftPick = {
@@ -906,9 +906,9 @@ const leagueRelativeGrade = (value: number, values: number[]) => {
 };
 const formatRosterSlot = (slot: string) => slot.replace(/_/g, " ");
 const nflThemes: { id: string; name: string; primary: string; secondary: string; premium?: boolean; detail?: string }[] = [
-  { id: "CROWN", name: "Crown & Chrome", primary: "#11131A", secondary: "#E6C568", premium: true, detail: "Obsidian lacquer, liquid chrome, and championship gold." },
+  { id: "CROWN", name: "Aurora Orbit", primary: "#12304A", secondary: "#A7FF5B", premium: true, detail: "Midnight glacier blue energized by acid-lime aurora light." },
   { id: "NEONX", name: "Neon End Zone", primary: "#30106B", secondary: "#27F5FF", premium: true, detail: "Prime-time violet illuminated by electric cyan and laser glow." },
-  { id: "HERITAGE", name: "Heritage Gridiron", primary: "#4A1718", secondary: "#D6A84B", premium: true, detail: "Oxblood leather, parchment warmth, and heirloom brass." },
+  { id: "HERITAGE", name: "Sunset Signal", primary: "#4B164C", secondary: "#FF785A", premium: true, detail: "Deep blackberry fades into luminous coral and warm sunset glass." },
   {
     id: "ARI",
     name: "Arizona Cardinals",
@@ -3796,9 +3796,9 @@ function ThemeStore({
   const libraryTeams = nflThemes.filter((team) => ownedTeamThemes.includes(team.id) || (isPro && !team.premium) || (isOwner && Boolean(team.premium)));
   const libraryBadges = badgeThemeOptions.filter((pack) => ownedBadgeThemes.includes(pack.id) || (isPro && !premiumBadgeThemeIds.has(pack.id)) || (isOwner && premiumBadgeThemeIds.has(pack.id)));
   const premiumBundles = [
-    { theme: nflThemes.find((theme) => theme.id === "CROWN")!, badge: badgeThemeOptions.find((pack) => pack.id === "crown-chrome")!, label: "THE CHAMPIONSHIP SUITE" },
+    { theme: nflThemes.find((theme) => theme.id === "CROWN")!, badge: badgeThemeOptions.find((pack) => pack.id === "crown-chrome")!, label: "THE AURORA SUITE" },
     { theme: nflThemes.find((theme) => theme.id === "NEONX")!, badge: badgeThemeOptions.find((pack) => pack.id === "neon-endzone")!, label: "THE PRIME-TIME SUITE" },
-    { theme: nflThemes.find((theme) => theme.id === "HERITAGE")!, badge: badgeThemeOptions.find((pack) => pack.id === "heritage-gridiron")!, label: "THE LEGACY SUITE" },
+    { theme: nflThemes.find((theme) => theme.id === "HERITAGE")!, badge: badgeThemeOptions.find((pack) => pack.id === "heritage-gridiron")!, label: "THE SUNSET SUITE" },
   ];
   return <div className="page-content theme-store-page">
     <section className="theme-store-hero">
