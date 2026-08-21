@@ -25,6 +25,8 @@ test("native sign-in clears stale Clerk state without a server redirect", async 
   const nativeSignIn = await readFile(new URL("../app/native-sign-in/page.tsx", import.meta.url), "utf8");
   assert.match(nativeSignIn, /useAuth/);
   assert.match(nativeSignIn, /void signOut\(\)/);
+  assert.match(nativeSignIn, /if \(!isLoaded \|\| isSignedIn\)/);
+  assert.doesNotMatch(nativeSignIn, /finally\(\(\) => setSessionCleared/);
   assert.match(nativeSignIn, /path="\/native-sign-in"/);
   assert.match(nativeSignIn, /<NativeAppleSignIn \/>/);
 });
