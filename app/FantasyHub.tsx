@@ -7798,6 +7798,26 @@ function TeamRankings({
         )}
       </div>
       <section className="panel team-rank-table">
+        <header className="team-rank-board-head">
+          <div>
+            <span>FANTASY HUB POWER BOARD</span>
+            <h3>League roster rankings</h3>
+            <p>Open any team to inspect its complete roster and positional profile.</p>
+          </div>
+          <div className="team-rank-legend" aria-label="Position rank legend">
+            <span className="rank-elite">Top tier</span>
+            <span className="rank-middle">League middle</span>
+            <span className="rank-trailing">Needs attention</span>
+          </div>
+        </header>
+        <div className={`team-rank-row team-rank-head ${isDynasty ? "dynasty" : ""}`} aria-hidden="true">
+          <span>Rank</span>
+          <span>Team</span>
+          <span>Score</span>
+          {positions.map((position) => <span key={`heading-${position}`}>{position}</span>)}
+          {isDynasty && <span>Draft</span>}
+          <span>Core players</span>
+        </div>
         {scoredTeams.map((team) => {
           const coreAssets = team.roster
             .map((player) => rankingById.get(player.id))
@@ -7825,6 +7845,7 @@ function TeamRankings({
               <div className="rank-team-name">
                 <button className="team-rank-toggle" type="button" aria-expanded={expanded} aria-controls={`team-assets-${team.id}`} aria-label={`${expanded ? "Hide" : "View"} ${team.teamName} complete team assets`} onClick={() => setExpandedTeamId((current) => current === team.id ? "" : team.id)}>
                   <span><strong>{team.teamName}</strong><small>{team.managerName}{team.id === selectedTeamId ? " · YOUR TEAM" : ""}</small></span>
+                  <i aria-hidden="true">{expanded ? "−" : "+"}</i>
                 </button>
               </div>
               <strong className="team-score">{team.overallScore}</strong>
