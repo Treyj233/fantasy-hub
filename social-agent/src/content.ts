@@ -294,6 +294,9 @@ const specificImpact = (story: Story, context: FantasyPlayerContext | null) => {
     return `Monitor ${context.player} through the next practice report. Keep ${backupText} on the watchlist, then act only if the injury worsens or an absence becomes likely.`;
   }
   if (story.category === "performance" && gameDayPlay.test(`${story.title} ${story.summary}`) && !isPracticeSetting(`${story.title} ${story.summary}`)) {
+    if (context && isPreseasonPeriod(story.publishedAt)) {
+      return `${context.player}'s scoring play is an encouraging preseason signal and adds draft-day appeal. Keep ${context.player} on your target list, with repeat first-team or scoring-area usage as the next boost. 🚀`;
+    }
     return context
       ? `${context.player} just swung matchups. Enjoy the points, but only chase them next week if the play came from a role the offense is likely to repeat. 🚀`
       : "That play just flipped fantasy matchups everywhere. Points on the board, victory laps in the group chat. 🚀";

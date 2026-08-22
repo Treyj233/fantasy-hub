@@ -54,6 +54,12 @@ test("social agent is live, sourced, deduplicated, and rate limited", async () =
   assert.match(worker, /filter\(\(story\) => !RETRACTED_STORY_IDS\.includes\(story\.id\)\)/);
   assert.match(worker, /stories\.filter\(\(story\) => !RETRACTED_STORY_IDS\.includes\(story\.id\)\)\.map/);
   assert.match(worker, /if \(isLiveContentPost\(primaryText, sourceUrls\)\) return \[\]/);
+  assert.match(worker, /attachments\.media_keys/);
+  assert.match(worker, /referenced_tweets\.id\.attachments\.media_keys/);
+  assert.match(worker, /hasVideoMedia/);
+  assert.match(worker, /video_source_suppressed/);
+  assert.match(worker, /parseAiResponse/);
+  assert.match(worker, /Season phase:/);
   assert.match(worker, /await this\.regenerateCurrentFeed\(\)/);
   assert.match(content, /replace\(\/\\b\(\?:\[A-Z\]\\\.\)\{2,\}\//);
   assert.match(worker, /\.filter\(\(story\) => !processed\.has\(story\.id\)\)\.slice\(0, 2\)/);

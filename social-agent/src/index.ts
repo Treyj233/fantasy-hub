@@ -51,6 +51,19 @@ const parseJson = <T,>(value: string | null, fallback: T): T => {
   try { return JSON.parse(value) as T; } catch { return fallback; }
 };
 
+const parseAiResponse = <T,>(result: unknown): T | null => {
+  if (!result || typeof result !== "object" || !("response" in result)) return null;
+  const response = result.response;
+  if (response && typeof response === "object") return response as T;
+  if (typeof response !== "string") return null;
+  try { return JSON.parse(response) as T; } catch { return null; }
+};
+
+const seasonPhase = (publishedAt: string) => {
+  const month = new Date(publishedAt).getUTCMonth();
+  return month === 6 || month === 7 ? "preseason" : "regular season or postseason";
+};
+
 const feedStory = (story: StoredStory) => {
   const sections = (story.draft || "").split(/\n{2,}/).map((section) => section.trim()).filter(Boolean);
   const titleSection = sections[0] || "🏈 FANTASY PULSE";
@@ -277,7 +290,8 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
 
   private async sourceStories(): Promise<Story[]> {
     type TweetUrl = { expanded_url?: string; unwound_url?: string; url?: string };
-    type SourceTweet = { id: string; text: string; created_at?: string; author_id?: string; referenced_tweets?: Array<{ type: string; id: string }>; entities?: { urls?: TweetUrl[] } };
+    type SourceTweet = { id: string; text: string; created_at?: string; author_id?: string; referenced_tweets?: Array<{ type: string; id: string }>; attachments?: { media_keys?: string[] }; entities?: { urls?: TweetUrl[] } };
+    type SourceMedia = { media_key: string; type: "photo" | "video" | "animated_gif" };
     const handles = this.handles();
     const known = [...this.sql<{ username: string; x_user_id: string }>`SELECT username, x_user_id FROM source_accounts`];
     const ids = new Map(known.map((account) => [account.username.toLowerCase(), account.x_user_id]));
@@ -302,13 +316,15 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
         includes?: {
           tweets?: SourceTweet[];
           users?: Array<{ id: string; username: string }>;
+          media?: SourceMedia[];
         };
       }>(
         `https://api.x.com/2/users/${userId}/tweets`,
         {
-          "tweet.fields": "created_at,author_id,referenced_tweets,context_annotations,conversation_id,entities,display_text_range,lang",
+          "tweet.fields": "created_at,author_id,referenced_tweets,attachments,context_annotations,conversation_id,entities,display_text_range,lang",
           "user.fields": "username",
-          expansions: "referenced_tweets.id,referenced_tweets.id.author_id",
+          "media.fields": "media_key,type",
+          expansions: "attachments.media_keys,referenced_tweets.id,referenced_tweets.id.author_id,referenced_tweets.id.attachments.media_keys",
           "max_results": "10",
           exclude: handle.toLowerCase() === "32beatwriters" ? "replies" : "retweets,replies",
         },
@@ -316,6 +332,7 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
       );
       const referencedPosts = new Map((timeline.includes?.tweets ?? []).map((post) => [post.id, post]));
       const includedUsers = new Map((timeline.includes?.users ?? []).map((user) => [user.id, user]));
+      const mediaTypes = new Map((timeline.includes?.media ?? []).map((media) => [media.media_key, media.type]));
       return (timeline.data ?? []).flatMap((post): Story[] => {
         const cleanText = post.text.replace(/https:\/\/t\.co\/\w+/g, "").replace(/^RT\s+@\w+:\s*/i, "").trim();
         const reference = post.referenced_tweets?.find((item) => item.type === "quoted")
@@ -328,6 +345,16 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
         const contextText = curated && referencedText ? referencedText : primaryText;
         const primaryPost = curated && referencedPost ? referencedPost : post;
         const sourceUrls = (primaryPost.entities?.urls ?? []).flatMap((entity) => [entity.expanded_url, entity.unwound_url, entity.url].filter((url): url is string => Boolean(url)));
+        const mediaKeys = [...new Set([...(post.attachments?.media_keys ?? []), ...(referencedPost?.attachments?.media_keys ?? [])])];
+        const hasVideoMedia = mediaKeys.some((mediaKey) => ["video", "animated_gif"].includes(mediaTypes.get(mediaKey) ?? ""));
+        if (hasVideoMedia) {
+          this.sql`UPDATE stories
+            SET status = CASE WHEN status = 'posted' THEN 'posted_suppressed' ELSE 'suppressed' END,
+                error = 'Source post contains video or animated media that cannot be verified from text'
+            WHERE id = ${post.id} OR parent_story_id = ${post.id}`;
+          console.log(JSON.stringify({ event: "video_source_suppressed", sourcePostId: post.id, handle }));
+          return [];
+        }
         if (isLiveContentPost(primaryText, sourceUrls)) return [];
         const originalUrl = curated && reference && originalReporter
           ? `https://x.com/${originalReporter.username}/status/${reference.id}`
@@ -380,7 +407,7 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
           },
           {
             role: "user",
-            content: `Player: ${context.player} (${context.position}, ${context.team})\nCategory: ${story.category}\nPublished: ${story.publishedAt}\nSetting: ${isPracticeSetting(`${story.title} ${story.summary}`) ? "practice/camp" : "not identified as practice"}\nPotentially affected players you may name: ${candidates.length ? candidates.join(", ") : "none supplied"}\nSource material: ${story.title} ${story.summary}\n\nWrite a factual headline under 130 characters${isCurated ? " that paraphrases the source" : ""} and a fantasyImpact under 230 characters in one or two natural sentences. State the practical fantasy meaning and one concrete action now. If no action is warranted, say to hold and identify the specific future development that would change the decision. Injury advice must reflect timing, severity, and season phase. Practice stats are samples, not game production. Only recommend named players from the supplied list. Avoid canned phrases such as “adjust projections,” “monitor the depth chart,” “compare routes, targets and snaps,” or generic metric checklists. Vary the rhythm and opening from post to post.`,
+            content: `Player: ${context.player} (${context.position}, ${context.team})\nCategory: ${story.category}\nPublished: ${story.publishedAt}\nSeason phase: ${seasonPhase(story.publishedAt)}\nSetting: ${isPracticeSetting(`${story.title} ${story.summary}`) ? "practice/camp" : "not identified as practice"}\nPotentially affected players you may name: ${candidates.length ? candidates.join(", ") : "none supplied"}\nSource material: ${story.title} ${story.summary}\n\nWrite a factual headline under 130 characters${isCurated ? " that paraphrases the source" : ""} and a fantasyImpact under 230 characters in one or two natural sentences. State the practical fantasy meaning and one concrete action now. If no action is warranted, say to hold and identify the specific future development that would change the decision. Injury advice must reflect timing, severity, and season phase. Practice stats are samples, not game production. A preseason scoring play is a positive signal worth celebrating and can increase draft or watchlist appeal; describe that upside first, then name the role or usage evidence that would strengthen it. Only recommend named players from the supplied list. Avoid canned phrases such as “adjust projections,” “monitor the depth chart,” “compare routes, targets and snaps,” or generic metric checklists. Vary the rhythm and opening from post to post.`,
           },
         ],
         response_format: {
@@ -398,9 +425,8 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
         max_tokens: 220,
         temperature: 0.25,
       });
-      const raw = result && typeof result === "object" && "response" in result ? result.response : undefined;
-      if (typeof raw !== "string") return story;
-      const parsed = JSON.parse(raw) as { headline?: unknown; fantasyImpact?: unknown };
+      const parsed = parseAiResponse<{ headline?: unknown; fantasyImpact?: unknown }>(result);
+      if (!parsed) return story;
       if (typeof parsed.headline !== "string" || typeof parsed.fantasyImpact !== "string") return story;
       const headline = parsed.headline.replace(/\s+/g, " ").trim();
       const fantasyImpact = parsed.fantasyImpact.replace(/\s+/g, " ").trim();
@@ -436,7 +462,7 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
           },
           {
             role: "user",
-            content: `Category: ${story.category}\nPublished: ${story.publishedAt}\nSetting: ${isPracticeSetting(`${story.title} ${story.summary}`) ? "practice/camp" : "not identified as practice"}\nAllowed player names: ${allowedPlayers.length ? allowedPlayers.join(", ") : "none supplied"}\nVerified source evidence: ${story.summary}\nVerified compact draft: ${draft}\n\nCreate an in-app briefing with four distinct fields:\n- headline: factual and compelling, under 140 characters.\n- summary: one or two sentences explaining what happened, with useful context from the evidence.\n- whyItMatters: one or two natural sentences explaining the fantasy effect, including uncertainty and timing where relevant.\n- nextMove: one concrete action or hold decision, plus the specific trigger that would change it.\nDo not repeat the same sentence across fields. Do not use generic filler such as “adjust projections,” “monitor the depth chart,” or “compare routes, targets and snaps.” Only name players in the allowed list. If the evidence does not support an immediate move, clearly recommend holding rather than inventing one.`,
+            content: `Category: ${story.category}\nPublished: ${story.publishedAt}\nSeason phase: ${seasonPhase(story.publishedAt)}\nSetting: ${isPracticeSetting(`${story.title} ${story.summary}`) ? "practice/camp" : "not identified as practice"}\nAllowed player names: ${allowedPlayers.length ? allowedPlayers.join(", ") : "none supplied"}\nVerified source evidence: ${story.summary}\nVerified compact draft: ${draft}\n\nCreate an in-app briefing with four distinct fields:\n- headline: factual and compelling, under 140 characters.\n- summary: one or two sentences explaining what happened, with useful context from the evidence.\n- whyItMatters: one or two natural sentences explaining the fantasy effect, including uncertainty and timing where relevant. During preseason, frame real scoring or standout plays as encouraging signs that can improve draft/watchlist appeal before adding appropriate uncertainty.\n- nextMove: one concrete action or hold decision, plus the specific trigger that would change it. During preseason, recommend a draft-board or watchlist response when supported, then identify what usage would confirm the upside.\nDo not repeat the same sentence across fields. Do not use generic filler such as “adjust projections,” “monitor the depth chart,” or “compare routes, targets and snaps.” Only name players in the allowed list. If the evidence does not support an immediate move, clearly recommend holding rather than inventing one.`,
           },
         ],
         response_format: {
@@ -456,9 +482,8 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
         max_tokens: 420,
         temperature: 0.45,
       });
-      const raw = result && typeof result === "object" && "response" in result ? result.response : undefined;
-      if (typeof raw !== "string") return fallback;
-      const parsed = JSON.parse(raw) as Partial<FeedEditorial>;
+      const parsed = parseAiResponse<Partial<FeedEditorial>>(result);
+      if (!parsed) return fallback;
       const clean = (value: unknown) => typeof value === "string" ? value.replace(/\s+/g, " ").trim() : "";
       const editorial = {
         headline: clean(parsed.headline),
@@ -497,9 +522,8 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
         max_tokens: 140,
         temperature: 0,
       });
-      const raw = result && typeof result === "object" && "response" in result ? result.response : undefined;
-      if (typeof raw !== "string") return validation;
-      const parsed = JSON.parse(raw) as { approved?: unknown; reasons?: unknown };
+      const parsed = parseAiResponse<{ approved?: unknown; reasons?: unknown }>(result);
+      if (!parsed) return validation;
       if (typeof parsed.approved !== "boolean" || !Array.isArray(parsed.reasons)) return validation;
       const reasons = parsed.reasons.filter((reason): reason is string => typeof reason === "string").slice(0, 4);
       return parsed.approved ? validation : { approvedForX: false, reasons: reasons.length ? reasons : ["AI critic rejected the publishing draft"] };
@@ -510,12 +534,12 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
   }
 
   private async regenerateCurrentFeed() {
-    const regenerationKey = "regenerated_feed_v40-ai-editorial-complete";
+    const regenerationKey = "regenerated_feed_v41-ai-response-and-preseason";
     const [completed] = [...this.sql<{ value: string }>`SELECT value FROM agent_meta WHERE key = ${regenerationKey} LIMIT 1`];
     if (completed?.value === "complete") return;
     const stories = [...this.sql<{ id: string; title: string; url: string; source: string; category: Story["category"]; published_at: string; status: string }>`
       SELECT id, title, url, source, category, published_at, status FROM stories
-      WHERE status IN ('draft', 'posted') AND feed_summary IS NULL
+      WHERE status IN ('draft', 'posted') AND (feed_summary IS NULL OR category = 'performance')
       ORDER BY published_at DESC LIMIT 100`];
     const processedPrefix = `${regenerationKey}:`;
     const processed = new Set([...this.sql<{ key: string }>`SELECT key FROM agent_meta WHERE key LIKE ${`${processedPrefix}%`}`].map((row) => row.key.slice(processedPrefix.length)));
