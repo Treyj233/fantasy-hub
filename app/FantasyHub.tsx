@@ -842,7 +842,7 @@ const mobileCategoryNav: { group: NavGroup; lead: View; label: string; categoryT
 const nav: { label: View; displayLabel?: string; mark: string; tone: string; group: NavGroup }[] = [
   { label: "All Leagues", displayLabel: "Mission Hub", mark: "◆", tone: "home-prism", group: "Home" },
   { label: "Theme Locker", mark: "✦", tone: "theme-spectrum", group: "Home" },
-  { label: "My Account", mark: "J", tone: "account-azure", group: "Utilities" },
+  { label: "My Account", mark: "👤", tone: "account-azure", group: "Utilities" },
   { label: "Manage Leagues", mark: "⚙", tone: "utility-steel", group: "Utilities" },
   { label: "Fantasy Hub Pro", displayLabel: "Manage Plans", mark: "P", tone: "pro-gold", group: "Utilities" },
   { label: "Command Center", mark: "★", tone: "command-sun", group: "Manage Team" },
@@ -8298,8 +8298,9 @@ function AdpPage({
     roster.map((player) => player.name.toLowerCase()),
   );
   const teamCount = context?.teams ?? 12;
+  const compositePool = buildSeasonCompositeRankings(leagueRankings, context);
   const positionRanks = new Map<string, number>();
-  const personalizedPool: RankedPlayer[] = leagueRankings.map((player) => {
+  const personalizedPool: RankedPlayer[] = compositePool.map((player) => {
     const positionRank = (positionRanks.get(player.position) ?? 0) + 1;
     positionRanks.set(player.position, positionRank);
     const tier: 1 | 2 | 3 | 4 =
