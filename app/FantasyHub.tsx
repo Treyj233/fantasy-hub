@@ -854,7 +854,7 @@ const nav: { label: View; displayLabel?: string; mark: string; tone: string; gro
   { label: "Manager Report", mark: "✓", tone: "report-mint", group: "Manage Team" },
   { label: "Player Rankings", mark: "♛", tone: "player-gold", group: "Analyze League" },
   { label: "Team Rankings", mark: "↥", tone: "team-jade", group: "Analyze League" },
-  { label: "Draft HQ", mark: "D", tone: "pro-gold", group: "Analyze League" },
+  { label: "Draft HQ", mark: "🖥", tone: "pro-gold", group: "Analyze League" },
   { label: "ADP", mark: "⌁", tone: "adp-cyan", group: "Analyze League" },
   { label: "League Analytics", mark: "◈", tone: "analytics-violet", group: "Analyze League" },
   { label: "League Stories", mark: "✎", tone: "stories-sunset", group: "Analyze League" },
@@ -2487,7 +2487,7 @@ export default function FantasyHub({
   const visibleNav = nav;
   const activeRivalryWeek = entitlement.elite && rivalryWeek?.leagueId === leagueId && leaguePlatform.toLowerCase() === "sleeper" ? rivalryWeek : null;
   const activeNavGroup = nav.find((item) => item.label === view)?.group ?? "Home";
-  const proViews = new Set<View>(["Command Center", "League Analytics", "Trade Lab", "Simulator"]);
+  const proViews = new Set<View>(["Command Center", "League Analytics", "Simulator"]);
   const eliteViews = new Set<View>(["League Stories", "Manager Report"]);
   const rosterReady = players.length > 0;
   const periodLabel =
@@ -3745,7 +3745,7 @@ function ProPlans({ entitlement }: { entitlement: AccountEntitlement }) {
     "Fantasy Scoreboard, Fantasy Matchups, NFL Games, and Sunday Pulse",
     "My Team roster view with projections, player health, weather, and opponent strength",
     "Core Start/Sit recommendations, Waiver Wire tools, and the manual Trade Lab calculator",
-    "Player Rankings, Team Rankings, blended ADP, and a standard Draft HQ mock room",
+    "Player Rankings, Team Rankings, blended ADP, and Draft HQ mocks with adjustable teams and draft slot",
     "League management, account controls, light and dark mode, and the Fantasy Hub glossary",
   ];
   const proFeatures = [
@@ -3755,7 +3755,7 @@ function ProPlans({ entitlement }: { entitlement: AccountEntitlement }) {
     "Advanced Trade Lab scans, partner fit, negotiation profiles, suggested packages, and acceptance estimates",
     "Season Simulator playoff odds, roster-move scenarios, injuries, and outcome drivers",
     "League Analytics for positional strength, dynasty windows, roster construction, and competitive outlook",
-    "Custom Draft HQ teams, slot, format, scoring, roster size, Superflex settings, and player-board options",
+    "Custom Draft HQ format, scoring, roster size, Superflex settings, and player-board options",
     "Weekly ranking intelligence with projections, ceilings, matchup strength, and weather context",
     "The complete NFL Theme Collection and all 16 original Fantasy Hub badge packs",
   ];
