@@ -22,7 +22,9 @@ test("social agent is live, sourced, deduplicated, and rate limited", async () =
   assert.match(worker, /ORDER BY published_at DESC LIMIT 100/);
   assert.match(worker, /POST_FRESHNESS_MINUTES = 60/);
   assert.match(worker, /GAMEDAY_POST_FRESHNESS_MINUTES = 20/);
-  assert.match(worker, /publishableStories = newlyCreated\.filter/);
+  assert.match(worker, /WHERE status = 'draft' AND published_at >=/);
+  assert.match(worker, /Retry every still-fresh approved draft/);
+  assert.match(worker, /reason: gapRemainingMs > 0 \? "minimum-gap"/);
   assert.match(worker, /publishableStories\.slice\(0, 1\)/);
   assert.match(worker, /safeEqual\(provided, env\.ADMIN_TOKEN\)/);
   assert.match(content, /FANTASY IMPACT:/);

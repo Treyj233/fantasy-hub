@@ -377,15 +377,25 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
     return timelines.flat();
   }
 
-  private eligibleToPost(gameDay: boolean) {
+  private postingEligibility(gameDay: boolean) {
     const minimumGap = gameDay ? 0 : Math.max(12, Number(this.env.MIN_POST_INTERVAL_MINUTES || 12)) * 60_000;
-    if (this.state.lastPostAt && Date.now() - Date.parse(this.state.lastPostAt) < minimumGap) return false;
+    const gapRemainingMs = this.state.lastPostAt
+      ? Math.max(0, minimumGap - (Date.now() - Date.parse(this.state.lastPostAt)))
+      : 0;
     const start = new Date();
     start.setUTCHours(0, 0, 0, 0);
     const [{ count }] = this.sql<{ count: number }>`SELECT COUNT(*) AS count FROM stories
       WHERE status IN ('posted', 'posted_suppressed') AND discovered_at >= ${start.toISOString()}`;
     const dailyLimit = gameDay ? Number(this.env.GAMEDAY_MAX_POSTS_PER_DAY || 100) : Number(this.env.MAX_POSTS_PER_DAY || 20);
-    return Number(count) < Math.max(1, dailyLimit);
+    const dailyCount = Number(count);
+    const normalizedLimit = Math.max(1, dailyLimit);
+    return {
+      eligible: gapRemainingMs === 0 && dailyCount < normalizedLimit,
+      reason: gapRemainingMs > 0 ? "minimum-gap" : dailyCount >= normalizedLimit ? "daily-limit" : "ready",
+      gapRemainingMs,
+      dailyCount,
+      dailyLimit: normalizedLimit,
+    };
   }
 
   private async enrichStory(story: Story, context: Awaited<ReturnType<typeof findPlayerContext>>) {
@@ -746,24 +756,30 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
       const mode = this.mode();
       const postFreshnessMinutes = gameDay ? GAMEDAY_POST_FRESHNESS_MINUTES : POST_FRESHNESS_MINUTES;
       const postFreshnessCutoff = now.getTime() - postFreshnessMinutes * 60_000;
-      const publishableStories = newlyCreated.filter(({ story, approved }) => approved && Date.parse(story.publishedAt) >= postFreshnessCutoff).map(({ story }) => story);
-      if (publishableStories.length && mode === "live" && this.eligibleToPost(gameDay)) {
+      // Retry every still-fresh approved draft. Previously a story stranded by
+      // the minimum-gap gate was never reconsidered after its discovery cycle.
+      const publishableStories = [...this.sql<{ id: string; published_at: string }>`SELECT id, published_at FROM stories
+        WHERE status = 'draft' AND published_at >= ${new Date(postFreshnessCutoff).toISOString()}
+        ORDER BY published_at ASC`];
+      const postingGate = this.postingEligibility(gameDay);
+      if (publishableStories.length && mode === "live" && postingGate.eligible) {
         const credentials = this.credentials();
         if (Object.values(credentials).some((value) => !value)) throw new Error("X posting credentials are incomplete");
         const queue = gameDay ? publishableStories : publishableStories.slice(0, 1);
         let lastPostAt = this.state.lastPostAt;
         for (const story of queue) {
-          if (!this.eligibleToPost(gameDay)) break;
+          if (!this.postingEligibility(gameDay).eligible) break;
           const [{ draft }] = [...this.sql<{ draft: string }>`SELECT draft FROM stories WHERE id = ${story.id} LIMIT 1`];
           const postId = await createXPost(draft, credentials);
           lastPostAt = new Date().toISOString();
           this.sql`UPDATE stories SET status = 'posted', x_post_id = ${postId}, error = NULL WHERE id = ${story.id}`;
+          this.setState({ ...this.state, lastPostAt });
         }
         this.setState({ ...this.state, lastRunAt: now.toISOString(), lastPostAt, lastError: null, mode });
       } else {
         this.setState({ ...this.state, lastRunAt: now.toISOString(), lastError: null, mode });
       }
-      console.log(JSON.stringify({ event: "social_agent_cycle", mode, gameDay, candidates: candidates.length, selected: selected?.id ?? null }));
+      console.log(JSON.stringify({ event: "social_agent_cycle", mode, gameDay, candidates: candidates.length, selected: selected?.id ?? null, newlyCreated: newlyCreated.length, publishable: publishableStories.length, postingGate }));
       return this.status();
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown social agent failure";
