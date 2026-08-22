@@ -8,6 +8,8 @@ type NewsItem = {
   title: string;
   category: string;
   headline: string;
+  summary?: string | null;
+  whyItMatters?: string;
   impact: string;
   nextSteps: string[];
   reporter: string | null;
@@ -107,10 +109,6 @@ export default function NewsAndNotes({ onOpenPlayer }: { onOpenPlayer?: (player:
   );
   const visibleItems = useMemo(() => filteredItems.slice(0, visibleCount), [filteredItems, visibleCount]);
 
-  useEffect(() => {
-    setVisibleCount(10);
-  }, [filter]);
-
   return (
     <div className="page-content news-notes-page">
       <section className="section-intro compact news-notes-intro">
@@ -136,7 +134,7 @@ export default function NewsAndNotes({ onOpenPlayer }: { onOpenPlayer?: (player:
 
       <div className="news-filter-row" role="group" aria-label="Filter news">
         {filters.map(([value, label]) => (
-          <button key={value} type="button" className={filter === value ? "active" : ""} onClick={() => setFilter(value)}>{label}</button>
+          <button key={value} type="button" className={filter === value ? "active" : ""} onClick={() => { setFilter(value); setVisibleCount(10); }}>{label}</button>
         ))}
       </div>
 
@@ -160,6 +158,7 @@ export default function NewsAndNotes({ onOpenPlayer }: { onOpenPlayer?: (player:
                   {index === 0 && <b>NEW</b>}
                 </header>
                 <h3>{cleanTeamHashtags(item.headline)}</h3>
+                {item.summary && item.summary !== item.headline && <p className="news-story-summary">{cleanTeamHashtags(item.summary)}</p>}
                 {!!item.relatedPlayers?.length && (
                   <div className="news-related-players" aria-label="Players affected by this update">
                     <span>IMPACTED PLAYERS</span>
@@ -171,6 +170,7 @@ export default function NewsAndNotes({ onOpenPlayer }: { onOpenPlayer?: (player:
                   </div>
                 )}
                 <section className="news-next-move">
+                  {item.whyItMatters && <p className="news-why-it-matters"><b>WHY IT MATTERS</b>{cleanTeamHashtags(item.whyItMatters)}</p>}
                   <span>YOUR NEXT MOVE</span>
                   <ul>{steps.map((step, stepIndex) => <li key={`${item.id}-${stepIndex}`}>{cleanTeamHashtags(step)}</li>)}</ul>
                 </section>

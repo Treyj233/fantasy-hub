@@ -33,6 +33,17 @@ type StoredStory = {
   lifecycle_stage: string | null;
   related_players_json: string | null;
   source_count: number | null;
+  feed_headline: string | null;
+  feed_summary: string | null;
+  feed_why_it_matters: string | null;
+  feed_next_move: string | null;
+};
+
+type FeedEditorial = {
+  headline: string;
+  summary: string;
+  whyItMatters: string;
+  nextMove: string;
 };
 
 const parseJson = <T,>(value: string | null, fallback: T): T => {
@@ -47,8 +58,9 @@ const feedStory = (story: StoredStory) => {
   const impactSection = sections.find((section) => /^FANTASY IMPACT:/i.test(section)) || "";
   const impact = impactSection.replace(/^FANTASY IMPACT:\s*/i, "").trim();
   const reporterSection = sections.find((section) => /^(?:Reported|Curated) by\s+/i.test(section));
-  const sentences = splitImpactSteps(impact);
-  const headline = (sections[1] || story.title).replace(/^\p{Extended_Pictographic}(?:\uFE0F)?\s*/u, "");
+  const fallbackSteps = splitImpactSteps(impact);
+  const headline = story.feed_headline || (sections[1] || story.title).replace(/^\p{Extended_Pictographic}(?:\uFE0F)?\s*/u, "");
+  const nextMove = story.feed_next_move || impact;
 
   return {
     id: story.id,
@@ -56,8 +68,10 @@ const feedStory = (story: StoredStory) => {
     title: titleMatch?.[2] || "FANTASY PULSE",
     category: story.category,
     headline,
-    impact,
-    nextSteps: sentences,
+    summary: story.feed_summary || null,
+    whyItMatters: story.feed_why_it_matters || impact,
+    impact: story.feed_why_it_matters || impact,
+    nextSteps: story.feed_next_move ? splitImpactSteps(nextMove) : fallbackSteps,
     reporter: reporterSection?.replace(/^(?:Reported|Curated) by\s+/i, "") || null,
     publishedAt: story.published_at,
     confidence: story.confidence || "medium",
@@ -133,6 +147,10 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
     if (!has("validation_json")) this.sql`ALTER TABLE stories ADD COLUMN validation_json TEXT`;
     if (!has("related_players_json")) this.sql`ALTER TABLE stories ADD COLUMN related_players_json TEXT`;
     if (!has("source_count")) this.sql`ALTER TABLE stories ADD COLUMN source_count INTEGER DEFAULT 1`;
+    if (!has("feed_headline")) this.sql`ALTER TABLE stories ADD COLUMN feed_headline TEXT`;
+    if (!has("feed_summary")) this.sql`ALTER TABLE stories ADD COLUMN feed_summary TEXT`;
+    if (!has("feed_why_it_matters")) this.sql`ALTER TABLE stories ADD COLUMN feed_why_it_matters TEXT`;
+    if (!has("feed_next_move")) this.sql`ALTER TABLE stories ADD COLUMN feed_next_move TEXT`;
     this.sql`CREATE TABLE IF NOT EXISTS story_evidence (
       story_id TEXT NOT NULL,
       source_story_id TEXT NOT NULL,
@@ -394,6 +412,71 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
     }
   }
 
+  private fallbackFeedEditorial(story: Story, draft: string): FeedEditorial {
+    const sections = draft.split(/\n{2,}/).map((section) => section.trim()).filter(Boolean);
+    const impact = (sections.find((section) => /^FANTASY IMPACT:/i.test(section)) || "")
+      .replace(/^FANTASY IMPACT:\s*/i, "").trim();
+    return {
+      headline: story.title,
+      summary: story.summary && story.summary !== story.title ? story.summary : story.title,
+      whyItMatters: impact,
+      nextMove: impact,
+    };
+  }
+
+  private async createFeedEditorial(story: Story, context: Awaited<ReturnType<typeof findPlayerContext>>, draft: string): Promise<FeedEditorial> {
+    const fallback = this.fallbackFeedEditorial(story, draft);
+    try {
+      const allowedPlayers = context ? [...new Set([context.player, ...context.affectedPlayers, ...context.backups])].slice(0, 7) : [];
+      const result = await this.env.AI.run("@cf/meta/llama-3.3-70b-instruct-fp8-fast", {
+        messages: [
+          {
+            role: "system",
+            content: "You are Fantasy Hub's in-app fantasy-football editor. Turn verified source evidence into a polished, natural briefing. Use only supplied facts. Never infer an injury, transaction, role, game result, statistic, teammate, or recommendation that is not supported. Treat practice as practice and preseason as preseason. Vary sentence structure and tone across stories without becoming sensational. Return JSON only.",
+          },
+          {
+            role: "user",
+            content: `Category: ${story.category}\nPublished: ${story.publishedAt}\nSetting: ${isPracticeSetting(`${story.title} ${story.summary}`) ? "practice/camp" : "not identified as practice"}\nAllowed player names: ${allowedPlayers.length ? allowedPlayers.join(", ") : "none supplied"}\nVerified source evidence: ${story.summary}\nVerified compact draft: ${draft}\n\nCreate an in-app briefing with four distinct fields:\n- headline: factual and compelling, under 140 characters.\n- summary: one or two sentences explaining what happened, with useful context from the evidence.\n- whyItMatters: one or two natural sentences explaining the fantasy effect, including uncertainty and timing where relevant.\n- nextMove: one concrete action or hold decision, plus the specific trigger that would change it.\nDo not repeat the same sentence across fields. Do not use generic filler such as “adjust projections,” “monitor the depth chart,” or “compare routes, targets and snaps.” Only name players in the allowed list. If the evidence does not support an immediate move, clearly recommend holding rather than inventing one.`,
+          },
+        ],
+        response_format: {
+          type: "json_schema",
+          json_schema: {
+            type: "object",
+            properties: {
+              headline: { type: "string" },
+              summary: { type: "string" },
+              whyItMatters: { type: "string" },
+              nextMove: { type: "string" },
+            },
+            required: ["headline", "summary", "whyItMatters", "nextMove"],
+            additionalProperties: false,
+          },
+        },
+        max_tokens: 420,
+        temperature: 0.45,
+      });
+      const raw = result && typeof result === "object" && "response" in result ? result.response : undefined;
+      if (typeof raw !== "string") return fallback;
+      const parsed = JSON.parse(raw) as Partial<FeedEditorial>;
+      const clean = (value: unknown) => typeof value === "string" ? value.replace(/\s+/g, " ").trim() : "";
+      const editorial = {
+        headline: clean(parsed.headline),
+        summary: clean(parsed.summary),
+        whyItMatters: clean(parsed.whyItMatters),
+        nextMove: clean(parsed.nextMove),
+      };
+      if (!editorial.headline || editorial.headline.length > 140
+        || !editorial.summary || editorial.summary.length > 420
+        || !editorial.whyItMatters || editorial.whyItMatters.length > 420
+        || !editorial.nextMove || editorial.nextMove.length > 320) return fallback;
+      return editorial;
+    } catch (error) {
+      console.warn(JSON.stringify({ event: "feed_editorial_fallback", storyId: story.id, error: error instanceof Error ? error.message : "Unknown editorial error" }));
+      return fallback;
+    }
+  }
+
   private async critiqueForPublishing(story: Story, context: Awaited<ReturnType<typeof findPlayerContext>>, draft: string, facts: StoryFacts, validation: ValidationResult) {
     if (!validation.approvedForX) return validation;
     try {
@@ -427,7 +510,7 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
   }
 
   private async regenerateCurrentFeed() {
-    const regenerationKey = "regenerated_feed_v36-preserve-trade-uncertainty";
+    const regenerationKey = "regenerated_feed_v39-ai-editorial";
     const [completed] = [...this.sql<{ value: string }>`SELECT value FROM agent_meta WHERE key = ${regenerationKey} LIMIT 1`];
     if (completed?.value === "complete") return;
     const stories = [...this.sql<{ id: string; title: string; url: string; source: string; category: Story["category"]; published_at: string; status: string }>`
@@ -473,9 +556,11 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
         this.sql`INSERT OR REPLACE INTO agent_meta (key, value) VALUES (${`${processedPrefix}${stored.id}`}, 'complete')`;
         continue;
       }
+      const editorial = await this.createFeedEditorial(prepared, context, draft);
       this.sql`UPDATE stories SET
         title = ${prepared.title}, category = ${prepared.category}, draft = ${draft}, confidence = ${facts.confidence}, lifecycle_stage = ${facts.lifecycleStage},
-        facts_json = ${JSON.stringify(facts)}, validation_json = ${JSON.stringify(validation)}, related_players_json = ${JSON.stringify(context.relatedPlayers)}, error = NULL
+        facts_json = ${JSON.stringify(facts)}, validation_json = ${JSON.stringify(validation)}, related_players_json = ${JSON.stringify(context.relatedPlayers)}, error = NULL,
+        feed_headline = ${editorial.headline}, feed_summary = ${editorial.summary}, feed_why_it_matters = ${editorial.whyItMatters}, feed_next_move = ${editorial.nextMove}
         WHERE id = ${stored.id}`;
       this.sql`INSERT OR REPLACE INTO agent_meta (key, value) VALUES (${`${processedPrefix}${stored.id}`}, 'complete')`;
     }
@@ -496,7 +581,8 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
     this.migrateDraftFormat();
     await this.regenerateCurrentFeed();
     const stories = [...this.sql<StoredStory>`
-      SELECT id, title, source, category, draft, status, published_at, confidence, lifecycle_stage, related_players_json, source_count
+      SELECT id, title, source, category, draft, status, published_at, confidence, lifecycle_stage, related_players_json, source_count,
+        feed_headline, feed_summary, feed_why_it_matters, feed_next_move
       FROM stories
       WHERE status IN ('draft', 'posted') AND draft IS NOT NULL
       ORDER BY published_at DESC LIMIT 100`];
@@ -557,6 +643,10 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
           ? await this.critiqueForPublishing(preparedStory, context, draft, facts, deterministicValidation)
           : deterministicValidation;
         const relatedPlayers = context?.relatedPlayers ?? (story.category === "weather" ? await findTeamFantasyPlayers(story.sourceContext ?? []) : []);
+        const editorial = validation.approvedForX
+          ? await this.createFeedEditorial(preparedStory, context, draft)
+          : this.fallbackFeedEditorial(preparedStory, draft);
+        const storyStatus = validation.approvedForX ? "draft" : "suppressed";
         const previousFacts = semanticDuplicate.length ? parseJson<StoryFacts | null>(semanticDuplicate[0].facts_json, null) : null;
         const materialUpdate = isMaterialStoryUpdate(previousFacts, facts, preparedStory);
         if (semanticDuplicate.length && !materialUpdate) {
@@ -568,8 +658,8 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
             WHERE id = ${canonical.id}`;
           continue;
         }
-        this.sql`INSERT INTO stories (id, title, url, source, category, published_at, discovered_at, draft, status, semantic_key, parent_story_id, confidence, lifecycle_stage, facts_json, validation_json, related_players_json, source_count)
-          VALUES (${preparedStory.id}, ${preparedStory.title}, ${preparedStory.url}, ${preparedStory.source}, ${preparedStory.category}, ${preparedStory.publishedAt}, ${now.toISOString()}, ${draft}, 'draft', ${storySemanticKey}, ${preparedStory.parentId ?? preparedStory.id}, ${facts.confidence}, ${facts.lifecycleStage}, ${JSON.stringify(facts)}, ${JSON.stringify(validation)}, ${JSON.stringify(relatedPlayers)}, 1)`;
+        this.sql`INSERT INTO stories (id, title, url, source, category, published_at, discovered_at, draft, status, semantic_key, parent_story_id, confidence, lifecycle_stage, facts_json, validation_json, related_players_json, source_count, feed_headline, feed_summary, feed_why_it_matters, feed_next_move)
+          VALUES (${preparedStory.id}, ${preparedStory.title}, ${preparedStory.url}, ${preparedStory.source}, ${preparedStory.category}, ${preparedStory.publishedAt}, ${now.toISOString()}, ${draft}, ${storyStatus}, ${storySemanticKey}, ${preparedStory.parentId ?? preparedStory.id}, ${facts.confidence}, ${facts.lifecycleStage}, ${JSON.stringify(facts)}, ${JSON.stringify(validation)}, ${JSON.stringify(relatedPlayers)}, 1, ${editorial.headline}, ${editorial.summary}, ${editorial.whyItMatters}, ${editorial.nextMove})`;
         this.sql`INSERT OR IGNORE INTO story_evidence (story_id, source_story_id, source, url, title, published_at)
           VALUES (${preparedStory.id}, ${preparedStory.id}, ${preparedStory.source}, ${preparedStory.url}, ${story.title}, ${preparedStory.publishedAt})`;
         selected ??= preparedStory;
