@@ -7915,6 +7915,7 @@ function TeamRankings({
 function buildSeasonCompositeRankings(
   rankings: LeagueRanking[],
   context: RankingContext | null,
+  selectedAdpKey?: string,
 ): CompositeLeagueRanking[] {
   const superflex = (context?.positionDemand.QB ?? 0) > 1.4;
   const sleeperAdpKey = `Sleeper ${superflex ? "Superflex" : "Single-QB"}`;
@@ -7941,11 +7942,14 @@ function buildSeasonCompositeRankings(
           : 0;
   return rankings
     .map((player) => {
-      const sources = [
-        { value: player.adpBySite?.[underdogAdpKey], weight: 0.6 },
-        { value: player.adpBySite?.[sleeperAdpKey], weight: 0.3 },
-        { value: player.adpBySite?.ESPN, weight: 0.1 },
-      ].filter(
+      const sources = (selectedAdpKey
+        ? [{ value: player.adpBySite?.[selectedAdpKey], weight: 1 }]
+        : [
+            { value: player.adpBySite?.[underdogAdpKey], weight: 0.6 },
+            { value: player.adpBySite?.[sleeperAdpKey], weight: 0.3 },
+            { value: player.adpBySite?.ESPN, weight: 0.1 },
+          ]
+      ).filter(
         (source): source is { value: number; weight: number } =>
           typeof source.value === "number" && source.value > 0,
       );
@@ -8337,7 +8341,11 @@ function AdpPage({
     roster.map((player) => player.name.toLowerCase()),
   );
   const teamCount = context?.teams ?? 12;
-  const compositePool = buildSeasonCompositeRankings(leagueRankings, context);
+  const compositePool = buildSeasonCompositeRankings(
+    leagueRankings,
+    context,
+    adpDataKey,
+  );
   const positionRanks = new Map<string, number>();
   const personalizedPool: RankedPlayer[] = compositePool.map((player) => {
     const positionRank = (positionRanks.get(player.position) ?? 0) + 1;
