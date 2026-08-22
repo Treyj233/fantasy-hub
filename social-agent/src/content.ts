@@ -98,8 +98,11 @@ const atomLink = (xml: string) => {
 
 export function categorizeStory(text: string): StoryCategory {
   const normalized = text.toLowerCase();
+  const nonRosterExtension = /\b(?:contract extension|extended|restructured|reworked|renegotiated)\b/.test(normalized)
+    && !/\b(?:traded|released|waived|claimed|acquired|sign(?:s|ed|ing) with)\b/.test(normalized);
   if (/potential trade candidate|trade candidate|trade target|drawing trade interest|interested in trading for/.test(normalized)) return "contract";
   if (/injur|out for|questionable|doubtful|\bir\b|concussion|surgery|tor(?:e|n)|sprain|flare-up|hamstring|ankle|knee/.test(normalized)) return "injury";
+  if (nonRosterExtension) return "news";
   if (/\b(?:signs|signed|signing|re-signs|re-signed)\b|extension|(?:new |reworked |renegotiated |agreed to (?:a |the )?)contract|released|waived|traded|trade\b|franchise tag/.test(normalized)) return "contract";
   if (/\bstarter\b|\bnamed (?:the )?starter\b|\b(?:will|expected to|set to) start\b|\bstarting (?:at )?(?:quarterback|running back|wide receiver|tight end|kicker|role|job|lineup|offense)\b|depth chart|promoted|demoted|backup|committee|workload/.test(normalized)) return "depth-chart";
   if (isPracticeSetting(normalized)) return "news";
@@ -115,7 +118,9 @@ export function isFantasyRelevant(story: Pick<Story, "title" | "summary">) {
   const text = `${story.title} ${story.summary}`.toLowerCase();
   const historicalContractList = /(?:^|\s)(?:since|from)\s+\d{4}\s*:/i.test(text)
     && /\bcontracts?\b|\bsecond contracts?\b/i.test(text);
-  return fantasySignals.test(text) && !unreliableSignals.test(text) && !historicalContractList;
+  const nonRosterExtension = /\b(?:contract extension|extended|restructured|reworked|renegotiated)\b/.test(text)
+    && !/\b(?:holdout|injur|practice|will play|return(?:ed|ing)?|traded|released|waived|claimed|acquired|sign(?:s|ed|ing) with)\b/.test(text);
+  return fantasySignals.test(text) && !unreliableSignals.test(text) && !historicalContractList && !nonRosterExtension;
 }
 
 export function parseFeed(xml: string, feedUrl: string): Story[] {
@@ -327,6 +332,9 @@ const specificImpact = (story: Story, context: FantasyPlayerContext | null) => {
     const affected = context.affectedPlayers.length ? context.affectedPlayers.slice(0, 2).join(" and ") : `the other ${context.team} ${context.position}s`;
     if (potentialTrade.test(move)) {
       return `Treat this as a watchlist item, not a value change. Hold ${context.player} at the current price until a deal is reported; then reassess his path to touches and both teams' depth charts.`;
+    }
+    if (/\b(?:contract extension|extended|restructured|reworked|renegotiated)\b/i.test(move)) {
+      return `${context.player}'s contract changed, but the roster and role did not. Keep the current fantasy valuation unless the deal changes availability or team context.`;
     }
     if (playerRemoved.test(move)) {
       return `${context.player}'s departure clears an opening for ${affected}. Add the likely replacement to your watchlist now, but wait for the team to assign the vacated role before spending meaningful FAAB.`;

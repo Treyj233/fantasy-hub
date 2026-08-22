@@ -221,6 +221,15 @@ test("historical contract lists are context, not fantasy roster moves", async ()
   assert.equal(isFantasyRelevant({ title: contextLine, summary: contextLine }), false);
 });
 
+test("same-team contract extensions without role impact are not roster moves", async () => {
+  const { categorizeStory, isFantasyRelevant } = await import("../social-agent/src/content.ts");
+  const marketComment = "Bijan Robinson received messages thanking him for reviving the RB market with the contract extension he signed.";
+  assert.equal(categorizeStory(marketComment), "news");
+  assert.equal(isFantasyRelevant({ title: marketComment, summary: marketComment }), false);
+  assert.equal(categorizeStory("The Falcons signed a running back with the team"), "contract");
+  assert.equal(isFantasyRelevant({ title: "Bijan returned to practice after ending his holdout with an extension", summary: "Bijan returned to practice" }), true);
+});
+
 test("injury classification recognizes past-tense ACL reports", async () => {
   const { categorizeStory } = await import("../social-agent/src/content.ts");
   assert.equal(categorizeStory("Texans WR Jayden Higgins tore his ACL"), "injury");
