@@ -510,12 +510,12 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
   }
 
   private async regenerateCurrentFeed() {
-    const regenerationKey = "regenerated_feed_v39-ai-editorial";
+    const regenerationKey = "regenerated_feed_v40-ai-editorial-complete";
     const [completed] = [...this.sql<{ value: string }>`SELECT value FROM agent_meta WHERE key = ${regenerationKey} LIMIT 1`];
     if (completed?.value === "complete") return;
     const stories = [...this.sql<{ id: string; title: string; url: string; source: string; category: Story["category"]; published_at: string; status: string }>`
       SELECT id, title, url, source, category, published_at, status FROM stories
-      WHERE status IN ('draft', 'posted')
+      WHERE status IN ('draft', 'posted') AND feed_summary IS NULL
       ORDER BY published_at DESC LIMIT 100`];
     const processedPrefix = `${regenerationKey}:`;
     const processed = new Set([...this.sql<{ key: string }>`SELECT key FROM agent_meta WHERE key LIKE ${`${processedPrefix}%`}`].map((row) => row.key.slice(processedPrefix.length)));
@@ -564,7 +564,8 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
         WHERE id = ${stored.id}`;
       this.sql`INSERT OR REPLACE INTO agent_meta (key, value) VALUES (${`${processedPrefix}${stored.id}`}, 'complete')`;
     }
-    if (!batch.length || processed.size + batch.length >= stories.length) {
+    const completedThisBatch = new Set(batch.map((story) => story.id));
+    if (!batch.length || stories.every((story) => processed.has(story.id) || completedThisBatch.has(story.id))) {
       this.sql`INSERT OR REPLACE INTO agent_meta (key, value) VALUES (${regenerationKey}, 'complete')`;
     }
   }
