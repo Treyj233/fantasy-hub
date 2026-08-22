@@ -1660,8 +1660,8 @@ html[data-theme="dark"] .all-leagues-page .exposure-list>b,html[data-theme="dark
 /* Keep matchup posture controls visible throughout the vertical decision list. */
 .start-sit-page{overflow:visible!important}
 .start-sit-page>.aggression-panel{position:-webkit-sticky!important;position:sticky!important;z-index:34;top:12px;align-self:start;background:color-mix(in srgb,var(--chalk) 96%,transparent);backdrop-filter:blur(16px);transform:translateZ(0)}
-@media(max-width:700px){.start-sit-page>.aggression-panel{top:100px}}
-@media(max-width:700px){html[data-native-platform="ios"] .start-sit-page>.aggression-panel{top:calc(100px + max(54px,env(safe-area-inset-top)))}}
+@media(max-width:700px){.start-sit-page>.aggression-panel{top:108px}}
+@media(max-width:700px){html[data-native-platform="ios"] .start-sit-page>.aggression-panel{top:calc(108px + max(54px,env(safe-area-inset-top)))}}
 
 /* League changes retain the last usable roster while the selected league
    refreshes, with a compact and truthful freshness indicator. */
@@ -1807,7 +1807,9 @@ html[data-theme="dark"] .player-verdict,html[data-theme="dark"] .player-range-co
   .app-shell:not(.sidebar-collapsed) .sidebar-bottom{display:block}
   .sidebar-collapsed .sidebar .theme-toggle{grid-template-columns:1fr;justify-items:center;width:100%;padding:9px}
   .sidebar-collapsed .sidebar .theme-toggle>b,.sidebar-collapsed .sidebar .theme-toggle>i{display:none}
-  .workspace{min-width:0;min-height:100svh;overflow-x:hidden}
+  /* overflow:hidden creates a non-scrolling containing block in iPad Safari,
+     which prevents descendants from sticking to the page viewport. */
+  .workspace{min-width:0;min-height:100svh;overflow-x:clip}
   .topbar{min-height:76px;padding:calc(13px + env(safe-area-inset-top)) 22px 13px}
   html[data-native-platform="ios"] .topbar{padding-top:max(32px,calc(13px + env(safe-area-inset-top)))}
   html[data-native-platform="ios"] .sidebar,html[data-native-platform="ios"] .sidebar-collapsed .sidebar{padding-top:max(32px,calc(18px + env(safe-area-inset-top)))}
@@ -1824,6 +1826,7 @@ html[data-theme="dark"] .player-verdict,html[data-theme="dark"] .player-range-co
   :is(.player-panel,.team-assets-drawer,.asset-selector-dialog,.draft-history-dialog){width:min(920px,100%);max-height:calc(100dvh - max(48px,calc(env(safe-area-inset-top) + env(safe-area-inset-bottom) + 28px)))}
   :is(button,a,[role="button"]){touch-action:manipulation}
   .table-panel{max-width:100%;overscroll-behavior-x:contain}
+  .start-sit-page>.aggression-panel,.sunday-pulse{position:-webkit-sticky!important;position:sticky!important;top:12px;align-self:start}
 }
 
 /* Coordinate the iPad rail and its contents as one animation. Keeping the
