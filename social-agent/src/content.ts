@@ -44,7 +44,13 @@ export function isLiveContentPost(text: string, urls: string[] = []) {
 
 export function splitAtomicUpdates(value: string) {
   const withoutLinks = value.replace(/https:\/\/t\.co\/\w+/g, "").replace(/^RT\s+@\w+:\s*/i, "").trim();
-  const lines = withoutLinks.split(/\n+/).map((line) => line.replace(/^\s*[-•–—]+\s*/, "").replace(/\s+/g, " ").trim()).filter(Boolean);
+  const rawLines = withoutLinks.split(/\n+/).map((line) => line.replace(/^\s*[-•–—]+\s*/, "").replace(/\s+/g, " ").trim()).filter(Boolean);
+  const lines: string[] = [];
+  for (const line of rawLines) {
+    const previous = lines.at(-1);
+    if (previous?.endsWith(":")) lines[lines.length - 1] = `${previous} ${line}`;
+    else lines.push(line);
+  }
   if (lines.length < 2) return [withoutLinks.replace(/\s+/g, " ").trim()].filter(Boolean);
   return lines.filter((line) => line.length >= 18).slice(0, 12);
 }

@@ -638,6 +638,10 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
       this.migrateDraftFormat();
       // Remove drafts created by the retired RSS source. X-origin stories use an @handle.
       this.sql`DELETE FROM stories WHERE source NOT LIKE '@%' AND source != 'weather'`;
+      this.sql`UPDATE stories
+        SET status = CASE WHEN status = 'posted' THEN 'posted_suppressed' ELSE 'suppressed' END,
+            error = 'Incomplete quote introduction without the quoted statement'
+        WHERE status IN ('draft', 'posted') AND TRIM(title) LIKE '%:'`;
       const cutoff = now.getTime() - RECENT_STORY_HOURS * 60 * 60 * 1000;
       const candidates = [...await this.sourceStories(), ...await gameDayWeatherStories()]
         .filter((story) => !RETRACTED_STORY_IDS.includes(story.id))
@@ -658,7 +662,7 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
         const duplicateWindowMs = story.category === "performance" ? 20 * 60_000 : 24 * 60 * 60_000;
         const duplicateCutoff = new Date(Date.parse(story.publishedAt) - duplicateWindowMs).toISOString();
         const semanticDuplicate = [...this.sql<{ id: string; source_count: number | null; facts_json: string | null }>`SELECT id, source_count, facts_json FROM stories
-          WHERE semantic_key = ${storySemanticKey} AND published_at >= ${duplicateCutoff}
+          WHERE semantic_key = ${storySemanticKey} AND published_at >= ${duplicateCutoff} AND status IN ('draft', 'posted')
           ORDER BY published_at DESC LIMIT 1`];
         const preparedStory = await this.enrichStory(story, context);
         const draft = composeFantasyPost(preparedStory, context);

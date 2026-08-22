@@ -124,6 +124,13 @@ test("roundup posts are split into atomic player updates", async () => {
   ]);
 });
 
+test("quote introductions remain attached to the quoted statement", async () => {
+  const { splitAtomicUpdates } = await import("../social-agent/src/content.ts");
+  assert.deepEqual(splitAtomicUpdates('Sam Darnold on rookie RB Jadarian Price:\n"He has looked explosive and earned more work."'), [
+    'Sam Darnold on rookie RB Jadarian Price: "He has looked explosive and earned more work."',
+  ]);
+});
+
 test("role classification distinguishes a starting-role change from starting an activity", async () => {
   const { categorizeStory, isSixPointFantasyPlay } = await import("../social-agent/src/content.ts");
   assert.equal(categorizeStory("Bo Nix starting off the day hot"), "news");
