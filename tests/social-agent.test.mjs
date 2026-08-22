@@ -58,6 +58,12 @@ test("social agent is live, sourced, deduplicated, and rate limited", async () =
   assert.match(worker, /referenced_tweets\.id\.attachments\.media_keys/);
   assert.match(worker, /hasVideoMedia/);
   assert.match(worker, /video_source_suppressed/);
+  assert.match(worker, /reviewMediaStoryIntent/);
+  assert.match(worker, /media-ai-review/);
+  assert.match(worker, /post's written text independently and unambiguously states the event, player, and fantasy-relevant development/);
+  assert.match(worker, /Approve only if an editor could accurately write a factual headline and fantasy recommendation from this text alone/);
+  assert.match(worker, /const mediaReview = await this\.reviewMediaStoryIntent\(story\)/);
+  assert.match(worker, /if \(!mediaReview\.approved\)/);
   assert.match(worker, /parseAiResponse/);
   assert.match(worker, /Season phase:/);
   assert.match(worker, /await this\.regenerateCurrentFeed\(\)/);

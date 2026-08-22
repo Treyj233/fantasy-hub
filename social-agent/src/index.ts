@@ -347,20 +347,6 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
         const sourceUrls = (primaryPost.entities?.urls ?? []).flatMap((entity) => [entity.expanded_url, entity.unwound_url, entity.url].filter((url): url is string => Boolean(url)));
         const mediaKeys = [...new Set([...(post.attachments?.media_keys ?? []), ...(referencedPost?.attachments?.media_keys ?? [])])];
         const hasVideoMedia = mediaKeys.some((mediaKey) => ["video", "animated_gif"].includes(mediaTypes.get(mediaKey) ?? ""));
-        if (hasVideoMedia && !isSelfContainedMediaPost(primaryText, sourceUrls)) {
-          this.sql`UPDATE stories
-            SET status = CASE WHEN status = 'posted' THEN 'posted_suppressed' ELSE 'suppressed' END,
-                error = 'Source post contains video or animated media that cannot be verified from text'
-            WHERE id = ${post.id} OR parent_story_id = ${post.id}`;
-          console.log(JSON.stringify({ event: "video_source_suppressed", sourcePostId: post.id, handle }));
-          return [];
-        }
-        if (hasVideoMedia) {
-          this.sql`UPDATE stories
-            SET status = CASE WHEN x_post_id IS NOT NULL THEN 'posted' ELSE 'draft' END, error = NULL
-            WHERE (id = ${post.id} OR parent_story_id = ${post.id})
-              AND error = 'Source post contains video or animated media that cannot be verified from text'`;
-        }
         if (isLiveContentPost(primaryText, sourceUrls)) return [];
         const originalUrl = curated && reference && originalReporter
           ? `https://x.com/${originalReporter.username}/status/${reference.id}`
@@ -380,7 +366,10 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
           category: parentIsPractice && category === "performance" ? "news" : category,
           reporter: originalReporter ? `@${originalReporter.username}` : curated ? "@32BeatWriters" : undefined,
           curator: curated ? "@32BeatWriters" : undefined,
-          sourceContext: parentIsPractice ? ["practice"] : undefined,
+          sourceContext: [
+            ...(parentIsPractice ? ["practice"] : []),
+            ...(hasVideoMedia ? [isSelfContainedMediaPost(primaryText, sourceUrls) ? "media-self-contained" : "media-ai-review"] : []),
+          ],
         });
         });
       });
@@ -441,6 +430,50 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
     } catch (error) {
       console.warn(JSON.stringify({ event: "story_enrichment_fallback", storyId: story.id, error: error instanceof Error ? error.message : "Unknown enrichment error" }));
       return story;
+    }
+  }
+
+  private async reviewMediaStoryIntent(story: Story) {
+    if (!story.sourceContext?.some((item) => item.startsWith("media-"))) {
+      return { approved: true, reason: "No video or animated media attached" };
+    }
+    try {
+      const result = await this.env.AI.run("@cf/meta/llama-3.3-70b-instruct-fp8-fast", {
+        messages: [
+          {
+            role: "system",
+            content: "You are the evidence gate for a fantasy-football news service. You cannot watch attached video. Judge only whether the post's written text independently and unambiguously states the event, player, and fantasy-relevant development. Reject teasers, reactions, vague highlights, incomplete quotes, captions whose meaning depends on the video, and posts where the text does not capture the apparent informational intent. Do not infer anything from unseen media. Return JSON only.",
+          },
+          {
+            role: "user",
+            content: `Source: ${story.source}\nPublished: ${story.publishedAt}\nText: ${story.summary}\n\nApprove only if an editor could accurately write a factual headline and fantasy recommendation from this text alone. A complete injury, transaction, role update, stat line, scoring result, or clearly described play may be approved even when a video is attached.`,
+          },
+        ],
+        response_format: {
+          type: "json_schema",
+          json_schema: {
+            type: "object",
+            properties: {
+              approved: { type: "boolean" },
+              reason: { type: "string" },
+            },
+            required: ["approved", "reason"],
+            additionalProperties: false,
+          },
+        },
+        max_tokens: 120,
+        temperature: 0,
+      });
+      const parsed = parseAiResponse<{ approved?: unknown; reason?: unknown }>(result);
+      if (!parsed || typeof parsed.approved !== "boolean" || typeof parsed.reason !== "string") {
+        return { approved: false, reason: "AI media-intent review returned an invalid response" };
+      }
+      return { approved: parsed.approved, reason: parsed.reason.replace(/\s+/g, " ").trim().slice(0, 240) };
+    } catch (error) {
+      return {
+        approved: false,
+        reason: `AI media-intent review failed: ${error instanceof Error ? error.message : "unknown error"}`.slice(0, 240),
+      };
     }
   }
 
@@ -662,6 +695,15 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
       for (const story of candidates) {
         const existing = [...this.sql<{ id: string }>`SELECT id FROM stories WHERE id = ${story.id} LIMIT 1`];
         if (existing.length) continue;
+        const mediaReview = await this.reviewMediaStoryIntent(story);
+        if (!mediaReview.approved) {
+          this.sql`INSERT INTO stories (id, title, url, source, category, published_at, discovered_at, draft, status, parent_story_id, error)
+            VALUES (${story.id}, ${story.title}, ${story.url}, ${story.source}, ${story.category}, ${story.publishedAt}, ${now.toISOString()}, NULL, 'suppressed', ${story.parentId ?? story.id}, ${mediaReview.reason})`;
+          this.sql`INSERT OR IGNORE INTO story_evidence (story_id, source_story_id, source, url, title, published_at)
+            VALUES (${story.id}, ${story.id}, ${story.source}, ${story.url}, ${story.title}, ${story.publishedAt})`;
+          console.log(JSON.stringify({ event: "video_source_suppressed", sourcePostId: story.id, source: story.source, reason: mediaReview.reason }));
+          continue;
+        }
         const context = story.category === "weather" ? null : await findPlayerContext(`${story.title} ${story.summary}`, story.category);
         if (!context && story.category !== "weather") continue;
         const storySemanticKey = context ? semanticKey(story, context) : story.id;
