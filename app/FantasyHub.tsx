@@ -2643,6 +2643,7 @@ export default function FantasyHub({
             aria-controls="primary-sidebar"
             aria-expanded={mobileNavOpen}
             onClick={() => {
+              void nativeImpact("light");
               setMobileCategoryOpen(null);
               setMobileNavOpen((current) => !current);
             }}
