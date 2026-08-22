@@ -329,10 +329,20 @@ export default function DraftDashboard({ players, leagueContext, draftSlot, isPr
       const currentIndex = Math.min(picks.length, settings.teams * rounds - 1);
       const currentPick = container?.querySelector<HTMLElement>(`[data-draft-index="${currentIndex}"]`);
       if (!container || !currentPick) return;
+      const containerRect = container.getBoundingClientRect();
+      const pickRect = currentPick.getBoundingClientRect();
+      const pickLeft = container.scrollLeft + pickRect.left - containerRect.left;
+      const pickTop = container.scrollTop + pickRect.top - containerRect.top;
+      const isMobile = window.matchMedia("(max-width: 560px)").matches;
+      const verticalContext = currentPick.offsetHeight * (isMobile ? 0.45 : 1.1);
+      const maxLeft = Math.max(0, container.scrollWidth - container.clientWidth);
+      const maxTop = Math.max(0, container.scrollHeight - container.clientHeight);
       container.scrollTo({
-        left: Math.max(0, currentPick.offsetLeft - (container.clientWidth - currentPick.offsetWidth) / 2),
-        top: Math.max(0, currentPick.offsetTop - (container.clientHeight - currentPick.offsetHeight) / 2),
-        behavior: "smooth",
+        left: Math.min(maxLeft, Math.max(0, pickLeft - (container.clientWidth - currentPick.offsetWidth) / 2)),
+        top: Math.min(maxTop, Math.max(0, pickTop - verticalContext)),
+        // CPU picks arrive faster than a smooth-scroll animation can finish on
+        // mobile WebViews. An immediate move reliably follows every pick.
+        behavior: "auto",
       });
     });
     return () => window.cancelAnimationFrame(frame);
