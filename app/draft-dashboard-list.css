@@ -551,7 +551,21 @@ html[data-theme="dark"] .draft-hq-page :is(.draft-settings-grid select, .draft-r
 @media (max-width: 560px) {
   .draft-hq-page {
     width: 100%;
+    max-width: 100%;
+    min-width: 0;
     overflow-x: clip;
+  }
+
+  .draft-hq-page > *,
+  .draft-room-layout,
+  .draft-player-pool,
+  .draft-roster,
+  .draft-setup,
+  .draft-workspace-tabs {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: hidden;
   }
 
   .draft-board {
@@ -561,7 +575,13 @@ html[data-theme="dark"] .draft-hq-page :is(.draft-settings-grid select, .draft-r
   }
 
   .draft-board-scroll {
+    width: 100%;
+    max-width: 100%;
     max-height: 213px;
+    overflow-x: auto;
+    overflow-y: auto;
+    overscroll-behavior-x: contain;
+    touch-action: pan-x pan-y;
     scrollbar-width: thin;
   }
 
@@ -589,15 +609,77 @@ html[data-theme="dark"] .draft-hq-page :is(.draft-settings-grid select, .draft-r
   }
 
   .draft-player-list > button {
-    min-width: 790px;
-    grid-template-columns: 30px 138px minmax(540px, 1fr) 42px;
-    gap: 8px;
+    width: 100%;
+    min-width: 0;
+    grid-template-columns: 28px minmax(0, 1fr) auto;
+    gap: 7px 8px;
+    overflow: hidden;
   }
 
-  .draft-player-identity { left: 30px; }
+  .draft-player-list {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  .draft-player-list > button > i {
+    position: static;
+    padding: 0;
+  }
+
+  .draft-player-identity {
+    position: static;
+    left: auto;
+    min-width: 0;
+    padding: 0;
+    box-shadow: none;
+  }
+
+  .draft-player-identity b,
+  .draft-player-identity small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .draft-player-history {
+    display: grid;
+    grid-column: 1 / -1;
+    grid-auto-flow: row;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 5px;
+    min-width: 0;
+  }
+
+  .draft-player-history > span {
+    min-width: 0;
+    padding: 6px;
+    background: var(--draft-surface-muted);
+    border: 0;
+    border-radius: 6px;
+  }
+
+  .draft-player-history small,
+  .draft-player-history b {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
 
   .draft-player-market {
-    display: none;
+    display: flex;
+    grid-column: 1 / -1;
+    align-items: center;
+    justify-content: space-between;
+    padding: 5px 7px;
+    background: var(--draft-surface-accent);
+    border: 0;
+    border-radius: 6px;
+  }
+
+  .draft-player-list > button > strong {
+    justify-self: end;
   }
 
   .draft-roster-builder > header {

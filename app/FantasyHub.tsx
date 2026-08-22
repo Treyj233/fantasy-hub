@@ -39,7 +39,7 @@ type View =
   | "Glossary"
   | "Fantasy Hub Pro"
   | "My Account"
-  | "Theme Store"
+  | "Theme Locker"
   | "Manage Leagues";
 type Player = {
   id: string;
@@ -836,15 +836,15 @@ const mobileCategoryNav: { group: NavGroup; lead: View; label: string; categoryT
   { group: "Home", lead: "All Leagues", label: "Home", categoryTone: "category-blue" },
   { group: "Game Day", lead: "Scoreboard", label: "Game Day", categoryTone: "category-red" },
   { group: "Manage Team", lead: "Command Center", label: "Manage", categoryTone: "category-yellow" },
-  { group: "Analyze League", lead: "League Stories", label: "Analyze", categoryTone: "category-green" },
+  { group: "Analyze League", lead: "Player Rankings", label: "Analyze", categoryTone: "category-green" },
   { group: "Utilities", lead: "Manage Leagues", label: "Utilities", categoryTone: "category-orange" },
 ];
 const nav: { label: View; displayLabel?: string; mark: string; tone: string; group: NavGroup }[] = [
   { label: "All Leagues", displayLabel: "Mission Hub", mark: "◆", tone: "home-prism", group: "Home" },
-  { label: "Theme Store", mark: "✦", tone: "theme-spectrum", group: "Home" },
+  { label: "Theme Locker", mark: "✦", tone: "theme-spectrum", group: "Home" },
+  { label: "My Account", mark: "J", tone: "account-azure", group: "Utilities" },
   { label: "Manage Leagues", mark: "⚙", tone: "utility-steel", group: "Utilities" },
   { label: "Fantasy Hub Pro", displayLabel: "Manage Plans", mark: "P", tone: "pro-gold", group: "Utilities" },
-  { label: "My Account", mark: "J", tone: "account-azure", group: "Utilities" },
   { label: "Command Center", mark: "★", tone: "command-sun", group: "Manage Team" },
   { label: "My Team", mark: "♟", tone: "roster-cobalt", group: "Manage Team" },
   { label: "Start / Sit", mark: "⚡", tone: "decision-orange", group: "Manage Team" },
@@ -852,23 +852,23 @@ const nav: { label: View; displayLabel?: string; mark: string; tone: string; gro
   { label: "Trade Lab", mark: "↔", tone: "trade-rose", group: "Manage Team" },
   { label: "Simulator", mark: "✦", tone: "simulator-indigo", group: "Manage Team" },
   { label: "Manager Report", mark: "✓", tone: "report-mint", group: "Manage Team" },
-  { label: "Draft HQ", mark: "D", tone: "pro-gold", group: "Analyze League" },
-  { label: "League Stories", mark: "✎", tone: "stories-sunset", group: "Analyze League" },
-  { label: "League Analytics", mark: "◈", tone: "analytics-violet", group: "Analyze League" },
-  { label: "Team Rankings", mark: "↥", tone: "team-jade", group: "Analyze League" },
   { label: "Player Rankings", mark: "♛", tone: "player-gold", group: "Analyze League" },
+  { label: "Team Rankings", mark: "↥", tone: "team-jade", group: "Analyze League" },
+  { label: "Draft HQ", mark: "D", tone: "pro-gold", group: "Analyze League" },
   { label: "ADP", mark: "⌁", tone: "adp-cyan", group: "Analyze League" },
+  { label: "League Analytics", mark: "◈", tone: "analytics-violet", group: "Analyze League" },
+  { label: "League Stories", mark: "✎", tone: "stories-sunset", group: "Analyze League" },
   { label: "Scoreboard", displayLabel: "Fantasy Scoreboard", mark: "▣", tone: "score-crimson", group: "Game Day" },
+  { label: "Matchups", displayLabel: "Fantasy Matchups", mark: "◎", tone: "matchup-aqua", group: "Game Day" },
   { label: "NFL Games", mark: "🏈", tone: "football-bronze", group: "Game Day" },
   { label: "News & Notes", mark: "🗞", tone: "news-pulse", group: "Game Day" },
-  { label: "Matchups", displayLabel: "Fantasy Matchups", mark: "◎", tone: "matchup-aqua", group: "Game Day" },
   { label: "Glossary", mark: "?", tone: "glossary-plum", group: "Utilities" },
 ];
 
 const glossaryDetails: Record<View, { summary: string; use: string }> = {
   "All Leagues": { summary: "Your portfolio-wide Mission Hub, combining urgent lineup, waiver, weather, injury, and trade actions across every connected league.", use: "Open first to see the three most important actions across your portfolio." },
   "Manage Leagues": { summary: "Connect, remove, refresh, and reorder Sleeper or ESPN leagues attached to your Fantasy Hub account.", use: "Use when adding a league, changing league order, or updating connected platforms." },
-  "Theme Store": { summary: "Browse and apply every NFL-inspired dashboard palette and all 16 Fantasy Hub navigation badge packs.", use: "Use whenever you want to personalize the colors and navigation style across your Hub." },
+  "Theme Locker": { summary: "Browse, collect, and apply every Fantasy Hub palette and navigation badge pack.", use: "Use whenever you want to personalize the colors and navigation style across your Hub." },
   "Fantasy Hub Pro": { summary: "Compare Free and Pro access, start a subscription, restore an App Store purchase, or manage active billing.", use: "Use to review plans and unlock Fantasy Hub’s proprietary tools." },
   "My Account": { summary: "Review account details, subscription status, billing management, notification preferences, and sign-in controls.", use: "Use to manage your Fantasy Hub account or safely end a subscription." },
   "Command Center": { summary: "A league-specific briefing that combines roster readiness, matchup edges, priorities, and recommended next moves.", use: "Open before making weekly decisions for one team." },
@@ -2485,10 +2485,10 @@ export default function FantasyHub({
     (league) => !hiddenLeagueIds.includes(league.id),
   );
   const visibleNav = nav;
-  const activeRivalryWeek = entitlement.pro && rivalryWeek?.leagueId === leagueId && leaguePlatform.toLowerCase() === "sleeper" ? rivalryWeek : null;
+  const activeRivalryWeek = entitlement.elite && rivalryWeek?.leagueId === leagueId && leaguePlatform.toLowerCase() === "sleeper" ? rivalryWeek : null;
   const activeNavGroup = nav.find((item) => item.label === view)?.group ?? "Home";
-  const proViews = new Set<View>(["Command Center", "League Stories", "League Analytics", "Trade Lab", "Simulator"]);
-  const eliteViews = new Set<View>(["Manager Report"]);
+  const proViews = new Set<View>(["Command Center", "League Analytics", "Trade Lab", "Simulator"]);
+  const eliteViews = new Set<View>(["League Stories", "Manager Report"]);
   const rosterReady = players.length > 0;
   const periodLabel =
     leagueStatus === "pre_draft" || leagueWeek < 1
@@ -2593,7 +2593,7 @@ export default function FantasyHub({
                     {item.mark}
                   </i>
                   <span className="nav-label">{item.displayLabel ?? item.label}</span>
-                  {eliteViews.has(item.label) && !entitlement.elite ? <b className="nav-pro-tag">ELITE</b> : proViews.has(item.label) && !entitlement.pro && <b className="nav-pro-tag">PRO</b>}
+                  {eliteViews.has(item.label) && !entitlement.elite ? <b className="nav-pro-tag nav-elite-tag">ELITE</b> : proViews.has(item.label) && !entitlement.pro && <b className="nav-pro-tag">PRO</b>}
                 </button>
               ))}
             </div>
@@ -2691,14 +2691,14 @@ export default function FantasyHub({
                 <button
                   className="account-theme-customizer"
                   type="button"
-                  aria-label="Open Theme Store"
+                  aria-label="Open Theme Locker"
                   onClick={() => {
-                    setView("Theme Store");
+                    setView("Theme Locker");
                     window.scrollTo({ top: 0, left: 0, behavior: "auto" });
                   }}
                 >
                   <i className="theme-customizer-art" aria-hidden="true"><span /><span /><span /></i>
-                  <span className="theme-customizer-copy"><strong>Theme Store</strong><small>Make the Hub yours</small></span>
+                  <span className="theme-customizer-copy"><strong>Theme Locker</strong><small>Make the Hub yours</small></span>
                   {!entitlement.pro && <b>PRO</b>}
                   <em aria-hidden="true">›</em>
                 </button>
@@ -2759,7 +2759,7 @@ export default function FantasyHub({
                   setView(item.label);
                   setMobileCategoryOpen(null);
                 }}>
-                  <i className={`nav-badge ${item.tone}`} aria-hidden="true">{item.mark}</i><span><b>{item.displayLabel ?? item.label}</b><small>{glossaryDetails[item.label].use}</small></span>{eliteViews.has(item.label) && !entitlement.elite ? <em>ELITE</em> : proViews.has(item.label) && !entitlement.pro ? <em>PRO</em> : <strong aria-hidden="true">›</strong>}
+                  <i className={`nav-badge ${item.tone}`} aria-hidden="true">{item.mark}</i><span><b>{item.displayLabel ?? item.label}</b><small>{glossaryDetails[item.label].use}</small></span>{eliteViews.has(item.label) && !entitlement.elite ? <em className="nav-elite-tag">ELITE</em> : proViews.has(item.label) && !entitlement.pro ? <em>PRO</em> : <strong aria-hidden="true">›</strong>}
                 </button>
               ))}
             </div>
@@ -2767,7 +2767,7 @@ export default function FantasyHub({
         )}
         </div>
 
-        {activeRivalryWeek && <button className="rivalry-week-banner" type="button" onClick={() => { setView("League Stories"); window.scrollTo({ top: 0, left: 0, behavior: "auto" }); }}><i aria-hidden="true">⚡</i><span><small>PRO · WEEK {activeRivalryWeek.week}</small><strong>Rivalry Week: You vs {activeRivalryWeek.opponentName}</strong></span><em>Open report <b aria-hidden="true">→</b></em></button>}
+        {activeRivalryWeek && <button className="rivalry-week-banner" type="button" onClick={() => { setView("League Stories"); window.scrollTo({ top: 0, left: 0, behavior: "auto" }); }}><i aria-hidden="true">⚡</i><span><small>ELITE · WEEK {activeRivalryWeek.week}</small><strong>Rivalry Week: You vs {activeRivalryWeek.opponentName}</strong></span><em>Open report <b aria-hidden="true">→</b></em></button>}
 
         {view !== "Manage Leagues" && (
           <section className={`tool-context-bar ${view === "All Leagues" ? "home-context" : ""}`} aria-label="Current tool context">
@@ -3038,7 +3038,7 @@ export default function FantasyHub({
             onScansChange={setPortfolioScans}
             onManage={() => setView("Manage Leagues")}
             onPersonalize={() => {
-              setView("Theme Store");
+              setView("Theme Locker");
               window.scrollTo({ top: 0, left: 0, behavior: "auto" });
             }}
             onOpen={async (league, destination = "Command Center") => {
@@ -3048,8 +3048,8 @@ export default function FantasyHub({
             }}
           />
         )}
-        {view === "League Stories" && !entitlement.pro && <ProGate feature="League Stories" onUpgrade={() => setView("Fantasy Hub Pro")} />}
-        {view === "League Stories" && entitlement.pro && (
+        {view === "League Stories" && !entitlement.elite && <ProGate feature="League Stories" tier="Elite" onUpgrade={() => setView("Fantasy Hub Pro")} />}
+        {view === "League Stories" && entitlement.elite && (
           <LeagueStories
             key={leagueId || "no-league"}
             leagueId={leagueId}
@@ -3234,7 +3234,7 @@ export default function FantasyHub({
             rosterEmptyState
           ))}
         {view === "Glossary" && <Glossary onNavigate={setView} />}
-        {view === "Theme Store" && (
+        {view === "Theme Locker" && (
           <ThemeStore
             teamTheme={effectiveTeamTheme}
             onTeamThemeChange={(value) => { setTeamTheme(value); void saveAccountPreferences({ teamTheme: value }); }}
@@ -3469,7 +3469,7 @@ function EmptyRoster({
 
 function ProGate({ feature, tier = "Pro", onUpgrade }: { feature: string; tier?: "Pro" | "Elite"; onUpgrade: () => void }) {
   const elite = tier === "Elite";
-  return <div className="page-content pro-gate-page"><section className="pro-gate panel"><span>FANTASY HUB {tier.toUpperCase()}</span><div className="pro-lock"><FHLogo label="Fantasy Hub" /></div><h2>{feature} is an {elite ? "Elite" : "Pro"} experience.</h2><p>{elite ? "Elite adds deeper decision intelligence, complete manager accountability, premium draft analysis, every theme, and every future Fantasy Hub tool as it arrives." : "Your leagues, rosters, live scores, matchups, rankings, waiver pool, and Start/Sit tools remain free. Pro unlocks Fantasy Hub’s proprietary simulations, advanced analysis, decision memory, stories, and trade intelligence."}</p><button onClick={onUpgrade}>Explore Fantasy Hub {tier} →</button><small>Platform connection is not what you pay for. Membership is built around Fantasy Hub’s original models, tools, and experience.</small></section></div>;
+  return <div className="page-content pro-gate-page"><section className={`pro-gate panel ${elite ? "elite-gate" : ""}`}><span>FANTASY HUB {tier.toUpperCase()}</span><div className="pro-lock"><FHLogo label="Fantasy Hub" /></div><h2>{feature} is an {elite ? "Elite" : "Pro"} experience.</h2><p>{elite ? "Elite adds deeper decision intelligence, League Stories, complete manager accountability, premium draft analysis, every theme, and every future Fantasy Hub tool as it arrives." : "Your leagues, rosters, live scores, matchups, rankings, waiver pool, and Start/Sit tools remain free. Pro unlocks Fantasy Hub’s proprietary simulations, advanced analysis, decision memory, and trade intelligence."}</p><button onClick={onUpgrade}>Explore Fantasy Hub {tier} →</button><small>Platform connection is not what you pay for. Membership is built around Fantasy Hub’s original models, tools, and experience.</small></section></div>;
 }
 
 function AccessAccount({ accountUser, entitlement, onPlans }: { accountUser: AccountUser; entitlement: AccountEntitlement; onPlans: () => void }) {
@@ -3741,33 +3741,33 @@ function ProPlans({ entitlement }: { entitlement: AccountEntitlement }) {
   }
   const freeFeatures = [
     "Unlimited Sleeper and ESPN league connections",
-    "Mission Hub portfolio overview and prioritized inbox",
-    "Fantasy Scoreboard, Sunday Pulse, NFL Games, and Fantasy Matchups",
-    "My Team roster view with projections, health, and matchup context",
-    "Core Start/Sit recommendations and Waiver Wire tools",
-    "Manual Trade Lab calculator",
-    "Season player rankings, team rankings, and ADP",
-    "League management, light and dark mode, account tools, and glossary",
+    "Mission Hub portfolio overview with prioritized actions across leagues",
+    "Fantasy Scoreboard, Fantasy Matchups, NFL Games, and Sunday Pulse",
+    "My Team roster view with projections, player health, weather, and opponent strength",
+    "Core Start/Sit recommendations, Waiver Wire tools, and the manual Trade Lab calculator",
+    "Player Rankings, Team Rankings, blended ADP, and a standard Draft HQ mock room",
+    "League management, account controls, light and dark mode, and the Fantasy Hub glossary",
   ];
   const proFeatures = [
     "Everything included in Free",
-    "Command Center weekly planning, roster health, alerts, weather, and readiness",
-    "Advanced Start/Sit aggressiveness, floor-to-ceiling strategy, and decision memory",
-    "Advanced Trade Lab roster scans, partner fit, negotiation profiles, suggested packages, and acceptance estimates",
-    "Season Simulator with playoff odds, roster moves, injuries, and scenario drivers",
-    "League Analytics with positional strength, dynasty windows, and competitive outlook",
-    "League Stories, rivalry reports, weekly narratives, and live win-path history",
-    "Current weekly player rankings with projection, ceiling, matchup, and weather context",
-    "All 32 NFL-inspired themes and all 16 navigation icon packs",
+    "Command Center planning with roster readiness, alerts, injuries, weather, and weekly priorities",
+    "Advanced Start/Sit controls with floor-to-ceiling strategy and saved decision memory",
+    "Advanced Trade Lab scans, partner fit, negotiation profiles, suggested packages, and acceptance estimates",
+    "Season Simulator playoff odds, roster-move scenarios, injuries, and outcome drivers",
+    "League Analytics for positional strength, dynasty windows, roster construction, and competitive outlook",
+    "Custom Draft HQ teams, slot, format, scoring, roster size, Superflex settings, and player-board options",
+    "Weekly ranking intelligence with projections, ceilings, matchup strength, and weather context",
+    "The complete NFL Theme Collection and all 16 original Fantasy Hub badge packs",
   ];
   const eliteFeatures = [
     "Everything included in Pro",
-    "Elite Pick Intelligence with roster need, scarcity, ADP value, scoring, format, and next-pick analysis",
-    "Advanced CPU draft personalities and competitive mock-draft behavior",
-    "Draft grades, roster construction review, value reports, and next-mock planning",
-    "Manager Report Cards, decision ledger, accountability trends, and shareable performance reports",
-    "Every current and future Fantasy Hub theme and badge release",
-    "Access to every future Elite tool and premium intelligence feature as it launches",
+    "League Stories with rivalry reports, weekly narratives, manager moments, and live win-path history",
+    "Manager Reports with decision ledgers, accountability trends, waiver and trade efficiency, and shareable grades",
+    "Elite Pick Intelligence using roster need, scarcity, scoring, ADP value, format, and next-pick availability",
+    "Sharper CPU draft personalities, competitive behavior, and format-aware QB and Superflex strategy",
+    "Draft grades, roster-construction review, value reports, and next-mock recommendations",
+    "Every current and future premium Fantasy Hub theme and matching badge release",
+    "Automatic access to future Elite tools and premium intelligence as they launch",
   ];
   const appStorePrice = (tier: "pro" | "elite", plan: "monthly" | "season" | "annual", webPrice: string) =>
     nativeIos ? nativePrices[`com.fantasyhubapp.${tier}.${plan}`] ?? webPrice : webPrice;
@@ -3790,8 +3790,10 @@ function ProPlans({ entitlement }: { entitlement: AccountEntitlement }) {
     <section className="pro-theme-gallery panel"><header><div><span>THEME LOCKER</span><h3>Your leagues. Your Sunday look.</h3></div><p>Pro includes every current NFL-inspired palette and icon pack.</p></header><div>{[{name:"Midway Night",colors:["#0b162a","#c83803"]},{name:"South Beach",colors:["#008e97","#fc4c02"]},{name:"Purple Reign",colors:["#241773","#9e7c0c"]},{name:"Gold Rush",colors:["#aa0000","#b3995d"]}].map((theme) => <article key={theme.name} style={{"--preview-primary":theme.colors[0],"--preview-secondary":theme.colors[1]} as CSSProperties}><i/><b>{theme.name}</b><small>Dashboard + badge pack</small></article>)}</div></section>
     {billingError && <p className="billing-error" role="alert">{billingError}</p>}
     <section className="free-plan-summary panel"><header><div><span>FANTASY HUB FREE</span><h3>The essentials stay free.</h3><p>Connect leagues, follow game day, and manage the weekly decisions that matter.</p></div>{!entitlement.pro && <b>CURRENT PLAN</b>}</header><ul>{freeFeatures.map((feature) => <li key={feature}>{feature}</li>)}</ul></section>
-    <section className="tier-plans pro-tier-plans panel"><header><div><span>FANTASY HUB PRO</span><h3>Advanced intelligence for every league.</h3><p>Unlock the complete strategy, simulation, analytics, storytelling, and customization toolkit.</p></div><b>{entitlement.pro ? "ACTIVE" : "FULL TOOLKIT"}</b></header><ul>{proFeatures.map((feature) => <li key={feature}>{feature}</li>)}</ul><div className="tier-price-grid"><article><span>MONTHLY</span><h4>{monthlyPrice} <small>/ month</small></h4><b>7-day free trial</b>{purchaseButton("monthly", "Start 7-day trial →")}</article><article className="recommended"><span>6 MONTHS</span><h4>{seasonPrice} <small>/ 6 months</small></h4><b>Season access</b>{purchaseButton("season", "Choose six months →")}<small>{seasonPrice} billed every six months until canceled.</small></article><article><span>YEARLY</span><h4>{annualPrice} <small>/ year</small></h4><b>{nativeIos ? "Best year-round value" : "Save $19.89"}</b>{purchaseButton("annual", "Choose Pro yearly →")}<small>{annualPrice} billed annually until canceled.</small></article></div></section>
-    <section className="tier-plans elite-plans panel"><header><div><span>FANTASY HUB ELITE</span><h3>The highest level of Fantasy Hub intelligence.</h3><p>Elite combines premium Draft HQ intelligence, complete manager accountability, every theme, and automatic access to all future Elite tools as Fantasy Hub expands.</p></div><b>{entitlement.elite ? "ACTIVE" : "ULTIMATE ACCESS"}</b></header><ul>{eliteFeatures.map((feature) => <li key={feature}>{feature}</li>)}</ul><div className="tier-price-grid"><article><span>MONTHLY</span><h4>{appStorePrice("elite", "monthly", eliteMonthlyPrice)} <small>/ month</small></h4><b>Maximum flexibility</b>{elitePurchaseButton("elite_monthly", "Choose Elite monthly →")}</article><article className="recommended"><span>6 MONTHS</span><h4>{appStorePrice("elite", "season", eliteSeasonPrice)} <small>/ 6 months</small></h4><b>Built for draft through playoffs</b>{elitePurchaseButton("elite_season", "Choose Elite six months →")}<small>{appStorePrice("elite", "season", eliteSeasonPrice)} billed every six months until canceled.</small></article><article><span>YEARLY</span><h4>{appStorePrice("elite", "annual", eliteAnnualPrice)} <small>/ year</small></h4><b>Best Elite value</b>{elitePurchaseButton("elite_annual", "Choose Elite yearly →")}<small>{appStorePrice("elite", "annual", eliteAnnualPrice)} billed annually until canceled.</small></article></div></section>
+    <div className="membership-tier-compare">
+      <section className="tier-plans pro-tier-plans panel"><header><div><span>FANTASY HUB PRO</span><h3>Advanced intelligence for every league.</h3><p>Build better weekly decisions with personalized strategy, simulations, analytics, draft controls, and customization.</p></div><b>{entitlement.pro ? "ACTIVE" : "FULL TOOLKIT"}</b></header><ul>{proFeatures.map((feature) => <li key={feature}>{feature}</li>)}</ul><div className="tier-price-grid"><article><span>MONTHLY</span><h4>{monthlyPrice} <small>/ month</small></h4><b>7-day free trial</b>{purchaseButton("monthly", "Start 7-day trial →")}</article><article className="recommended"><span>6 MONTHS</span><h4>{seasonPrice} <small>/ 6 months</small></h4><b>Season access</b>{purchaseButton("season", "Choose six months →")}<small>{seasonPrice} billed every six months until canceled.</small></article><article><span>YEARLY</span><h4>{annualPrice} <small>/ year</small></h4><b>{nativeIos ? "Best year-round value" : "Save $19.89"}</b>{purchaseButton("annual", "Choose Pro yearly →")}<small>{annualPrice} billed annually until canceled.</small></article></div></section>
+      <section className="tier-plans elite-plans panel"><header><div><span>FANTASY HUB ELITE</span><h3>Your complete competitive command center.</h3><p>Add premium Draft HQ intelligence, League Stories, Manager Reports, every premium theme, and all future Elite releases.</p></div><b>{entitlement.elite ? "ACTIVE" : "BEST EXPERIENCE"}</b></header><ul>{eliteFeatures.map((feature) => <li key={feature}>{feature}</li>)}</ul><div className="tier-price-grid"><article><span>MONTHLY</span><h4>{appStorePrice("elite", "monthly", eliteMonthlyPrice)} <small>/ month</small></h4><b>Maximum flexibility</b>{elitePurchaseButton("elite_monthly", "Choose Elite monthly →")}</article><article className="recommended"><span>6 MONTHS</span><h4>{appStorePrice("elite", "season", eliteSeasonPrice)} <small>/ 6 months</small></h4><b>Built for draft through playoffs</b>{elitePurchaseButton("elite_season", "Choose Elite six months →")}<small>{appStorePrice("elite", "season", eliteSeasonPrice)} billed every six months until canceled.</small></article><article><span>YEARLY</span><h4>{appStorePrice("elite", "annual", eliteAnnualPrice)} <small>/ year</small></h4><b>Best Elite value</b>{elitePurchaseButton("elite_annual", "Choose Elite yearly →")}<small>{appStorePrice("elite", "annual", eliteAnnualPrice)} billed annually until canceled.</small></article></div></section>
+    </div>
     <section className="pro-principle panel"><b>OUR FREEMIUM PROMISE</b><p>Fantasy Hub will not charge merely to display a connected league. Paid access is reserved for original Fantasy Hub analysis and experiences. Payments and subscription management are securely handled by {nativeIos ? "Apple" : "Stripe"}.</p><nav className="subscription-legal-links" aria-label="Subscription legal information"><a href="/privacy">Privacy Policy</a><a href="https://www.apple.com/legal/internet-services/itunes/dev/stdeula/" target="_blank" rel="noreferrer">Terms of Use</a></nav></section>
   </div>;
 }
@@ -3819,7 +3821,7 @@ function ThemeStore({
   ownedBadgeThemes: string[];
   onUpgrade: () => void;
 }) {
-  const [tab, setTab] = useState<"library" | "store">("library");
+  const [tab, setTab] = useState<"library" | "store">("store");
   const nativeIos = useSyncExternalStore(() => () => undefined, isNativeIosApp, () => false);
   const [packPrices, setPackPrices] = useState<Record<string, string>>({});
   const [packBusy, setPackBusy] = useState("");
@@ -3844,6 +3846,9 @@ function ThemeStore({
     { theme: nflThemes.find((theme) => theme.id === "NEONX")!, badge: badgeThemeOptions.find((pack) => pack.id === "neon-endzone")!, label: "THE PRIME-TIME SUITE", productId: "com.fantasyhubapp.theme.primetime" },
     { theme: nflThemes.find((theme) => theme.id === "HERITAGE")!, badge: badgeThemeOptions.find((pack) => pack.id === "heritage-gridiron")!, label: "THE SUNSET SUITE", productId: "com.fantasyhubapp.theme.sunset" },
   ];
+  const hasNewStoreItems = !isOwner && (
+    !isPro || premiumBundles.some(({ theme, badge }) => !ownedTeamThemes.includes(theme.id) || !ownedBadgeThemes.includes(badge.id))
+  );
   async function addPremiumBundle(themeId: string, badgeId: string, productId: string) {
     setPackBusy(productId);
     setPackError("");
@@ -3869,10 +3874,10 @@ function ThemeStore({
   }
   return <div className="page-content theme-store-page">
     <section className="theme-store-hero">
-      <div><span>FANTASY HUB THEME STORE</span><h2>Your leagues.<br/><em>Your Sunday look.</em></h2><p>Choose an NFL-inspired color system and pair it with a navigation badge pack. One selection carries across the complete Fantasy Hub experience.</p></div>
+      <div><span>FANTASY HUB THEME LOCKER</span><h2>Your leagues.<br/><em>Your Sunday look.</em></h2><p>Collect a complete Fantasy Hub identity, then mix and match your colors and badges. One selection carries across the entire Hub.</p></div>
       <div className="theme-store-counts"><article><strong>{libraryTeams.length}</strong><span>THEMES OWNED</span></article><article><strong>{libraryBadges.length}</strong><span>BADGES OWNED</span></article><small>Build your personal Fantasy Hub collection</small></div>
     </section>
-    <nav className="theme-store-tabs" role="tablist" aria-label="Theme Store sections"><button role="tab" aria-selected={tab === "library"} className={tab === "library" ? "active" : ""} onClick={()=>setTab("library")}><span>MY LIBRARY</span><b>{libraryTeams.length + libraryBadges.length}</b><small>Apply themes you own</small></button><button role="tab" aria-selected={tab === "store"} className={tab === "store" ? "active" : ""} onClick={()=>setTab("store")}><span>STORE</span><b>{nflThemes.length + badgeThemeOptions.length}</b><small>Browse and add collections</small></button></nav>
+    <nav className="theme-store-tabs" role="tablist" aria-label="Theme Locker sections"><button role="tab" aria-selected={tab === "store"} className={tab === "store" ? "active" : ""} onClick={()=>setTab("store")}><span>STORE {hasNewStoreItems && <em className="theme-tab-new">NEW</em>}</span><small>Discover new looks</small></button><button role="tab" aria-selected={tab === "library"} className={tab === "library" ? "active" : ""} onClick={()=>setTab("library")}><span>MY LIBRARY</span><small>Apply themes you own</small></button></nav>
     {tab === "library" ? <section className="appearance-panel theme-store-catalog panel" role="tabpanel">
       <div className="panel-header"><div><span>MY THEME LIBRARY</span><h3>Choose an owned team palette</h3></div><label>Team<select value={teamTheme} onChange={(event) => onTeamThemeChange(event.target.value)}>{libraryTeams.map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}</select></label></div>
       <div className="selected-team-theme"><i style={{background:`linear-gradient(135deg, ${selectedNflTheme.primary} 0 50%, ${selectedNflTheme.secondary} 50%)`}}/><span><strong>{selectedNflTheme.name}</strong><small>{selectedNflTheme.primary} · {selectedNflTheme.secondary}</small></span><b>ACTIVE THEME</b></div>
@@ -3888,7 +3893,7 @@ function ThemeStore({
         <article className="pro-collection-card nfl-collection"><div className="pro-collection-art" aria-hidden="true">{proNflThemes.slice(0,8).map((theme)=><i key={theme.id} style={{background:`linear-gradient(135deg,${theme.primary} 0 50%,${theme.secondary} 50%)`}}><b>{theme.id}</b></i>)}</div><em>32 NFL-INSPIRED THEMES</em><h5>NFL Theme Collection</h5><p>Every current NFL-inspired dashboard palette, packaged together and ready to use across Fantasy Hub.</p><button disabled={isPro} onClick={onUpgrade}>{isPro ? "PRO · IN YOUR LIBRARY" : "GET PRO ACCESS →"}</button></article>
         <article className="pro-collection-card badge-collection"><div className="pro-collection-art badge-collection-art" aria-hidden="true">{proBadgePacks.slice(0,6).map((pack)=><span className={`badge-pack-preview ${pack.id}`} key={pack.id}>{pack.preview.slice(0,2).map((icon,index)=><i key={`${icon}-${index}`}>{icon}</i>)}</span>)}</div><em>16 NAVIGATION STYLES</em><h5>Starter Badge Collection</h5><p>All 16 original Fantasy Hub badge packs in one Pro collection, from Arcade and Team Colors to Helmet and Trading Cards.</p><button disabled={isPro} onClick={onUpgrade}>{isPro ? "PRO · IN YOUR LIBRARY" : "GET PRO ACCESS →"}</button></article>
       </div></section>
-      <section className="premium-theme-releases"><header><span>PREMIUM PACKS</span><h4>Three complete identities. Built beyond a color swap.</h4><p>{isOwner ? "Owner access is active. Each color theme and matching badge design is available separately in My Library." : "Each release includes a coordinated color theme and badge design. A one-time purchase permanently adds both to My Library."}</p></header>{packError && <p className="billing-error" role="alert">{packError}</p>}<div>{premiumBundles.map(({theme,badge,label,productId})=>{const owned=ownedTeamThemes.includes(theme.id)&&ownedBadgeThemes.includes(badge.id);const labelText=owned?"IN YOUR LIBRARY":isElite?"ADD FREE WITH ELITE →":nativeIos?`${packPrices[productId]??"$1.99"} · ADD TO LIBRARY →`:"$1.99 · IOS PURCHASE";return <article key={theme.id} className={`premium-pack-card premium-bundle premium-${theme.id.toLowerCase()}`}><div className="premium-bundle-art" style={{background:`radial-gradient(circle at 78% 18%,${theme.secondary}88,transparent 31%),linear-gradient(135deg,${theme.primary},color-mix(in srgb,${theme.primary} 65%,#000))`}}><span className={`badge-pack-preview ${badge.id}`}>{badge.preview.map((icon,index)=><i key={`${icon}-${index}`}>{icon}</i>)}</span></div><em>{label}</em><h5>{theme.name}</h5><p>{theme.detail}</p><small>Includes {theme.name} colors + {badge.name} badges</small><button disabled={owned||packBusy===productId||(!nativeIos&&!isElite&&!isOwner)} onClick={()=>void addPremiumBundle(theme.id,badge.id,productId)}>{packBusy===productId?"PROCESSING…":labelText}</button></article>})}</div></section>
+      <section className="premium-theme-releases"><header><span>PREMIUM PACKS</span><h4>Unlock a complete new game-day identity.</h4><p>{isOwner ? "Owner access is active. Each color theme and matching badge design is available separately in My Library." : "Every pack pairs a cinematic color system with matching handcrafted badges. Buy it once and keep it in your Locker."}</p></header>{packError && <p className="billing-error" role="alert">{packError}</p>}<div>{premiumBundles.map(({theme,badge,label,productId})=>{const owned=ownedTeamThemes.includes(theme.id)&&ownedBadgeThemes.includes(badge.id);const labelText=owned?"IN YOUR LIBRARY ✓":isElite?"CLAIM FREE WITH ELITE →":nativeIos?`UNLOCK FOR ${packPrices[productId]??"$1.99"} →`:"$1.99 · IOS PURCHASE";return <article key={theme.id} className={`premium-pack-card premium-bundle premium-${theme.id.toLowerCase()}`}><div className="premium-bundle-art" style={{background:`radial-gradient(circle at 78% 18%,${theme.secondary}aa,transparent 32%),radial-gradient(circle at 15% 86%,${theme.secondary}55,transparent 38%),linear-gradient(135deg,${theme.primary},color-mix(in srgb,${theme.primary} 55%,#000))`}}><span className="premium-pack-kicker">LIMITED RELEASE</span><span className={`badge-pack-preview ${badge.id}`}>{badge.preview.map((icon,index)=><i key={`${icon}-${index}`}>{icon}</i>)}</span></div><em>{label}</em><h5>{theme.name}</h5><p>{theme.detail}</p><small>FULL PACK · {theme.name} colors + {badge.name} badges</small><button disabled={owned||packBusy===productId||(!nativeIos&&!isElite&&!isOwner)} onClick={()=>void addPremiumBundle(theme.id,badge.id,productId)}>{packBusy===productId?"PROCESSING…":labelText}</button></article>})}</div></section>
       {!isPro && <div className="appearance-pro-callout"><span>FANTASY HUB MEMBERSHIP</span><strong>Unlock theme collections.</strong><p>Upgrade to add premium themes and badge packs to your personal library.</p><button onClick={onUpgrade}>Explore plans →</button></div>}
     </section>}
   </div>;
