@@ -31,8 +31,7 @@ async function ownerEmails() {
 export async function entitlementFor(userId: string, verifiedEmail?: string): Promise<AccountEntitlement> {
   if (process.env.FANTASY_HUB_LOCAL_PREVIEW === "1" && userId === LOCAL_PREVIEW_USER_ID)
     return { plan: "elite", status: "active", pro: true, elite: true, currentPeriodEnd: null, provider: "manual", owner: true };
-  if (verifiedEmail && (await ownerEmails()).has(verifiedEmail.trim().toLowerCase()))
-    return { plan: "elite", status: "active", pro: true, elite: true, currentPeriodEnd: null, provider: "manual", owner: true };
+  const owner = Boolean(verifiedEmail && (await ownerEmails()).has(verifiedEmail.trim().toLowerCase()));
   const db = await getDb();
   const [record] = await db.select().from(subscriptions).where(eq(subscriptions.userId, userId)).limit(1);
   const status = (record?.status ?? "inactive") as AccountEntitlement["status"];
@@ -41,6 +40,16 @@ export async function entitlementFor(userId: string, verifiedEmail?: string): Pr
   const unexpired = !currentPeriodEnd || new Date(currentPeriodEnd).getTime() > Date.now();
   const provider = record?.provider === "app_store" ? "apple" : record?.provider === "stripe" || record?.provider === "apple" || record?.provider === "manual" ? record.provider : null;
   const active = unexpired && (status === "active" || status === "trialing");
+  if (owner)
+    return {
+      plan: "elite",
+      status: "active",
+      pro: true,
+      elite: true,
+      currentPeriodEnd: active ? currentPeriodEnd : null,
+      provider: active ? provider : "manual",
+      owner: true,
+    };
   return { plan, status, pro: (plan === "pro" || plan === "elite") && active, elite: plan === "elite" && active, currentPeriodEnd, provider, owner: false };
 }
 
