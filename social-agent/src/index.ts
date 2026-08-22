@@ -1,5 +1,5 @@
 import { Agent, getAgentByName } from "agents";
-import { categorizeStory, composeFantasyPost, isFantasyRelevant, isLiveContentPost, isPotentialTradeStory, isPracticeSetting, isSixPointFantasyPlay, splitAtomicUpdates, splitImpactSteps, type Story } from "./content";
+import { categorizeStory, composeFantasyPost, isFantasyRelevant, isLiveContentPost, isPotentialTradeStory, isPracticeSetting, isSelfContainedMediaPost, isSixPointFantasyPlay, splitAtomicUpdates, splitImpactSteps, type Story } from "./content";
 import { createXPost, xApiGet, type XCredentials } from "./x-client";
 import { findPlayerContext, findTeamFantasyPlayers } from "./player-data";
 import { gameDayWeatherStories } from "./weather";
@@ -347,13 +347,19 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
         const sourceUrls = (primaryPost.entities?.urls ?? []).flatMap((entity) => [entity.expanded_url, entity.unwound_url, entity.url].filter((url): url is string => Boolean(url)));
         const mediaKeys = [...new Set([...(post.attachments?.media_keys ?? []), ...(referencedPost?.attachments?.media_keys ?? [])])];
         const hasVideoMedia = mediaKeys.some((mediaKey) => ["video", "animated_gif"].includes(mediaTypes.get(mediaKey) ?? ""));
-        if (hasVideoMedia) {
+        if (hasVideoMedia && !isSelfContainedMediaPost(primaryText, sourceUrls)) {
           this.sql`UPDATE stories
             SET status = CASE WHEN status = 'posted' THEN 'posted_suppressed' ELSE 'suppressed' END,
                 error = 'Source post contains video or animated media that cannot be verified from text'
             WHERE id = ${post.id} OR parent_story_id = ${post.id}`;
           console.log(JSON.stringify({ event: "video_source_suppressed", sourcePostId: post.id, handle }));
           return [];
+        }
+        if (hasVideoMedia) {
+          this.sql`UPDATE stories
+            SET status = CASE WHEN x_post_id IS NOT NULL THEN 'posted' ELSE 'draft' END, error = NULL
+            WHERE (id = ${post.id} OR parent_story_id = ${post.id})
+              AND error = 'Source post contains video or animated media that cannot be verified from text'`;
         }
         if (isLiveContentPost(primaryText, sourceUrls)) return [];
         const originalUrl = curated && reference && originalReporter

@@ -143,7 +143,7 @@ test("role classification distinguishes a starting-role change from starting an 
 });
 
 test("live content posts are suppressed without blocking complete text reports", async () => {
-  const { isLiveContentPost } = await import("../social-agent/src/content.ts");
+  const { isLiveContentPost, isSelfContainedMediaPost } = await import("../social-agent/src/content.ts");
   assert.equal(isLiveContentPost("We're live now—join the show for camp updates"), true);
   assert.equal(isLiveContentPost("Lions camp conversation", ["https://x.com/i/broadcasts/1DXxy" ]), true);
   assert.equal(isLiveContentPost("Join our X Space", ["https://twitter.com/i/spaces/1YpKk"]), true);
@@ -153,6 +153,10 @@ test("live content posts are suppressed without blocking complete text reports",
   assert.equal(isLiveContentPost("Live practice update: Sam LaPorta left with a hip injury."), false);
   assert.equal(isLiveContentPost("Woody Marks with defenders bouncing off him."), true);
   assert.equal(isLiveContentPost("Woody Marks bounces off defenders and scores a touchdown."), false);
+  assert.equal(isSelfContainedMediaPost("Woody Marks scored a 22-yard touchdown on his third carry of the preseason game."), true);
+  assert.equal(isSelfContainedMediaPost("What a run by Woody Marks 👇"), false);
+  assert.equal(isSelfContainedMediaPost("Sam Darnold on rookie RB Jadarian Price:"), false);
+  assert.equal(isSelfContainedMediaPost("Watch the full interview here", ["https://x.com/example/status/1"]), false);
 });
 
 test("practice stat lines retain versus context and never imply an absence", async () => {

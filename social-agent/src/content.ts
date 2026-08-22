@@ -42,6 +42,15 @@ export function isLiveContentPost(text: string, urls: string[] = []) {
   return liveContentPattern.test(text) || mediaDependentPattern.test(text) || incompleteHighlight || urls.some((url) => liveContentUrlPattern.test(url));
 }
 
+const mediaContextDependentPattern = /(?:^|\b)(?:this|that) (?:play|run|catch|throw|clip|video)\b|\b(?:clip|video|highlights?) (?:below|above|here)\b|(?:👇|🎥)|:\s*$/i;
+const selfContainedFantasyFactPattern = /\b(?:touchdowns?|td|scores?|yards?|receptions?|catches?|carries?|targets?|snaps?|first[- ]team|starter|injur(?:y|ed)|ruled out|inactive|practice|signed|traded|released|waived|depth chart|role)\b/i;
+
+export function isSelfContainedMediaPost(text: string, urls: string[] = []) {
+  const cleaned = text.replace(/https:\/\/t\.co\/\w+/g, "").replace(/\s+/g, " ").trim();
+  if (cleaned.length < 30 || mediaContextDependentPattern.test(cleaned) || isLiveContentPost(cleaned, urls)) return false;
+  return selfContainedFantasyFactPattern.test(cleaned);
+}
+
 export function splitAtomicUpdates(value: string) {
   const withoutLinks = value.replace(/https:\/\/t\.co\/\w+/g, "").replace(/^RT\s+@\w+:\s*/i, "").trim();
   const rawLines = withoutLinks.split(/\n+/).map((line) => line.replace(/^\s*[-•–—]+\s*/, "").replace(/\s+/g, " ").trim()).filter(Boolean);
