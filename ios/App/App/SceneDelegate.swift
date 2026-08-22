@@ -190,6 +190,16 @@ class FantasyHubStoreKitPlugin: CAPPlugin, CAPBridgedPlugin {
         }
     }
 
+    private func finishExpiredUnfinishedTransactions(for productId: String) async {
+        for await result in Transaction.unfinished {
+            guard case .verified(let transaction) = result,
+                  transaction.productID == productId,
+                  let expirationDate = transaction.expirationDate,
+                  expirationDate <= Date() else { continue }
+            await transaction.finish()
+        }
+    }
+
     @objc func products(_ call: CAPPluginCall) {
         Task { @MainActor in
             do {
@@ -225,6 +235,11 @@ class FantasyHubStoreKitPlugin: CAPPlugin, CAPBridgedPlugin {
                     return
                 }
                 try validateProduct(product)
+                // A server-side rejection can leave an expired sandbox
+                // transaction unfinished. StoreKit will replay that stale
+                // transaction instead of presenting a new purchase sheet until
+                // it is explicitly finished on the device.
+                await finishExpiredUnfinishedTransactions(for: productId)
                 let result = try await product.purchase()
                 switch result {
                 case .success(let verification):
