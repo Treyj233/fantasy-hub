@@ -8354,7 +8354,7 @@ function AdpPage({
             ? adpSite === "Sleeper"
               ? `${context.format} Sleeper ${sleeperAdpFormat} ADP aligned to ${context.scoring}.`
               : adpSite === "Underdog"
-                ? `Official Underdog 2026 Best Ball ${underdogAdpFormat} draft market, updated August 14.`
+                ? `Official Underdog 2026 Best Ball ${underdogAdpFormat} draft market, updated August 21.`
                 : "ESPN Single-QB platform ADP reflects ESPN's redraft market and is shown separately for direct comparison."
             : "Import a league to compare platform-specific Sleeper, ESPN, and Underdog draft markets."
         }
