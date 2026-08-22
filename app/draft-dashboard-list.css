@@ -814,3 +814,25 @@ html[data-theme="dark"] .draft-hq-page :is(.draft-settings-grid select, .draft-r
     display: grid;
   }
 }
+
+@media (max-width: 650px) {
+  .draft-player-pool > header > div:last-child {
+    width: 100%;
+    min-width: 0;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .draft-position-sort {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .draft-position-sort button {
+    width: 100%;
+    min-width: 0;
+    padding-inline: 4px;
+  }
+}

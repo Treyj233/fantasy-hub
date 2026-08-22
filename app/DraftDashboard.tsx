@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 
 type DraftPlayer = { id: string; name: string; position: string; team: string; overallRank?: number; rankingValue?: number; age?: number | null; adpBySite?: Record<string, number | null>; fantasyPoints2025?: number | null; fantasyPpg2025?: number | null; gamesPlayed2025?: number | null; targets2025?: number | null; receptions2025?: number | null; receivingYards2025?: number | null; receivingTouchdowns2025?: number | null; rushingAttempts2025?: number | null; rushingYards2025?: number | null; rushingTouchdowns2025?: number | null; passingAttempts2025?: number | null; passingYards2025?: number | null; passingTouchdowns2025?: number | null; snapAverage?: number | null; statsSourceSeason?: number | null };
 type RosterConfig = { QB: number; RB: number; WR: number; TE: number; FLEX: number; SUPERFLEX: number; BENCH: number };
@@ -291,6 +291,7 @@ export default function DraftDashboard({ players, leagueContext, draftSlot, isPr
   const [mobileStatsOpen, setMobileStatsOpen] = useState(false);
   const [cpuProfiles, setCpuProfiles] = useState<Record<number, CpuProfile>>({});
   const [fallbackPlayers, setFallbackPlayers] = useState<DraftPlayer[]>([]);
+  const draftBoardScrollRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     let active = true;
     void fetch("/api/draft-player-pool")
@@ -320,6 +321,22 @@ export default function DraftDashboard({ players, leagueContext, draftSlot, isPr
     .map((player) => elitePickRecommendation(player, settings, userPicks, available, overall))
     .sort((a,b) => b.score - a.score)
     .slice(0,3);
+
+  useEffect(() => {
+    if (!started) return;
+    const frame = window.requestAnimationFrame(() => {
+      const container = draftBoardScrollRef.current;
+      const currentIndex = Math.min(picks.length, settings.teams * rounds - 1);
+      const currentPick = container?.querySelector<HTMLElement>(`[data-draft-index="${currentIndex}"]`);
+      if (!container || !currentPick) return;
+      container.scrollTo({
+        left: Math.max(0, currentPick.offsetLeft - (container.clientWidth - currentPick.offsetWidth) / 2),
+        top: Math.max(0, currentPick.offsetTop - (container.clientHeight - currentPick.offsetHeight) / 2),
+        behavior: "smooth",
+      });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [picks.length, rounds, settings.teams, started]);
 
   const draft = (player: DraftPlayer) => {
     if (complete || drafted.has(player.id)) return;
@@ -372,7 +389,7 @@ export default function DraftDashboard({ players, leagueContext, draftSlot, isPr
     {!showSetup && <button className="draft-settings-toggle" onClick={() => setShowSetup(true)}>⚙ Draft settings</button>}
 
     {started && <div className="draft-room-layout draft-board-only">
-      <section className="draft-board panel"><header><div><span>LIVE DRAFT BOARD</span><h3>{complete ? "Mock complete" : userTurn ? "Make your pick" : `Round ${Math.ceil(overall/settings.teams)} in progress`}</h3></div><button onClick={() => { setStarted(false); setShowSetup(true); }}>Exit room</button></header><div className="draft-board-scroll"><div className="draft-board-grid" style={{"--draft-teams":settings.teams} as CSSProperties}>{Array.from({length:settings.teams * rounds},(_,index)=>{const pick=picks[index];const round=Math.ceil((index+1)/settings.teams);const team=teamForPick(index+1,settings.teams);return <article key={index} style={{gridColumn:team,gridRow:round}} className={`${team===settings.slot?"user-team":""} ${pick?`pos-${pick.position.toLowerCase()}`:""}`}><small>{round}.{String(((index)%settings.teams)+1).padStart(2,"0")}</small>{pick?<><b>{pick.name}</b><span>{pick.position} · {pick.team}</span></>:<em>Team {team}</em>}</article>})}</div></div></section>
+      <section className="draft-board panel"><header><div><span>LIVE DRAFT BOARD</span><h3>{complete ? "Mock complete" : userTurn ? "Make your pick" : `Round ${Math.ceil(overall/settings.teams)} in progress`}</h3></div><button onClick={() => { setStarted(false); setShowSetup(true); }}>Exit room</button></header><div className="draft-board-scroll" ref={draftBoardScrollRef}><div className="draft-board-grid" style={{"--draft-teams":settings.teams} as CSSProperties}>{Array.from({length:settings.teams * rounds},(_,index)=>{const pick=picks[index];const round=Math.ceil((index+1)/settings.teams);const team=teamForPick(index+1,settings.teams);return <article key={index} data-draft-index={index} style={{gridColumn:team,gridRow:round}} className={`${team===settings.slot?"user-team":""} ${pick?`pos-${pick.position.toLowerCase()}`:""}`}><small>{round}.{String(((index)%settings.teams)+1).padStart(2,"0")}</small>{pick?<><b>{pick.name}</b><span>{pick.position} · {pick.team}</span></>:<em>Team {team}</em>}</article>})}</div></div></section>
     </div>}
 
     {started && <nav className="draft-workspace-tabs" role="tablist" aria-label="Draft workspace"><button type="button" role="tab" aria-selected={workspaceTab === "players"} className={workspaceTab === "players" ? "active" : ""} onClick={()=>setWorkspaceTab("players")}><span>AVAILABLE PLAYERS</span><small>{settings.boardOrder}</small></button><button type="button" role="tab" aria-selected={workspaceTab === "roster"} className={workspaceTab === "roster" ? "active" : ""} onClick={()=>setWorkspaceTab("roster")}><span>YOUR ROSTER</span><b>{userPicks.length}/{rounds}</b><small>Team {settings.slot}</small></button></nav>}
