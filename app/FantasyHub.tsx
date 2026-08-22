@@ -394,7 +394,10 @@ type LeagueRanking = Player & {
   snapAverage?: number | null;
   statsSourceSeason?: number | null;
 };
-type CompositeLeagueRanking = LeagueRanking & { compositeAdp: number | null };
+type CompositeLeagueRanking = LeagueRanking & {
+  compositeAdp: number | null;
+  hubRankScore: number;
+};
 type WaiverPlayer = LeagueRanking & {
   waiverProjection?: number;
   normalizedProjectionScore?: number;
@@ -7922,6 +7925,20 @@ function buildSeasonCompositeRankings(
         ? "Single-QB Full PPR"
         : "Single-QB Half PPR"
   }`;
+  const baselineDemand: Record<string, number> = {
+    QB: 1,
+    RB: 2,
+    WR: 2,
+    TE: 1,
+  };
+  const contextWeight =
+    context?.format === "Dynasty"
+      ? 0.65
+      : context?.format === "Keeper"
+        ? 0.5
+        : context
+          ? 0.35
+          : 0;
   return rankings
     .map((player) => {
       const sources = [
@@ -7942,12 +7959,34 @@ function buildSeasonCompositeRankings(
             0,
           ) / availableWeight
         : null;
-      return { ...player, compositeAdp };
+      const demand =
+        context?.positionDemand[player.position] ??
+        baselineDemand[player.position] ??
+        1;
+      const demandDelta = demand - (baselineDemand[player.position] ?? 1);
+      const demandMultiplier =
+        player.position === "QB" ? 3 : player.position === "TE" ? 1.8 : 1.25;
+      const scoringAdjustment =
+        player.position === "QB"
+          ? Math.max(0, (context?.passTouchdown ?? 4) - 4) * 1.5
+          : player.position === "TE"
+            ? Math.max(0, context?.tePremium ?? 0) * 4
+            : 0;
+      const marketRank = compositeAdp ?? player.overallRank;
+      const leagueAdjustedMarketRank = Math.max(
+        1,
+        marketRank -
+          demandDelta * (context?.teams ?? 12) * demandMultiplier -
+          scoringAdjustment,
+      );
+      const hubRankScore =
+        leagueAdjustedMarketRank * (1 - contextWeight) +
+        player.overallRank * contextWeight;
+      return { ...player, compositeAdp, hubRankScore };
     })
     .sort(
       (a, b) =>
-        (a.compositeAdp ?? Number.POSITIVE_INFINITY) -
-          (b.compositeAdp ?? Number.POSITIVE_INFINITY) ||
+        a.hubRankScore - b.hubRankScore ||
         a.overallRank - b.overallRank,
     )
     .map((player, index) => ({ ...player, overallRank: index + 1 }));
