@@ -3245,6 +3245,10 @@ export default function FantasyHub({
             isOwner={entitlement.owner}
             ownedTeamThemes={ownedTeamThemes}
             ownedBadgeThemes={ownedBadgeThemes}
+            onPurchaseConfirmed={(themeId, badgeId) => {
+              setOwnedTeamThemes((current) => current.includes(themeId) ? current : [...current, themeId]);
+              setOwnedBadgeThemes((current) => current.includes(badgeId) ? current : [...current, badgeId]);
+            }}
             onUpgrade={() => setView("Fantasy Hub Pro")}
           />
         )}
@@ -3808,6 +3812,7 @@ function ThemeStore({
   isOwner,
   ownedTeamThemes,
   ownedBadgeThemes,
+  onPurchaseConfirmed,
   onUpgrade,
 }: {
   teamTheme: string;
@@ -3819,6 +3824,7 @@ function ThemeStore({
   isOwner: boolean;
   ownedTeamThemes: string[];
   ownedBadgeThemes: string[];
+  onPurchaseConfirmed: (themeId: string, badgeId: string) => void;
   onUpgrade: () => void;
 }) {
   const [tab, setTab] = useState<"library" | "store">("store");
@@ -3865,7 +3871,7 @@ function ThemeStore({
       } else {
         throw new Error("Theme-pack checkout is currently available in the iOS app.");
       }
-      window.location.reload();
+      onPurchaseConfirmed(themeId, badgeId);
     } catch (error) {
       setPackError(error instanceof Error ? error.message : "Unable to add this pack");
     } finally {
