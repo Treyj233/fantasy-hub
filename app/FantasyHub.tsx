@@ -1817,7 +1817,19 @@ export default function FantasyHub({
     const selectedTheme =
       nflThemes.find((team) => team.id === effectiveTeamTheme) ??
       nflThemes.find((team) => team.id === "LAC")!;
-    const primaryColor = selectedTheme.primary;
+    const rawPrimaryColor = selectedTheme.primary;
+    const primaryBrightness =
+      colorChannels(rawPrimaryColor).reduce(
+        (sum, channel) => sum + channel,
+        0,
+      ) / 3;
+    // Premium themes intentionally use deep brand colors. In dark mode those
+    // colors also power accent text, so lift only very dark primaries enough to
+    // remain readable while preserving their hue and theme identity.
+    const primaryColor =
+      theme === "dark" && primaryBrightness < 96
+        ? mixColor(rawPrimaryColor, 255, 0.32)
+        : rawPrimaryColor;
     const secondaryBrightness =
       colorChannels(selectedTheme.secondary).reduce(
         (sum, channel) => sum + channel,
@@ -1841,7 +1853,7 @@ export default function FantasyHub({
     safeLocalStorageSet("fantasy-hub-team-theme", selectedTheme.id);
     window.localStorage.removeItem("fantasy-hub-primary");
     window.localStorage.removeItem("fantasy-hub-secondary");
-  }, [effectiveTeamTheme]);
+  }, [effectiveTeamTheme, theme]);
 
   useEffect(() => {
     document.documentElement.dataset.badgeTheme = effectiveBadgeTheme;

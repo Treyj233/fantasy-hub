@@ -1998,3 +1998,8 @@ html[data-theme="dark"] .news-feed-card,html[data-theme="dark"] .news-filter-row
 
 /* Premium Theme Locker releases use a softer, collectible card silhouette. */
 .premium-theme-releases .premium-pack-card{border-radius:18px!important}
+
+/* Keep premium Theme Locker metadata legible on dark surfaces. */
+html[data-theme="dark"] .premium-bundle>small,
+html[data-theme="dark"] .premium-pack-card>em,
+html[data-theme="dark"] .pro-collection-card>em{color:var(--gold-light)}
