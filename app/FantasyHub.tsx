@@ -7591,14 +7591,22 @@ function TeamRankings({
   setSelectedPlayer: (player: Player) => void;
 }) {
   const [expandedTeamId, setExpandedTeamId] = useState("");
-  const [portalTeamAssets, setPortalTeamAssets] = useState(false);
   useEffect(() => {
-    const query = window.matchMedia("(max-width: 700px)");
-    const update = () => setPortalTeamAssets(query.matches);
-    update();
-    query.addEventListener("change", update);
-    return () => query.removeEventListener("change", update);
-  }, []);
+    if (!expandedTeamId) return;
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousHtmlOverflow = document.documentElement.style.overflow;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setExpandedTeamId("");
+    };
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
+    window.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.body.style.overflow = previousBodyOverflow;
+      document.documentElement.style.overflow = previousHtmlOverflow;
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [expandedTeamId]);
   const rankingById = new Map(rankings.map((player) => [player.id, player]));
   const isDynasty = context?.format === "Dynasty";
   const positions = ["QB", "RB", "WR", "TE"];
@@ -7881,7 +7889,7 @@ function TeamRankings({
               <button className="team-assets-mobile-open" type="button" aria-haspopup="dialog" aria-expanded={expanded} aria-controls={`team-assets-${team.id}`} onClick={() => setExpandedTeamId((current) => current === team.id ? "" : team.id)}>{expanded ? "Hide complete roster" : "View complete roster"}</button>
             </article>
             {expanded && (() => {
-              const drawer = <div className="team-assets-modal-layer"><section className="team-assets-drawer" id={`team-assets-${team.id}`} role="dialog" aria-modal="true" aria-label={`${team.teamName} complete team assets`}>
+              const drawer = <div className="team-assets-modal-layer" onClick={() => setExpandedTeamId("")}><section className="team-assets-drawer" id={`team-assets-${team.id}`} role="dialog" aria-modal="true" aria-label={`${team.teamName} complete team assets`} onClick={(event) => event.stopPropagation()}>
               <header><div><span>COMPLETE TEAM ASSETS</span><strong>{team.teamName}</strong></div><small>{allAssets.length} rostered players{isDynasty ? ` · ${team.draftCapital?.picks.length ?? 0} draft picks` : ""}</small><button className="team-assets-close" type="button" aria-label="Close team assets" onClick={() => setExpandedTeamId("")}>×</button></header>
               <div className="team-rating-breakdown"><article><span>STARTERS</span><b>{team.starterScore.toFixed(0)}</b><small>{isDynasty ? "52%" : "72%"}</small></article><article><span>DEPTH</span><b>{team.depthScore.toFixed(0)}</b><small>{isDynasty ? "14%" : "18%"}</small></article><article><span>BALANCE</span><b>{team.balanceScore.toFixed(0)}</b><small>{isDynasty ? "16%" : "10%"}</small></article>{isDynasty && <><article><span>RUNWAY</span><b>{team.runwayScore.toFixed(0)}</b><small>10%</small></article><article><span>DRAFT</span><b>{team.draftValue.toFixed(0)}</b><small>8%</small></article></>}</div>
               <div className="team-position-rooms">
@@ -7892,14 +7900,14 @@ function TeamRankings({
                     <header><span className={`pos pos-${position.toLowerCase()}`}>{position === "OTHER" ? "ST" : position}</span><strong>{position === "OTHER" ? "KICKERS & DEFENSE" : `${position}s`}</strong><small>{positionPlayers.length} PLAYERS</small></header>
                     <div className="team-assets-grid">{positionPlayers.map((player) => {
                       const ranking = rankingById.get(player.id);
-                      return <button type="button" key={player.id} onClick={() => setSelectedPlayer(player)}><span className={`pos pos-${player.position.toLowerCase()}`}>{player.position}</span><p><strong>{player.name}</strong><small>{player.team} · {formatRosterSlot(player.role)}</small></p><b>{ranking ? `#${ranking.overallRank}` : `${player.projection.toFixed(1)} PTS`}</b></button>;
+                      return <button type="button" key={player.id} onClick={() => { setExpandedTeamId(""); setSelectedPlayer(player); }}><span className={`pos pos-${player.position.toLowerCase()}`}>{player.position}</span><p><strong>{player.name}</strong><small>{player.team} · {formatRosterSlot(player.role)}</small></p><b>{ranking ? `#${ranking.overallRank}` : `${player.projection.toFixed(1)} PTS`}</b></button>;
                     })}</div>
                   </section>;
                 })}
               </div>
               {isDynasty && Boolean(team.draftCapital?.picks.length) && <div className="team-pick-assets"><span>DRAFT CAPITAL</span>{team.draftCapital!.picks.map((pick) => <b key={pick.id}>{pick.season} R{pick.round}{pick.originalRosterId !== team.id ? " · ACQUIRED" : ""}</b>)}</div>}
               </section></div>;
-              return portalTeamAssets && typeof document !== "undefined" ? createPortal(drawer, document.body) : drawer;
+              return typeof document !== "undefined" ? createPortal(drawer, document.body) : null;
             })()}
             </Fragment>
           );
@@ -7937,6 +7945,7 @@ function buildSeasonCompositeRankings(
   rankings: LeagueRanking[],
   context: RankingContext | null,
   selectedAdpKey?: string,
+  redraftMarketHorizon = false,
 ): CompositeLeagueRanking[] {
   const superflex = (context?.positionDemand.QB ?? 0) > 1.4;
   const sleeperAdpKey = `Sleeper ${superflex ? "Superflex" : "Single-QB"}`;
@@ -7953,14 +7962,27 @@ function buildSeasonCompositeRankings(
     WR: 2,
     TE: 1,
   };
-  const contextWeight =
-    context?.format === "Dynasty"
+  const contextWeight = redraftMarketHorizon
+    ? 0.35
+    : context?.format === "Dynasty"
       ? 0.65
       : context?.format === "Keeper"
         ? 0.5
         : context
           ? 0.35
           : 0;
+  const internalRankById = redraftMarketHorizon
+    ? new Map(
+        [...rankings]
+          .sort(
+            (a, b) =>
+              (b.rankingValue - (b.ageAdjustment ?? 0)) -
+                (a.rankingValue - (a.ageAdjustment ?? 0)) ||
+              a.overallRank - b.overallRank,
+          )
+          .map((player, index) => [player.id, index + 1]),
+      )
+    : new Map(rankings.map((player) => [player.id, player.overallRank]));
   return rankings
     .map((player) => {
       const sources = (selectedAdpKey
@@ -7997,7 +8019,8 @@ function buildSeasonCompositeRankings(
           : player.position === "TE"
             ? Math.max(0, context?.tePremium ?? 0) * 4
             : 0;
-      const marketRank = compositeAdp ?? player.overallRank;
+      const internalRank = internalRankById.get(player.id) ?? player.overallRank;
+      const marketRank = compositeAdp ?? internalRank;
       const leagueAdjustedMarketRank = Math.max(
         1,
         marketRank -
@@ -8006,7 +8029,7 @@ function buildSeasonCompositeRankings(
       );
       const hubRankScore =
         leagueAdjustedMarketRank * (1 - contextWeight) +
-        player.overallRank * contextWeight;
+        internalRank * contextWeight;
       return { ...player, compositeAdp, hubRankScore };
     })
     .sort(
@@ -8366,6 +8389,7 @@ function AdpPage({
     leagueRankings,
     context,
     adpDataKey,
+    true,
   );
   const positionRanks = new Map<string, number>();
   const personalizedPool: RankedPlayer[] = compositePool.map((player) => {
@@ -8379,10 +8403,7 @@ function AdpPage({
           : player.overallRank <= teamCount * 8
             ? 3
             : 4;
-    const ageNote =
-      context?.format === "Dynasty" && player.age
-        ? `${player.age}-year-old ${player.ageAdjustment >= 0 ? "timeline boost" : "age adjustment"}`
-        : `${context?.format ?? "Redraft"} horizon`;
+    const ageNote = "Redraft market horizon";
     const lineupNote =
       player.lineupAdjustment >= 3
         ? "high lineup demand"
@@ -8421,7 +8442,7 @@ function AdpPage({
         text={
           context
             ? adpSite === "Sleeper"
-              ? `${context.format} Sleeper ${sleeperAdpFormat} ADP aligned to ${context.scoring}.`
+              ? `Sleeper ${sleeperAdpFormat} draft-market ADP aligned to ${context.scoring}.`
               : adpSite === "Underdog"
                 ? `Official Underdog 2026 Best Ball ${underdogAdpFormat} draft market, updated August 21.`
                 : "ESPN Single-QB platform ADP reflects ESPN's redraft market and is shown separately for direct comparison."
@@ -8431,7 +8452,7 @@ function AdpPage({
       {context && (
         <section className="ranking-context">
           <span>
-            <b>{context.format}</b> roster horizon
+            <b>Redraft</b> ADP horizon
           </span>
           <span>
             <b>{context.scoring}</b> reception scoring
