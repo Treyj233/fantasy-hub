@@ -113,6 +113,7 @@ export function categorizeStory(text: string): StoryCategory {
 
 const fantasySignals = /quarterback|\bqb\b|running back|\brb\b|wide receiver|\bwr\b|tight end|\bte\b|kicker|defense|fantasy|injur|starter|depth chart|contract|signed|released|waived|traded|targets|receptions|carries|touchdowns?|yards|snaps|suspension|inactive|practice|draft/;
 const unreliableSignals = /rumou?r|could potentially|may possibly|speculation|anonymous social|unconfirmed/;
+const gameAvailabilitySignal = /\b(?:will|expected to|set to|scheduled to|slated to|cleared to) play\b|\b(?:will|expected to|set to|scheduled to|slated to) (?:sit|dress|suit up|be active|be inactive)\b|\b(?:playing|sitting out|dressing|suiting up) (?:today|tonight|in (?:today's|tonight's|the) (?:game|preseason game))\b|\b(?:active|inactive|available|unavailable) for (?:today's|tonight's|the) (?:game|preseason game)\b/i;
 
 export function isFantasyRelevant(story: Pick<Story, "title" | "summary">) {
   const text = `${story.title} ${story.summary}`.toLowerCase();
@@ -120,7 +121,8 @@ export function isFantasyRelevant(story: Pick<Story, "title" | "summary">) {
     && /\bcontracts?\b|\bsecond contracts?\b/i.test(text);
   const nonRosterExtension = /\b(?:contract extension|extended|restructured|reworked|renegotiated)\b/.test(text)
     && !/\b(?:holdout|injur|practice|will play|return(?:ed|ing)?|traded|released|waived|claimed|acquired|sign(?:s|ed|ing) with)\b/.test(text);
-  return fantasySignals.test(text) && !unreliableSignals.test(text) && !historicalContractList && !nonRosterExtension;
+  return (fantasySignals.test(text) || gameAvailabilitySignal.test(text))
+    && !unreliableSignals.test(text) && !historicalContractList && !nonRosterExtension;
 }
 
 export function parseFeed(xml: string, feedUrl: string): Story[] {

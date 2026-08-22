@@ -148,6 +148,14 @@ test("role classification distinguishes a starting-role change from starting an 
   assert.equal(isSixPointFantasyPlay({ title: "Touchdown in practice", summary: "Evan Engram scored during team drills" }), false);
 });
 
+test("game availability is always eligible for fantasy-player resolution", async () => {
+  const { isFantasyRelevant } = await import("../social-agent/src/content.ts");
+  assert.equal(isFantasyRelevant({ title: "Jayden Daniels and Terry McLaurin are scheduled to play today", summary: "" }), true);
+  assert.equal(isFantasyRelevant({ title: "Stefon Diggs will suit up in tonight's preseason game", summary: "" }), true);
+  assert.equal(isFantasyRelevant({ title: "The veteran will be inactive for today's game", summary: "" }), true);
+  assert.equal(isFantasyRelevant({ title: "The coach may possibly let him play", summary: "" }), false);
+});
+
 test("live content posts are suppressed without blocking complete text reports", async () => {
   const { isLiveContentPost, isSelfContainedMediaPost } = await import("../social-agent/src/content.ts");
   assert.equal(isLiveContentPost("We're live now—join the show for camp updates"), true);
