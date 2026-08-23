@@ -119,7 +119,7 @@ export default function NewsAndNotes({ onOpenPlayer }: { onOpenPlayer?: (player:
       <section className="news-notes-console" aria-label="News feed controls">
         <div>
           <span className="news-live-dot" aria-hidden="true" />
-          <div><b>THE FANTASY HUB WIRE</b><small>Fresh updates from trusted NFL insiders</small></div>
+          <div><b>THE FANTASY HUB WIRE</b><small>Fresh updates from trusted football insiders</small></div>
         </div>
         <button
           type="button"

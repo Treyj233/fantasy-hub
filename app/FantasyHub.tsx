@@ -23,7 +23,7 @@ type View =
   | "Manager Report"
   | "All Leagues"
   | "Scoreboard"
-  | "NFL Games"
+  | "Pro Football Games"
   | "News & Notes"
   | "League Analytics"
   | "My Team"
@@ -334,7 +334,7 @@ type Theme = "light" | "dark";
 type BadgeTheme = "arcade" | "team" | "neon" | "minimal" | "stadium" | "broadcast" | "playbook" | "varsity" | "championship" | "gridiron" | "neon-sunday" | "retro" | "glass" | "carbon" | "helmet" | "trading-cards" | "crown-chrome" | "neon-endzone" | "heritage-gridiron";
 const badgeThemeOptions: { id: BadgeTheme; name: string; detail: string; preview: string[] }[] = [
   { id: "arcade", name: "Arcade", detail: "Colorful page-by-page gradients", preview: ["★", "⚡", "↔"] },
-  { id: "team", name: "Team Colors", detail: "Your NFL palette across every badge", preview: ["♟", "+", "◈"] },
+  { id: "team", name: "Team Colors", detail: "Your team-inspired palette across every badge", preview: ["♟", "+", "◈"] },
   { id: "neon", name: "Neon Night", detail: "Electric badges built for dark mode", preview: ["◆", "🏈", "♛"] },
   { id: "minimal", name: "Minimal", detail: "Clean, quiet outlined page markers", preview: ["✓", "◎", "⌁"] },
   { id: "stadium", name: "Stadium Lights", detail: "Floodlit navy badges with gold edges", preview: ["✦", "★", "⚡"] },
@@ -863,7 +863,7 @@ const nav: { label: View; displayLabel?: string; mark: string; tone: string; gro
   { label: "League Stories", mark: "✎", tone: "stories-sunset", group: "Analyze League" },
   { label: "Scoreboard", displayLabel: "Fantasy Scoreboard", mark: "▣", tone: "score-crimson", group: "Game Day" },
   { label: "Matchups", displayLabel: "Fantasy Matchups", mark: "◎", tone: "matchup-aqua", group: "Game Day" },
-  { label: "NFL Games", mark: "🏈", tone: "football-bronze", group: "Game Day" },
+  { label: "Pro Football Games", mark: "🏈", tone: "football-bronze", group: "Game Day" },
   { label: "News & Notes", mark: "🗞", tone: "news-pulse", group: "Game Day" },
   { label: "Glossary", mark: "?", tone: "glossary-plum", group: "Utilities" },
 ];
@@ -886,9 +886,9 @@ const glossaryDetails: Record<View, { summary: string; use: string }> = {
   "ADP": { summary: "Shows market draft position by available source, separated from Fantasy Hub’s internal player rankings.", use: "Use for draft preparation and to compare market cost with your player evaluation." },
   "Draft HQ": { summary: "A configurable mock-draft room with a live board, roster construction, rankings, and tiered draft intelligence.", use: "Use before your draft to rehearse your slot, settings, and roster-building plan." },
   "Scoreboard": { summary: "The all-day Fantasy Scoreboard with live fantasy scores, win odds, What Do I Need paths, rooting interests, swings, and the Sunday Pulse ticker.", use: "Leave open on game day to follow every matchup that matters." },
-  "NFL Games": { summary: "Tracks the NFL schedule, scores, weather, and the fantasy players from your matchup involved in each game.", use: "Use to follow real games and understand why each one matters to your leagues." },
+  "Pro Football Games": { summary: "Tracks the pro football schedule, scores, weather, and the fantasy players from your matchup involved in each game.", use: "Use to follow real games and understand why each one matters to your leagues." },
   "News & Notes": { summary: "A live Fantasy Hub news desk that translates league-wide developments into clear fantasy impact and suggested next steps.", use: "Use throughout the week to catch injuries, role changes, roster moves, and game-day performances that affect your decisions." },
-  "Matchups": { summary: "A detailed side-by-side view of your lineup and opponent in platform order with scoring, projections, weather, and NFL matchup quality.", use: "Use to inspect one fantasy matchup in detail." },
+  "Matchups": { summary: "A detailed side-by-side view of your lineup and opponent in platform order with scoring, projections, weather, and pro-football matchup quality.", use: "Use to inspect one fantasy matchup in detail." },
   "League Stories": { summary: "Turns weekly league activity into recaps, previews, rivalries, awards, power movement, upsets, and season narratives.", use: "Use for the social story of the league, not just optimization." },
   "Manager Report": { summary: "Tracks saved recommendations, choices, outcomes, waiver and trade efficiency, bench points, and decision quality based on information available at the time.", use: "Use to understand where your process is helping or hurting you." },
   "Glossary": { summary: "A plain-language guide to every Fantasy Hub page and the best time to use it.", use: "Use whenever you want to understand a tool or jump directly to it." },
@@ -3102,7 +3102,7 @@ export default function FantasyHub({
             />
           )
         )}
-        {view === "NFL Games" && (
+        {view === "Pro Football Games" && (
           <NflGames
             key={`${leagueId}-${defaultGameWeek}`}
             leagueId={leagueId}
@@ -3363,7 +3363,7 @@ function AccountOnboarding({ displayName, colorMode, teamTheme, badgeTheme, isPr
     <section className="onboarding-card">
       <header><span>WELCOME TO FANTASY HUB</span><h1>Make it yours, {displayName.split(" ")[0]}.</h1><p>Your leagues and preferences will follow your account across devices. Choose a starting look—you can change it anytime.</p></header>
       <div className="onboarding-modes"><button className={colorMode === "light" ? "active" : ""} onClick={() => onColorMode("light")}><b>☀</b><span>Light mode</span></button><button className={colorMode === "dark" ? "active" : ""} onClick={() => onColorMode("dark")}><b>☾</b><span>Dark mode</span></button></div>
-      {isPro ? <><div className="onboarding-section"><div><span>TEAM THEME</span><strong>Choose your colors</strong></div><div className="onboarding-team-grid">{nflThemes.map((team) => <button key={team.id} className={teamTheme === team.id ? "active" : ""} title={team.name} aria-label={team.name} aria-pressed={teamTheme === team.id} onClick={() => onTeamTheme(team.id)}><i style={{ background: `linear-gradient(135deg,${team.primary} 0 50%,${team.secondary} 50%)` }} /><b>{team.shortCode ?? team.id}</b></button>)}</div></div><div className="onboarding-section"><div><span>SIDEBAR STYLE</span><strong>Pick a badge pack</strong></div><div className="onboarding-badges">{([['arcade','Arcade','★ ⚡ ↔'],['team','Team Colors','♟ + ◈'],['neon','Neon Night','◆ 🏈 ♛'],['minimal','Minimal','✓ ◎ ⌁']] as [BadgeTheme,string,string][]).map(([id,name,icons]) => <button key={id} className={badgeTheme === id ? "active" : ""} onClick={() => onBadgeTheme(id)}><b>{icons}</b><span>{name}</span></button>)}</div></div></> : <div className="onboarding-pro-note"><span>FANTASY HUB PRO</span><strong>NFL themes and badge packs unlock with Pro.</strong><p>Light and dark mode remain available to everyone. You can preview every Pro look after entering the Hub.</p></div>}
+      {isPro ? <><div className="onboarding-section"><div><span>TEAM THEME</span><strong>Choose your colors</strong></div><div className="onboarding-team-grid">{nflThemes.map((team) => <button key={team.id} className={teamTheme === team.id ? "active" : ""} title={team.name} aria-label={team.name} aria-pressed={teamTheme === team.id} onClick={() => onTeamTheme(team.id)}><i style={{ background: `linear-gradient(135deg,${team.primary} 0 50%,${team.secondary} 50%)` }} /><b>{team.shortCode ?? team.id}</b></button>)}</div></div><div className="onboarding-section"><div><span>SIDEBAR STYLE</span><strong>Pick a badge pack</strong></div><div className="onboarding-badges">{([['arcade','Arcade','★ ⚡ ↔'],['team','Team Colors','♟ + ◈'],['neon','Neon Night','◆ 🏈 ♛'],['minimal','Minimal','✓ ◎ ⌁']] as [BadgeTheme,string,string][]).map(([id,name,icons]) => <button key={id} className={badgeTheme === id ? "active" : ""} onClick={() => onBadgeTheme(id)}><b>{icons}</b><span>{name}</span></button>)}</div></div></> : <div className="onboarding-pro-note"><span>FANTASY HUB PRO</span><strong>Team-inspired themes and badge packs unlock with Pro.</strong><p>Light and dark mode remain available to everyone. You can preview every Pro look after entering the Hub.</p></div>}
       <footer><small>You’ll connect Sleeper or ESPN after setup. The first successful sync is saved to this account.</small><button onClick={onComplete}>Enter Fantasy Hub →</button></footer>
     </section>
   </main>;
@@ -3622,7 +3622,7 @@ function AccessAccount({ accountUser, entitlement, onPlans }: { accountUser: Acc
         <summary><span><strong>Optional notification types</strong><small>{Object.values(pushPreferences).filter(Boolean).length} of {Object.keys(pushPreferences).length} enabled</small></span><b aria-hidden="true">⌄</b></summary>
         <div className="notification-types">{([
         ["kickoffSoon", "15 minutes to kickoff", "A player in your lineup or your opponent’s lineup is about to lock."],
-        ["slateStarted", "NFL slate started", "One concise alert when a game window containing relevant players begins."],
+        ["slateStarted", "Pro football slate started", "One concise alert when a game window containing relevant players begins."],
         ["bigPlays", "Big plays · 5+ points", "Real play context, fantasy points, league, and estimated matchup impact."],
         ["matchupResults", "Matchup won or lost", "A final result once the fantasy matchup outcome is confirmed."],
         ["closeGame", "Close matchup", "Your matchup is within 5 points or its live win probability enters the 40–60% range late in the slate."],
@@ -3762,7 +3762,7 @@ function ProPlans({ entitlement }: { entitlement: AccountEntitlement }) {
   const freeFeatures = [
     "Unlimited Sleeper and ESPN league connections",
     "Mission Hub portfolio overview with prioritized actions across leagues",
-    "Fantasy Scoreboard, Fantasy Matchups, NFL Games, and Sunday Pulse",
+    "Fantasy Scoreboard, Fantasy Matchups, Pro Football Games, and Sunday Pulse",
     "My Team roster view with projections, player health, weather, and opponent strength",
     "Core Start/Sit recommendations, Waiver Wire tools, and the manual Trade Lab calculator",
     "Player Rankings, Team Rankings, blended ADP, and Draft HQ mocks with adjustable teams and draft slot",
@@ -3777,7 +3777,7 @@ function ProPlans({ entitlement }: { entitlement: AccountEntitlement }) {
     "League Analytics for positional strength, dynasty windows, roster construction, and competitive outlook",
     "Custom Draft HQ format, scoring, roster size, Superflex settings, and player-board options",
     "Weekly ranking intelligence with projections, ceilings, matchup strength, and weather context",
-    "The complete NFL Theme Collection and all 16 original Fantasy Hub badge packs",
+    "The complete Team-Inspired Theme Collection and all 16 original Fantasy Hub badge packs",
   ];
   const eliteFeatures = [
     "Everything included in Pro",
@@ -3807,7 +3807,7 @@ function ProPlans({ entitlement }: { entitlement: AccountEntitlement }) {
     : <button disabled={Boolean(billingBusy)} onClick={() => void openBilling("/api/billing/checkout", plan)}>{billingBusy === plan ? "Opening secure checkout…" : entitlement.pro ? `Upgrade · ${label}` : label}</button>;
   return <div className="page-content pro-plans-page">
     <section className="pro-plans-hero"><div className="pro-hero-copy"><span>FANTASY HUB PLANS</span><h2>Turn every league into<br/><em>a better Sunday.</em></h2><p>Live game-day energy meets original strategy tools, simulations, storytelling, and accountability—built around every team you manage.</p><div className="pro-hero-pills"><b>∞ LEAGUES</b><b>LIVE GAME DAY</b><b>SMARTER DECISIONS</b></div></div><div className="pro-hero-mark"><FHLogo label="Fantasy Hub plans"/><strong>PRO</strong></div><b className="pro-status-badge">{entitlement.pro ? "PRO ACTIVE" : `7 DAYS FREE · THEN ${monthlyPrice}/MO`}</b>{canManageBilling && <button className="billing-manage" disabled={billingBusy === "portal"} onClick={() => void openBilling("/api/billing/portal")}>{billingBusy === "portal" ? "Opening billing…" : nativeIos ? "Manage in App Store" : "Manage billing"}</button>}{entitlement.pro && billingProvider === "manual" && <p className="billing-access-note">Owner access is active. There is no recurring subscription or billing account to manage.</p>}{entitlement.pro && billingProvider === "apple" && !nativeIos && <p className="billing-access-note">This membership is billed through Apple. Manage it from Subscriptions on your Apple device.</p>}</section>
-    <section className="pro-theme-gallery panel"><header><div><span>THEME LOCKER</span><h3>Your leagues. Your Sunday look.</h3></div><p>Pro includes every current NFL-inspired palette and icon pack.</p></header><div>{[{name:"Midway Night",colors:["#0b162a","#c83803"]},{name:"South Beach",colors:["#008e97","#fc4c02"]},{name:"Purple Reign",colors:["#241773","#9e7c0c"]},{name:"Gold Rush",colors:["#aa0000","#b3995d"]}].map((theme) => <article key={theme.name} style={{"--preview-primary":theme.colors[0],"--preview-secondary":theme.colors[1]} as CSSProperties}><i/><b>{theme.name}</b><small>Dashboard + badge pack</small></article>)}</div></section>
+    <section className="pro-theme-gallery panel"><header><div><span>THEME LOCKER</span><h3>Your leagues. Your Sunday look.</h3></div><p>Pro includes every current team-inspired palette and icon pack.</p></header><div>{[{name:"Midway Night",colors:["#0b162a","#c83803"]},{name:"South Beach",colors:["#008e97","#fc4c02"]},{name:"Purple Reign",colors:["#241773","#9e7c0c"]},{name:"Gold Rush",colors:["#aa0000","#b3995d"]}].map((theme) => <article key={theme.name} style={{"--preview-primary":theme.colors[0],"--preview-secondary":theme.colors[1]} as CSSProperties}><i/><b>{theme.name}</b><small>Dashboard + badge pack</small></article>)}</div></section>
     {billingError && <p className="billing-error" role="alert">{billingError}</p>}
     <section className="free-plan-summary panel"><header><div><span>FANTASY HUB FREE</span><h3>The essentials stay free.</h3><p>Connect leagues, follow game day, and manage the weekly decisions that matter.</p></div>{!entitlement.pro && <b>CURRENT PLAN</b>}</header><ul>{freeFeatures.map((feature) => <li key={feature}>{feature}</li>)}</ul></section>
     <div className="membership-tier-compare">
@@ -3904,15 +3904,15 @@ function ThemeStore({
       <div className="panel-header"><div><span>MY THEME LIBRARY</span><h3>Choose an owned team palette</h3></div><label>Team<select value={teamTheme} onChange={(event) => onTeamThemeChange(event.target.value)}>{libraryTeams.map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}</select></label></div>
       <div className="selected-team-theme"><i style={{background:`linear-gradient(135deg, ${selectedNflTheme.primary} 0 50%, ${selectedNflTheme.secondary} 50%)`}}/><span><strong>{selectedNflTheme.name}</strong><small>{selectedNflTheme.primary} · {selectedNflTheme.secondary}</small></span><b>ACTIVE THEME</b></div>
       {premiumLibraryThemes.length > 0 && <section className="library-standalone"><header><span>PREMIUM THEMES</span><strong>Your standalone theme releases</strong></header>{renderThemeButtons(premiumLibraryThemes, "Owned premium themes")}</section>}
-      {nflLibraryThemes.length > 0 && <details className="library-collection" open={nflLibraryThemes.some((team) => team.id === teamTheme)}><summary><span><b>NFL THEME COLLECTION</b><small>All NFL-inspired color themes</small></span><em>{nflLibraryThemes.length} themes</em></summary>{renderThemeButtons(nflLibraryThemes, "Owned NFL theme collection")}</details>}
+      {nflLibraryThemes.length > 0 && <details className="library-collection" open={nflLibraryThemes.some((team) => team.id === teamTheme)}><summary><span><b>TEAM-INSPIRED THEME COLLECTION</b><small>All team-inspired color themes</small></span><em>{nflLibraryThemes.length} themes</em></summary>{renderThemeButtons(nflLibraryThemes, "Owned team-inspired theme collection")}</details>}
       <div className="badge-theme-builder"><header><div><span>MY BADGE LIBRARY</span><h4>Choose an owned navigation style</h4></div><small>{libraryBadges.length} packs</small></header>{premiumLibraryBadges.length > 0 && <section className="library-standalone"><header><span>PREMIUM BADGES</span><strong>Your standalone badge releases</strong></header>{renderBadgeButtons(premiumLibraryBadges, "Owned premium badge packs")}</section>}{proLibraryBadges.length > 0 && <details className="library-collection badge-library-collection" open={proLibraryBadges.some((pack) => pack.id === badgeTheme)}><summary><span><b>PRO BADGE COLLECTION</b><small>The original Fantasy Hub badge pack</small></span><em>{proLibraryBadges.length} badges</em></summary>{renderBadgeButtons(proLibraryBadges, "Owned Pro badge collection")}</details>}</div>
       <aside className="theme-store-future"><span>BUILD YOUR LIBRARY</span><strong>Looking for another Sunday look?</strong><p>Open the Store tab to add more palettes and badge packs to your account.</p></aside>
     </section> : <section className="appearance-panel theme-store-catalog theme-market panel" role="tabpanel">
       <div className="panel-header"><div><span>THEME STORE</span><h3>Add themes to your library</h3></div><b className="theme-membership-price">{isElite ? "ELITE · FREE" : isPro ? "PRO COLLECTION" : "MEMBERSHIP REQUIRED"}</b></div>
-      <p>The NFL Theme Collection and Starter Badge Collection are automatically added to your library with an active Pro membership.</p>
+      <p>The Team-Inspired Theme Collection and Starter Badge Collection are automatically added to your library with an active Pro membership.</p>
       <aside className="elite-theme-promise"><span>FANTASY HUB ELITE</span><strong>Every current and future theme. Included.</strong><p>Elite members can claim every eligible release from the Store for free and keep it organized in My Library.</p><button onClick={onUpgrade}>{isElite ? "View Elite membership →" : "Explore Elite →"}</button></aside>
       <section className="pro-theme-collections"><header><span>INCLUDED WITH PRO</span><h4>Two complete starter collections.</h4><p>Upgrade once and both packs appear automatically in My Library.</p></header><div>
-        <article className="pro-collection-card nfl-collection"><div className="pro-collection-art" aria-hidden="true">{proNflThemes.slice(0,8).map((theme)=><i key={theme.id} style={{background:`linear-gradient(135deg,${theme.primary} 0 50%,${theme.secondary} 50%)`}}><b>{theme.id}</b></i>)}</div><em>32 NFL-INSPIRED THEMES</em><h5>NFL Theme Collection</h5><p>Every current NFL-inspired dashboard palette, packaged together and ready to use across Fantasy Hub.</p><button disabled={isPro} onClick={onUpgrade}>{isPro ? "PRO · IN YOUR LIBRARY" : "GET PRO ACCESS →"}</button></article>
+        <article className="pro-collection-card nfl-collection"><div className="pro-collection-art" aria-hidden="true">{proNflThemes.slice(0,8).map((theme)=><i key={theme.id} style={{background:`linear-gradient(135deg,${theme.primary} 0 50%,${theme.secondary} 50%)`}}><b>{theme.id}</b></i>)}</div><em>32 TEAM-INSPIRED THEMES</em><h5>Team-Inspired Theme Collection</h5><p>Every current team-inspired dashboard palette, packaged together and ready to use across Fantasy Hub.</p><button disabled={isPro} onClick={onUpgrade}>{isPro ? "PRO · IN YOUR LIBRARY" : "GET PRO ACCESS →"}</button></article>
         <article className="pro-collection-card badge-collection"><div className="pro-collection-art badge-collection-art" aria-hidden="true">{proBadgePacks.slice(0,6).map((pack)=><span className={`badge-pack-preview ${pack.id}`} key={pack.id}>{pack.preview.slice(0,2).map((icon,index)=><i key={`${icon}-${index}`}>{icon}</i>)}</span>)}</div><em>16 NAVIGATION STYLES</em><h5>Starter Badge Collection</h5><p>All 16 original Fantasy Hub badge packs in one Pro collection, from Arcade and Team Colors to Helmet and Trading Cards.</p><button disabled={isPro} onClick={onUpgrade}>{isPro ? "PRO · IN YOUR LIBRARY" : "GET PRO ACCESS →"}</button></article>
       </div></section>
       <section className="premium-theme-releases"><header><span>PREMIUM PACKS</span><h4>Unlock a complete new game-day identity.</h4><p>{isOwner ? "Owner access is active. Each color theme and matching badge design is available separately in My Library." : "Every pack pairs a cinematic color system with matching handcrafted badges. Buy it once and keep it in your Locker."}</p></header>{packError && <p className="billing-error" role="alert">{packError}</p>}<div>{premiumBundles.map(({theme,badge,label,productId})=>{const owned=ownedTeamThemes.includes(theme.id)&&ownedBadgeThemes.includes(badge.id);const labelText=owned?"IN YOUR LIBRARY ✓":isElite?"CLAIM FREE WITH ELITE →":nativeIos?`UNLOCK FOR ${packPrices[productId]??"$1.99"} →`:"$1.99 · IOS PURCHASE";return <article key={theme.id} className={`premium-pack-card premium-bundle premium-${theme.id.toLowerCase()}`}><div className="premium-bundle-art" style={{background:`radial-gradient(circle at 78% 18%,${theme.secondary}aa,transparent 32%),radial-gradient(circle at 15% 86%,${theme.secondary}55,transparent 38%),linear-gradient(135deg,${theme.primary},color-mix(in srgb,${theme.primary} 55%,#000))`}}><span className="premium-pack-kicker">LIMITED RELEASE</span><span className={`badge-pack-preview ${badge.id}`}>{badge.preview.map((icon,index)=><i key={`${icon}-${index}`}>{icon}</i>)}</span></div><em>{label}</em><h5>{theme.name}</h5><p>{theme.detail}</p><small>FULL PACK · {theme.name} colors + {badge.name} badges</small><button disabled={owned||packBusy===productId||(!nativeIos&&!isElite&&!isOwner)} onClick={()=>void addPremiumBundle(theme.id,badge.id,productId)}>{packBusy===productId?"PROCESSING…":labelText}</button></article>})}</div></section>
@@ -4656,7 +4656,7 @@ function AllLeagues({
                   "critical",
                   "Bye week",
                   `${player.name} appears to be on bye`,
-                  `${player.name} is currently in ${formatRosterSlot(player.role)}, but ${player.team} is not on the Week ${week} NFL slate.`,
+                  `${player.name} is currently in ${formatRosterSlot(player.role)}, but ${player.team} is not on the Week ${week} pro football slate.`,
                 ),
               );
           starters.forEach((player) => {
@@ -4691,7 +4691,7 @@ function AllLeagues({
                 "watch",
                 "Exposure",
                 `${group.length} starters rely on ${nflTeam}`,
-                `A single low-scoring NFL game could affect ${group.map((player) => player.name).join(", ")}.`,
+                `A single low-scoring pro football game could affect ${group.map((player) => player.name).join(", ")}.`,
               ),
             );
           const topWaiver = payload.waiverPlayers?.[0];
@@ -5507,8 +5507,8 @@ function AllLeagueScoreboard({
       const hurts = playerExposures.length - helps;
       return {
         ...interest,
-        position: playerExposures[0]?.position ?? "NFL",
-        nflTeam: playerExposures[0]?.nflTeam ?? "NFL",
+        position: playerExposures[0]?.position ?? "PRO",
+        nflTeam: playerExposures[0]?.nflTeam ?? "FA",
         sentiment: helps && hurts ? "mixed" : helps ? "cheer" : "fade",
         affectedLeagues: playerExposures.map((item) => ({
           id: item.leagueId,
@@ -5758,7 +5758,7 @@ function AllLeagueScoreboard({
       </section>
       <div className="game-day-insights">
         <section className="panel rooting-interests"><header><div><span>ROOTING INTERESTS</span><h3>Who to cheer—and who to stop</h3></div><b>📣 GAME-DAY PULSE</b></header><div className="insight-scroll-window">{gameDay.interests.length ? gameDay.interests.map((interest) => <article className={`rooting-${interest.sentiment}`} key={interest.playerId}><div className="rooting-visual"><NflTeamLogo team={interest.nflTeam} /><PlayerHeadshot id={interest.playerId} position={interest.position} /><i aria-hidden="true">{interest.sentiment === "cheer" ? "📣" : interest.sentiment === "fade" ? "🛑" : "⚖️"}</i></div><p><span>{interest.sentiment === "cheer" ? "ROOT FOR" : interest.sentiment === "fade" ? "ROOT AGAINST" : "MIXED ROOTING INTEREST"}</span><strong>{interest.playerName}</strong><small>{interest.text}</small><span className="rooting-leagues">{interest.affectedLeagues.map((league) => <b className={league.impact} key={`${interest.playerId}-${league.id}`}>{league.impact === "helps" ? "↑" : "↓"} {league.name}</b>)}</span></p><em><small>{interest.level}</small>{interest.score}</em></article>) : <p className="game-day-empty">Rooting interests appear when weekly lineups and projections are available.</p>}</div></section>
-        <section className="panel sunday-swing" data-visual-source="observed"><header><div><span>SUNDAY SWING</span><h3>Observed this session</h3></div>{swingFeed.length > 0 && <b>LIVE MOVEMENT</b>}</header><div className="insight-scroll-window">{swingFeed.length ? swingFeed.map((item) => <article key={item.id}><b className={item.current >= item.previous ? "positive" : "negative"}>{item.current >= item.previous ? "↑" : "↓"} {Math.abs(item.current - item.previous)} pts</b><p><strong>{item.league}</strong><small>{item.text}</small></p><time>{item.at ? new Date(item.at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "Now"}</time></article>) : <p className="game-day-empty">Waiting for live scoring. Win-probability swings of 5% or more will appear here once NFL games begin.</p>}</div></section>
+        <section className="panel sunday-swing" data-visual-source="observed"><header><div><span>SUNDAY SWING</span><h3>Observed this session</h3></div>{swingFeed.length > 0 && <b>LIVE MOVEMENT</b>}</header><div className="insight-scroll-window">{swingFeed.length ? swingFeed.map((item) => <article key={item.id}><b className={item.current >= item.previous ? "positive" : "negative"}>{item.current >= item.previous ? "↑" : "↓"} {Math.abs(item.current - item.previous)} pts</b><p><strong>{item.league}</strong><small>{item.text}</small></p><time>{item.at ? new Date(item.at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "Now"}</time></article>) : <p className="game-day-empty">Waiting for live scoring. Win-probability swings of 5% or more will appear here once pro football games begin.</p>}</div></section>
       </div>
       <div className="portfolio-scoreboard-grid" id="league-matchups">
         {orderedLeagues.map((league) => {
@@ -6086,7 +6086,7 @@ function NflGames({
           error?: string;
         };
         if (!response.ok || !payload.games?.length)
-          throw new Error(payload.error ?? "NFL games unavailable");
+          throw new Error(payload.error ?? "Pro football games unavailable");
         if (!active) return;
         setData(payload);
         setWeek((current) => current ?? payload.week);
@@ -6161,7 +6161,7 @@ function NflGames({
           });
           if (!active) return;
           setData({
-            league: { name: "NFL Schedule", season: String(schedule.season) },
+            league: { name: "Pro Football Schedule", season: String(schedule.season) },
             week: selectedWeek?.week ?? week,
             updatedAt: schedule.updatedAt,
             scoresAvailable: false,
@@ -6181,7 +6181,7 @@ function NflGames({
             setError(
               requestError instanceof Error
                 ? requestError.message
-                : "NFL games unavailable",
+                : "Pro football games unavailable",
             );
         }
       } finally {
@@ -6211,7 +6211,7 @@ function NflGames({
     <div className="page-content nfl-games-page">
       <section className="nfl-games-head">
         <div>
-          <span>NFL GAME HUB</span>
+          <span>PRO FOOTBALL GAME HUB</span>
           <h2>Every game. Your matchup in focus.</h2>
           <p>
             The complete season schedule is loaded now. Matchup players are
@@ -6262,14 +6262,14 @@ function NflGames({
             {data.fantasyMatchup.opponentPoints.toFixed(2)}
           </strong>
           <small>
-            {data.fantasyMatchup.playerCount} players mapped to NFL games
+            {data.fantasyMatchup.playerCount} players mapped to pro football games
           </small>
         </section>
       ) : (
         data && (
           <section className="fantasy-matchup-pending">
             Fantasy matchup details have not been posted for Week {data.week}.
-            The complete NFL slate is still available below.
+            The complete pro football slate is still available below.
           </section>
         )
       )}
@@ -6440,7 +6440,7 @@ function NflGames({
       </div>
       {data && !data.games.length && (
         <section className="panel scoreboard-empty">
-          No regular-season NFL games were returned for Week {data.week}.
+          No regular-season pro football games were returned for Week {data.week}.
         </section>
       )}
     </div>
@@ -7372,7 +7372,7 @@ function CommandCenter({
               </div>
             </>
           ) : (
-            <p>Opponent rankings will appear after the NFL schedule maps this roster to a supported position matchup.</p>
+            <p>Opponent rankings will appear after the pro football schedule maps this roster to a supported position matchup.</p>
           )}
         </section>
       </div>
@@ -8162,7 +8162,7 @@ function PlayerRanks({
           <section className="weekly-rankings-gate panel">
             <span>FANTASY HUB PRO</span><div className="pro-lock"><FHLogo label="Fantasy Hub" /></div>
             <h2>Weekly Player Rankings are a Pro experience.</h2>
-            <p>Unlock projection, ceiling, matchup, and weather-adjusted rankings for every current NFL week.</p>
+            <p>Unlock projection, ceiling, matchup, and weather-adjusted rankings for every current pro football week.</p>
             <button onClick={onUpgrade}>Explore Fantasy Hub Pro →</button>
           </section>
         )
@@ -10369,7 +10369,7 @@ function HeadToHeadMatchup({
         <div>
           <span>FANTASY MATCHUPS</span>
           <h2>{data?.league.name ?? "Loading matchup…"}</h2>
-          <p>Fantasy scoring refreshes every 30 seconds. NFL opponent, weather, and position matchup grades use live schedule data and {matchupStrengths?.sourceSeason ?? new Date().getUTCFullYear() - 1} fantasy points allowed.</p>
+          <p>Fantasy scoring refreshes every 30 seconds. Opponent, weather, and position matchup grades use live schedule data and {matchupStrengths?.sourceSeason ?? new Date().getUTCFullYear() - 1} fantasy points allowed.</p>
         </div>
         <label>
           Week
@@ -10443,7 +10443,7 @@ function Matchups({
           error?: string;
         };
         if (!response.ok)
-          throw new Error(data.error ?? "NFL schedule unavailable");
+          throw new Error(data.error ?? "Pro football schedule unavailable");
         return data;
       })
       .then((data) => {
@@ -10456,7 +10456,7 @@ function Matchups({
           setError(
             requestError instanceof Error
               ? requestError.message
-              : "NFL schedule unavailable",
+              : "Pro football schedule unavailable",
           );
       });
     return () => controller.abort();
@@ -10499,7 +10499,7 @@ function Matchups({
     <div className="page-content matchup-season-page">
       <section className="matchup-season-head">
         <div>
-          <span>FULL {season} NFL SEASON</span>
+          <span>FULL {season} PRO FOOTBALL SEASON</span>
           <h2>Every weekly matchup, mapped to your roster.</h2>
           <p>
             Move through Weeks 1–18 to see each player’s opponent, stadium
@@ -10525,7 +10525,7 @@ function Matchups({
       {error && <section className="scoreboard-error">{error}</section>}
       {loading && (
         <section className="panel scoreboard-empty">
-          Loading the {season} NFL schedule…
+          Loading the {season} pro football schedule…
         </section>
       )}
       {!loading && !error && (
@@ -10570,7 +10570,7 @@ function Matchups({
           <section className="week-slate panel">
             <div className="panel-header">
               <div>
-                <span>NFL WEEK {activeWeek}</span>
+                <span>PRO FOOTBALL WEEK {activeWeek}</span>
                 <h3>Complete game slate</h3>
               </div>
               <b>{games.length} games</b>
