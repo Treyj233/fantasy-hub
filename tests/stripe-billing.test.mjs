@@ -52,6 +52,8 @@ test("subscription screen links to privacy policy and terms of use", async () =>
   assert.match(source, /className="subscription-legal-links"/);
   assert.match(source, /href="\/privacy">Privacy Policy/);
   assert.match(source, /apple\.com\/legal\/internet-services\/itunes\/dev\/stdeula/);
+  assert.match(source, /After the trial, \{monthlyPrice\} is billed monthly until canceled\./);
+  assert.ok((source.match(/billed monthly until canceled\./g) ?? []).length >= 2);
 });
 
 test("Stripe webhooks verify the raw signed body before granting Pro", async () => {
