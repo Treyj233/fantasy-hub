@@ -24,7 +24,7 @@ const sections = [
   {
     title: "Independent platform and third-party rights",
     body: [
-      "Fantasy Hub is an independent fantasy-football analysis platform. Fantasy Hub is not affiliated with, endorsed by, sponsored by, or an official partner of Sleeper, ESPN, any professional football league, players association, member club, or any other referenced fantasy platform, league, team, or rights holder.",
+      "Fantasy Hub is an independent fantasy-football analysis platform. Fantasy Hub is not affiliated with, endorsed by, sponsored by, or an official partner of Sleeper, ESPN, the National Football League (NFL), NFL Players Inc., the NFL Players Association (NFLPA), any NFL member club, or any other referenced fantasy platform, league, team, or rights holder.",
       "All third-party names, trademarks, service marks, logos, player names, photographs, likenesses, statistics, and other intellectual property are the property of their respective owners. References to third-party platforms, leagues, teams, and players are used solely to identify compatible services or provide informational fantasy-football analysis. No such reference implies sponsorship, endorsement, authorization, or partnership.",
       "Nothing in these Terms grants you a right to copy, redistribute, sell, or otherwise exploit third-party data, branding, images, or intellectual property displayed through Fantasy Hub.",
     ],
