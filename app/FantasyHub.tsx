@@ -23,7 +23,7 @@ type View =
   | "Manager Report"
   | "All Leagues"
   | "Scoreboard"
-  | "Pro Football Games"
+  | "Game Day Live"
   | "News & Notes"
   | "League Analytics"
   | "My Team"
@@ -863,7 +863,7 @@ const nav: { label: View; displayLabel?: string; mark: string; tone: string; gro
   { label: "League Stories", mark: "✎", tone: "stories-sunset", group: "Analyze League" },
   { label: "Scoreboard", displayLabel: "Fantasy Scoreboard", mark: "▣", tone: "score-crimson", group: "Game Day" },
   { label: "Matchups", displayLabel: "Fantasy Matchups", mark: "◎", tone: "matchup-aqua", group: "Game Day" },
-  { label: "Pro Football Games", mark: "🏈", tone: "football-bronze", group: "Game Day" },
+  { label: "Game Day Live", mark: "🏈", tone: "football-bronze", group: "Game Day" },
   { label: "News & Notes", mark: "🗞", tone: "news-pulse", group: "Game Day" },
   { label: "Glossary", mark: "?", tone: "glossary-plum", group: "Utilities" },
 ];
@@ -886,7 +886,7 @@ const glossaryDetails: Record<View, { summary: string; use: string }> = {
   "ADP": { summary: "Shows market draft position by available source, separated from Fantasy Hub’s internal player rankings.", use: "Use for draft preparation and to compare market cost with your player evaluation." },
   "Draft HQ": { summary: "A configurable mock-draft room with a live board, roster construction, rankings, and tiered draft intelligence.", use: "Use before your draft to rehearse your slot, settings, and roster-building plan." },
   "Scoreboard": { summary: "The all-day Fantasy Scoreboard with live fantasy scores, win odds, What Do I Need paths, rooting interests, swings, and the Sunday Pulse ticker.", use: "Leave open on game day to follow every matchup that matters." },
-  "Pro Football Games": { summary: "Tracks the pro football schedule, scores, weather, and the fantasy players from your matchup involved in each game.", use: "Use to follow real games and understand why each one matters to your leagues." },
+  "Game Day Live": { summary: "Tracks the live pro football schedule, scores, weather, and the fantasy players from your matchup involved in each game.", use: "Use to follow real games and understand why each one matters to your leagues." },
   "News & Notes": { summary: "A live Fantasy Hub news desk that translates league-wide developments into clear fantasy impact and suggested next steps.", use: "Use throughout the week to catch injuries, role changes, roster moves, and game-day performances that affect your decisions." },
   "Matchups": { summary: "A detailed side-by-side view of your lineup and opponent in platform order with scoring, projections, weather, and pro-football matchup quality.", use: "Use to inspect one fantasy matchup in detail." },
   "League Stories": { summary: "Turns weekly league activity into recaps, previews, rivalries, awards, power movement, upsets, and season narratives.", use: "Use for the social story of the league, not just optimization." },
@@ -3102,7 +3102,7 @@ export default function FantasyHub({
             />
           )
         )}
-        {view === "Pro Football Games" && (
+        {view === "Game Day Live" && (
           <NflGames
             key={`${leagueId}-${defaultGameWeek}`}
             leagueId={leagueId}
@@ -3762,7 +3762,7 @@ function ProPlans({ entitlement }: { entitlement: AccountEntitlement }) {
   const freeFeatures = [
     "Unlimited Sleeper and ESPN league connections",
     "Mission Hub portfolio overview with prioritized actions across leagues",
-    "Fantasy Scoreboard, Fantasy Matchups, Pro Football Games, and Sunday Pulse",
+    "Fantasy Scoreboard, Fantasy Matchups, Game Day Live, and Sunday Pulse",
     "My Team roster view with projections, player health, weather, and opponent strength",
     "Core Start/Sit recommendations, Waiver Wire tools, and the manual Trade Lab calculator",
     "Player Rankings, Team Rankings, blended ADP, and Draft HQ mocks with adjustable teams and draft slot",
@@ -6211,7 +6211,7 @@ function NflGames({
     <div className="page-content nfl-games-page">
       <section className="nfl-games-head">
         <div>
-          <span>PRO FOOTBALL GAME HUB</span>
+          <span>GAME DAY LIVE</span>
           <h2>Every game. Your matchup in focus.</h2>
           <p>
             The complete season schedule is loaded now. Matchup players are
