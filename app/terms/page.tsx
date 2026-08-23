@@ -69,7 +69,15 @@ export default function TermsOfUsePage() {
           <h2>{section.title}</h2>
           {section.body.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
           {section.title === "Apple terms and contact" ? (
-            <p><a href="https://www.apple.com/legal/internet-services/itunes/dev/stdeula/" target="_blank" rel="noreferrer">Apple Standard End User License Agreement</a></p>
+            <a
+              className="legal-eula-link"
+              href="https://www.apple.com/legal/internet-services/itunes/dev/stdeula/"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <span>View Apple’s Standard EULA</span>
+              <strong aria-hidden="true">↗</strong>
+            </a>
           ) : null}
         </section>
       ))}
