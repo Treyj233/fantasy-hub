@@ -1089,9 +1089,10 @@ html[data-theme="dark"] .team-position-room{background:#20242c;border-color:#404
   .team-rank-row,.team-rank-row.dynasty{position:relative;display:grid;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:6px;width:100%;margin-bottom:8px;padding:10px;background:var(--chalk);border:1px solid var(--line);border-radius:12px;box-shadow:0 6px 16px rgb(7 59 39 / .06)}
   .team-rank-row.your-team{border-left:4px solid var(--gold)}
   .team-rank-row .overall-place{position:absolute;left:9px;top:14px;width:31px;text-align:center}
-  .team-rank-row .rank-team-name{grid-column:1/-1;padding:0 47px 7px 34px;border-bottom:1px solid var(--line)}
+  .team-rank-row .rank-team-name{grid-column:1/-1;padding:0 96px 7px 34px;border-bottom:1px solid var(--line)}
+  .team-rank-row .rank-team-name .team-rank-toggle>span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .team-rank-row .team-rank-toggle{min-height:44px;padding:2px 0;touch-action:manipulation}
-  .team-rank-row .team-score{position:absolute;right:38px;top:13px;font-size:15px}
+  .team-rank-row .team-score{position:absolute;right:48px;top:13px;width:42px;font-size:15px;line-height:1.05;text-align:center}
   .team-rank-row .team-score:before{display:block;color:var(--muted);font-size:5px;letter-spacing:.06em;content:"SCORE"}
   .team-rank-row .room-rank{position:relative;display:grid;grid-template-columns:1fr auto;align-items:center;justify-content:space-between;gap:5px;min-width:0;min-height:38px;padding:5px 8px;background:rgb(var(--brand-primary-rgb,11 134 80) / .14);border:1px solid rgb(var(--brand-primary-rgb,11 134 80) / .34);border-radius:8px;text-align:left}
   .team-rank-row .room-rank:before{color:var(--green);font-size:8px;font-weight:950;content:attr(data-position)}
@@ -1164,8 +1165,8 @@ html[data-theme="dark"] .team-rank-table .core-assets button{color:#f4fbf7;backg
   .team-rank-table>.team-rank-head{display:none}
   .team-rank-table>.team-rank-row:not(.team-rank-head),.team-rank-table>.team-rank-row.dynasty:not(.team-rank-head){margin:8px;padding:11px;border-radius:13px}
   .team-rank-table .team-rank-row .overall-place{left:10px;top:13px;width:32px;height:32px}
-  .team-rank-table .team-rank-row .rank-team-name{padding-left:38px}
-  .team-rank-table .team-rank-row .team-score{right:40px;top:14px;text-align:left}
+  .team-rank-table .team-rank-row .rank-team-name{padding-right:96px;padding-left:38px}
+  .team-rank-table .team-rank-row .team-score{right:48px;top:14px;text-align:center}
   .team-rank-table .core-assets{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 

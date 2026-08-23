@@ -7637,17 +7637,11 @@ function TeamRankings({
   const [expandedTeamId, setExpandedTeamId] = useState("");
   useEffect(() => {
     if (!expandedTeamId) return;
-    const previousBodyOverflow = document.body.style.overflow;
-    const previousHtmlOverflow = document.documentElement.style.overflow;
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") setExpandedTeamId("");
     };
-    document.body.style.overflow = "hidden";
-    document.documentElement.style.overflow = "hidden";
     window.addEventListener("keydown", closeOnEscape);
     return () => {
-      document.body.style.overflow = previousBodyOverflow;
-      document.documentElement.style.overflow = previousHtmlOverflow;
       window.removeEventListener("keydown", closeOnEscape);
     };
   }, [expandedTeamId]);
