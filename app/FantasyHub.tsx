@@ -7228,6 +7228,8 @@ function CommandCenter({
   selectedTeamId: string;
 }) {
   const projectionPlatform = useContext(ProjectionPlatformContext);
+  const [scenario, setScenario] = useState<"safe" | "balanced" | "upside">("balanced");
+  const [commandChanges, setCommandChanges] = useState<string[]>([]);
   const concern = players.find((p) => p.status !== "Healthy");
   const decision = startSitDecision(players);
   const primaryDecision = decision?.starter;
@@ -7268,6 +7270,29 @@ function CommandCenter({
   const unavailable = players.filter((player) => /out|ir|suspend|doubt/i.test(player.status));
   const monitored = players.filter((player) => /question/i.test(player.status));
   const healthScore = Math.max(0, 100 - unavailable.length * 18 - monitored.length * 6 - emptySlots * 15);
+  const scenarioOptions = primaryDecision && secondaryDecision
+    ? [primaryDecision, secondaryDecision]
+    : primaryDecision
+      ? [primaryDecision]
+      : [];
+  const scenarioPlayer = scenarioOptions.length
+    ? [...scenarioOptions].sort((a, b) => {
+        const metric = scenario === "safe" ? "floor" : scenario === "upside" ? "ceiling" : "projection";
+        return b[metric] - a[metric];
+      })[0]
+    : null;
+  const scenarioProjection = scenarioPlayer && primaryDecision
+    ? totals.projection - primaryDecision.projection + scenarioPlayer.projection
+    : totals.projection;
+  const scenarioFloor = scenarioPlayer && primaryDecision
+    ? lineupFloor - primaryDecision.floor + scenarioPlayer.floor
+    : lineupFloor;
+  const scenarioCeiling = scenarioPlayer && primaryDecision
+    ? totals.ceiling - primaryDecision.ceiling + scenarioPlayer.ceiling
+    : totals.ceiling;
+  const scenarioWinProbability = opponentProjection == null
+    ? null
+    : Math.round(Math.max(8, Math.min(92, 50 + (scenarioProjection - opponentProjection) * 2.15)));
   const positionOrder = ["QB", "RB", "WR", "TE", "FLEX"];
   const positionTotal = (roster: Player[], position: string) => roster
     .filter(isStartingPlayer)
@@ -7286,6 +7311,38 @@ function CommandCenter({
     ...(decision ? [{ level: "BEFORE KICKOFF", title: `Resolve ${primaryDecision!.name} vs ${secondaryDecision!.name}`, detail: `${Math.abs(primaryDecision!.projection - secondaryDecision!.projection).toFixed(1)} points separate the current options.`, view: "Start / Sit" as View }] : []),
     ...(waiverPlans[0] ? [{ level: "THIS WEEK", title: `Consider ${waiverPlans[0].add.name}`, detail: `Add for ${waiverPlans[0].plan.drop!.name} if the role remains available.`, view: "Waiver Wire" as View }] : []),
   ].slice(0, 3);
+  useEffect(() => {
+    if (!selectedTeamId) return;
+    const storageKey = `fantasy-hub:command-snapshot:${selectedTeamId}`;
+    const nextSnapshot = {
+      projection: Number(totals.projection.toFixed(1)),
+      healthScore,
+      concern: concern?.name ?? null,
+      waiver: waiverPlans[0]?.add.name ?? null,
+      opponent: opponentTeam?.teamName ?? null,
+    };
+    try {
+      const prior = JSON.parse(window.localStorage.getItem(storageKey) ?? "null") as typeof nextSnapshot | null;
+      const changes: string[] = [];
+      if (prior) {
+        const projectionChange = nextSnapshot.projection - prior.projection;
+        if (Math.abs(projectionChange) >= 0.1)
+          changes.push(`Lineup projection ${projectionChange > 0 ? "rose" : "fell"} ${Math.abs(projectionChange).toFixed(1)} points.`);
+        if (nextSnapshot.healthScore !== prior.healthScore)
+          changes.push(`Lineup health moved from ${prior.healthScore} to ${nextSnapshot.healthScore}.`);
+        if (nextSnapshot.concern !== prior.concern)
+          changes.push(nextSnapshot.concern ? `${nextSnapshot.concern} now requires availability monitoring.` : "The previous availability concern has cleared.");
+        if (nextSnapshot.waiver && nextSnapshot.waiver !== prior.waiver)
+          changes.push(`${nextSnapshot.waiver} is now the leading actionable waiver option.`);
+        if (nextSnapshot.opponent !== prior.opponent && nextSnapshot.opponent)
+          changes.push(`The active matchup is now against ${nextSnapshot.opponent}.`);
+      }
+      setCommandChanges(changes.slice(0, 4));
+      window.localStorage.setItem(storageKey, JSON.stringify(nextSnapshot));
+    } catch {
+      setCommandChanges([]);
+    }
+  }, [selectedTeamId, totals.projection, healthScore, concern?.name, waiverPlans[0]?.add.name, opponentTeam?.teamName]);
   return (
     <div className="page-content command-center-page">
       <section className="hero">
@@ -7349,6 +7406,24 @@ function CommandCenter({
         <Header eyebrow="NEXT BEST ACTIONS" title="Your league-specific game plan" action="Open team" onClick={() => setView("My Team")} />
         <div>{actions.length ? actions.map((action, index) => <button key={action.title} onClick={() => setView(action.view)}><b>0{index + 1}</b><span><em>{action.level}</em><strong>{action.title}</strong><small>{action.detail}</small></span><i>→</i></button>) : <p><b>✓</b><span><strong>No urgent action required</strong><small>Your active lineup passes the current availability and replacement scan.</small></span></p>}</div>
       </section>
+      <div className="command-briefing-grid">
+        <section className="panel command-what-changed">
+          <Header eyebrow="SINCE YOUR LAST CHECK" title="What changed" />
+          {commandChanges.length ? <div>{commandChanges.map((change, index) => <p key={change}><b>{index + 1}</b><span>{change}</span></p>)}</div> : <div className="command-no-change"><b>✓</b><span><strong>No material changes</strong><small>Your projection, availability, matchup, and waiver priorities are holding steady.</small></span></div>}
+        </section>
+        <section className="panel command-scenarios">
+          <Header eyebrow="LINEUP APPROACH" title="Choose your scenario" />
+          <div className="command-scenario-toggle" role="group" aria-label="Lineup scenario">
+            {(["safe", "balanced", "upside"] as const).map((option) => <button key={option} className={scenario === option ? "active" : ""} onClick={() => setScenario(option)}>{option}</button>)}
+          </div>
+          <div className="command-scenario-result">
+            <span><small>PROJECTION</small><b>{scenarioProjection.toFixed(1)}</b></span>
+            <span><small>RANGE</small><b>{scenarioFloor.toFixed(0)}–{scenarioCeiling.toFixed(0)}</b></span>
+            <span><small>WIN ODDS</small><b>{scenarioWinProbability == null ? "—" : `${scenarioWinProbability}%`}</b></span>
+          </div>
+          <p>{scenarioPlayer ? <><strong>{scenario === "safe" ? "Floor play" : scenario === "upside" ? "Ceiling play" : "Best median"}: {scenarioPlayer.name}</strong><small>{scenario === "safe" ? "Prioritizes the most stable outcome." : scenario === "upside" ? "Accepts more variance for the highest ceiling." : "Uses the strongest median projection."}</small></> : <><strong>Current lineup retained</strong><small>No legitimate starter alternative is close enough to change this scenario.</small></>}</p>
+        </section>
+      </div>
       <div className="main-grid">
         <section className="panel decision-panel">
           <Header
