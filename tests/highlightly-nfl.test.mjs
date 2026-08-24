@@ -10,6 +10,20 @@ test("Highlightly provider keeps the key server-side and normalizes the game fee
   assert.match(source, /state: "pre" \| "in" \| "post"/);
   assert.match(source, /loadNflSeasonSchedule/);
   assert.match(source, /playsFromMatch/);
+  assert.match(source, /playFingerprint/);
+  assert.match(source, /stableHash/);
+  assert.doesNotMatch(source, /id: `highlightly:\$\{gameId\}:\$\{driveIndex\}/);
+});
+
+test("NFLverse schedule results fill team records without replacing live scoring", async () => {
+  const [games, schedule] = await Promise.all([
+    readFile(new URL("../app/api/nfl-games/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/nfl-schedule-data.ts", import.meta.url), "utf8"),
+  ]);
+  assert.match(schedule, /awayScore: number \| null/);
+  assert.match(schedule, /homeScore: number \| null/);
+  assert.match(games, /const teamRecord =/);
+  assert.match(games, /record: teamRecord/);
 });
 
 test("all former ESPN NFL consumers use the Highlightly provider", async () => {

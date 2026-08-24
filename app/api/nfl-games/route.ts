@@ -186,6 +186,19 @@ export async function GET(request: Request) {
       .filter((player) => teamCodes.has(player.nflTeam))
       .sort((a, b) => Number(b.starter) - Number(a.starter) || b.fantasyPoints - a.fantasyPoints);
   };
+  const teamRecord = (team: string) => {
+    let wins = 0, losses = 0, ties = 0;
+    for (const game of scheduleGames.filter((candidate) => candidate.week < week && (candidate.away.abbreviation === team || candidate.home.abbreviation === team))) {
+      if (game.awayScore == null || game.homeScore == null) continue;
+      if (game.awayScore === game.homeScore) ties += 1;
+      else {
+        const won = game.away.abbreviation === team ? game.awayScore > game.homeScore : game.homeScore > game.awayScore;
+        if (won) wins += 1;
+        else losses += 1;
+      }
+    }
+    return ties ? `${wins}-${losses}-${ties}` : `${wins}-${losses}`;
+  };
   const providerGames = highlightlyGames.map((game) => {
     const scheduleGame = scheduleGames.find((candidate) =>
       candidate.week === week &&
@@ -193,8 +206,8 @@ export async function GET(request: Request) {
       normalizeTeam(candidate.home.abbreviation) === game.home.abbreviation,
     );
     const teams = [
-      { ...game.away, homeAway: "away", color: teamColors[game.away.abbreviation] ?? "173f2a", logo: null, record: "" },
-      { ...game.home, homeAway: "home", color: teamColors[game.home.abbreviation] ?? "173f2a", logo: null, record: "" },
+      { ...game.away, homeAway: "away", color: teamColors[game.away.abbreviation] ?? "173f2a", logo: null, record: teamRecord(game.away.abbreviation) },
+      { ...game.home, homeAway: "home", color: teamColors[game.home.abbreviation] ?? "173f2a", logo: null, record: teamRecord(game.home.abbreviation) },
     ];
     return {
       id: game.id,
@@ -213,8 +226,8 @@ export async function GET(request: Request) {
     .filter((game) => game.week === week)
     .map((game) => {
       const teams = [
-        { ...game.away, displayName: game.away.name, homeAway: "away", score: 0, winner: false, color: teamColors[game.away.abbreviation] ?? "173f2a", logo: null, record: "" },
-        { ...game.home, displayName: game.home.name, homeAway: "home", score: 0, winner: false, color: teamColors[game.home.abbreviation] ?? "173f2a", logo: null, record: "" },
+        { ...game.away, displayName: game.away.name, homeAway: "away", score: game.awayScore ?? 0, winner: false, color: teamColors[game.away.abbreviation] ?? "173f2a", logo: null, record: teamRecord(game.away.abbreviation) },
+        { ...game.home, displayName: game.home.name, homeAway: "home", score: game.homeScore ?? 0, winner: false, color: teamColors[game.home.abbreviation] ?? "173f2a", logo: null, record: teamRecord(game.home.abbreviation) },
       ];
       return {
         id: game.id,

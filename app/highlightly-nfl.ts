@@ -172,6 +172,39 @@ function yardage(text: string, play: NonNullable<HighlightlyDrive["playDetails"]
   return typeof start === "number" && typeof end === "number" ? Math.abs(end - start) : 0;
 }
 
+function stableHash(value: string) {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(36);
+}
+
+function playFingerprint(gameId: string, offenseTeam: string, play: NonNullable<HighlightlyDrive["playDetails"]>[number]) {
+  const canonicalText = String(play.text ?? "")
+    .toLowerCase()
+    .replace(/\b\d+(?:\.\d+)?\b/g, "#")
+    .replace(/[^a-z#]+/g, " ")
+    .trim();
+  return stableHash([
+    gameId,
+    play.period ?? 0,
+    play.clock ?? "",
+    offenseTeam,
+    play.start?.possessionText ?? play.start?.yardLine ?? "",
+    play.type ?? "",
+    canonicalText,
+  ].join("|"));
+}
+
+function chronologicalKey(period: number, clock: string, driveIndex: number, playIndex: number) {
+  const [minutes, seconds] = clock.split(":").map(Number);
+  const remaining = Number.isFinite(minutes) && Number.isFinite(seconds) ? minutes * 60 + seconds : 0;
+  const elapsed = Math.max(0, 900 - remaining);
+  return `${String(period).padStart(2, "0")}:${String(elapsed).padStart(4, "0")}:${String(driveIndex).padStart(3, "0")}:${String(playIndex).padStart(3, "0")}`;
+}
+
 export function playsFromMatch(match: HighlightlyMatch): NflDataPlay[] {
   const gameId = String(match.id ?? "");
   const teams = [match.awayTeam, match.homeTeam].map((team) => normalizeTeam(team?.abbreviation)).filter(Boolean);
@@ -184,7 +217,7 @@ export function playsFromMatch(match: HighlightlyMatch): NflDataPlay[] {
       const scoringPlay = Boolean(drive.isScoringPlay && playIndex === (drive.playDetails?.length ?? 1) - 1) || /touchdown|field goal is good|extra point is good|safety/i.test(text);
       const isTurnover = /intercept|fumble.*(?:recovered|lost)|turnover on downs/i.test(`${play.type ?? ""} ${text} ${drive.result ?? ""}`);
       return [{
-        id: `highlightly:${gameId}:${driveIndex}:${playIndex}:${play.period ?? 0}:${play.clock ?? ""}`,
+        id: `highlightly:${gameId}:${playFingerprint(gameId, offenseTeam, play)}`,
         gameId,
         text,
         type: play.type ?? drive.result ?? "Play",
@@ -193,7 +226,7 @@ export function playsFromMatch(match: HighlightlyMatch): NflDataPlay[] {
         isTurnover,
         period: Number(play.period ?? 0),
         clock: play.clock ?? "",
-        at: `${String(play.period ?? 0).padStart(2, "0")}:${play.clock ?? ""}:${String(driveIndex).padStart(3, "0")}:${String(playIndex).padStart(3, "0")}`,
+        at: chronologicalKey(Number(play.period ?? 0), play.clock ?? "", driveIndex, playIndex),
         offenseTeam,
         defenseTeam,
       }];

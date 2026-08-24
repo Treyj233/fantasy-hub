@@ -5,6 +5,8 @@ export type SeasonScheduleGame = {
   status: string;
   broadcast: string;
   venue: string;
+  awayScore: number | null;
+  homeScore: number | null;
   away: { abbreviation: string; name: string };
   home: { abbreviation: string; name: string };
 };
@@ -64,6 +66,11 @@ async function fetchSeasonSchedule(season: number) {
       const gameday = cells[column("gameday")];
       const gametime = cells[column("gametime")] || "12:00";
       const date = new Date(`${gameday}T${gametime}:00-04:00`).toISOString();
+      const score = (columnName: string) => {
+        const raw = cells[column(columnName)];
+        const value = Number(raw);
+        return raw !== "" && Number.isFinite(value) ? value : null;
+      };
       return [{
         id: cells[column("game_id")] || `${season}-${cells[column("week")]}-${awayCode}-${homeCode}`,
         week: Number(cells[column("week")]),
@@ -71,6 +78,8 @@ async function fetchSeasonSchedule(season: number) {
         status: "Scheduled",
         broadcast: "",
         venue: cells[column("stadium")] || "",
+        awayScore: score("away_score"),
+        homeScore: score("home_score"),
         away: { abbreviation: awayCode, name: teamNames[awayCode] ?? awayCode },
         home: { abbreviation: homeCode, name: teamNames[homeCode] ?? homeCode },
       }];

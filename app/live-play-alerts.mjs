@@ -43,19 +43,19 @@ export function matchupImpactText({ isMine, yourPoints, opponentPoints, previous
 
 const normalized = (value) => String(value ?? "").toLowerCase().replaceAll(/[^a-z0-9]/g, "");
 
-export function espnPlayerToken(name) {
+export function playerPlayToken(name) {
   const parts = String(name ?? "").trim().split(/\s+/).filter(Boolean);
   if (parts.length < 2) return normalized(name);
   return normalized(`${parts[0][0]}.${parts.at(-1)}`);
 }
 
-export function findEspnPlayContext(player, plays, kind) {
-  const token = espnPlayerToken(player?.name);
+export function findPlayContext(player, plays, kind) {
+  const token = playerPlayToken(player?.name);
   const team = String(player?.nflTeam ?? "").toUpperCase();
   return plays.find((play) => {
-    const offenseMatch = !play.offenseTeam || play.offenseTeam === team;
-    const defenseMatch = !play.defenseTeam || play.defenseTeam === team;
+    const offenseMatch = Boolean(team && play.offenseTeam === team);
+    const defenseMatch = Boolean(team && play.defenseTeam === team);
     if (player?.position === "DEF" && kind === "turnover") return Boolean(play.isTurnover && defenseMatch);
-    return Boolean(token && normalized(play.text).includes(token) && (offenseMatch || defenseMatch));
+    return Boolean(token && offenseMatch && normalized(play.text).includes(token));
   }) ?? null;
 }
