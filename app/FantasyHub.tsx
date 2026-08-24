@@ -7281,7 +7281,7 @@ function CommandCenter({
         return b[metric] - a[metric];
       })[0]
     : null;
-  const scenarioProjection = scenarioPlayer && primaryDecision
+  const scenarioLineupProjection = scenarioPlayer && primaryDecision
     ? totals.projection - primaryDecision.projection + scenarioPlayer.projection
     : totals.projection;
   const scenarioFloor = scenarioPlayer && primaryDecision
@@ -7290,6 +7290,11 @@ function CommandCenter({
   const scenarioCeiling = scenarioPlayer && primaryDecision
     ? totals.ceiling - primaryDecision.ceiling + scenarioPlayer.ceiling
     : totals.ceiling;
+  const scenarioProjection = scenario === "safe"
+    ? scenarioFloor + (scenarioLineupProjection - scenarioFloor) * 0.72
+    : scenario === "upside"
+      ? scenarioLineupProjection + (scenarioCeiling - scenarioLineupProjection) * 0.45
+      : scenarioLineupProjection;
   const scenarioWinProbability = opponentProjection == null
     ? null
     : Math.round(Math.max(8, Math.min(92, 50 + (scenarioProjection - opponentProjection) * 2.15)));
@@ -7417,7 +7422,7 @@ function CommandCenter({
             {(["safe", "balanced", "upside"] as const).map((option) => <button key={option} className={scenario === option ? "active" : ""} onClick={() => setScenario(option)}>{option}</button>)}
           </div>
           <div className="command-scenario-result">
-            <span><small>PROJECTION</small><b>{scenarioProjection.toFixed(1)}</b></span>
+            <span><small>SCENARIO SCORE</small><b>{scenarioProjection.toFixed(1)}</b></span>
             <span><small>RANGE</small><b>{scenarioFloor.toFixed(0)}–{scenarioCeiling.toFixed(0)}</b></span>
             <span><small>WIN ODDS</small><b>{scenarioWinProbability == null ? "—" : `${scenarioWinProbability}%`}</b></span>
           </div>
