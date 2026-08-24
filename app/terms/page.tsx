@@ -45,6 +45,14 @@ const sections = [
     ],
   },
   {
+    title: "Highlightly data disclosure",
+    body: [
+      "Certain live scores, schedules, game events, statistics, and related football data are supplied by Highlightly and may be modified, combined, or analyzed by Fantasy Hub to provide fantasy-football features and recommendations.",
+      "Highlightly is not affiliated with or responsible for Fantasy Hub. Third-party data may be delayed, incomplete, unavailable, or inaccurate and is provided for informational purposes on an as-is and as-available basis.",
+      "Any third-party logos, images, trademarks, or other visual content remain the property of their respective owners. Availability through a data feed does not itself grant Fantasy Hub commercial rights to that content.",
+    ],
+  },
+  {
     title: "Subscriptions and purchases",
     body: [
       "Some Fantasy Hub features require a paid subscription or one-time purchase. Prices, billing periods, included features, renewal terms, and trial terms are shown before purchase. Purchases made through Apple are billed and managed by Apple; eligible web purchases are billed and managed through the applicable payment provider.",
@@ -74,7 +82,7 @@ export default function TermsOfUsePage() {
       <header>
         <span>FANTASY HUB</span>
         <h1>Terms of Use</h1>
-        <p>Effective August 23, 2026</p>
+        <p>Effective August 24, 2026</p>
       </header>
       <section className="legal-intro">
         <p>These Terms govern your use of the Fantasy Hub website, iPhone application, subscriptions, and related fantasy-football services.</p>
@@ -92,6 +100,11 @@ export default function TermsOfUsePage() {
           {section.title === "Weather information" ? (
             <div className="legal-license-links" aria-label="WeatherAPI.com attribution">
               <a href="https://www.weatherapi.com/" target="_blank" rel="noopener noreferrer">Weather data by WeatherAPI.com ↗</a>
+            </div>
+          ) : null}
+          {section.title === "Highlightly data disclosure" ? (
+            <div className="legal-license-links" aria-label="Highlightly data provider disclosure">
+              <a href="https://highlightly.net/terms/" target="_blank" rel="noopener noreferrer">Highlightly terms ↗</a>
             </div>
           ) : null}
           {section.title === "Apple terms and contact" ? (
