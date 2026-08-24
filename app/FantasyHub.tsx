@@ -187,10 +187,36 @@ function loadWeatherData(season: string | number, week: number) {
 const nflPlayerHeadshotUrl = (playerId: string) =>
   `https://sleepercdn.com/content/nfl/players/${encodeURIComponent(playerId)}.jpg`;
 
+const proTeamBadgeColors: Record<string, { primary: string; accent: string; text?: string }> = {
+  ARI: { primary: "#97233f", accent: "#ffb612" }, ATL: { primary: "#a71930", accent: "#000000" },
+  BAL: { primary: "#241773", accent: "#9e7c0c" }, BUF: { primary: "#00338d", accent: "#c60c30" },
+  CAR: { primary: "#0085ca", accent: "#101820" }, CHI: { primary: "#0b162a", accent: "#c83803" },
+  CIN: { primary: "#fb4f14", accent: "#000000" }, CLE: { primary: "#311d00", accent: "#ff3c00" },
+  DAL: { primary: "#003594", accent: "#869397" }, DEN: { primary: "#002244", accent: "#fb4f14" },
+  DET: { primary: "#0076b6", accent: "#b0b7bc" }, GB: { primary: "#203731", accent: "#ffb612" },
+  HOU: { primary: "#03202f", accent: "#a71930" }, IND: { primary: "#002c5f", accent: "#ffffff" },
+  JAX: { primary: "#006778", accent: "#d7a22a" }, KC: { primary: "#e31837", accent: "#ffb81c" },
+  LAC: { primary: "#0073cf", accent: "#ffc20e" }, LAR: { primary: "#003594", accent: "#ffa300" },
+  LV: { primary: "#000000", accent: "#a5acaf" }, MIA: { primary: "#008e97", accent: "#fc4c02" },
+  MIN: { primary: "#4f2683", accent: "#ffc62f" }, NE: { primary: "#002244", accent: "#c60c30" },
+  NO: { primary: "#101820", accent: "#d3bc8d" }, NYG: { primary: "#0b2265", accent: "#a71930" },
+  NYJ: { primary: "#125740", accent: "#ffffff" }, PHI: { primary: "#004c54", accent: "#a5acaf" },
+  PIT: { primary: "#101820", accent: "#ffb612" }, SEA: { primary: "#002244", accent: "#69be28" },
+  SF: { primary: "#aa0000", accent: "#b3995d" }, TB: { primary: "#d50a0a", accent: "#ff7900" },
+  TEN: { primary: "#0c2340", accent: "#4b92db" }, WAS: { primary: "#5a1414", accent: "#ffb612" },
+};
+
 function NflTeamLogo({ team }: { team: string }) {
+  const abbreviation = ({ JAC: "JAX", WSH: "WAS", LA: "LAR" } as Record<string, string>)[team.toUpperCase()] ?? team.toUpperCase();
+  const colors = proTeamBadgeColors[abbreviation] ?? { primary: "#173f2a", accent: "#f1b432" };
   return (
-    <span className="nfl-team-logo" aria-hidden="true">
-      <span>{team}</span>
+    <span
+      className="nfl-team-logo"
+      role="img"
+      aria-label={abbreviation}
+      style={{ "--team-primary": colors.primary, "--team-accent": colors.accent } as CSSProperties}
+    >
+      <span>{abbreviation}</span>
     </span>
   );
 }
