@@ -3,9 +3,31 @@ import weekOnePbp from "./week1-pbp.json";
 
 type ReplayPlay = { id: string; offense: string; defense: string; text: string; type: string; period: number; clock: string; yards: number; scoring: boolean; turnover: boolean };
 
+const HIGHLIGHTLY_BASE_URL = "https://american-football.highlightly.net";
+
+async function proxyLiveHighlightly(url: URL) {
+  const upstreamPath = url.pathname.slice("/live".length);
+  if (!/^\/(matches|box-score)(?:\/|$)/.test(upstreamPath)) {
+    return Response.json({ error: "Unsupported Highlightly route" }, { status: 404 });
+  }
+  const apiKey = String((await import("cloudflare:workers")).env.HIGHLIGHTLY_API_KEY ?? "").trim();
+  if (!apiKey) return Response.json({ error: "Highlightly key unavailable" }, { status: 503 });
+  const upstream = new URL(`${HIGHLIGHTLY_BASE_URL}${upstreamPath}`);
+  upstream.search = url.search;
+  const response = await fetch(upstream, {
+    method: "GET",
+    headers: { "x-rapidapi-key": apiKey, accept: "application/json" },
+  });
+  const headers = new Headers(response.headers);
+  headers.set("Cache-Control", upstreamPath === "/matches" ? "public, max-age=15, s-maxage=20" : "public, max-age=10, s-maxage=20");
+  headers.delete("set-cookie");
+  return new Response(response.body, { status: response.status, headers });
+}
+
 export default {
   async fetch(request: Request) {
     const url = new URL(request.url);
+    if (url.pathname.startsWith("/live/")) return proxyLiveHighlightly(url);
     if (url.pathname === "/replay/2025-week-1") {
       try {
         const games = await getNflGames({ season: 2025, week: 1, cacheSeconds: 86400 });

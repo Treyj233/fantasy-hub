@@ -95,14 +95,25 @@ export async function runtimeReplayUrl() {
   return String(env.HIGHLIGHTLY_REPLAY_URL ?? "").trim();
 }
 
+async function runtimeProxyUrl() {
+  let env: Record<string, unknown> = process.env as Record<string, unknown>;
+  try {
+    env = (await import("cloudflare:workers")).env as unknown as Record<string, unknown>;
+  } catch {
+    // Local Node tooling uses process.env.
+  }
+  return String(env.HIGHLIGHTLY_API_PROXY_URL ?? "").trim().replace(/\/$/, "");
+}
+
 async function highlightlyFetch<T>(path: string, cacheSeconds: number): Promise<T> {
+  const proxyUrl = await runtimeProxyUrl();
   const apiKey = await runtimeApiKey();
-  if (!apiKey) throw new Error("Highlightly API key is not configured");
+  if (!proxyUrl && !apiKey) throw new Error("Highlightly API key is not configured");
   const requestInit = {
-    headers: { "x-rapidapi-key": apiKey },
+    headers: apiKey ? { "x-rapidapi-key": apiKey } : undefined,
     next: { revalidate: cacheSeconds },
   } as RequestInit & { next: { revalidate: number } };
-  const response = await fetch(`${HIGHLIGHTLY_BASE_URL}${path}`, requestInit);
+  const response = await fetch(`${proxyUrl || HIGHLIGHTLY_BASE_URL}${proxyUrl ? "/live" : ""}${path}`, requestInit);
   if (!response.ok) throw new Error(`Highlightly request failed (${response.status})`);
   return response.json() as Promise<T>;
 }

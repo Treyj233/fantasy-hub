@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { classifyFantasyPlay, playerPlayToken, findPlayContext, matchupImpactText } from "../app/live-play-alerts.mjs";
+import { classifyFantasyPlay, playerPlayToken, findPlayContext, findConfirmedPlayContext, matchupImpactText } from "../app/live-play-alerts.mjs";
 
 const baseline = { points: 4, yards: 30, touchdowns: 0, receptions: 2, offensiveTurnovers: 0, defensiveTurnovers: 0, returnTouchdowns: 0, fieldGoals: 0 };
 
@@ -48,4 +48,22 @@ test("live context maps defensive takeaways by exact team", () => {
 test("ambiguous plays without an exact team are not attached to score changes", () => {
   const play = { id: "ambiguous", text: "J.Chase gains 20 yards.", offenseTeam: "", defenseTeam: "" };
   assert.equal(findPlayContext({ name: "Ja'Marr Chase", nflTeam: "CIN", position: "WR" }, [play], "offense"), null);
+});
+
+test("confirmed context prefers the Highlightly play matching Sleeper's stat delta", () => {
+  const confirmation = classifyFantasyPlay(baseline, { ...baseline, points: 14, yards: 70, touchdowns: 1, receptions: 3 });
+  const plays = [
+    { id: "older", text: "J.Chase caught a pass for 8 yards.", type: "Pass Reception", yardage: 8, scoringPlay: false, isTurnover: false, offenseTeam: "CIN", defenseTeam: "BAL" },
+    { id: "touchdown", text: "J.Chase caught a pass for 40 yards, TOUCHDOWN.", type: "Pass Reception", yardage: 40, scoringPlay: true, isTurnover: false, offenseTeam: "CIN", defenseTeam: "BAL" },
+  ];
+  assert.equal(findConfirmedPlayContext({ name: "Ja'Marr Chase", nflTeam: "CIN", position: "WR" }, plays, confirmation)?.id, "touchdown");
+});
+
+test("confirmed context rejects a touchdown description without a Sleeper touchdown delta", () => {
+  const confirmation = classifyFantasyPlay(baseline, { ...baseline, points: 8, yards: 70, receptions: 3 });
+  const plays = [
+    { id: "wrong", text: "J.Chase caught a pass for 40 yards, TOUCHDOWN.", type: "Pass Reception", yardage: 40, scoringPlay: true, isTurnover: false, offenseTeam: "CIN", defenseTeam: "BAL" },
+    { id: "right", text: "J.Chase caught a pass for 40 yards.", type: "Pass Reception", yardage: 40, scoringPlay: false, isTurnover: false, offenseTeam: "CIN", defenseTeam: "BAL" },
+  ];
+  assert.equal(findConfirmedPlayContext({ name: "Ja'Marr Chase", nflTeam: "CIN", position: "WR" }, plays, confirmation)?.id, "right");
 });

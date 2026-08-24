@@ -4,7 +4,7 @@ import { Fragment, createContext, useContext, useEffect, useMemo, useRef, useSta
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { estimatedWinProbability, playerLeverage, rootingInterests, whatDoINeed } from "./game-day-model.mjs";
-import { classifyFantasyPlay, findPlayContext, matchupImpactText } from "./live-play-alerts.mjs";
+import { classifyFantasyPlay, findConfirmedPlayContext, matchupImpactText } from "./live-play-alerts.mjs";
 import { PRE_KICKOFF_VISUALS_ENABLED } from "./pre-kickoff-visuals";
 import { DEFAULT_PUSH_PREFERENCES, type PushAlertKey, type PushPreferences } from "./push-preferences";
 import { disableNativePushNotifications, enableNativePushNotifications, initializeNativeRuntime, isNativeIosApp, nativeHapticsEnabled, nativeImpact, nativeManageSubscriptions, nativePurchase, nativeRefreshPurchases, nativeRestorePurchases, nativeStoreProducts, setNativeHapticsEnabled } from "./native-runtime";
@@ -5491,7 +5491,7 @@ function AllLeagueScoreboard({
           const previousOdds = previousPulseOdds.current[leagueId];
           const matchupImpact = matchupImpactText({ isMine: team.isMine, yourPoints: mine.points, opponentPoints: opponent.points, previousOdds, currentOdds });
           const pointsLabel = classified.fantasyPoints === 0 ? "" : ` (${classified.fantasyPoints > 0 ? "+" : ""}${classified.fantasyPoints.toFixed(1)} pts)`;
-          const playContext = findPlayContext(player, livePlays, classified.kind);
+          const playContext = findConfirmedPlayContext(player, livePlays, classified);
           const playDescription = playContext?.text ?? `${player.name}: ${classified.description}`;
           const gameClock = playContext && playContext.period ? ` Q${playContext.period}${playContext.clock ? ` ${playContext.clock}` : ""}.` : "";
           scoringEvents.push({ id: `${key}:${player.points}:${playContext?.id ?? Date.now()}`, impact, delta: Math.max(Math.abs(pointDelta), classified.kind === "turnover" ? 3 : 0), at: new Date().toISOString(), text: `${impact === "helps" ? "📈" : "📉"} ${playDescription}${pointsLabel} in ${league.name}.${gameClock} ${matchupImpact}` });
