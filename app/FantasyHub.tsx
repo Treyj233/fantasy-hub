@@ -761,13 +761,20 @@ type WeatherGame = {
   precipitationInches?: number | null;
   windMph?: number | null;
   windGustMph?: number | null;
+  condition?: string | null;
+  weatherSource?: string | null;
 };
 type WeatherData = {
   season: number;
   week: number;
   updatedAt: string;
   games: WeatherGame[];
+  source?: string;
+  weatherProvider?: string;
+  weatherProviderUrl?: string;
+  weatherDisclaimer?: string;
 };
+
 type SimulationContext = {
   league: {
     name: string;

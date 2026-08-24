@@ -30,6 +30,21 @@ const sections = [
     ],
   },
   {
+    title: "nflverse data attribution",
+    body: [
+      "Portions of Fantasy Hub’s historical football data are derived from nflverse data licensed under the Creative Commons Attribution 4.0 International (CC BY 4.0) license. Fantasy Hub modifies, combines, and analyzes that data to produce independent fantasy-football statistics, rankings, and insights.",
+      "nflverse does not sponsor, endorse, authorize, or otherwise affiliate with Fantasy Hub. The CC BY 4.0 license applies only to material that nflverse has authority to license and does not grant rights to third-party trademarks, team marks, photographs, player likenesses, or other intellectual property belonging to their respective owners.",
+      "The nflverse data is provided on an as-is and as-available basis. Fantasy Hub does not represent that nflverse or any underlying data owner guarantees the accuracy, completeness, availability, or fitness of that data for a particular purpose.",
+    ],
+  },
+  {
+    title: "Weather information",
+    body: [
+      "Outdoor game forecasts are supplied by WeatherAPI.com and may be modified, combined with schedule information, or summarized by Fantasy Hub to provide fantasy-football context.",
+      "Weather forecasts are probabilistic, may change before kickoff, and are provided for general informational purposes only. Do not use Fantasy Hub weather information as the sole basis for safety-critical decisions.",
+    ],
+  },
+  {
     title: "Subscriptions and purchases",
     body: [
       "Some Fantasy Hub features require a paid subscription or one-time purchase. Prices, billing periods, included features, renewal terms, and trial terms are shown before purchase. Purchases made through Apple are billed and managed by Apple; eligible web purchases are billed and managed through the applicable payment provider.",
@@ -68,6 +83,17 @@ export default function TermsOfUsePage() {
         <section key={section.title}>
           <h2>{section.title}</h2>
           {section.body.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
+          {section.title === "nflverse data attribution" ? (
+            <div className="legal-license-links" aria-label="nflverse attribution and license">
+              <a href="https://github.com/nflverse/nflverse-data" target="_blank" rel="noopener noreferrer">nflverse data source ↗</a>
+              <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener noreferrer">CC BY 4.0 license ↗</a>
+            </div>
+          ) : null}
+          {section.title === "Weather information" ? (
+            <div className="legal-license-links" aria-label="WeatherAPI.com attribution">
+              <a href="https://www.weatherapi.com/" target="_blank" rel="noopener noreferrer">Weather data by WeatherAPI.com ↗</a>
+            </div>
+          ) : null}
           {section.title === "Apple terms and contact" ? (
             <a
               className="legal-eula-link"
