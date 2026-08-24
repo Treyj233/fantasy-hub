@@ -6,12 +6,9 @@ import { fetchEspnLeagueForUser, normalizeEspnScoreboard } from "../espn";
 import { fetchCachedUpstream } from "../upstream-cache";
 import { getSleeperPlayerDirectory, getSleeperWeeklyProjections, getSleeperWeeklyStats } from "../sleeper-shared-data";
 import { liveTeamPoints, sleeperFantasyPoints } from "../../sleeper-live-scoring.mjs";
+import { getNflGames } from "../../highlightly-nfl";
 
 type MatchupRow = { roster_id?: number; matchup_id?: number | null; points?: number; custom_points?: number | null; players?: string[]; starters?: string[]; players_points?: Record<string, number> };
-type EspnNflScoreboard = {
-  events?: { status?: { type?: { state?: string } } }[];
-};
-
 const SLEEPER_SCOREBOARD_TTL_SECONDS = {
   leagueConfiguration: 6 * 60 * 60,
   matchupReconciliation: 15 * 60,
@@ -21,15 +18,8 @@ const SLEEPER_SCOREBOARD_TTL_SECONDS = {
 
 async function nflWeekHasGameInProgress(season: string, week: number) {
   try {
-    const response = await fetchCachedUpstream(
-      `https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates=${encodeURIComponent(season)}&seasontype=2&week=${week}`,
-      20,
-    );
-    if (!response.ok) return false;
-    const payload = await response.json() as EspnNflScoreboard;
-    return (payload.events ?? []).some(
-      (event) => event.status?.type?.state === "in",
-    );
+    const games = await getNflGames({ season: Number(season), week, cacheSeconds: 20 });
+    return games.some((game) => game.state === "in");
   } catch {
     // A missing live scoreboard must never create a false LIVE indicator.
     return false;

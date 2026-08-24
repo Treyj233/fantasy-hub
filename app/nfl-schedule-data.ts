@@ -44,9 +44,10 @@ function csvRow(line: string) {
 
 async function fetchSeasonSchedule(season: number) {
   try {
+    const requestInit = { next: { revalidate: 21600 } } as RequestInit & { next: { revalidate: number } };
     const response = await fetch(
       "https://github.com/nflverse/nflverse-data/releases/download/schedules/games.csv",
-      { next: { revalidate: 21600 } },
+      requestInit,
     );
     if (!response.ok) return [];
     const lines = (await response.text()).trim().split(/\r?\n/);

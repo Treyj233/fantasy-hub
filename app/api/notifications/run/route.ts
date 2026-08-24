@@ -3,12 +3,12 @@ import { getDb } from "../../../../db";
 import { leagueDataSnapshots, managedLeagues, pushAlertDeliveries, pushAlertStates, pushDevices, userPreferences } from "../../../../db/schema";
 import { sendApplePush, type ApplePushCategory } from "../../../apns";
 import { parsePushPreferences, type PushAlertKey } from "../../../push-preferences";
+import { getNflGames } from "../../../highlightly-nfl";
 
 type Alert = { key: string; preference: PushAlertKey; category: ApplePushCategory; title: string; body: string; path?: string; urgent?: boolean };
 type LeaguePayload = { league?: { currentWeek?: number }; teams?: { id?: string; matchupId?: number | null; teamName?: string; roster?: { id: string; name: string; team: string; role: string; projection?: number }[] }[] };
 type Matchup = { roster_id?: number; matchup_id?: number | null; points?: number; custom_points?: number | null; players_points?: Record<string, number> };
 type AlertState = { playerPoints?: Record<string, number>; initialized?: boolean };
-type EspnGame = { id?: string; date?: string; status?: { type?: { state?: string; completed?: boolean } }; competitions?: { competitors?: { team?: { abbreviation?: string } }[] }[] };
 
 async function secret() {
   let env: Record<string, unknown> = process.env as Record<string, unknown>;
@@ -89,9 +89,7 @@ export async function POST(request: Request) {
     })));
     return Response.json({ ok: results.some((result) => result.status === "fulfilled"), sent: results.filter((result) => result.status === "fulfilled").length, failed: results.filter((result) => result.status === "rejected").length });
   }
-  const scoreboardResponse = await fetch(`https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates=${new Date().getUTCFullYear()}&seasontype=2`, { cache: "no-store" }).catch(() => null);
-  const scoreboard = scoreboardResponse?.ok ? await scoreboardResponse.json() as { events?: EspnGame[] } : { events: [] };
-  const games = scoreboard.events ?? [];
+  const games = await getNflGames({ date: new Date().toISOString().slice(0, 10), cacheSeconds: 20 }).catch(() => []);
   let sent = 0, failed = 0, skipped = 0;
   for (const userId of userIds) {
     const userDevices = devices.filter((device) => device.userId === userId);
@@ -106,7 +104,7 @@ export async function POST(request: Request) {
       const opponentTeam = payload.teams?.find((team) => team.matchupId != null && team.matchupId === myTeam?.matchupId && team.id !== myTeam?.id);
       const relevantPlayers = [...(myTeam?.roster ?? []), ...(opponentTeam?.roster ?? [])].filter((player) => player.role !== "Bench");
       const relevantTeams = new Set(relevantPlayers.map((player) => normalizeTeam(player.team)).filter(Boolean));
-      const relevantGames = games.filter((game) => game.competitions?.[0]?.competitors?.some((item) => relevantTeams.has(normalizeTeam(item.team?.abbreviation))));
+      const relevantGames = games.filter((game) => relevantTeams.has(game.away.abbreviation) || relevantTeams.has(game.home.abbreviation));
       const leagueName = record.leagueName ?? live.league.name ?? "Fantasy matchup";
       const base = `${userId}:${record.identifier}:${live.week}`;
       const alerts: Alert[] = [];
@@ -114,7 +112,7 @@ export async function POST(request: Request) {
         const kickoff = new Date(game.date ?? "").getTime();
         const minutes = (kickoff - Date.now()) / 60_000;
         if (minutes >= 10 && minutes <= 20) alerts.push({ key: `${base}:kickoff:${game.id}`, preference: "kickoffSoon", category: "KICKOFF_SOON", title: "Kickoff in 15 minutes", body: `${leagueName} has relevant starters locking soon.`, path: "/", urgent: true });
-        if (game.status?.type?.state === "in") alerts.push({ key: `${base}:slate:${game.id}`, preference: "slateStarted", category: "SLATE_STARTED", title: "Your NFL window is live", body: `${leagueName} now has players on the field.`, path: "/" });
+        if (game.state === "in") alerts.push({ key: `${base}:slate:${game.id}`, preference: "slateStarted", category: "SLATE_STARTED", title: "Your NFL window is live", body: `${leagueName} now has players on the field.`, path: "/" });
       }
       const currentPoints = { ...(live.mine.players_points ?? {}), ...(live.opponent.players_points ?? {}) };
       const stateKey = `${userId}:${record.identifier}`;
@@ -126,8 +124,8 @@ export async function POST(request: Request) {
         if (delta >= 5) alerts.push({ key: `${base}:big-play:${player.id}:${currentPoints[player.id]}`, preference: "bigPlays", category: "BIG_PLAY", title: `${player.name} made a big play`, body: `+${delta.toFixed(1)} points in ${leagueName}. Your matchup is now ${score(live.mine).toFixed(1)}–${score(live.opponent).toFixed(1)}.`, path: "/", urgent: true });
       }
       const difference = score(live.mine) - score(live.opponent);
-      const anyLive = relevantGames.some((game) => game.status?.type?.state === "in");
-      const allFinal = relevantGames.length > 0 && relevantGames.every((game) => game.status?.type?.completed || game.status?.type?.state === "post");
+      const anyLive = relevantGames.some((game) => game.state === "in");
+      const allFinal = relevantGames.length > 0 && relevantGames.every((game) => game.state === "post");
       if (anyLive && Math.abs(difference) <= 5) alerts.push({ key: `${base}:close`, preference: "closeGame", category: "CLOSE_GAME", title: "Close matchup alert", body: `${leagueName} is separated by ${Math.abs(difference).toFixed(1)} points: ${score(live.mine).toFixed(1)}–${score(live.opponent).toFixed(1)}.`, urgent: true });
       if (anyLive && difference < 0) alerts.push({ key: `${base}:path:${Math.ceil(Math.abs(difference))}`, preference: "pathToVictory", category: "PATH_TO_VICTORY", title: "Your path to victory", body: `You need about ${(Math.abs(difference) + .1).toFixed(1)} more points to lead ${leagueName}.`, path: "/" });
       if (allFinal) alerts.push({ key: `${base}:result`, preference: "matchupResults", category: "MATCHUP_RESULT", title: difference >= 0 ? "Matchup won" : "Matchup final", body: `${leagueName}: ${score(live.mine).toFixed(1)}–${score(live.opponent).toFixed(1)}.`, path: "/" });

@@ -184,11 +184,6 @@ function loadWeatherData(season: string | number, week: number) {
   });
   return request;
 }
-const nflLogoCode = (team: string) =>
-  ({ JAX: "jax", WAS: "wsh", LAR: "lar", LAC: "lac" })[team] ??
-  team.toLowerCase();
-const nflTeamLogoUrl = (team: string) =>
-  `https://a.espncdn.com/i/teamlogos/nfl/500/${nflLogoCode(team)}.png`;
 const nflPlayerHeadshotUrl = (playerId: string) =>
   `https://sleepercdn.com/content/nfl/players/${encodeURIComponent(playerId)}.jpg`;
 
@@ -196,17 +191,6 @@ function NflTeamLogo({ team }: { team: string }) {
   return (
     <span className="nfl-team-logo" aria-hidden="true">
       <span>{team}</span>
-      {/* External league assets use their native CDN URL and a local fallback. */}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={nflTeamLogoUrl(team)}
-        alt=""
-        loading="lazy"
-        decoding="async"
-        onError={(event) => {
-          event.currentTarget.style.display = "none";
-        }}
-      />
     </span>
   );
 }

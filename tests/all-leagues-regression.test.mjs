@@ -210,9 +210,9 @@ test("My Leagues exposes live matchup status and opens the Fantasy Scoreboard", 
   assert.match(styles, /\.league-live-link\.live\{[^}]*background:#fff3f2/);
 });
 
-test("scoreboard only reports live matchups while ESPN has an NFL game in progress", async () => {
+test("scoreboard only reports live matchups while Highlightly has a game in progress", async () => {
   const source = await readFile(new URL("../app/api/scoreboard/route.ts", import.meta.url), "utf8");
-  assert.match(source, /event\.status\?\.type\?\.state === "in"/);
+  assert.match(source, /game\.state === "in"/);
   assert.match(source, /week === currentWeek && nflGameInProgress[\s\S]*?\? "Live"[\s\S]*?: "Scheduled"/);
   assert.match(source, /A missing live scoreboard must never create a false LIVE indicator/);
   assert.doesNotMatch(source, /week === \(league\.leg \?\? week\) \? "Live"/);
@@ -690,13 +690,14 @@ test("NFL game impact details open in an accessible popout", async () => {
   assert.match(source, /aria-modal="true"/);
 });
 
-test("NFL Game Hub prefers ESPN live scores and falls back to the imported schedule", async () => {
+test("NFL Game Hub prefers Highlightly live scores and falls back to the imported schedule", async () => {
   const [source, route] = await Promise.all([
     readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/api/nfl-games/route.ts", import.meta.url), "utf8"),
   ]);
-  assert.match(route, /site\.api\.espn\.com\/apis\/site\/v2\/sports\/football\/nfl\/scoreboard/);
-  assert.match(route, /const fallbackSchedule = espnGames\.length === 0/);
+  assert.match(route, /getNflGames\(\{ season: seasonNumber, week, cacheSeconds: 20 \}\)/);
+  assert.match(route, /const fallbackSchedule = providerGames\.length === 0/);
+  assert.doesNotMatch(route, /site\.api\.espn\.com/);
   assert.match(route, /scoresAvailable: !fallbackSchedule/);
   const start = source.indexOf("function NflGames(");
   const end = source.indexOf("const dynastyCurves", start);

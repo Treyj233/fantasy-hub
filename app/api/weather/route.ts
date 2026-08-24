@@ -1,14 +1,13 @@
 import { getChatGPTUser } from "../../chatgpt-auth";
+import { getNflGames, getNflMatch } from "../../highlightly-nfl";
 
-type Venue = { fullName?: string; indoor?: boolean; address?: { city?: string; state?: string; country?: string } };
-type Competitor = { team?: { abbreviation?: string } };
-type EspnEvent = { id?: string; date?: string; season?: { year?: number; type?: number }; week?: { number?: number }; competitions?: { venue?: Venue; competitors?: Competitor[] }[] };
+type Venue = { name?: string; city?: string; state?: string; indoor?: boolean };
 type HourlyForecast = { time?: string[]; temperature_2m?: number[]; precipitation_probability?: number[]; precipitation?: number[]; wind_speed_10m?: number[]; wind_gusts_10m?: number[] };
 
 const normalizeTeam = (team?: string) => ({ JAC: "JAX", WSH: "WAS" }[team ?? ""] ?? team ?? "");
 
 async function coordinatesFor(venue: Venue) {
-  const place = [venue.address?.city, venue.address?.state, venue.address?.country].filter(Boolean).join(", ");
+  const place = [venue.city, venue.state, "US"].filter(Boolean).join(", ");
   if (!place) return null;
   const response = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(place)}&count=1&language=en&format=json`, { next: { revalidate: 2592000 } });
   if (!response.ok) return null;
@@ -52,8 +51,8 @@ export async function GET(request: Request) {
   const requestedWeek = Number(url.searchParams.get("week"));
   const season = Number.isInteger(requestedSeason) && requestedSeason >= 2020 && requestedSeason <= 2035 ? requestedSeason : new Date().getUTCFullYear();
   const week = Number.isInteger(requestedWeek) && requestedWeek >= 1 && requestedWeek <= 18 ? requestedWeek : 1;
-  const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates=${season}&seasontype=2&week=${week}`, { next: { revalidate: 21600 } });
-  if (!response.ok)
+  const matches = await getNflGames({ season, week, cacheSeconds: 21600 }).catch(() => []);
+  if (!matches.length)
     return Response.json(
       {
         season,
@@ -68,18 +67,17 @@ export async function GET(request: Request) {
         },
       },
     );
-  const payload = await response.json() as { events?: EspnEvent[] };
-  const events = (payload.events ?? []).filter((event) => event.season?.year === season && event.season?.type === 2 && event.week?.number === week);
-  const games = await Promise.all(events.map(async (event) => {
-    const competition = event.competitions?.[0];
-    const venue = competition?.venue ?? {};
-    const indoor = Boolean(venue.indoor);
-    const forecast = !indoor && event.date ? await forecastFor(event.date, venue) : null;
+  const indoorVenues = /allegiant|at&t|caesars superdome|ford field|lucas oil|mercedes-benz|nrg stadium|state farm stadium|u\.s\. bank/i;
+  const games = await Promise.all(matches.map(async (game) => {
+    const detail = await getNflMatch(game.id, 21600).catch(() => null);
+    const venue = detail?.venue ?? game.venue ?? {};
+    const indoor = indoorVenues.test(venue.name ?? "");
+    const forecast = !indoor && game.date ? await forecastFor(game.date, venue) : null;
     const summary = indoor ? "Indoor stadium · weather neutral" : forecast ? `${Math.round(forecast.temperatureF ?? 0)}°F · ${Math.round(forecast.windMph ?? 0)} mph wind · ${Math.round(forecast.precipitationProbability ?? 0)}% precip.` : "Forecast available closer to kickoff";
-    return { gameId: event.id ?? "", date: event.date ?? "", venue: venue.fullName ?? "Venue TBD", indoor, forecastAvailable: Boolean(forecast), summary, teams: (competition?.competitors ?? []).map((item) => normalizeTeam(item.team?.abbreviation)).filter(Boolean), ...forecast };
+    return { gameId: game.id, date: game.date, venue: venue.name ?? "Venue TBD", indoor, forecastAvailable: Boolean(forecast), summary, teams: [normalizeTeam(game.away.abbreviation), normalizeTeam(game.home.abbreviation)], ...forecast };
   }));
   return Response.json(
-    { season, week, updatedAt: new Date().toISOString(), games },
+    { season, week, updatedAt: new Date().toISOString(), games, source: "Highlightly + Open-Meteo" },
     {
       headers: {
         "Cache-Control": "public, s-maxage=900, stale-while-revalidate=3600",

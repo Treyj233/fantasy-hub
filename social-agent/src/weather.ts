@@ -1,8 +1,7 @@
 import type { Story } from "./content";
+import { getNflGames, getNflMatch } from "../../app/highlightly-nfl";
 
-type Venue = { fullName?: string; indoor?: boolean; address?: { city?: string; state?: string; country?: string } };
-type Competitor = { team?: { abbreviation?: string; displayName?: string } };
-type EspnEvent = { id?: string; date?: string; competitions?: Array<{ venue?: Venue; competitors?: Competitor[] }> };
+type Venue = { name?: string; city?: string; state?: string; indoor?: boolean };
 type HourlyForecast = { time?: string[]; temperature_2m?: number[]; precipitation_probability?: number[]; precipitation?: number[]; wind_speed_10m?: number[]; wind_gusts_10m?: number[] };
 
 const coordinateCache = new Map<string, { latitude: number; longitude: number }>();
@@ -11,7 +10,7 @@ let weatherCache: { expires: number; stories: Story[] } | null = null;
 const normalizeTeam = (team?: string) => ({ JAC: "JAX", WSH: "WAS" }[team ?? ""] ?? team ?? "");
 
 async function coordinatesFor(venue: Venue) {
-  const place = [venue.address?.city, venue.address?.state, venue.address?.country].filter(Boolean).join(", ");
+  const place = [venue.city, venue.state, "US"].filter(Boolean).join(", ");
   if (!place) return null;
   const cached = coordinateCache.get(place);
   if (cached) return cached;
@@ -52,28 +51,28 @@ function weatherImpact(teams: string, forecast: NonNullable<Awaited<ReturnType<t
 
 export async function gameDayWeatherStories(): Promise<Story[]> {
   if (weatherCache?.expires && weatherCache.expires > Date.now()) return weatherCache.stories;
-  const response = await fetch("https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard");
-  if (!response.ok) return [];
-  const events = (await response.json() as { events?: EspnEvent[] }).events ?? [];
   const now = Date.now();
-  const eligible = events.filter((event) => { const kickoff = Date.parse(event.date ?? ""); return Number.isFinite(kickoff) && kickoff >= now - 60 * 60_000 && kickoff <= now + 30 * 60 * 60_000; });
-  const stories = (await Promise.all(eligible.map(async (event): Promise<Story | null> => {
-    const competition = event.competitions?.[0];
-    const venue = competition?.venue ?? {};
-    if (!event.id || !event.date || venue.indoor) return null;
-    const forecast = await forecastFor(event.date, venue);
+  const today = new Date(now).toISOString().slice(0, 10);
+  const tomorrow = new Date(now + 24 * 60 * 60_000).toISOString().slice(0, 10);
+  const games = (await Promise.all([getNflGames({ date: today, cacheSeconds: 60 }), getNflGames({ date: tomorrow, cacheSeconds: 60 })]).catch(() => [])).flat();
+  const eligible = games.filter((game) => { const kickoff = Date.parse(game.date); return Number.isFinite(kickoff) && kickoff >= now - 60 * 60_000 && kickoff <= now + 30 * 60 * 60_000; });
+  const indoorVenues = /allegiant|at&t|caesars superdome|ford field|lucas oil|mercedes-benz|nrg stadium|state farm stadium|u\.s\. bank/i;
+  const stories = (await Promise.all(eligible.map(async (game): Promise<Story | null> => {
+    const detail = await getNflMatch(game.id, 900).catch(() => null);
+    const venue = detail?.venue ?? game.venue ?? {};
+    if (indoorVenues.test(venue.name ?? "")) return null;
+    const forecast = await forecastFor(game.date, venue);
     if (!forecast) return null;
     const windy = (forecast.windMph ?? 0) >= 18 || (forecast.windGustMph ?? 0) >= 30;
     const wet = (forecast.precipitationProbability ?? 0) >= 60 && (forecast.precipitationInches ?? 0) >= .03;
     const extremeTemperature = (forecast.temperatureF ?? 60) <= 25 || (forecast.temperatureF ?? 60) >= 95;
     if (!windy && !wet && !extremeTemperature) return null;
-    const competitors = competition?.competitors ?? [];
-    const teamCodes = competitors.map((item) => normalizeTeam(item.team?.abbreviation)).filter(Boolean);
-    const teamNames = competitors.map((item) => item.team?.displayName).filter(Boolean) as string[];
+    const teamCodes = [normalizeTeam(game.away.abbreviation), normalizeTeam(game.home.abbreviation)];
+    const teamNames = [game.away.displayName, game.home.displayName];
     const matchup = teamNames.length === 2 ? `${teamNames[0]}–${teamNames[1]}` : teamCodes.join("–");
     const conditions = `${Math.round(forecast.temperatureF ?? 0)}°F, ${Math.round(forecast.windMph ?? 0)} mph wind (${Math.round(forecast.windGustMph ?? 0)} mph gusts), ${Math.round(forecast.precipitationProbability ?? 0)}% precipitation`;
     const severity = `${windy ? "w" : ""}${wet ? "p" : ""}${extremeTemperature ? "t" : ""}`;
-    return { id: `weather:${event.id}:${severity}:${Math.round((forecast.windMph ?? 0) / 5)}:${Math.round((forecast.precipitationProbability ?? 0) / 20)}`, title: `Inclement weather is forecast for ${matchup}: ${conditions}.`, summary: `Outdoor conditions at ${venue.fullName ?? "the stadium"} could affect fantasy scoring.`, url: "https://fantasyhubapp.com", source: "weather", publishedAt: new Date().toISOString(), category: "weather", fantasyImpact: weatherImpact(teamCodes.join(" and "), forecast), sourceContext: teamCodes };
+    return { id: `weather:${game.id}:${severity}:${Math.round((forecast.windMph ?? 0) / 5)}:${Math.round((forecast.precipitationProbability ?? 0) / 20)}`, title: `Inclement weather is forecast for ${matchup}: ${conditions}.`, summary: `Outdoor conditions at ${venue.name ?? "the stadium"} could affect fantasy scoring.`, url: "https://fantasyhubapp.com", source: "weather", publishedAt: new Date().toISOString(), category: "weather", fantasyImpact: weatherImpact(teamCodes.join(" and "), forecast), sourceContext: teamCodes };
   }))).filter((story): story is Story => Boolean(story));
   weatherCache = { expires: now + 15 * 60_000, stories };
   return stories;
