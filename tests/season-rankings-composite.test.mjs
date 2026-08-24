@@ -30,8 +30,10 @@ test("season-long Hub rankings use the requested ADP weights and six tiers", asy
 
 test("Trade Lab shares the season composite and applies dynasty cliffs plus league scarcity", async () => {
   const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
+  const compositeStart = source.indexOf("function buildSeasonCompositeRankings(");
   const tradeStart = source.indexOf("type FantasyTradeProfile");
   const tradeEnd = source.indexOf("function TradeAsset(", tradeStart);
+  const composite = source.slice(compositeStart, tradeStart);
   const trade = source.slice(tradeStart, tradeEnd);
 
   assert.match(trade, /const tradeRankings = buildSeasonCompositeRankings\(rankings, context\)/);
@@ -40,7 +42,9 @@ test("Trade Lab shares the season composite and applies dynasty cliffs plus leag
   assert.match(trade, /function dynastyAgeCurve/);
   assert.match(trade, /position === "RB"[\s\S]*?age === 26\) return -4;[\s\S]*?return -10 - \(age - 27\) \* 6/);
   assert.match(trade, /position === "WR"[\s\S]*?age === 29\) return -4;[\s\S]*?return -9 - \(age - 30\) \* 4\.5/);
-  assert.match(trade, /trueTalent \* 0\.4 \+ futureOverall \* 0\.5 \+ availabilityGrade \* 0\.1/);
+  assert.match(composite, /context\?\.format === "Dynasty"[\s\S]*?player\.adpBySite\?\.\[sleeperAdpKey\], weight: 1/);
+  assert.match(trade, /games < 4 \? 0\.34 : games < 8 \? 0\.26 : 0\.18/);
+  assert.match(trade, /marketAdjustedTalent \* 0\.4 \+ futureOverall \* 0\.56 \+ availabilityGrade \* 0\.04/);
   assert.match(trade, /function tradePositionAdjustment/);
   assert.match(trade, /player\.position === "QB" && demand >= 1\.4/);
   assert.match(trade, /context\?\.tePremium \?\? 0/);

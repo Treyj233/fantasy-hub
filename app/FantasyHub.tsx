@@ -405,6 +405,7 @@ type LeagueRanking = Player & {
   passingTouchdowns2025?: number | null;
   snapAverage?: number | null;
   statsSourceSeason?: number | null;
+  compositeAdp?: number | null;
 };
 type CompositeLeagueRanking = LeagueRanking & {
   compositeAdp: number | null;
@@ -8089,13 +8090,16 @@ function buildSeasonCompositeRankings(
     : new Map(rankings.map((player) => [player.id, player.overallRank]));
   return rankings
     .map((player) => {
-      const sources = (selectedAdpKey
-        ? [{ value: player.adpBySite?.[selectedAdpKey], weight: 1 }]
+      const defaultSources = context?.format === "Dynasty"
+        ? [{ value: player.adpBySite?.[sleeperAdpKey], weight: 1 }]
         : [
             { value: player.adpBySite?.[underdogAdpKey], weight: 0.6 },
             { value: player.adpBySite?.[sleeperAdpKey], weight: 0.3 },
             { value: player.adpBySite?.ESPN, weight: 0.1 },
-          ]
+          ];
+      const sources = (selectedAdpKey
+        ? [{ value: player.adpBySite?.[selectedAdpKey], weight: 1 }]
+        : defaultSources
       ).filter(
         (source): source is { value: number; weight: number } =>
           typeof source.value === "number" && source.value > 0,
@@ -9359,23 +9363,31 @@ function fantasyTradeProfile(
       roleGrade * 0.14 +
       weeklyGrade * 0.08,
   );
+  const marketAdp = ranking?.compositeAdp;
+  const marketGrade = typeof marketAdp === "number"
+    ? ratingFromPercentile(100 * (1 - (Math.min(300, marketAdp) - 1) / 299))
+    : null;
+  const marketWeight = marketGrade == null ? 0 : games < 4 ? 0.34 : games < 8 ? 0.26 : 0.18;
+  const marketAdjustedTalent = clampTradeRating(
+    trueTalent * (1 - marketWeight) + (marketGrade ?? trueTalent) * marketWeight,
+  );
   const currentOverall = clampTradeRating(
-    trueTalent * 0.5 +
+    marketAdjustedTalent * 0.5 +
       weeklyGrade * 0.25 +
       availabilityGrade * 0.15 +
       roleGrade * 0.1,
   );
   const age = ranking?.age;
   const provenYoungPlayer =
-    games >= 8 && trueTalent >= 80 && rawProductionGrade >= 78;
+    games >= 8 && marketAdjustedTalent >= 80 && rawProductionGrade >= 78;
   const ageAdjustment = dynastyAgeCurve(
     position,
     age,
     provenYoungPlayer,
   );
-  const futureOverall = clampTradeRating(trueTalent + ageAdjustment);
+  const futureOverall = clampTradeRating(marketAdjustedTalent + ageAdjustment);
   const dynastyOverall = clampTradeRating(
-    trueTalent * 0.4 + futureOverall * 0.5 + availabilityGrade * 0.1,
+    marketAdjustedTalent * 0.4 + futureOverall * 0.56 + availabilityGrade * 0.04,
   );
   const evidencePoints =
     Math.min(2, games / 7) + (typeof snap === "number" ? 1 : 0) + (ranking ? 1 : 0);
@@ -9398,7 +9410,7 @@ function dynastyAgeCurve(
     return -7 - (age - 36) * 4.5;
   }
   if (position === "RB") {
-    if (age <= 22) return 8 + youngBonus;
+    if (age <= 22) return (provenYoungPlayer ? 8 : 6) + youngBonus;
     if (age <= 24) return 6 - (age - 23) + youngBonus;
     if (age === 25) return 1;
     if (age === 26) return -4;
