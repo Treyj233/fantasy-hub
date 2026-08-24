@@ -616,9 +616,9 @@ html[data-native-platform="ios"] .auth-landing{box-sizing:border-box;height:100s
 .topbar .pro-top-action{display:flex;align-items:center;gap:8px}.topbar .pro-top-action b{padding:3px 5px;color:#fff;background:var(--deep);border-radius:5px;font-size:7px;letter-spacing:.08em}
 
 /* My Team player identity occupies one aligned table column. */
-.roster-section td.roster-player-cell{display:grid;grid-template-columns:35px minmax(0,1fr);align-items:center;gap:9px;min-width:190px}
-.roster-player-cell>.pos,.roster-player-cell>.empty-player-mark{grid-column:1;justify-self:start;margin:0}
-.roster-player-copy{display:block;grid-column:2;min-width:0;line-height:1.2}
+.roster-section td.roster-player-cell{display:table-cell;min-width:190px;vertical-align:middle;white-space:nowrap}
+.roster-player-cell>.pos,.roster-player-cell>.empty-player-mark{display:inline-grid;margin:0;vertical-align:middle}
+.roster-player-copy{display:inline-block;max-width:calc(100% - 48px);min-width:0;margin-left:9px;line-height:1.2;vertical-align:middle}
 .roster-player-copy strong,.roster-player-copy small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .roster-player-copy small{margin-top:4px;color:#859188}
 
@@ -856,7 +856,8 @@ html[data-theme="dark"] .account-theme-customizer{color:#fff;background:radial-g
   .roster-section tbody tr{display:grid;width:100%;grid-template-columns:minmax(0,1fr) 48px 44px;grid-template-areas:"player slot projection" "matchup matchup status";align-items:center;column-gap:7px;row-gap:7px;padding:9px 4px;border-bottom:1px solid var(--line)}
   .roster-section tbody tr:last-child{border-bottom:0}
   .roster-section tbody td{min-width:0;padding:0;border:0}
-  .roster-section td.roster-player-cell{display:grid;grid-area:player;grid-template-columns:32px minmax(0,1fr);align-items:center;gap:6px;min-width:0}
+  .roster-section td.roster-player-cell{display:grid;grid-area:player;grid-template-columns:32px minmax(0,1fr);align-items:center;gap:6px;min-width:0;white-space:normal}
+  .roster-section .roster-player-copy{display:block;grid-column:2;max-width:100%;margin-left:0;vertical-align:initial}
   .roster-section .roster-player-cell>.pos,.roster-section .roster-player-cell>.empty-player-mark{display:grid;width:29px;height:29px;place-items:center;align-self:center;justify-self:start;margin:0;font-size:7px;line-height:1;text-align:center}
   .roster-section .roster-player-copy strong{font-size:11px}
   .roster-section .roster-player-copy small{margin-top:2px;font-size:8px}
@@ -1159,6 +1160,8 @@ html[data-theme="dark"] .team-rankings-page .room-rank.rank-elite small{color:#f
 html[data-theme="dark"] .team-rankings-page .room-rank.rank-middle small{color:#c3d6cc}
 html[data-theme="dark"] .team-rankings-page .room-rank.rank-trailing small{color:#ffaaa5}
 html[data-theme="dark"] .team-rankings-page .team-rank-head span{color:#c3d6cc}
+html[data-theme="dark"] .team-rankings-page .rank-team-name strong{color:#f7fcf9}
+html[data-theme="dark"] .team-rankings-page .rank-team-name small{color:#cbded2}
 
 @media(min-width:701px) and (max-width:1024px) and (orientation:portrait){
   .team-rank-table>.team-rank-row,.team-rank-table>.team-rank-row.dynasty{grid-template-columns:36px minmax(112px,1fr) 48px repeat(4,minmax(36px,42px))!important;align-items:center}
