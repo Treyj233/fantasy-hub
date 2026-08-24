@@ -298,6 +298,27 @@ html[data-theme="dark"] .draft-roster article {
   background: var(--draft-surface);
 }
 
+html[data-theme="dark"] .draft-hq-page :is(
+  .draft-hq-stats article:not(.locked) strong,
+  .draft-setup h3,
+  .draft-board h3,
+  .draft-roster h3,
+  .draft-player-pool h3,
+  .draft-board-grid article b,
+  .draft-roster article b,
+  .draft-player-identity b
+) {
+  color: var(--ink);
+}
+
+html[data-theme="dark"] .draft-hq-page :is(.draft-player-list > button, .draft-board-grid article, .draft-roster article) {
+  color: var(--ink);
+}
+
+html[data-theme="dark"] .draft-hq-page :is(.draft-board-grid article small, .draft-board-grid article span, .draft-board-grid article em, .draft-roster article small) {
+  color: #bfd2c6;
+}
+
 .draft-hq-page :is(.draft-board-grid article, .draft-roster article, .draft-player-list > button) {
   background: var(--draft-surface-raised);
 }
