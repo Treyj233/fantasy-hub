@@ -114,6 +114,7 @@ export function categorizeStory(text: string): StoryCategory {
 const fantasySignals = /quarterback|\bqb\b|running back|\brb\b|wide receiver|\bwr\b|tight end|\bte\b|kicker|defense|fantasy|injur|starter|depth chart|contract|signed|released|waived|traded|targets|receptions|carries|touchdowns?|yards|snaps|suspension|inactive|practice|draft/;
 const unreliableSignals = /rumou?r|could potentially|may possibly|speculation|anonymous social|unconfirmed/;
 const gameAvailabilitySignal = /\b(?:will|expected to|set to|scheduled to|slated to|cleared to) play\b|\b(?:will|expected to|set to|scheduled to|slated to) (?:sit|dress|suit up|be active|be inactive)\b|\b(?:playing|sitting out|dressing|suiting up) (?:today|tonight|in (?:today's|tonight's|the) (?:game|preseason game))\b|\b(?:active|inactive|available|unavailable) for (?:today's|tonight's|the) (?:game|preseason game)\b/i;
+const namedStartingQuarterback = /\b(?:named|will be|is|becomes?)\b[^.!?]{0,45}\b(?:starting quarterback|starter at quarterback|week \d+ starter)\b|\bnamed\b[^.!?]{0,45}\bstarter\b/i;
 
 export function isFantasyRelevant(story: Pick<Story, "title" | "summary">) {
   const text = `${story.title} ${story.summary}`.toLowerCase();
@@ -324,6 +325,14 @@ const specificImpact = (story: Story, context: FantasyPlayerContext | null) => {
       : "That play just flipped fantasy matchups everywhere. Points on the board, victory laps in the group chat. 🚀";
   }
   if (story.category === "depth-chart" && context) {
+    const update = `${story.title} ${story.summary}`;
+    if (context.position === "QB" && namedStartingQuarterback.test(update)) {
+      const displacedQuarterback = context.backups[0];
+      const competitionResult = displacedQuarterback
+        ? `${displacedQuarterback} shifts to a dynasty bench stash instead of a redraft target.`
+        : "The other quarterbacks in the competition lose immediate redraft value.";
+      return `${context.player} becomes draftable in Superflex and 2QB formats. ${competitionResult} In 1QB leagues, wait for efficient passing or useful rushing before treating the new starter as a weekly option.`;
+    }
     const beneficiary = context.affectedPlayers[0] ?? context.backups[0];
     return beneficiary
       ? `${context.player}'s role change puts ${beneficiary} on the actionable watchlist. Hold off on a move until the team confirms who inherits the first opportunity.`

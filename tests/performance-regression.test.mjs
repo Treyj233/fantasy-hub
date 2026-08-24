@@ -84,6 +84,6 @@ test("league scans expose truthful determinate progress", async () => {
 test("Mission Hub scans are not aborted by equivalent league-array renders", async () => {
   const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
   assert.match(source, /const leagueScanSignature = leagues\.map\(\(league\) => league\.id\)\.sort\(\)\.join\(":"\)/);
-  assert.match(source, /\[leagueScanSignature, refreshKey, onScansChange\]/);
+  assert.match(source, /\[leagueScanSignature, refreshKey, onScansChange, cachedScansSavedAt\]/);
   assert.doesNotMatch(source, /\[leagues, refreshKey, onScansChange\]/);
 });

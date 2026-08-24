@@ -50,7 +50,7 @@ test("social agent is live, sourced, deduplicated, and rate limited", async () =
   assert.match(content, /\\bir\\b/);
   assert.match(content, /arrival adds real competition/);
   assert.match(content, /departure clears an opening/);
-  assert.match(worker, /x-sources-v38-complete-highlight-context/);
+  assert.match(worker, /x-sources-v39-starting-qb-context/);
   assert.match(worker, /2090517793737158739:2/);
   assert.match(worker, /2090493186653249579/);
   assert.match(worker, /filter\(\(story\) => !RETRACTED_STORY_IDS\.includes\(story\.id\)\)/);
@@ -301,6 +301,23 @@ test("injury headlines prioritize the diagnosis when attribution consumes the tw
   }, { player: "Tyler Warren", position: "TE", team: "IND", backups: ["Mo Alie-Cox", "Will Mallory"], affectedPlayers: [] });
   assert.match(post, /Tyler Warren (?:has|is dealing with a) groin injury\./);
   assert.doesNotMatch(post, /Colts HC Shane Steichen told reporters\./);
+});
+
+test("a named starting quarterback gets format-specific advice instead of a pass-catcher watch", async () => {
+  const { composeFantasyPost } = await import("../social-agent/src/content.ts");
+  const post = composeFantasyPost({
+    id: "qb-starter-test",
+    title: "Deshaun Watson has been named Cleveland's starting quarterback for Week 1 at Jacksonville.",
+    summary: "Deshaun Watson has been named Cleveland's starting quarterback for Week 1 at Jacksonville.",
+    url: "https://example.com/qb-starter-test",
+    source: "@AdamSchefter",
+    publishedAt: "2026-08-24T13:58:11.000Z",
+    category: "depth-chart",
+  }, { player: "Deshaun Watson", position: "QB", team: "CLE", backups: ["Shedeur Sanders"], affectedPlayers: ["Harold Fannin"] });
+  assert.match(post, /draftable in Superflex and 2QB formats/);
+  assert.match(post, /Shedeur Sanders shifts to a dynasty bench stash/);
+  assert.match(post, /In 1QB leagues/);
+  assert.doesNotMatch(post, /Harold Fannin.*actionable watchlist/);
 });
 
 test("preseason injuries favor healthy target beneficiaries over immediate waiver backups", async () => {

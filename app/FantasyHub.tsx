@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, createContext, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type MouseEvent } from "react";
+import { Fragment, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type MouseEvent } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { estimatedWinProbability, playerLeverage, rootingInterests, whatDoINeed } from "./game-day-model.mjs";
@@ -94,6 +94,8 @@ type MatchupStrengthData = {
 const PlayerOpenContext = createContext<(player: Player) => void>(() => undefined);
 const ProjectionPlatformContext = createContext("League platform");
 const PORTFOLIO_CACHE_VERSION = 2;
+const PORTFOLIO_SCAN_TTL_MS = 30 * 60 * 1000;
+const LEAGUE_DISCOVERY_TTL_MS = 30 * 60 * 1000;
 const weatherRequestCache = new Map<
   string,
   { expiresAt: number; request: Promise<WeatherData | null> }
@@ -849,6 +851,18 @@ type LeagueScan = {
     detail: string;
   }[];
 };
+type CachedPortfolioScans = { version: number; savedAt: number; scans: LeagueScan[] };
+function cachedPortfolioScans(identity?: string): CachedPortfolioScans | null {
+  if (typeof window === "undefined" || !identity) return null;
+  try {
+    const cached = JSON.parse(
+      window.localStorage.getItem(`fantasy-hub-portfolio-scans:${identity}`) ?? "null",
+    ) as CachedPortfolioScans | null;
+    return cached?.version === PORTFOLIO_CACHE_VERSION ? cached : null;
+  } catch {
+    return null;
+  }
+}
 
 type NavGroup = "Home" | "Game Day" | "Manage Team" | "Analyze League" | "Utilities";
 const navGroupOrder: NavGroup[] = ["Home", "Game Day", "Manage Team", "Analyze League", "Utilities"];
@@ -1558,6 +1572,10 @@ export default function FantasyHub({
   accountUser: AccountUser | null;
 }) {
   const cachedAccount = cachedAccountBootstrap(accountUser?.email);
+  const initialPortfolioCache = useMemo(
+    () => cachedPortfolioScans(cachedAccount?.connection?.sleeperUserId ?? accountUser?.email),
+    [accountUser?.email, cachedAccount?.connection?.sleeperUserId],
+  );
   const [view, setView] = useState<View>("All Leagues");
   const [draftStylesReady, setDraftStylesReady] = useState(false);
   useEffect(() => {
@@ -1611,7 +1629,12 @@ export default function FantasyHub({
     catch { return []; }
   });
   const [managedLeagues, setManagedLeagues] = useState<ManagedLeague[]>(cachedAccount?.leagues ?? []);
-  const [portfolioScans, setPortfolioScans] = useState<LeagueScan[]>([]);
+  const [portfolioScans, setPortfolioScans] = useState<LeagueScan[]>(initialPortfolioCache?.scans ?? []);
+  const [portfolioScansSavedAt, setPortfolioScansSavedAt] = useState(initialPortfolioCache?.savedAt ?? 0);
+  const updatePortfolioScans = useCallback((nextScans: LeagueScan[]) => {
+    setPortfolioScans(nextScans);
+    setPortfolioScansSavedAt(Date.now());
+  }, []);
   const [liveMatchupCount, setLiveMatchupCount] = useState<number | null>(null);
   const [selectedMatchupId, setSelectedMatchupId] = useState<number | null>(
     null,
@@ -1960,10 +1983,15 @@ export default function FantasyHub({
           setLeagueId(selected.id);
           setLeagueName(selected.name);
           void importLeague(selected.id, data.connection?.sleeperUserId, selected.rosterId);
-          // Refresh league discovery after rendering the saved account state.
-          // This swaps undrafted new-season shells for the latest populated
-          // roster without delaying the first screen.
-          void loadLeagues(false, true).catch(() => undefined);
+          // League discovery is considerably more expensive than opening a
+          // saved league. Refresh it in the background only when its snapshot
+          // is old; Manage Leagues still exposes an unconditional refresh.
+          const discoveryRefreshedAt = Number(
+            window.localStorage.getItem("fantasy-hub-league-discovery-refreshed-at") ?? 0,
+          );
+          if (Date.now() - discoveryRefreshedAt >= LEAGUE_DISCOVERY_TTL_MS) {
+            void loadLeagues(false, true).catch(() => undefined);
+          }
         } else if (data.connection) {
           void loadLeagues(true).catch(() => setAccountError("League refresh is temporarily unavailable."));
         }
@@ -2321,6 +2349,8 @@ export default function FantasyHub({
       connection: SleeperConnection | null;
       leagues: ConnectedLeague[];
     };
+    if (forceRefresh)
+      safeLocalStorageSet("fantasy-hub-league-discovery-refreshed-at", String(Date.now()));
     const savedOrder = (() => {
       try {
         return JSON.parse(
@@ -2362,8 +2392,10 @@ export default function FantasyHub({
         cached?.version === PORTFOLIO_CACHE_VERSION &&
         cached.scans?.length === orderedLeagues.length &&
         cached.scans.every((scan) => leagueIds.has(scan.league.id))
-      )
+      ) {
         setPortfolioScans(cached.scans);
+        setPortfolioScansSavedAt(cached.savedAt ?? 0);
+      }
     } catch {
       window.localStorage.removeItem(
         `fantasy-hub-portfolio-scans:${data.connection?.sleeperUserId ?? accountUser?.email ?? "account"}`,
@@ -3099,8 +3131,9 @@ export default function FantasyHub({
           <AllLeagues
             leagues={visibleLeagues}
             cachedScans={portfolioScans}
+            cachedScansSavedAt={portfolioScansSavedAt}
             isPro={entitlement.pro}
-            onScansChange={setPortfolioScans}
+            onScansChange={updatePortfolioScans}
             onManage={() => setView("Manage Leagues")}
             onPersonalize={() => {
               setView("Theme Locker");
@@ -4451,6 +4484,7 @@ function leagueIssueIcon(category: string, title = "") {
 function AllLeagues({
   leagues,
   cachedScans,
+  cachedScansSavedAt,
   isPro,
   onOpen,
   onManage,
@@ -4459,6 +4493,7 @@ function AllLeagues({
 }: {
   leagues: ConnectedLeague[];
   cachedScans: LeagueScan[];
+  cachedScansSavedAt: number;
   isPro: boolean;
   onOpen: (league: ConnectedLeague, destination?: View) => Promise<void>;
   onManage: () => void;
@@ -4513,6 +4548,20 @@ function AllLeagues({
     const cacheMatches =
       cachedAtScanStart.length === leagues.length &&
       cachedAtScanStart.every((scan) => leagueIds.has(scan.league.id));
+    const cacheIsFresh =
+      cacheMatches &&
+      cachedScansSavedAt > 0 &&
+      Date.now() - cachedScansSavedAt < PORTFOLIO_SCAN_TTL_MS;
+    // A complete recent portfolio snapshot is the Mission Hub's immediate
+    // source of truth. Avoid re-fetching every league merely because the page
+    // was revisited; the refresh control below remains an explicit override.
+    if (refreshKey === 0 && cacheIsFresh) {
+      setScans(cachedAtScanStart);
+      setScanCompleted(leagues.length);
+      setLoading(false);
+      setRefreshing(false);
+      return;
+    }
     const controller = new AbortController();
     setRefreshing(true);
     const loadingTimer = cacheMatches && refreshKey === 0
@@ -4862,7 +4911,7 @@ function AllLeagues({
     // League objects can be re-created during unrelated account renders. The
     // stable ID signature prevents those renders from aborting an active scan.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [leagueScanSignature, refreshKey, onScansChange]);
+  }, [leagueScanSignature, refreshKey, onScansChange, cachedScansSavedAt]);
 
   const issueCount = scans.reduce((sum, scan) => sum + scan.issues.length, 0);
   const urgentCount = scans.reduce(

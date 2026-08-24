@@ -18,7 +18,7 @@ type AgentState = {
 const RECENT_STORY_HOURS = 18;
 const POST_FRESHNESS_MINUTES = 60;
 const GAMEDAY_POST_FRESHNESS_MINUTES = 20;
-const DRAFT_FORMAT_VERSION = "x-sources-v38-complete-highlight-context";
+const DRAFT_FORMAT_VERSION = "x-sources-v39-starting-qb-context";
 const RETRACTED_STORY_IDS = ["2090186160634986677", "2090197243202609473", "2090202303143747828", "2090517793737158739:2", "2090871356099379667"];
 
 type StoredStory = {
@@ -232,6 +232,17 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
           draft = '🏈 SUNDAY PULSE\n\nWoody Marks broke multiple tackles and scored a touchdown.\n\nFANTASY IMPACT: Treat the touchdown as a positive role signal, not proof of a backfield takeover. Track whether Marks continues to earn early-down and goal-line work before making a larger ranking move.\n\nReported by @MikeGarafolo',
           confidence = 'high', lifecycle_stage = 'confirmed', error = NULL
       WHERE id = '2090595634583572604'`;
+    this.sql`UPDATE stories
+      SET title = 'Cleveland names Deshaun Watson its Week 1 starter at Jacksonville.',
+          category = 'depth-chart',
+          draft = '📈 ROLE WATCH\n\nCleveland names Deshaun Watson its Week 1 starter at Jacksonville.\n\nFANTASY IMPACT: Watson becomes draftable in Superflex and 2QB formats, while Shedeur Sanders shifts to a dynasty bench stash. In 1QB leagues, wait for efficient passing or useful rushing before treating Watson as a weekly option.\n\nReported by @AdamSchefter',
+          confidence = 'high', lifecycle_stage = 'confirmed', error = NULL,
+          related_players_json = '[{"id":"4017","name":"Deshaun Watson","position":"QB","team":"CLE","relationship":"subject"},{"id":"12524","name":"Shedeur Sanders","position":"QB","team":"CLE","relationship":"backup"}]',
+          feed_headline = 'Cleveland names Deshaun Watson its Week 1 starter at Jacksonville.',
+          feed_summary = 'Watson won Cleveland''s quarterback competition and will start the season opener in Jacksonville.',
+          feed_why_it_matters = 'Watson now carries immediate Superflex and 2QB value. Shedeur Sanders loses redraft relevance and shifts to a dynasty bench stash while he waits behind the veteran.',
+          feed_next_move = 'In Superflex and 2QB leagues, roster Watson as a lower-end starter or depth option. In 1QB formats, keep him on the watchlist until he shows efficient passing or useful rushing in the opener.'
+      WHERE id = '2091887799368654964'`;
     this.sql`INSERT OR REPLACE INTO agent_meta (key, value) VALUES ('draft_format', ${DRAFT_FORMAT_VERSION})`;
   }
 
@@ -511,7 +522,7 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
           },
           {
             role: "user",
-            content: `Category: ${story.category}\nPublished: ${story.publishedAt}\nSeason phase: ${seasonPhase(story.publishedAt)}\nSetting: ${isPracticeSetting(`${story.title} ${story.summary}`) ? "practice/camp" : "not identified as practice"}\nAllowed player names: ${allowedPlayers.length ? allowedPlayers.join(", ") : "none supplied"}\nVerified source evidence: ${story.summary}\nVerified compact draft: ${draft}\n\nCreate an in-app briefing with four distinct fields:\n- headline: factual and compelling, under 140 characters.\n- summary: one or two sentences explaining what happened, with useful context from the evidence.\n- whyItMatters: one or two natural sentences explaining the fantasy effect, including uncertainty and timing where relevant. During preseason, frame real scoring or standout plays as encouraging signs that can improve draft/watchlist appeal before adding appropriate uncertainty.\n- nextMove: one concrete action or hold decision, plus the specific trigger that would change it. During preseason, recommend a draft-board or watchlist response when supported, then identify what usage would confirm the upside.\nDo not repeat the same sentence across fields. Do not use generic filler such as “adjust projections,” “monitor the depth chart,” or “compare routes, targets and snaps.” Only name players in the allowed list. If the evidence does not support an immediate move, clearly recommend holding rather than inventing one.`,
+            content: `Category: ${story.category}\nPublished: ${story.publishedAt}\nSeason phase: ${seasonPhase(story.publishedAt)}\nSetting: ${isPracticeSetting(`${story.title} ${story.summary}`) ? "practice/camp" : "not identified as practice"}\nAllowed player names: ${allowedPlayers.length ? allowedPlayers.join(", ") : "none supplied"}\nVerified source evidence: ${story.summary}\nVerified compact draft: ${draft}\n\nCreate an in-app briefing with four distinct fields:\n- headline: factual and compelling, under 140 characters.\n- summary: one or two sentences explaining what happened, with useful context from the evidence.\n- whyItMatters: one or two natural sentences explaining the fantasy effect, including uncertainty and timing where relevant. During preseason, frame real scoring or standout plays as encouraging signs that can improve draft/watchlist appeal before adding appropriate uncertainty.\n- nextMove: one concrete action or hold decision, plus the specific trigger that would change it. During preseason, recommend a draft-board or watchlist response when supported, then identify what usage would confirm the upside.\nDo not repeat the same sentence across fields. Do not use generic filler such as “adjust projections,” “monitor the depth chart,” or “compare routes, targets and snaps.” Only name players in the allowed list. If the evidence does not support an immediate move, clearly recommend holding rather than inventing one. When a quarterback is officially named the starter, state that completed decision in the headline and directly address his 1QB versus Superflex/2QB value plus the displaced quarterback's redraft or dynasty outlook; do not substitute a generic pass-catcher watchlist recommendation.`,
           },
         ],
         response_format: {
