@@ -85,6 +85,16 @@ async function runtimeApiKey() {
   return String(env.HIGHLIGHTLY_API_KEY ?? "").trim();
 }
 
+export async function runtimeReplayUrl() {
+  let env: Record<string, unknown> = process.env as Record<string, unknown>;
+  try {
+    env = (await import("cloudflare:workers")).env as unknown as Record<string, unknown>;
+  } catch {
+    // Local Node tooling uses process.env.
+  }
+  return String(env.HIGHLIGHTLY_REPLAY_URL ?? "").trim();
+}
+
 async function highlightlyFetch<T>(path: string, cacheSeconds: number): Promise<T> {
   const apiKey = await runtimeApiKey();
   if (!apiKey) throw new Error("Highlightly API key is not configured");
@@ -141,6 +151,13 @@ function normalizeMatch(match: HighlightlyMatch): NflDataGame | null {
 }
 
 export async function getNflGames(options: { season?: number; week?: number; date?: string; cacheSeconds?: number }): Promise<NflDataGame[]> {
+  const replayUrl = await runtimeReplayUrl();
+  if (replayUrl && options.season && options.week && !options.date) {
+    const response = await fetch(replayUrl, { next: { revalidate: 300 } } as RequestInit & { next: { revalidate: number } });
+    if (!response.ok) throw new Error(`Preseason replay request failed (${response.status})`);
+    const payload = await response.json() as { data?: NflDataGame[] };
+    return payload.data ?? [];
+  }
   if (options.season && options.week && !options.date) {
     const schedule = await loadNflSeasonSchedule(options.season);
     const dates = [...new Set(schedule.filter((game) => game.week === options.week).map((game) => game.date.slice(0, 10)))];
@@ -160,6 +177,13 @@ export async function getNflGames(options: { season?: number; week?: number; dat
 }
 
 export async function getNflMatch(matchId: string, cacheSeconds = 60) {
+  const replayUrl = await runtimeReplayUrl();
+  if (replayUrl) {
+    const response = await fetch(`${replayUrl}/match?matchId=${encodeURIComponent(matchId)}`, { next: { revalidate: 300 } } as RequestInit & { next: { revalidate: number } });
+    if (!response.ok) throw new Error(`Replay match request failed (${response.status})`);
+    const payload = await response.json() as { data?: HighlightlyMatch | null };
+    return payload.data ?? null;
+  }
   const payload = await highlightlyFetch<HighlightlyMatch[]>(`/matches/${encodeURIComponent(matchId)}`, cacheSeconds);
   return payload[0] ?? null;
 }

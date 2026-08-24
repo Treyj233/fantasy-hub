@@ -1,8 +1,45 @@
 import { getNflGames, getNflMatch, playsFromMatch } from "../app/highlightly-nfl";
+import weekOnePbp from "./week1-pbp.json";
+
+type ReplayPlay = { id: string; offense: string; defense: string; text: string; type: string; period: number; clock: string; yards: number; scoring: boolean; turnover: boolean };
 
 export default {
   async fetch(request: Request) {
     const url = new URL(request.url);
+    if (url.pathname === "/replay/2025-week-1") {
+      try {
+        const games = await getNflGames({ season: 2025, week: 1, cacheSeconds: 86400 });
+        return Response.json(
+          { data: games.sort((a, b) => a.date.localeCompare(b.date)), label: "2025 Regular Season · Week 1" },
+          { headers: { "Cache-Control": "public, max-age=300, s-maxage=86400" } },
+        );
+      } catch (error) {
+        console.error(JSON.stringify({ event: "week_one_replay_failed", error: error instanceof Error ? error.message : String(error) }));
+        return Response.json({ data: [], error: "Week 1 replay unavailable" }, { status: 503 });
+      }
+    }
+    if (url.pathname === "/replay/2025-week-1/match") {
+      const matchId = url.searchParams.get("matchId")?.trim();
+      if (!matchId || !/^\d+$/.test(matchId)) return Response.json({ error: "Valid matchId required" }, { status: 400 });
+      try {
+        const match = await getNflMatch(matchId, 86400);
+        const gameKey = match ? `${match.awayTeam?.abbreviation ?? ""}-${match.homeTeam?.abbreviation ?? ""}` : "";
+        const replayPlays = ((weekOnePbp.games as Record<string, ReplayPlay[]>)[gameKey] ?? []);
+        const data = match ? {
+          ...match,
+          events: replayPlays.map((play) => ({
+            team: { abbreviation: play.offense },
+            result: play.type,
+            isScoringPlay: play.scoring,
+            playDetails: [{ text: play.text, type: play.type, period: play.period, clock: play.clock }],
+          })),
+        } : null;
+        return Response.json({ data, playSource: "nflverse", playCount: replayPlays.length }, { headers: { "Cache-Control": "public, max-age=300, s-maxage=86400" } });
+      } catch (error) {
+        console.error(JSON.stringify({ event: "week_one_match_failed", matchId, error: error instanceof Error ? error.message : String(error) }));
+        return Response.json({ data: null, error: "Week 1 match unavailable" }, { status: 503 });
+      }
+    }
     if (url.pathname !== "/status") return new Response("Highlightly preview provider", { status: 200 });
     const date = url.searchParams.get("date") ?? new Date().toISOString().slice(0, 10);
     const season = Number(url.searchParams.get("season"));
