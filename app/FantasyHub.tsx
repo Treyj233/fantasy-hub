@@ -9139,6 +9139,38 @@ function waiverBid(player: WaiverPlayer, index: number) {
   return `${Math.max(1, midpoint - 3)}–${Math.min(30, midpoint + 3)}% FAAB`;
 }
 
+function waiverFaabIntelligence(
+  player: WaiverPlayer,
+  index: number,
+  plan: WaiverAddDropPlan,
+  remainingBudget: number,
+  trendCount = 0,
+) {
+  const positionPremium = player.position === "RB" ? 3 : player.position === "WR" ? 2 : player.position === "TE" ? 1 : 0;
+  const pressureBoost = Math.min(7, Math.log10(Math.max(1, trendCount) + 1) * 2.8);
+  const midpoint = Math.max(1, Math.min(35, Math.round(
+    player.projection * 0.48 +
+      player.lineupAdjustment * 0.35 +
+      Math.max(0, plan.improvement) * 0.75 +
+      positionPremium +
+      pressureBoost -
+      index * 0.3,
+  )));
+  const lowPercent = Math.max(1, midpoint - 3);
+  const highPercent = Math.min(40, midpoint + 3);
+  const lowBid = Math.max(1, Math.round(remainingBudget * lowPercent / 100));
+  const highBid = Math.max(lowBid, Math.round(remainingBudget * highPercent / 100));
+  const claimProbability = Math.round(Math.max(10, Math.min(94,
+    76 - index * 4 + pressureBoost * 2 + Math.max(0, plan.improvement) * 2,
+  )));
+  const urgency = claimProbability >= 75 || plan.improvement >= 5
+    ? "Priority claim"
+    : claimProbability >= 48 || plan.improvement >= 2.5
+      ? "Competitive bid"
+      : "Value bid";
+  return { lowPercent, highPercent, lowBid, highBid, claimProbability, urgency };
+}
+
 function waiverReason(player: WaiverPlayer, context: RankingContext | null) {
   if (player.status !== "Healthy")
     return `${player.status} status lowers certainty, but the league-adjusted value keeps this player on the watchlist.`;
@@ -9170,6 +9202,7 @@ function WaiverWire({
 }) {
   const [planned, setPlanned] = useState<string[]>([]);
   const [position, setPosition] = useState("ALL");
+  const [faabRemaining, setFaabRemaining] = useState(100);
   const availableRankById = new Map(
     players.map((player, index) => [player.id, index + 1]),
   );
@@ -9184,6 +9217,25 @@ function WaiverWire({
   );
   const filtered = players
     .filter((player) => position === "ALL" || player.position === position);
+  const trendingAdds = new Map(trending.up.map((player) => [player.id, player.trendCount ?? 0]));
+  const faabTargets = players
+    .map((player, index) => ({
+      player,
+      index,
+      plan: waiverAddDropPlan(player, roster, context),
+    }))
+    .filter((target) => target.plan.worthIt && target.plan.drop)
+    .slice(0, 3)
+    .map((target) => ({
+      ...target,
+      intelligence: waiverFaabIntelligence(
+        target.player,
+        target.index,
+        target.plan,
+        faabRemaining,
+        trendingAdds.get(target.player.id) ?? 0,
+      ),
+    }));
   if (!leagueSelected)
     return (
       <div className="page-content">
@@ -9218,6 +9270,21 @@ function WaiverWire({
         title="Turn available players into weekly leverage"
         text="Every player shown is currently unrostered in this league and ranked by league-scored weekly projection normalized within position. This keeps naturally higher quarterback scoring from overwhelming RB, WR, TE, K, and defense value."
       />
+      <section className="panel faab-intelligence">
+        <header>
+          <div><span>FAAB INTELLIGENCE</span><h3>Spend for impact, not hype</h3><p>Modeled from league fit, roster improvement, positional demand, projection, and current add pressure.</p></div>
+          <label>REMAINING BUDGET<input type="number" min="1" max="1000" inputMode="numeric" value={faabRemaining} onChange={(event) => setFaabRemaining(Math.max(1, Math.min(1000, Number(event.target.value) || 1)))} /></label>
+        </header>
+        <div className="faab-target-grid">
+          {faabTargets.map(({ player, plan, intelligence }, index) => <article key={`faab-${player.id}`}>
+            <div><b>0{index + 1}</b><span className={`pos pos-${player.position.toLowerCase()}`}>{player.position}</span><p><strong>{player.name}</strong><small>{intelligence.urgency} · est. {intelligence.claimProbability}% claim pressure</small></p></div>
+            <dl><div><dt>RECOMMENDED BID</dt><dd>${intelligence.lowBid}–${intelligence.highBid}</dd><small>{intelligence.lowPercent}–{intelligence.highPercent}% of remaining</small></div><div><dt>ROSTER GAIN</dt><dd>+{plan.improvement.toFixed(1)}</dd><small>Drop {plan.drop!.name}</small></div></dl>
+            <p>{index === 0 ? faabTargets[1] ? `Fallback: ${faabTargets[1].player.name} if this claim fails.` : "No comparable fallback currently clears the add/drop threshold." : `Alternative to ${faabTargets[0]?.player.name ?? "the top claim"} at a lower acquisition cost.`}</p>
+          </article>)}
+          {!faabTargets.length && <div className="faab-empty"><b>✓</b><span><strong>Protect your budget</strong><small>No available player currently improves the roster enough to justify a FAAB claim.</small></span></div>}
+        </div>
+        <small className="faab-model-note">Claim pressure is a Fantasy Hub estimate, not a guarantee of another manager’s bid.</small>
+      </section>
       <section className="waiver-trending-grid" aria-label="Sleeper player trends">
         {([
           { key: "up", title: "Trending Up", detail: "Most added on Sleeper", empty: "No trending adds are currently available in this league." },
@@ -9277,6 +9344,7 @@ function WaiverWire({
             const availableRank = availableRankById.get(player.id) ?? 0;
             const positionRank = positionRankById.get(player.id) ?? 0;
             const addDropPlan = waiverAddDropPlan(player, roster, context);
+            const faab = waiverFaabIntelligence(player, availableRank - 1, addDropPlan, faabRemaining, trendingAdds.get(player.id) ?? 0);
             return (
               <article key={player.id}>
                 <b className="waiver-rank">#{availableRank}</b>
@@ -9303,7 +9371,7 @@ function WaiverWire({
                 <Status value={player.status} />
                 <span className={`claim-level ${availableRank <= 3 ? "aggressive" : availableRank <= 12 ? "measured" : "watch"}`}>
                   <b>{availableRank <= 3 ? "Aggressive" : availableRank <= 12 ? "Measured" : "Watch"}</b>
-                  <small>{waiverBid(player, availableRank - 1)} FAAB</small>
+                  <small>${faab.lowBid}–${faab.highBid} · {faab.claimProbability}% pressure</small>
                 </span>
                 <button
                   className={planned.includes(player.id) ? "waiver-plan added" : "waiver-plan"}
