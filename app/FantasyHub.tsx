@@ -9202,7 +9202,11 @@ function WaiverWire({
 }) {
   const [planned, setPlanned] = useState<string[]>([]);
   const [position, setPosition] = useState("ALL");
-  const [faabRemaining, setFaabRemaining] = useState(100);
+  const [faabRemainingInput, setFaabRemainingInput] = useState("100");
+  const parsedFaabRemaining = Number(faabRemainingInput);
+  const faabRemaining = Number.isFinite(parsedFaabRemaining) && parsedFaabRemaining > 0
+    ? Math.min(1000, parsedFaabRemaining)
+    : 100;
   const availableRankById = new Map(
     players.map((player, index) => [player.id, index + 1]),
   );
@@ -9218,24 +9222,6 @@ function WaiverWire({
   const filtered = players
     .filter((player) => position === "ALL" || player.position === position);
   const trendingAdds = new Map(trending.up.map((player) => [player.id, player.trendCount ?? 0]));
-  const faabTargets = players
-    .map((player, index) => ({
-      player,
-      index,
-      plan: waiverAddDropPlan(player, roster, context),
-    }))
-    .filter((target) => target.plan.worthIt && target.plan.drop)
-    .slice(0, 3)
-    .map((target) => ({
-      ...target,
-      intelligence: waiverFaabIntelligence(
-        target.player,
-        target.index,
-        target.plan,
-        faabRemaining,
-        trendingAdds.get(target.player.id) ?? 0,
-      ),
-    }));
   if (!leagueSelected)
     return (
       <div className="page-content">
@@ -9270,21 +9256,6 @@ function WaiverWire({
         title="Turn available players into weekly leverage"
         text="Every player shown is currently unrostered in this league and ranked by league-scored weekly projection normalized within position. This keeps naturally higher quarterback scoring from overwhelming RB, WR, TE, K, and defense value."
       />
-      <section className="panel faab-intelligence">
-        <header>
-          <div><span>FAAB INTELLIGENCE</span><h3>Spend for impact, not hype</h3><p>Modeled from league fit, roster improvement, positional demand, projection, and current add pressure.</p></div>
-          <label>REMAINING BUDGET<input type="number" min="1" max="1000" inputMode="numeric" value={faabRemaining} onChange={(event) => setFaabRemaining(Math.max(1, Math.min(1000, Number(event.target.value) || 1)))} /></label>
-        </header>
-        <div className="faab-target-grid">
-          {faabTargets.map(({ player, plan, intelligence }, index) => <article key={`faab-${player.id}`}>
-            <div><b>0{index + 1}</b><span className={`pos pos-${player.position.toLowerCase()}`}>{player.position}</span><p><strong>{player.name}</strong><small>{intelligence.urgency} · est. {intelligence.claimProbability}% claim pressure</small></p></div>
-            <dl><div><dt>RECOMMENDED BID</dt><dd>${intelligence.lowBid}–${intelligence.highBid}</dd><small>{intelligence.lowPercent}–{intelligence.highPercent}% of remaining</small></div><div><dt>ROSTER GAIN</dt><dd>+{plan.improvement.toFixed(1)}</dd><small>Drop {plan.drop!.name}</small></div></dl>
-            <p>{index === 0 ? faabTargets[1] ? `Fallback: ${faabTargets[1].player.name} if this claim fails.` : "No comparable fallback currently clears the add/drop threshold." : `Alternative to ${faabTargets[0]?.player.name ?? "the top claim"} at a lower acquisition cost.`}</p>
-          </article>)}
-          {!faabTargets.length && <div className="faab-empty"><b>✓</b><span><strong>Protect your budget</strong><small>No available player currently improves the roster enough to justify a FAAB claim.</small></span></div>}
-        </div>
-        <small className="faab-model-note">Claim pressure is a Fantasy Hub estimate, not a guarantee of another manager’s bid.</small>
-      </section>
       <section className="waiver-trending-grid" aria-label="Sleeper player trends">
         {([
           { key: "up", title: "Trending Up", detail: "Most added on Sleeper", empty: "No trending adds are currently available in this league." },
@@ -9328,6 +9299,7 @@ function WaiverWire({
             </button>
           ))}
         </div>
+        <div className="waiver-budget-control"><label htmlFor="remaining-faab">REMAINING FAAB</label><span>$</span><input id="remaining-faab" type="number" min="1" max="1000" inputMode="numeric" value={faabRemainingInput} placeholder="100" onChange={(event) => setFaabRemainingInput(event.target.value)} onBlur={() => { if (!faabRemainingInput || Number(faabRemainingInput) <= 0) setFaabRemainingInput("100"); }} /></div>
         <span>{filtered.length} of {players.length} available players</span>
       </section>
       <section className="waiver-list panel">
