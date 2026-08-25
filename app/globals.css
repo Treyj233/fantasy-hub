@@ -1220,6 +1220,7 @@ html[data-theme="dark"] .team-rankings-page .rank-team-name small{color:#cbded2}
   .waiver-list article:hover>.waiver-rank{background:var(--chalk)}
   html[data-theme="dark"] .waiver-list>header>span:first-child{background:#20242c}
 }
+@media(min-width:701px){.waiver-list>header>span:first-child{position:static;width:auto;margin:0;padding:0;background:transparent;box-shadow:none}.waiver-list article>.waiver-rank{position:static;z-index:auto;align-self:center;display:grid;width:48px;height:34px;margin:0;padding:0;place-items:center;color:var(--green);background:color-mix(in srgb,var(--green) 9%,var(--chalk));border:1px solid color-mix(in srgb,var(--green) 22%,var(--line));border-radius:9px;box-shadow:none}.waiver-list article:hover>.waiver-rank{background:color-mix(in srgb,var(--green) 13%,var(--chalk))}html[data-theme="dark"] .waiver-list article>.waiver-rank,html[data-theme="dark"] .waiver-list article:hover>.waiver-rank{color:var(--gold-light);background:#292e37;border-color:#424956}}
 @media(max-width:700px){
   html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
   :where(.page-content) :where(span,small,em,label,th){font-size:max(11px,1em);line-height:max(1.25,1em)}
