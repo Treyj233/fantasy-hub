@@ -7270,26 +7270,20 @@ function CommandCenter({
   const unavailable = players.filter((player) => /out|ir|suspend|doubt/i.test(player.status));
   const monitored = players.filter((player) => /question/i.test(player.status));
   const healthScore = Math.max(0, 100 - unavailable.length * 18 - monitored.length * 6 - emptySlots * 15);
-  const scenarioOptions = primaryDecision && secondaryDecision
-    ? [primaryDecision, secondaryDecision]
-    : primaryDecision
-      ? [primaryDecision]
-      : [];
-  const scenarioPlayer = scenarioOptions.length
-    ? [...scenarioOptions].sort((a, b) => {
-        const metric = scenario === "safe" ? "floor" : scenario === "upside" ? "ceiling" : "projection";
-        return b[metric] - a[metric];
-      })[0]
-    : null;
-  const scenarioLineupProjection = scenarioPlayer && primaryDecision
-    ? totals.projection - primaryDecision.projection + scenarioPlayer.projection
-    : totals.projection;
-  const scenarioFloor = scenarioPlayer && primaryDecision
-    ? lineupFloor - primaryDecision.floor + scenarioPlayer.floor
-    : lineupFloor;
-  const scenarioCeiling = scenarioPlayer && primaryDecision
-    ? totals.ceiling - primaryDecision.ceiling + scenarioPlayer.ceiling
-    : totals.ceiling;
+  const scenarioPool = starters.filter((player) => !/out|ir|suspend|doubt/i.test(player.status));
+  const balancedAnchor = [...scenarioPool].sort((a, b) => b.projection - a.projection)[0] ?? null;
+  const safeAnchor = [...scenarioPool]
+    .filter((player) => player.id !== balancedAnchor?.id)
+    .sort((a, b) => b.floor - a.floor)[0] ?? balancedAnchor;
+  const upsideAnchor = [...scenarioPool]
+    .filter((player) => player.id !== balancedAnchor?.id && player.id !== safeAnchor?.id)
+    .sort((a, b) => b.ceiling - a.ceiling)[0] ?? [...scenarioPool]
+      .filter((player) => player.id !== balancedAnchor?.id)
+      .sort((a, b) => b.ceiling - a.ceiling)[0] ?? balancedAnchor;
+  const scenarioPlayer = scenario === "safe" ? safeAnchor : scenario === "upside" ? upsideAnchor : balancedAnchor;
+  const scenarioLineupProjection = totals.projection;
+  const scenarioFloor = lineupFloor;
+  const scenarioCeiling = totals.ceiling;
   const scenarioProjection = scenario === "safe"
     ? scenarioFloor + (scenarioLineupProjection - scenarioFloor) * 0.72
     : scenario === "upside"
@@ -7426,7 +7420,7 @@ function CommandCenter({
             <span><small>RANGE</small><b>{scenarioFloor.toFixed(0)}–{scenarioCeiling.toFixed(0)}</b></span>
             <span><small>WIN ODDS</small><b>{scenarioWinProbability == null ? "—" : `${scenarioWinProbability}%`}</b></span>
           </div>
-          <p>{scenarioPlayer ? <><strong>{scenario === "safe" ? "Floor play" : scenario === "upside" ? "Ceiling play" : "Best median"}: {scenarioPlayer.name}</strong><small>{scenario === "safe" ? "Prioritizes the most stable outcome." : scenario === "upside" ? "Accepts more variance for the highest ceiling." : "Uses the strongest median projection."}</small></> : <><strong>Current lineup retained</strong><small>No legitimate starter alternative is close enough to change this scenario.</small></>}</p>
+          <p>{scenarioPlayer ? <><strong>{scenario === "safe" ? "Best floor anchor" : scenario === "upside" ? "Best ceiling anchor" : "Best median anchor"}: {scenarioPlayer.name}</strong><small>{scenario === "safe" ? `${scenarioPlayer.floor.toFixed(1)}-point floor anchors the stable path.` : scenario === "upside" ? `${scenarioPlayer.ceiling.toFixed(1)}-point ceiling drives the aggressive path.` : `${scenarioPlayer.projection.toFixed(1)} projected points lead the balanced path.`}</small></> : <><strong>Current lineup retained</strong><small>No active starter is available to anchor this scenario.</small></>}</p>
         </section>
       </div>
       <div className="main-grid">
