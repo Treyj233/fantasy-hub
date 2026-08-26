@@ -8559,10 +8559,7 @@ function WeeklyPlayerRankings({
         const range = ranges.get(player.id) ?? matchupAdjustedRange(player);
         const projectionScore = (projection / maxProjection) * 100;
         const ceilingScore = (range.ceiling / maxCeiling) * 100;
-        const matchupScore = player.matchupStrength?.score ?? 50;
-        const weatherScore = Math.max(35, Math.min(100, 100 + (player.weatherAdjustment ?? 0) * 400));
-        const availabilityFactor = /out|doubtful|ir|suspend/i.test(player.status) ? .35 : /questionable/i.test(player.status) ? .88 : 1;
-        const weeklyScore = (projectionScore * .45 + ceilingScore * .25 + matchupScore * .2 + weatherScore * .1) * availabilityFactor;
+        const weeklyScore = projectionScore * .7 + ceilingScore * .3;
         return { ...player, weeklyProjection: projection, weeklyCeiling: range.ceiling, weeklyScore };
       })
       .sort((a, b) => b.weeklyScore - a.weeklyScore || b.weeklyProjection - a.weeklyProjection)
