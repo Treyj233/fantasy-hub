@@ -4063,9 +4063,6 @@ function ThemeStore({
     preview: Array.from({ length: 7 }, (_, index) => basePreviewBadgeSelection.preview[index % basePreviewBadgeSelection.preview.length]),
   } : undefined;
   useEffect(() => {
-    if (previewThemeId && previewSelection?.kind === "premium") setPreviewMode("badges");
-  }, [previewThemeId, previewSelection?.kind]);
-  useEffect(() => {
     if (!previewThemeId) return;
     const closeOnEscape = (event: KeyboardEvent) => { if (event.key === "Escape") setPreviewThemeId(""); };
     window.addEventListener("keydown", closeOnEscape);
