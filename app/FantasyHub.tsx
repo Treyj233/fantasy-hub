@@ -4056,8 +4056,14 @@ function ThemeStore({
     ...premiumBundles.filter(({ theme, badge }) => !ownedTeamThemes.includes(theme.id) || !ownedBadgeThemes.includes(badge.id)).map((bundle) => ({ ...bundle, kind: "premium" as const })),
   ];
   const previewSelection = previewThemes.find(({ theme }) => theme.id === previewThemeId) ?? previewThemes[0];
-  const previewBadgePacks = !isPro ? proBadgePacks : premiumBundles.filter(({ badge }) => !ownedBadgeThemes.includes(badge.id)).map(({ badge }) => badge);
+  const previewBadgePacks = [
+    ...(!isPro ? proBadgePacks : []),
+    ...premiumBundles.filter(({ badge }) => !ownedBadgeThemes.includes(badge.id)).map(({ badge }) => badge),
+  ];
   const previewBadgeSelection = badgeThemeOptions.find((pack) => pack.id === previewBadgeId) ?? previewSelection?.badge ?? proBadgePacks[0];
+  useEffect(() => {
+    if (previewThemeId && previewSelection?.kind === "premium") setPreviewMode("badges");
+  }, [previewThemeId, previewSelection?.kind]);
   useEffect(() => {
     if (!previewThemeId) return;
     const closeOnEscape = (event: KeyboardEvent) => { if (event.key === "Escape") setPreviewThemeId(""); };
