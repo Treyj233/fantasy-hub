@@ -5837,11 +5837,20 @@ function AllLeagueScoreboard({
     if (!document.fullscreenElement) void document.documentElement.requestFullscreen?.();
     else void document.exitFullscreen?.();
   };
+  const scrollBelowSundayPulse = (target: HTMLElement, behavior: ScrollBehavior) => {
+    const pulse = document.querySelector<HTMLElement>(".sunday-pulse");
+    const pulseTop = pulse ? Number.parseFloat(window.getComputedStyle(pulse).top) || 0 : 0;
+    const pulseHeight = pulse?.getBoundingClientRect().height ?? 0;
+    const clearance = pulseTop + pulseHeight + 10;
+    const top = window.scrollY + target.getBoundingClientRect().top - clearance;
+    window.scrollTo({ top: Math.max(0, top), behavior });
+  };
   const scrollToLeagueMatchups = () => {
     matchupJumpTimers.current.forEach((timer) => window.clearTimeout(timer));
     matchupJumpTimers.current = [];
     const scrollToTarget = (behavior: ScrollBehavior) => {
-      document.getElementById("league-matchups")?.scrollIntoView({ behavior, block: "start" });
+      const target = document.getElementById("league-matchups");
+      if (target) scrollBelowSundayPulse(target, behavior);
     };
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     scrollToTarget(reducedMotion ? "auto" : "smooth");
@@ -5852,7 +5861,10 @@ function AllLeagueScoreboard({
     );
   };
   const scrollToLeagueScore = (leagueId: string) => {
-    document.getElementById(`portfolio-matchup-${leagueId}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    const target = document.getElementById(`portfolio-matchup-${leagueId}`);
+    if (!target) return;
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    scrollBelowSundayPulse(target, reducedMotion ? "auto" : "smooth");
   };
   if (!leagues.length)
     return (
