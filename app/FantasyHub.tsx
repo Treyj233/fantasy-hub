@@ -10372,6 +10372,35 @@ function TradeLab({
         </p>
         {!isPro && <button className="inline-pro-unlock trade-profile-unlock" onClick={onUpgrade}>PRO · Unlock negotiation profiles and suggested packages</button>}
       </section>
+      {!isPro ? (
+        <section className="trade-suggestions-paywall panel">
+          <div><span>FANTASY HUB PRO</span><h3>Turn this calculator into a trade strategy.</h3><p>Manual player-for-player evaluation stays free. Pro scans every roster, identifies mutual needs, builds viable multi-player packages, adapts to each manager’s negotiation profile, and estimates acceptance.</p></div>
+          <div className="trade-suggestion-preview" aria-hidden="true"><b>OPTION 1</b><strong>Upgrade WR depth without sacrificing your core</strong><span>78% modeled acceptance</span><i>Suggested from actual roster strengths</i></div>
+          <button onClick={onUpgrade}>Unlock trade suggestions →</button>
+        </section>
+      ) : (
+        <section className="panel trade-recommendation-picker">
+          <header>
+            <div><span>PRO TRADE FINDER</span><h3>Find the right partner for your roster need</h3></div>
+            <small>The calculator stays empty until you choose an option.</small>
+          </header>
+          <div className="trade-position-filter">
+            <div><b>What do you want to receive?</b><small>Select one or more positions.</small></div>
+            <div role="group" aria-label="Filter trade targets by position">
+              <button type="button" className={!targetPositions.length ? "active" : ""} onClick={() => { setTargetPositions([]); setActiveSuggestionId(""); setCalculatorSendIds([]); setCalculatorReceiveIds([]); }}>Any</button>
+              {["QB", "RB", "WR", "TE"].map((position) => <button type="button" key={position} aria-pressed={targetPositions.includes(position)} className={targetPositions.includes(position) ? "active" : ""} onClick={() => toggleTargetPosition(position)}>{position}</button>)}
+            </div>
+          </div>
+          <div className="trade-partner-finder">
+            <div className="trade-finder-label"><b>Best trade partners</b><small>Ranked by roster fit, mutual benefit, and modeled acceptance.</small></div>
+            {partnerMatches.length ? <div className="trade-partner-grid">{partnerMatches.map((match, index) => <button type="button" key={match.team.id} className={partner.id === match.team.id ? "active" : ""} onClick={() => selectPartner(match.team.id)}><i>{index + 1}</i><span><strong>{match.team.teamName}</strong><small>{match.packages.length} matching framework{match.packages.length === 1 ? "" : "s"}</small></span><b>{match.matchScore}<small>FIT</small></b></button>)}</div> : <p className="trade-finder-empty">No responsible league-wide match was found for the selected position filter.</p>}
+          </div>
+          <div className="trade-finder-label"><b>Recommended trades with {partner.teamName}</b><small>Choose a package to load it into the calculator below.</small></div>
+          {suggestions.length ? <div className="suggestion-tabs" role="list" aria-label={`Recommended trades with ${partner.teamName}`}>
+            {suggestions.map((item, index) => <button key={item.id} type="button" role="listitem" className={activeSuggestionId === item.id ? "active" : ""} onClick={() => { setActiveSuggestionId(item.id); setCalculatorSendIds(item.send.map((asset) => asset.id)); setCalculatorReceiveIds(item.receive.map((asset) => asset.id)); }}><span>OPTION {index + 1}</span><strong>{item.title}</strong><small><b>You send:</b> {item.send.map((asset) => asset.name).join(", ")}</small><small><b>You receive:</b> {item.receive.map((asset) => asset.name).join(", ")}</small><em>{item.acceptance}% acceptance · Load deal</em></button>)}
+          </div> : <p className="trade-finder-empty">{partner.teamName} has no responsible package matching this position filter. Choose one of the ranked partners above.</p>}
+        </section>
+      )}
       <section className="trade-calculator panel" ref={tradeCalculatorRef}>
         <header>
           <div>
@@ -10446,35 +10475,6 @@ function TradeLab({
           </span>
         </div>
       </section>
-      {!isPro ? (
-        <section className="trade-suggestions-paywall panel">
-          <div><span>FANTASY HUB PRO</span><h3>Turn this calculator into a trade strategy.</h3><p>Manual player-for-player evaluation stays free. Pro scans every roster, identifies mutual needs, builds viable multi-player packages, adapts to each manager’s negotiation profile, and estimates acceptance.</p></div>
-          <div className="trade-suggestion-preview" aria-hidden="true"><b>OPTION 1</b><strong>Upgrade WR depth without sacrificing your core</strong><span>78% modeled acceptance</span><i>Suggested from actual roster strengths</i></div>
-          <button onClick={onUpgrade}>Unlock trade suggestions →</button>
-        </section>
-      ) : (
-        <section className="panel trade-recommendation-picker">
-          <header>
-            <div><span>PRO TRADE FINDER</span><h3>Find the right partner for your roster need</h3></div>
-            <small>The calculator stays empty until you choose an option.</small>
-          </header>
-          <div className="trade-position-filter">
-            <div><b>What do you want to receive?</b><small>Select one or more positions.</small></div>
-            <div role="group" aria-label="Filter trade targets by position">
-              <button type="button" className={!targetPositions.length ? "active" : ""} onClick={() => { setTargetPositions([]); setActiveSuggestionId(""); setCalculatorSendIds([]); setCalculatorReceiveIds([]); }}>Any</button>
-              {["QB", "RB", "WR", "TE"].map((position) => <button type="button" key={position} aria-pressed={targetPositions.includes(position)} className={targetPositions.includes(position) ? "active" : ""} onClick={() => toggleTargetPosition(position)}>{position}</button>)}
-            </div>
-          </div>
-          <div className="trade-partner-finder">
-            <div className="trade-finder-label"><b>Best trade partners</b><small>Ranked by roster fit, mutual benefit, and modeled acceptance.</small></div>
-            {partnerMatches.length ? <div className="trade-partner-grid">{partnerMatches.map((match, index) => <button type="button" key={match.team.id} className={partner.id === match.team.id ? "active" : ""} onClick={() => selectPartner(match.team.id)}><i>{index + 1}</i><span><strong>{match.team.teamName}</strong><small>{match.packages.length} matching framework{match.packages.length === 1 ? "" : "s"}</small></span><b>{match.matchScore}<small>FIT</small></b></button>)}</div> : <p className="trade-finder-empty">No responsible league-wide match was found for the selected position filter.</p>}
-          </div>
-          <div className="trade-finder-label"><b>Recommended trades with {partner.teamName}</b><small>Choose a package to load it into the calculator above.</small></div>
-          {suggestions.length ? <div className="suggestion-tabs" role="list" aria-label={`Recommended trades with ${partner.teamName}`}>
-            {suggestions.map((item, index) => <button key={item.id} type="button" role="listitem" className={activeSuggestionId === item.id ? "active" : ""} onClick={() => { setActiveSuggestionId(item.id); setCalculatorSendIds(item.send.map((asset) => asset.id)); setCalculatorReceiveIds(item.receive.map((asset) => asset.id)); }}><span>OPTION {index + 1}</span><strong>{item.title}</strong><small><b>You send:</b> {item.send.map((asset) => asset.name).join(", ")}</small><small><b>You receive:</b> {item.receive.map((asset) => asset.name).join(", ")}</small><em>{item.acceptance}% acceptance · Load deal</em></button>)}
-          </div> : <p className="trade-finder-empty">{partner.teamName} has no responsible package matching this position filter. Choose one of the ranked partners above.</p>}
-        </section>
-      )}
       <button className="trade-calculator-jump" type="button" onClick={jumpToTradeCalculator} aria-label="Back to trade calculator"><i aria-hidden="true">↑</i><span><b>Back to calculator</b><small>Review or adjust this trade</small></span></button>
     </div>
   );
