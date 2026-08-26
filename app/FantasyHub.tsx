@@ -5147,7 +5147,7 @@ function AllLeagues({
                 <span />
                 <span />
               </i>
-              <span>Personalize Your Hub</span>
+              <span><strong>Personalize Your Hub</strong><small>Themes &amp; icon packs</small></span>
               {!isPro && <b>PRO</b>}
             </button>
           </div>
