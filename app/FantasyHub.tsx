@@ -4057,7 +4057,11 @@ function ThemeStore({
   const previewThemes = selectedPremiumPreview ? [selectedPremiumPreview] : proPreviewThemes;
   const previewSelection = previewThemes.find(({ theme }) => theme.id === previewThemeId) ?? previewThemes[0];
   const previewBadgePacks = selectedPremiumPreview ? [selectedPremiumPreview.badge] : (!isPro ? proBadgePacks : []);
-  const previewBadgeSelection = badgeThemeOptions.find((pack) => pack.id === previewBadgeId) ?? previewSelection?.badge ?? proBadgePacks[0];
+  const basePreviewBadgeSelection = badgeThemeOptions.find((pack) => pack.id === previewBadgeId) ?? previewSelection?.badge ?? proBadgePacks[0];
+  const previewBadgeSelection = basePreviewBadgeSelection ? {
+    ...basePreviewBadgeSelection,
+    preview: Array.from({ length: 7 }, (_, index) => basePreviewBadgeSelection.preview[index % basePreviewBadgeSelection.preview.length]),
+  } : undefined;
   useEffect(() => {
     if (previewThemeId && previewSelection?.kind === "premium") setPreviewMode("badges");
   }, [previewThemeId, previewSelection?.kind]);
