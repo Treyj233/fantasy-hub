@@ -4051,15 +4051,12 @@ function ThemeStore({
     { theme: nflThemes.find((theme) => theme.id === "NEONX")!, badge: badgeThemeOptions.find((pack) => pack.id === "neon-endzone")!, label: "THE PRIME-TIME SUITE", productId: "com.fantasyhubapp.theme.primetime" },
     { theme: nflThemes.find((theme) => theme.id === "HERITAGE")!, badge: badgeThemeOptions.find((pack) => pack.id === "heritage-gridiron")!, label: "THE SUNSET SUITE", productId: "com.fantasyhubapp.theme.sunset" },
   ];
-  const previewThemes = [
-    ...(!isPro ? proNflThemes : []).map((theme) => ({ theme, badge: proBadgePacks.find((pack) => pack.id === "team") ?? proBadgePacks[0], kind: "pro" as const, productId: "" })),
-    ...premiumBundles.filter(({ theme, badge }) => !ownedTeamThemes.includes(theme.id) || !ownedBadgeThemes.includes(badge.id)).map((bundle) => ({ ...bundle, kind: "premium" as const })),
-  ];
+  const proPreviewThemes = !isPro ? proNflThemes.map((theme) => ({ theme, badge: proBadgePacks.find((pack) => pack.id === "team") ?? proBadgePacks[0], kind: "pro" as const, productId: "" })) : [];
+  const premiumPreviewThemes = premiumBundles.filter(({ theme, badge }) => !ownedTeamThemes.includes(theme.id) || !ownedBadgeThemes.includes(badge.id)).map((bundle) => ({ ...bundle, kind: "premium" as const }));
+  const selectedPremiumPreview = premiumPreviewThemes.find(({ theme }) => theme.id === previewThemeId);
+  const previewThemes = selectedPremiumPreview ? [selectedPremiumPreview] : proPreviewThemes;
   const previewSelection = previewThemes.find(({ theme }) => theme.id === previewThemeId) ?? previewThemes[0];
-  const previewBadgePacks = [
-    ...(!isPro ? proBadgePacks : []),
-    ...premiumBundles.filter(({ badge }) => !ownedBadgeThemes.includes(badge.id)).map(({ badge }) => badge),
-  ];
+  const previewBadgePacks = selectedPremiumPreview ? [selectedPremiumPreview.badge] : (!isPro ? proBadgePacks : []);
   const previewBadgeSelection = badgeThemeOptions.find((pack) => pack.id === previewBadgeId) ?? previewSelection?.badge ?? proBadgePacks[0];
   useEffect(() => {
     if (previewThemeId && previewSelection?.kind === "premium") setPreviewMode("badges");
