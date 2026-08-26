@@ -1744,6 +1744,10 @@ export default function FantasyHub({
   const [mobileCategoryOpen, setMobileCategoryOpen] = useState<NavGroup | null>(null);
   const [leagueDrawerOpen, setLeagueDrawerOpen] = useState(false);
   const [leagueHandlePreviewing, setLeagueHandlePreviewing] = useState(false);
+  const [showLeagueTrayHint, setShowLeagueTrayHint] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.matchMedia("(max-width: 700px)").matches && window.localStorage.getItem("fantasy-hub-league-tray-hint-seen") !== "true";
+  });
   const [draggedLeagueId, setDraggedLeagueId] = useState("");
   const [leagueDropTarget, setLeagueDropTarget] = useState<{
     id: string;
@@ -1771,6 +1775,15 @@ export default function FantasyHub({
       window.clearTimeout(timer);
     };
   }, [view]);
+
+  useEffect(() => {
+    if (!showLeagueTrayHint) return;
+    const timer = window.setTimeout(() => {
+      setShowLeagueTrayHint(false);
+      safeLocalStorageSet("fantasy-hub-league-tray-hint-seen", "true");
+    }, 6_500);
+    return () => window.clearTimeout(timer);
+  }, [showLeagueTrayHint]);
   useOverflowAutoScroll();
   useOverlayGuard();
   useProductMonitoring(view, importState === "loading", accountError);
@@ -2953,16 +2966,27 @@ export default function FantasyHub({
         )}
 
         {!leagueDrawerOpen && view !== "Manage Leagues" && visibleLeagues.length > 0 && createPortal(
-          <button
-            className={`league-edge-handle${leagueHandlePreviewing ? " previewing" : ""}`}
-            type="button"
-            aria-label="Swipe or tap to switch leagues"
-            onClick={() => {
+          <>
+            {showLeagueTrayHint && <button className="league-edge-tooltip" type="button" onClick={() => {
+              safeLocalStorageSet("fantasy-hub-league-tray-hint-seen", "true");
+              setShowLeagueTrayHint(false);
               void nativeImpact();
               setMobileCategoryOpen(null);
               setLeagueDrawerOpen(true);
-            }}
-          />,
+            }}><span>Your leagues are here</span><i aria-hidden="true">→</i></button>}
+            <button
+              className={`league-edge-handle${leagueHandlePreviewing ? " previewing" : ""}`}
+              type="button"
+              aria-label="Swipe or tap to switch leagues"
+              onClick={() => {
+                safeLocalStorageSet("fantasy-hub-league-tray-hint-seen", "true");
+                setShowLeagueTrayHint(false);
+                void nativeImpact();
+                setMobileCategoryOpen(null);
+                setLeagueDrawerOpen(true);
+              }}
+            />
+          </>,
           document.body,
         )}
 
