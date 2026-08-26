@@ -76,6 +76,11 @@ export default async function RootLayout({
     >
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
         {clerkKeys ? <ClerkProvider publishableKey={clerkKeys.publishableKey}>{children}</ClerkProvider> : children}
+        <script
+          type="module"
+          src="https://static.cloudflareinsights.com/beacon.min.js"
+          data-cf-beacon='{"token":"05774c7c206b4d4aaa156b7c728ffc96"}'
+        />
       </body>
     </html>
   );
