@@ -3,6 +3,7 @@ import { getDb } from "../../../db";
 import { sleeperConnections, userPreferences } from "../../../db/schema";
 import { getChatGPTUser, LOCAL_PREVIEW_USER_ID } from "../../chatgpt-auth";
 import { entitlementFor } from "../../entitlements";
+import { normalizeThemePreferences } from "../../theme-entitlements";
 
 export async function GET() {
   const user = await getChatGPTUser();
@@ -29,7 +30,7 @@ export async function GET() {
     db.select().from(userPreferences).where(eq(userPreferences.userId, user.userId)).limit(1),
     entitlementFor(user.userId, user.email),
   ]);
-  const effectivePreferences = preferences ?? null;
+  const effectivePreferences = preferences ? normalizeThemePreferences(preferences, entitlement) : null;
   return Response.json({ user: { displayName: user.displayName, email: user.email }, connection: connection ?? null, preferences: effectivePreferences, entitlement });
 }
 

@@ -5,6 +5,7 @@ import { getChatGPTUser, LOCAL_PREVIEW_USER_ID } from "../../../chatgpt-auth";
 import { apiError, apiJson } from "../_shared/http";
 import { checkLocalRateLimit, clientKey } from "../_shared/rate-limit";
 import { entitlementFor } from "../../../entitlements";
+import { normalizeThemePreferences } from "../../../theme-entitlements";
 
 export async function GET(request: Request) {
   const user = await getChatGPTUser();
@@ -37,7 +38,7 @@ export async function GET(request: Request) {
     db.select().from(managedLeagues).where(eq(managedLeagues.userId, user.userId)).orderBy(desc(managedLeagues.updatedAt)),
     entitlementFor(user.userId, user.email),
   ]);
-  const effectivePreferences = preferences ?? null;
+  const effectivePreferences = preferences ? normalizeThemePreferences(preferences, entitlement) : null;
   const connectedLeagues = leagues.flatMap((record) => {
     if (record.status !== "live" || record.identifierType !== "league_id") return [];
     let meta: { teams?: number; format?: string; scoring?: string; starterCount?: number } = {};

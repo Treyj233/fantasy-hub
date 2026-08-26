@@ -1723,14 +1723,19 @@ export default function FantasyHub({
   });
   const [teamTheme, setTeamTheme] = useState(cachedAccount?.preferences?.teamTheme ?? "LAC");
   const [badgeTheme, setBadgeTheme] = useState<BadgeTheme>(cachedAccount?.preferences?.badgeTheme ?? "arcade");
-  const parseOwnedThemes = (value: string | undefined, fallback: string) => {
-    try { return [...new Set([fallback, ...(JSON.parse(value ?? "[]") as string[])])]; }
-    catch { return [fallback]; }
+  const parseOwnedThemes = (value: string | undefined, defaultId: string) => {
+    try { return [...new Set([defaultId, ...(JSON.parse(value ?? "[]") as string[])])]; }
+    catch { return [defaultId]; }
   };
-  const [ownedTeamThemes, setOwnedTeamThemes] = useState<string[]>(() => parseOwnedThemes(cachedAccount?.preferences?.ownedTeamThemesJson, cachedAccount?.preferences?.teamTheme ?? "LAC"));
-  const [ownedBadgeThemes, setOwnedBadgeThemes] = useState<string[]>(() => parseOwnedThemes(cachedAccount?.preferences?.ownedBadgeThemesJson, cachedAccount?.preferences?.badgeTheme ?? "arcade"));
-  const effectiveTeamTheme = teamTheme;
-  const effectiveBadgeTheme: BadgeTheme = badgeTheme;
+  const [ownedTeamThemes, setOwnedTeamThemes] = useState<string[]>(() => parseOwnedThemes(cachedAccount?.preferences?.ownedTeamThemesJson, "LAC"));
+  const [ownedBadgeThemes, setOwnedBadgeThemes] = useState<string[]>(() => parseOwnedThemes(cachedAccount?.preferences?.ownedBadgeThemesJson, "arcade"));
+  const selectedTeamTheme = nflThemes.find((item) => item.id === teamTheme);
+  const effectiveTeamTheme = ownedTeamThemes.includes(teamTheme) || (entitlement.pro && !selectedTeamTheme?.premium) || entitlement.owner
+    ? teamTheme
+    : "LAC";
+  const effectiveBadgeTheme: BadgeTheme = ownedBadgeThemes.includes(badgeTheme) || (entitlement.pro && !premiumBadgeThemeIds.has(badgeTheme)) || entitlement.owner
+    ? badgeTheme
+    : "arcade";
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     if (typeof window === "undefined") return false;
     const isIPadLayout = window.matchMedia(
@@ -2086,8 +2091,8 @@ export default function FantasyHub({
           const effectiveBadgeTheme = data.preferences.badgeTheme;
           setTeamTheme(effectiveTeamTheme);
           setBadgeTheme(effectiveBadgeTheme);
-          setOwnedTeamThemes(parseOwnedThemes(data.preferences.ownedTeamThemesJson, data.preferences.teamTheme));
-          setOwnedBadgeThemes(parseOwnedThemes(data.preferences.ownedBadgeThemesJson, data.preferences.badgeTheme));
+          setOwnedTeamThemes(parseOwnedThemes(data.preferences.ownedTeamThemesJson, "LAC"));
+          setOwnedBadgeThemes(parseOwnedThemes(data.preferences.ownedBadgeThemesJson, "arcade"));
           safeLocalStorageSet("fantasy-hub-theme", data.preferences.colorMode);
           safeLocalStorageSet("fantasy-hub-team-theme", effectiveTeamTheme);
           safeLocalStorageSet("fantasy-hub-badge-theme", effectiveBadgeTheme);
@@ -2123,8 +2128,8 @@ export default function FantasyHub({
               const reconciledBadgeTheme = reconciled.preferences.badgeTheme;
               setTeamTheme(reconciledTeamTheme);
               setBadgeTheme(reconciledBadgeTheme);
-              setOwnedTeamThemes(parseOwnedThemes(reconciled.preferences.ownedTeamThemesJson, reconciled.preferences.teamTheme));
-              setOwnedBadgeThemes(parseOwnedThemes(reconciled.preferences.ownedBadgeThemesJson, reconciled.preferences.badgeTheme));
+              setOwnedTeamThemes(parseOwnedThemes(reconciled.preferences.ownedTeamThemesJson, "LAC"));
+              setOwnedBadgeThemes(parseOwnedThemes(reconciled.preferences.ownedBadgeThemesJson, "arcade"));
               safeLocalStorageSet("fantasy-hub-team-theme", reconciledTeamTheme);
               safeLocalStorageSet("fantasy-hub-badge-theme", reconciledBadgeTheme);
             }
