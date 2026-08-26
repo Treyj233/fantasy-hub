@@ -111,7 +111,7 @@ export function categorizeStory(text: string): StoryCategory {
   return "news";
 }
 
-const fantasySignals = /quarterback|\bqb\b|running back|\brb\b|wide receiver|\bwr\b|tight end|\bte\b|kicker|defense|fantasy|injur|starter|depth chart|contract|signed|released|waived|traded|targets|receptions|carries|touchdowns?|yards|snaps|suspension|inactive|practice|draft/;
+const fantasySignals = /quarterback|\bqb\b|running back|\brb\b|wide receiver|\bwr\b|tight end|\bte\b|kicker|defense|fantasy|injur|starter|depth chart|contract|signed|released|waived|\btrade\b|traded|\b(?:is|are) sending\b|targets|receptions|carries|touchdowns?|yards|snaps|suspension|inactive|practice|draft/;
 const unreliableSignals = /rumou?r|could potentially|may possibly|speculation|anonymous social|unconfirmed/;
 const gameAvailabilitySignal = /\b(?:will|expected to|set to|scheduled to|slated to|cleared to) play\b|\b(?:will|expected to|set to|scheduled to|slated to) (?:sit|dress|suit up|be active|be inactive)\b|\b(?:playing|sitting out|dressing|suiting up) (?:today|tonight|in (?:today's|tonight's|the) (?:game|preseason game))\b|\b(?:active|inactive|available|unavailable) for (?:today's|tonight's|the) (?:game|preseason game)\b/i;
 const namedStartingQuarterback = /\b(?:named|will be|is|becomes?)\b[^.!?]{0,45}\b(?:starting quarterback|starter at quarterback|week \d+ starter)\b|\bnamed\b[^.!?]{0,45}\bstarter\b/i;
@@ -179,6 +179,33 @@ const compact = (value: string, length: number) => value.length <= length
   : `${value.slice(0, Math.max(0, length - 1)).trimEnd()}…`;
 
 const cleanEnding = (value: string) => value.replace(/[,:;\-–—\s]+$/g, "").replace(/[.!?]?$/, ".");
+const compactCompleteImpact = (value: string) => {
+  if (/\b(?:injur|practice|limited|questionable|doubtful|out|available|cleared|return)/i.test(value)) {
+    return "Hold for now; reassess after the next availability update.";
+  }
+  if (/\b(?:add|waiver|watchlist|draft|stash)/i.test(value)) {
+    return "Add him to your watchlist; act when the role is confirmed.";
+  }
+  if (/\b(?:positive|encouraging|upside|breakout|touchdown|scored)/i.test(value)) {
+    return "Treat this as a positive signal; wait for confirmed usage.";
+  }
+  return "Hold the current value; act when the player's role changes.";
+};
+const completeImpact = (value: string, budget: number) => {
+  const cleaned = value.replace(/\s+/g, " ").trim();
+  if (cleaned.length <= budget) return cleanEnding(cleaned);
+  const sentences = splitImpactSteps(cleaned);
+  let result = "";
+  for (const sentence of sentences) {
+    const candidate = result ? `${result} ${sentence}` : sentence;
+    if (candidate.length > budget) break;
+    result = candidate;
+  }
+  if (result) return cleanEnding(result);
+  const fallback = compactCompleteImpact(cleaned);
+  if (fallback.length <= budget) return fallback;
+  return "Hold; wait for a confirmed role change.";
+};
 const potentialTrade = /potential trade candidate|trade candidate|trade target|drawing trade interest|interested in trading for/i;
 
 export function isPotentialTradeStory(text: string) {
@@ -386,6 +413,16 @@ export function composeFantasyPost(story: Story, context: FantasyPlayerContext |
   const attribution = reporter
     ? `\n\nReported by ${reporter}`
     : story.curator ? `\n\nCurated by ${story.curator}` : "";
+  if (story.fantasyImpact) {
+    // AI-authored X fields are generated as one coordinated package. Reserve
+    // space for the complete source fact, then fit the already concise impact.
+    const headline = summarizeHeadline(story, context, 94);
+    const fixed = `${label}\n\n${headline}\n\nFANTASY IMPACT: ${attribution}`;
+    const impactBudget = Math.max(48, 280 - fixed.length);
+    return `${label}\n\n${headline}\n\nFANTASY IMPACT: ${completeImpact(impact, impactBudget)}${attribution}`;
+  }
+  // Deterministic fallbacks retain their fuller context so named beneficiaries
+  // and contingency options are not silently discarded if AI is unavailable.
   const fixed = `${label}\n\n\n\nFANTASY IMPACT: ${impact}${attribution}`;
   const headlineBudget = Math.max(42, 275 - fixed.length);
   return `${label}\n\n${summarizeHeadline(story, context, headlineBudget)}\n\nFANTASY IMPACT: ${impact}${attribution}`;

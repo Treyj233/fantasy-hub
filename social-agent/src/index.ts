@@ -18,7 +18,8 @@ type AgentState = {
 const RECENT_STORY_HOURS = 18;
 const POST_FRESHNESS_MINUTES = 60;
 const GAMEDAY_POST_FRESHNESS_MINUTES = 20;
-const DRAFT_FORMAT_VERSION = "x-sources-v39-starting-qb-context";
+const DRAFT_FORMAT_VERSION = "x-sources-v40-confirmed-trade-language";
+const MANUAL_REPOST_KEY = "manual-repost-v42-complete-copy";
 const RETRACTED_STORY_IDS = ["2090186160634986677", "2090197243202609473", "2090202303143747828", "2090517793737158739:2", "2090871356099379667"];
 
 type StoredStory = {
@@ -216,6 +217,17 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
           related_players_json = '[{"id":"9504","name":"Kayshon Boutte","position":"WR","team":"NE","relationship":"subject"},{"id":"12484","name":"Jayden Higgins","position":"WR","team":"HOU","relationship":"beneficiary"}]'
       WHERE id = '2090493186653249579'`;
     this.sql`UPDATE stories
+      SET title = 'New England is sending WR Kayshon Boutte to Houston for S Jaylen Reed and a draft pick.',
+          category = 'contract', status = 'draft', x_post_id = NULL, error = NULL,
+          draft = '📝 ROSTER MOVE\n\nNew England is sending WR Kayshon Boutte to Houston for S Jaylen Reed and a draft pick.\n\nFANTASY IMPACT: Boutte gets a fresh path to playing time. Add him to late-round watchlists; Houston''s target order is the next signal.\n\nReported by @TomPelissero',
+          confidence = 'high', lifecycle_stage = 'confirmed',
+          related_players_json = '[{"id":"9504","name":"Kayshon Boutte","position":"WR","team":"HOU","relationship":"subject"}]',
+          feed_headline = 'Kayshon Boutte is headed to Houston in a player-and-pick trade.',
+          feed_summary = 'New England is sending Boutte to Houston for safety Jaylen Reed and a draft pick, according to Tom Pelissero.',
+          feed_why_it_matters = 'The move gives Boutte a fresh opportunity, but Houston still must establish where he fits in its target order.',
+          feed_next_move = 'Add Boutte to late-round draft watchlists. Move him higher only if Houston gives him a regular top-three receiver role.'
+      WHERE id IN ('2091958051116904534', '2091958236685520923') AND status = 'suppressed'`;
+    this.sql`UPDATE stories
       SET draft = REPLACE(
         draft,
         'Tyler Warren is dealing with a groin injury. No immediate waiver move. Monitor Tyler Warren''s practice status; if ruled out, reassess Mo Alie-Cox and Will Mallory and other IND playmakers.',
@@ -279,6 +291,53 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
       startedAt: this.state.startedAt ?? new Date().toISOString(),
       mode: this.mode(),
     });
+    if (this.mode() === "live") await this.repostLatestPublishedOnce(2);
+  }
+
+  private async repostLatestPublishedOnce(count: number) {
+    const [complete] = [...this.sql<{ value: string }>`SELECT value FROM agent_meta WHERE key = ${MANUAL_REPOST_KEY} LIMIT 1`];
+    if (complete?.value === "complete") return;
+    const latest = [...this.sql<{ id: string; title: string; url: string; source: string; category: Story["category"]; published_at: string }>`
+      SELECT id, title, url, source, category, published_at FROM stories
+      WHERE status = 'posted' AND x_post_id IS NOT NULL
+      ORDER BY discovered_at DESC LIMIT ${count}`].reverse();
+    if (latest.length < count) return;
+    const credentials = this.credentials();
+    if (Object.values(credentials).some((value) => !value)) throw new Error("X posting credentials are incomplete");
+    for (const stored of latest) {
+      const itemKey = `${MANUAL_REPOST_KEY}:${stored.id}`;
+      const [alreadyPosted] = [...this.sql<{ value: string }>`SELECT value FROM agent_meta WHERE key = ${itemKey} LIMIT 1`];
+      if (alreadyPosted?.value === "complete") continue;
+      const [evidence] = [...this.sql<{ title: string; url: string; source: string; published_at: string }>`
+        SELECT title, url, source, published_at FROM story_evidence
+        WHERE story_id = ${stored.id} ORDER BY published_at DESC LIMIT 1`];
+      const sourceText = evidence?.title || stored.title;
+      const sourceCategory = categorizeStory(sourceText);
+      const context = await findPlayerContext(sourceText, sourceCategory);
+      if (!context) throw new Error(`Cannot resolve a fantasy player for repost ${stored.id}`);
+      const sourceStory: Story = {
+        id: stored.id,
+        title: sourceText,
+        summary: sourceText,
+        url: evidence?.url || stored.url,
+        source: evidence?.source || stored.source,
+        publishedAt: evidence?.published_at || stored.published_at,
+        category: sourceCategory,
+      };
+      const prepared = await this.enrichStory(sourceStory, context);
+      // X rejects exact duplicate copy. Mark requested replays as updates before
+      // composing so the normal 280-character fitter can preserve complete text.
+      const replayStory = { ...prepared, title: `Update — ${prepared.title}` };
+      const draft = composeFantasyPost(replayStory, context);
+      const facts = extractStoryFacts(replayStory, context);
+      const validation = await this.critiqueForPublishing(replayStory, context, draft, facts, validateStoryDraft(replayStory, context, draft, facts));
+      if (!validation.approvedForX) throw new Error(`Repost validation failed for ${stored.id}: ${validation.reasons.join("; ")}`);
+      const postId = await createXPost(draft, credentials);
+      this.sql`UPDATE stories SET title = ${replayStory.title}, category = ${replayStory.category}, draft = ${draft}, x_post_id = ${postId}, validation_json = ${JSON.stringify(validation)}, error = NULL WHERE id = ${stored.id}`;
+      this.sql`INSERT OR REPLACE INTO agent_meta (key, value) VALUES (${itemKey}, 'complete')`;
+      this.setState({ ...this.state, lastPostAt: new Date().toISOString() });
+    }
+    this.sql`INSERT OR REPLACE INTO agent_meta (key, value) VALUES (${MANUAL_REPOST_KEY}, 'complete')`;
   }
 
   private mode(): "preview" | "live" {
@@ -336,7 +395,10 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
           "user.fields": "username",
           "media.fields": "media_key,type",
           expansions: "attachments.media_keys,referenced_tweets.id,referenced_tweets.id.author_id,referenced_tweets.id.attachments.media_keys",
-          "max_results": "10",
+          // Busy aggregators can publish more than 10 times between successful
+          // cycles. Pull enough history to prevent valid fantasy updates from
+          // falling out of the ingestion window before they are evaluated.
+          "max_results": "25",
           exclude: handle.toLowerCase() === "32beatwriters" ? "replies" : "retweets,replies",
         },
         this.credentials(),
@@ -389,7 +451,7 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
   }
 
   private postingEligibility(gameDay: boolean) {
-    const minimumGap = gameDay ? 0 : Math.max(12, Number(this.env.MIN_POST_INTERVAL_MINUTES || 12)) * 60_000;
+    const minimumGap = gameDay ? 0 : Math.max(5, Number(this.env.MIN_POST_INTERVAL_MINUTES || 5)) * 60_000;
     const gapRemainingMs = this.state.lastPostAt
       ? Math.max(0, minimumGap - (Date.now() - Date.parse(this.state.lastPostAt)))
       : 0;
@@ -397,7 +459,7 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
     start.setUTCHours(0, 0, 0, 0);
     const [{ count }] = this.sql<{ count: number }>`SELECT COUNT(*) AS count FROM stories
       WHERE status IN ('posted', 'posted_suppressed') AND discovered_at >= ${start.toISOString()}`;
-    const dailyLimit = gameDay ? Number(this.env.GAMEDAY_MAX_POSTS_PER_DAY || 100) : Number(this.env.MAX_POSTS_PER_DAY || 20);
+    const dailyLimit = gameDay ? Number(this.env.GAMEDAY_MAX_POSTS_PER_DAY || 100) : Number(this.env.MAX_POSTS_PER_DAY || 50);
     const dailyCount = Number(count);
     const normalizedLimit = Math.max(1, dailyLimit);
     return {
@@ -423,7 +485,7 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
           },
           {
             role: "user",
-            content: `Player: ${context.player} (${context.position}, ${context.team})\nCategory: ${story.category}\nPublished: ${story.publishedAt}\nSeason phase: ${seasonPhase(story.publishedAt)}\nSetting: ${isPracticeSetting(`${story.title} ${story.summary}`) ? "practice/camp" : "not identified as practice"}\nPotentially affected players you may name: ${candidates.length ? candidates.join(", ") : "none supplied"}\nSource material: ${story.title} ${story.summary}\n\nWrite a factual headline under 130 characters${isCurated ? " that paraphrases the source" : ""} and a fantasyImpact under 230 characters in one or two natural sentences. State the practical fantasy meaning and one concrete action now. If no action is warranted, say to hold and identify the specific future development that would change the decision. Injury advice must reflect timing, severity, and season phase. Practice stats are samples, not game production. A preseason scoring play is a positive signal worth celebrating and can increase draft or watchlist appeal; describe that upside first, then name the role or usage evidence that would strengthen it. Only recommend named players from the supplied list. Avoid canned phrases such as “adjust projections,” “monitor the depth chart,” “compare routes, targets and snaps,” or generic metric checklists. Vary the rhythm and opening from post to post.`,
+            content: `Player: ${context.player} (${context.position}, ${context.team})\nCategory: ${story.category}\nPublished: ${story.publishedAt}\nSeason phase: ${seasonPhase(story.publishedAt)}\nSetting: ${isPracticeSetting(`${story.title} ${story.summary}`) ? "practice/camp" : "not identified as practice"}\nPotentially affected players you may name: ${candidates.length ? candidates.join(", ") : "none supplied"}\nSource material: ${story.title} ${story.summary}\n\nWrite the two content fields for one X post. The headline must be a complete factual sentence under 94 characters${isCurated ? " that paraphrases the source" : ""}; preserve the central event, result, and material qualifier instead of ending at an attribution or setup. The fantasyImpact must be a complete thought under 108 characters with the practical fantasy meaning and one concrete action or decision trigger. These limits are firm because the label and source credit must also fit inside X's 280-character limit. If no action is warranted, say to hold and identify the specific development that would change the decision. Injury advice must reflect timing, severity, and season phase. Practice stats are samples, not game production. A preseason scoring play is a positive signal worth celebrating and can increase draft or watchlist appeal; describe that upside first, then name the role or usage evidence that would strengthen it. Only recommend named players from the supplied list. Avoid canned phrases such as “adjust projections,” “monitor the depth chart,” “compare routes, targets and snaps,” or generic metric checklists. Vary the rhythm and opening from post to post. Do not use ellipses, colons that introduce omitted information, or sentence fragments.`,
           },
         ],
         response_format: {
@@ -446,7 +508,8 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
       if (typeof parsed.headline !== "string" || typeof parsed.fantasyImpact !== "string") return story;
       const headline = parsed.headline.replace(/\s+/g, " ").trim();
       const fantasyImpact = parsed.fantasyImpact.replace(/\s+/g, " ").trim();
-      if (!headline || headline.length > 130 || !fantasyImpact || fantasyImpact.length > 230) return story;
+      const danglingThought = /\b(?:and|but|or|because|after|before|with|without|if|when|while|that|who|to|for|from|as|the|a|an)[.!?]?$/i;
+      if (!headline || headline.length > 94 || danglingThought.test(headline) || !fantasyImpact || fantasyImpact.length > 108 || danglingThought.test(fantasyImpact)) return story;
       return { ...story, title: headline, fantasyImpact };
     } catch (error) {
       console.warn(JSON.stringify({ event: "story_enrichment_fallback", storyId: story.id, error: error instanceof Error ? error.message : "Unknown enrichment error" }));

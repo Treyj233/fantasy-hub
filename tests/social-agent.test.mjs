@@ -11,8 +11,8 @@ test("social agent is live, sourced, deduplicated, and rate limited", async () =
   ]);
   assert.match(config, /"POSTING_MODE": "live"/);
   assert.match(config, /"POLL_INTERVAL_SECONDS": "300"/);
-  assert.match(config, /"MIN_POST_INTERVAL_MINUTES": "12"/);
-  assert.match(config, /"MAX_POSTS_PER_DAY": "20"/);
+  assert.match(config, /"MIN_POST_INTERVAL_MINUTES": "5"/);
+  assert.match(config, /"MAX_POSTS_PER_DAY": "50"/);
   assert.match(config, /"GAMEDAY_MAX_POSTS_PER_DAY": "100"/);
   assert.match(worker, /scheduleEvery\(interval, "runCycle"/);
   assert.match(worker, /cancelSchedule\(schedule\.id\)/);
@@ -32,6 +32,10 @@ test("social agent is live, sourced, deduplicated, and rate limited", async () =
   assert.match(config, /RapSheet,AdamSchefter,TomPelissero,MikeGarafolo,UnderdogNFL,32BeatWriters,Schultz_Report/);
   assert.match(worker, /source_accounts/);
   assert.match(worker, /xApiGet/);
+  assert.match(worker, /"max_results": "25"/);
+  assert.match(worker, /MANUAL_REPOST_KEY = "manual-repost-v42-complete-copy"/);
+  assert.match(worker, /await this\.repostLatestPublishedOnce\(2\)/);
+  assert.match(worker, /INSERT OR REPLACE INTO agent_meta \(key, value\) VALUES \(\$\{itemKey\}, 'complete'\)/);
   assert.match(worker, /DRAFT_FORMAT_VERSION/);
   assert.doesNotMatch(worker, /DELETE FROM stories WHERE status = 'draft'/);
   assert.match(worker, /if \(!context && story\.category !== "weather"\) continue/);
@@ -50,7 +54,8 @@ test("social agent is live, sourced, deduplicated, and rate limited", async () =
   assert.match(content, /\\bir\\b/);
   assert.match(content, /arrival adds real competition/);
   assert.match(content, /departure clears an opening/);
-  assert.match(worker, /x-sources-v39-starting-qb-context/);
+  assert.match(worker, /x-sources-v40-confirmed-trade-language/);
+  assert.match(worker, /2091958236685520923/);
   assert.match(worker, /2090517793737158739:2/);
   assert.match(worker, /2090493186653249579/);
   assert.match(worker, /filter\(\(story\) => !RETRACTED_STORY_IDS\.includes\(story\.id\)\)/);
@@ -106,11 +111,14 @@ test("social agent is live, sourced, deduplicated, and rate limited", async () =
   assert.match(worker, /const minimumGap = gameDay \? 0/);
   assert.match(await readFile(new URL("../social-agent/src/weather.ts", import.meta.url), "utf8"), /windGustMph/);
   assert.match(await readFile(new URL("../social-agent/src/player-data.ts", import.meta.url), "utf8"), /primaryStatement/);
+  assert.match(await readFile(new URL("../social-agent/src/player-data.ts", import.meta.url), "utf8"), /meaningfulAvailabilityReturn/);
   assert.match(content, /Reported by \$\{reporter\}/);
   assert.doesNotMatch(content, /via \$\{story\.curator\}/);
   assert.match(content, /Do not pay up for one camp highlight/);
   assert.match(content, /Check \$\{context\.player\}'s next practice participation/);
-  assert.match(worker, /one concrete action now/);
+  assert.match(worker, /one concrete action or decision trigger/);
+  assert.match(worker, /headline must be a complete factual sentence under 94 characters/);
+  assert.match(worker, /fantasyImpact must be a complete thought under 108 characters/);
   assert.match(worker, /specific, useful next step/);
   assert.doesNotMatch(content, /Monitor the depth chart and projections before making your next move/);
   assert.doesNotMatch(content, /Compare this report|routes, targets and snaps|before moving projections/);
@@ -122,6 +130,43 @@ test("social agent is live, sourced, deduplicated, and rate limited", async () =
   assert.match(content, /cleanEnding/);
   assert.match(content, /unreliableSignals/);
   assert.match(content, /decodeEntities\(value\)\.replace\(\/<\[\^>\]\+>/);
+});
+
+test("X drafts preserve a complete headline before fitting fantasy impact", async () => {
+  const { composeFantasyPost } = await import("../social-agent/src/content.ts");
+  const post = composeFantasyPost({
+    id: "complete-x-package",
+    title: "Coach confirms the starting running back will miss Week 1 with a high ankle sprain.",
+    summary: "The starter will miss Week 1 with a high ankle sprain.",
+    url: "https://example.com/complete-x-package",
+    source: "@AdamSchefter",
+    reporter: "@AdamSchefter",
+    publishedAt: "2026-09-08T16:00:00.000Z",
+    category: "injury",
+    fantasyImpact: "Add the direct backup before waivers run. Recheck the starter after the next medical update.",
+  }, { player: "Example Player", position: "RB", team: "CHI", backups: ["Backup Runner"], affectedPlayers: [] });
+  assert.ok(post.length <= 280);
+  assert.match(post, /will miss Week 1 with a high ankle sprain\./);
+  assert.match(post, /FANTASY IMPACT: [^\n]+[.!?]/);
+  assert.doesNotMatch(post, /…|\.\.\./);
+});
+
+test("X impact fitting never turns a cut-off phrase into a sentence", async () => {
+  const { composeFantasyPost } = await import("../social-agent/src/content.ts");
+  const post = composeFantasyPost({
+    id: "complete-impact-fallback",
+    title: "TreVeyon Henderson returned to full practice and is available for team drills.",
+    summary: "TreVeyon Henderson returned to full practice.",
+    url: "https://example.com/complete-impact-fallback",
+    source: "@AdamSchefter",
+    reporter: "@AdamSchefterWithAnIntentionallyLongCreditThatReducesTheAvailableImpactBudget",
+    publishedAt: "2026-08-24T16:00:00.000Z",
+    category: "injury",
+    fantasyImpact: "Keep Henderson on your draft board after the full return, but verify that he remains unrestricted throughout the rest of the week before moving him aggressively above nearby running backs.",
+  }, { player: "TreVeyon Henderson", position: "RB", team: "NE", backups: [], affectedPlayers: [] });
+  assert.ok(post.length <= 280);
+  assert.match(post, /FANTASY IMPACT: (?:Hold for now; reassess after the next availability update|Hold; wait for a confirmed role change)\./);
+  assert.doesNotMatch(post, /before moving\./);
 });
 
 test("roundup posts are split into atomic player updates", async () => {
@@ -228,6 +273,13 @@ test("potential trade reports remain roster moves when an injury provides contex
   }, { player: "Kayshon Boutte", position: "WR", team: "NE", backups: [], affectedPlayers: [] });
   assert.match(draft, /Boutte is a potential trade candidate\./);
   assert.doesNotMatch(draft, /roster situation has changed/);
+});
+
+test("confirmed trades phrased as sending a player pass the fantasy relevance gate", async () => {
+  const { categorizeStory, isFantasyRelevant } = await import("../social-agent/src/content.ts");
+  const report = "Trade! The Patriots are sending WR Kayshon Boutte to the Texans for safety Jaylen Reed and a draft pick.";
+  assert.equal(categorizeStory(report), "contract");
+  assert.equal(isFantasyRelevant({ title: report, summary: report }), true);
 });
 
 test("historical contract lists are context, not fantasy roster moves", async () => {
@@ -361,6 +413,14 @@ test("long-term injury advice separates established beneficiaries from depth opt
   assert.match(post, /Nico Collins and Dalton Schultz gain the clearest opportunity/);
   assert.match(post, /put Justin Watson on the watchlist/);
   assert.doesNotMatch(post, /prioritize Nico Collins.*waivers/);
+});
+
+test("availability progression is treated as material new information", async () => {
+  const intelligence = await readFile(new URL("../social-agent/src/intelligence.ts", import.meta.url), "utf8");
+  assert.match(intelligence, /"out" \| "dnp" \| "side-work" \| "limited" \| "full" \| "cleared"/);
+  assert.match(intelligence, /practiced in limited fashion/);
+  assert.match(intelligence, /full participant\|practiced in full/);
+  assert.match(intelligence, /next\.availabilityLevel && next\.availabilityLevel !== previous\.availabilityLevel/);
 });
 
 test("X posting uses signed user context and never stores credentials in source", async () => {

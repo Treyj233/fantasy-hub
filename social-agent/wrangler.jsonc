@@ -7,8 +7,8 @@
   "vars": {
     "POSTING_MODE": "live",
     "POLL_INTERVAL_SECONDS": "300",
-    "MIN_POST_INTERVAL_MINUTES": "12",
-    "MAX_POSTS_PER_DAY": "20",
+    "MIN_POST_INTERVAL_MINUTES": "5",
+    "MAX_POSTS_PER_DAY": "50",
     "GAMEDAY_MAX_POSTS_PER_DAY": "100",
     "X_SOURCE_HANDLES": "RapSheet,AdamSchefter,TomPelissero,MikeGarafolo,UnderdogNFL,32BeatWriters,Schultz_Report"
   },

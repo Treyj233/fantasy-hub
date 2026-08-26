@@ -603,9 +603,9 @@ html[data-theme="dark"] .draft-hq-page :is(.draft-settings-grid select, .draft-r
 .draft-setup > header .draft-primary {
   min-height: 48px;
   padding: 0 22px;
-  color: #06172b;
-  background: linear-gradient(135deg, #fff08a 0%, var(--gold) 48%, #ff8a1f 100%);
-  border: 2px solid #fff3a8;
+  color: #06172b !important;
+  background: linear-gradient(135deg, var(--gold-light) 0%, var(--gold) 52%, #e86f16 100%) !important;
+  border: 2px solid color-mix(in srgb, var(--gold-light) 78%, #fff) !important;
   border-radius: 12px;
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--deep) 18%, transparent), 0 12px 28px rgb(255 151 31 / .42), inset 0 1px rgb(255 255 255 / .72);
   font-size: 10px;
@@ -968,4 +968,21 @@ html[data-theme="dark"] .draft-hq-page :is(.draft-settings-grid select, .draft-r
     min-width: 0;
     padding-inline: 4px;
   }
+}
+
+/* The primary draft action must not inherit a dark custom-theme palette. */
+html[data-theme="dark"] .draft-setup > header .draft-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #07172a !important;
+  background: linear-gradient(135deg, #fff09a 0%, #ffc83d 42%, #ff8a1f 100%) !important;
+  border: 2px solid #fff1a8 !important;
+  box-shadow: 0 0 0 2px rgb(255 200 61 / .2), 0 13px 30px rgb(255 138 31 / .42), inset 0 1px #fff !important;
+  opacity: 1;
+  visibility: visible;
+}
+
+html[data-theme="dark"] .draft-setup > header .draft-primary b {
+  color: #07172a !important;
 }

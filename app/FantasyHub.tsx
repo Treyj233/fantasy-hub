@@ -617,7 +617,74 @@ type ScoreboardPlayer = {
   defensiveTurnovers: number;
   returnTouchdowns: number;
   fieldGoals: number;
+  passingYards?: number;
+  passingTouchdowns?: number;
+  interceptions?: number;
+  rushingAttempts?: number;
+  rushingYards?: number;
+  rushingTouchdowns?: number;
+  receivingYards?: number;
+  receivingTouchdowns?: number;
+  fieldGoalAttempts?: number;
+  extraPoints?: number;
+  sacks?: number;
+  pointsAllowed?: number;
+  defensiveTouchdowns?: number;
 };
+
+function liveStatSummary(player: ScoreboardPlayer, matchupStatus: string) {
+  const status = matchupStatus.toLowerCase();
+  const position = player.position.toUpperCase();
+  const passingYards = player.passingYards ?? 0;
+  const passingTouchdowns = player.passingTouchdowns ?? 0;
+  const interceptions = player.interceptions ?? 0;
+  const rushingAttempts = player.rushingAttempts ?? 0;
+  const rushingYards = player.rushingYards ?? 0;
+  const rushingTouchdowns = player.rushingTouchdowns ?? 0;
+  const receivingYards = player.receivingYards ?? 0;
+  const receivingTouchdowns = player.receivingTouchdowns ?? 0;
+  const fieldGoalAttempts = player.fieldGoalAttempts ?? 0;
+  const extraPoints = player.extraPoints ?? 0;
+  const sacks = player.sacks ?? 0;
+  const takeaways = (player.defensiveTurnovers ?? 0);
+  const defensiveTouchdowns = player.defensiveTouchdowns ?? 0;
+  const hasActivity = player.points !== 0 || player.yards > 0 || player.touchdowns > 0 || player.receptions > 0 || player.targets > 0 || rushingAttempts > 0 || fieldGoalAttempts > 0 || extraPoints > 0 || sacks > 0 || takeaways > 0;
+  if (!hasActivity) {
+    if (status === "live") return "Live stats pending";
+    if (status === "final") return "No detailed stat line available";
+    return "Live stats available after kickoff";
+  }
+
+  const parts: string[] = [];
+  if (position === "QB") {
+    if (passingYards || passingTouchdowns || interceptions) parts.push(`${passingYards} PASS YD`);
+    if (passingTouchdowns) parts.push(`${passingTouchdowns} PASS TD`);
+    if (interceptions) parts.push(`${interceptions} INT`);
+    if (rushingAttempts || rushingYards || rushingTouchdowns) parts.push(`${rushingAttempts} CAR · ${rushingYards} RUSH YD`);
+    if (rushingTouchdowns) parts.push(`${rushingTouchdowns} RUSH TD`);
+  } else if (["RB", "FB"].includes(position)) {
+    if (rushingAttempts || rushingYards) parts.push(`${rushingAttempts} CAR · ${rushingYards} RUSH YD`);
+    if (player.targets || player.receptions || receivingYards) parts.push(`${player.receptions}/${player.targets} REC · ${receivingYards} REC YD`);
+    const touchdowns = rushingTouchdowns + receivingTouchdowns;
+    if (touchdowns) parts.push(`${touchdowns} TD`);
+  } else if (["WR", "TE"].includes(position)) {
+    if (player.targets || player.receptions || receivingYards) parts.push(`${player.receptions}/${player.targets} REC · ${receivingYards} REC YD`);
+    if (rushingAttempts || rushingYards) parts.push(`${rushingAttempts} CAR · ${rushingYards} RUSH YD`);
+    const touchdowns = rushingTouchdowns + receivingTouchdowns;
+    if (touchdowns) parts.push(`${touchdowns} TD`);
+  } else if (["K", "PK"].includes(position)) {
+    if (fieldGoalAttempts || player.fieldGoals) parts.push(`${player.fieldGoals}/${fieldGoalAttempts} FG`);
+    if (extraPoints) parts.push(`${extraPoints} XP`);
+  } else if (["DEF", "DST"].includes(position)) {
+    if (player.pointsAllowed != null) parts.push(`${player.pointsAllowed} PA`);
+    if (sacks) parts.push(`${sacks} SACK${sacks === 1 ? "" : "S"}`);
+    if (takeaways) parts.push(`${takeaways} TAKEAWAY${takeaways === 1 ? "" : "S"}`);
+    if (defensiveTouchdowns) parts.push(`${defensiveTouchdowns} TD`);
+  }
+  if (!parts.length && player.yards > 0) parts.push(`${player.yards} TOTAL YD`);
+  if (!parts.length && player.touchdowns > 0) parts.push(`${player.touchdowns} TD`);
+  return parts.join(" · ") || "Live stats updating";
+}
 
 function playerTemperature(player: ScoreboardPlayer, matchupStatus: string) {
   const isLive = matchupStatus.toLowerCase() === "live";
@@ -6102,13 +6169,7 @@ function Scoreboard({
                           <small>PTS</small>
                         </b>
                         <em>
-                          {player.yards} YDS
-                          {player.touchdowns
-                            ? ` · ${player.touchdowns} TD`
-                            : ""}
-                          {player.targets
-                            ? ` · ${player.receptions}/${player.targets} REC`
-                            : ""}
+                          {liveStatSummary(player, matchup.status)}
                         </em>
                       </div>
                     ))}
@@ -10539,11 +10600,7 @@ function HeadToHeadMatchup({
               {player.name}
             </button>
             <small>
-              {formatRosterSlot(player.lineupSlot)} · {player.nflTeam} · {player.yards} YDS
-              {player.touchdowns ? ` · ${player.touchdowns} TD` : ""}
-              {player.targets
-                ? ` · ${player.receptions}/${player.targets} REC`
-                : ""}
+              {formatRosterSlot(player.lineupSlot)} · {player.nflTeam} · {liveStatSummary(player, matchup?.status ?? "")}
             </small>
             <span className="head-to-head-matchup">
               <MatchupBadge player={enriched} />

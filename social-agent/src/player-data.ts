@@ -28,6 +28,7 @@ let playerCache: { expires: number; players: SleeperPlayer[] } | null = null;
 const MAX_FANTASY_SEARCH_RANK = 400;
 const MAX_RELEVANT_DEPTH_ORDER = 2;
 const materialRoleChange = /season-ending|out for (?:the )?(?:season|year|multiple weeks?)|placed on (?:injured reserve|ir)|ruled out|will miss|released|waived|cut|traded away/i;
+const materialAvailabilityReturn = /cleared(?: to| for)|full(?: practice)? participant|practice without limitations|activated from (?:nfi|pup)|removed from (?:nfi|pup)|returned to (?:full )?practice/i;
 
 const hasFantasyMarket = (player: SleeperPlayer) =>
   typeof player.search_rank === "number"
@@ -129,7 +130,13 @@ export async function findPlayerContext(text: string, eventType?: string): Promi
     && depthOrder > 0
     && depthOrder <= 3
     && hasRelevantAffectedPlayer;
-  if (!isFantasySignificant(mentioned) && !meaningfulTeammateImpact) return null;
+  // A confirmed return from a major injury can materially change an offense
+  // before the recovering player has accumulated a top search rank or a stable
+  // depth-chart slot (especially rookies). Keep the second gate by requiring a
+  // fantasy-relevant teammate whose opportunity can actually be affected.
+  const meaningfulAvailabilityReturn = materialAvailabilityReturn.test(primaryStatement)
+    && hasRelevantAffectedPlayer;
+  if (!isFantasySignificant(mentioned) && !meaningfulTeammateImpact && !meaningfulAvailabilityReturn) return null;
   const backupRecords = players
     .filter((player) => player.player_id && player.full_name && backups.includes(player.full_name));
   const relatedPlayers = [

@@ -12,6 +12,7 @@ export type StoryFacts = {
   diagnosis: string | null;
   severity: string | null;
   timetable: string | null;
+  availabilityLevel: "out" | "dnp" | "side-work" | "limited" | "full" | "cleared" | null;
   seasonPhase: "preseason" | "regular-season" | "postseason" | "offseason";
   lifecycleStage: LifecycleStage;
   sourceTier: "trusted-original" | "curated-original" | "other";
@@ -27,6 +28,16 @@ const diagnosisPattern = /torn ACL|ACL tear|torn Achilles|Achilles tear|groin in
 const severityPattern = /not (?:considered )?(?:serious|long-term)|season-ending|minor|day-to-day|week-to-week|questionable|doubtful|ruled out/i;
 const timetablePattern = /(?:out|miss) (?:for )?(?:the )?(?:season|year|\d+ weeks?|multiple weeks?)|return(?:ing)? (?:in|by) [^.;]{3,35}|(?:may|might|could|unlikely to|not expected to|uncertain|unclear|in doubt|no guarantee|doesn['’]t know)[^.;]{0,80}(?:week 1|start of (?:the )?season|season opener)/i;
 const openingAvailabilityPattern = /(?:may|might|could|unlikely to|not expected to|uncertain|unclear|in doubt|no guarantee|doesn['’]t know)[^.;]{0,80}(?:week 1|start of (?:the )?season|season opener)|(?:week 1|start of (?:the )?season|season opener)[^.;]{0,80}(?:uncertain|unclear|in doubt|not guaranteed|questionable)/i;
+
+const availabilityLevel = (text: string): StoryFacts["availabilityLevel"] => {
+  if (/\b(?:cleared(?: to| for)|activated from (?:pup|nfi|ir)|removed from (?:pup|nfi|injured reserve)|no limitations|without limitations)\b/i.test(text)) return "cleared";
+  if (/\b(?:full participant|practiced in full|full practice|fully participated)\b/i.test(text)) return "full";
+  if (/\b(?:limited participant|limited practice|practiced in limited fashion)\b/i.test(text)) return "limited";
+  if (/\b(?:side work|side field|worked off to the side|individual drills only|did not participate in team drills)\b/i.test(text)) return "side-work";
+  if (/\b(?:did not practice|didn't practice|did not participate|missed practice|absent from practice|not practicing|held out)\b/i.test(text)) return "dnp";
+  if (/\b(?:ruled out|inactive|placed on (?:ir|injured reserve)|out for (?:the )?(?:season|year|\d+ weeks?|multiple weeks?))\b/i.test(text)) return "out";
+  return null;
+};
 
 const seasonPhase = (publishedAt: string): StoryFacts["seasonPhase"] => {
   const date = new Date(publishedAt);
@@ -67,6 +78,7 @@ export function extractStoryFacts(story: Story, context: PlayerContext | null): 
     diagnosis,
     severity,
     timetable,
+    availabilityLevel: availabilityLevel(text),
     seasonPhase: seasonPhase(story.publishedAt),
     lifecycleStage: lifecycleStage(text),
     sourceTier,
@@ -79,6 +91,7 @@ export function isMaterialStoryUpdate(previous: StoryFacts | null, next: StoryFa
   const changedFact = (["diagnosis", "severity", "timetable"] as const)
     .some((key) => Boolean(next[key]) && next[key]?.toLowerCase() !== previous[key]?.toLowerCase());
   if (changedFact) return true;
+  if (next.availabilityLevel && next.availabilityLevel !== previous.availabilityLevel) return true;
   if (next.lifecycleStage !== previous.lifecycleStage && ["game-status", "confirmed", "return"].includes(next.lifecycleStage)) return true;
   return openingAvailabilityPattern.test(`${story.title} ${story.summary}`);
 }

@@ -2036,3 +2036,102 @@ html[data-theme="dark"] .news-feed-card,html[data-theme="dark"] .news-filter-row
 html[data-theme="dark"] .premium-bundle>small,
 html[data-theme="dark"] .premium-pack-card>em,
 html[data-theme="dark"] .pro-collection-card>em{color:var(--gold-light)}
+
+/* Dark-mode readability audit: keep semantic text legible when a custom theme's
+   primary/deep colors are too dark to serve as foreground colors. */
+html[data-theme="dark"]{
+  --text-accent-safe:color-mix(in srgb,var(--green) 42%,#fff);
+  --text-gold-safe:color-mix(in srgb,var(--gold-light) 76%,#fff);
+  --text-info-safe:#82b9ff;
+  --text-success-safe:#78dba6;
+  --text-warning-safe:#f4ce72;
+  --text-danger-safe:#ff949d;
+}
+html[data-theme="dark"] .sidebar nav button.active{color:#10151d}
+html[data-theme="dark"] .sidebar nav button.active .nav-badge{color:#fff}
+html[data-theme="dark"] .page-content :is(
+  .panel-header button,
+  .start-sit-option>header span,
+  .start-sit-option .select-label,
+  .waiver-rank,
+  .waiver-plan:not(.added),
+  .trade-board>section>span,
+  .trade-rating-profile,
+  .team-assets-drawer>header span,
+  .badge-theme-builder>header span,
+  .library-standalone>header span,
+  .library-collection summary b,
+  .library-collection summary:after,
+  .pro-theme-collections>header span,
+  .glossary-definition>span,
+  .action-queue-groups button em,
+  .command-action-queue button>i
+){color:var(--text-accent-safe)}
+html[data-theme="dark"] .page-content :is(
+  .roster-section>header span,
+  .overall-place,
+  .draft-rank b,
+  .draft-capital-explainer>div:first-child span,
+  .completed-trades-card>header span
+){color:var(--text-gold-safe)}
+html[data-theme="dark"] .page-content :is(
+  .metric.good strong,
+  .projection-edge.positive,
+  .hub-projection,
+  .faab-target-grid article>div:first-child>b,
+  .faab-empty>b,
+  .playoff-seed-strip em,
+  .bracket-rounds article>div>em
+){color:var(--text-success-safe)}
+html[data-theme="dark"] .page-content :is(.metric.warn strong,.claim-level.measured b){color:var(--text-warning-safe)}
+html[data-theme="dark"] .page-content :is(.claim-level.aggressive b,.leverage-high,.confidence-low){color:var(--text-danger-safe)!important}
+html[data-theme="dark"] .page-content :is(.claim-level.watch b){color:var(--text-info-safe)}
+html[data-theme="dark"] .page-content .league-projection{color:#d4dbe4}
+html[data-theme="dark"] .page-content .projection-edge.positive{background:#244b35}
+
+/* Inputs, active controls, and badges use a fixed foreground chosen for their
+   light fill instead of inheriting a theme's dark foreground token. */
+html[data-theme="dark"] .page-content :is(
+  .league-pills button.active,
+  .style-toggle button.active,
+  .position-filters button.active,
+  .news-filter-row button.active,
+  .game-day-command>header>b,
+  .command-action-queue>div>button>b,
+  .command-action-queue>div>p>b,
+  .theme-membership-price,
+  .theme-market-grid article>button,
+  .theme-store-catalog .selected-team-theme>b,
+  .library-collection summary em,
+  .playoff-bracket>header b,
+  .completed-trades-list>article>b
+){color:#101722!important}
+
+/* Editorial accents need a lighter dark-mode palette; the original category
+   colors remain as borders so each story type keeps its visual identity. */
+html[data-theme="dark"] .news-feed-card{--news-accent:var(--text-info-safe)}
+html[data-theme="dark"] .news-feed-card.category-injury{--news-accent:#ff837b}
+html[data-theme="dark"] .news-feed-card.category-contract{--news-accent:#f4c45d}
+html[data-theme="dark"] .news-feed-card.category-depth-chart{--news-accent:#6bd6ae}
+html[data-theme="dark"] .news-feed-card.category-performance{--news-accent:#ff9a68}
+html[data-theme="dark"] .news-feed-card.category-weather{--news-accent:#78baff}
+html[data-theme="dark"] .news-card-body footer .confidence-high{color:var(--text-success-safe)}
+html[data-theme="dark"] .news-card-body footer .confidence-medium{color:var(--text-warning-safe)}
+html[data-theme="dark"] .news-card-body footer .confidence-low{color:var(--text-danger-safe)}
+
+/* Team colors can be extremely light. A consistent dark nameplate preserves
+   the team-color border while guaranteeing readable team names and metadata. */
+html[data-theme="dark"] .nfl-score-bug>div>p{
+  color:#fff!important;
+  background:#111722e6!important;
+  border-color:#ffffff47!important;
+}
+html[data-theme="dark"] .nfl-score-bug>div>p strong{color:#fff!important}
+html[data-theme="dark"] .nfl-score-bug>div>p small{color:#d5deea!important}
+
+/* Status colors that passed on light surfaces need brighter dark equivalents. */
+html[data-theme="dark"] .leverage-high{color:#ff949d!important}
+html[data-theme="dark"] .leverage-medium{color:#f4ce72!important}
+html[data-theme="dark"] .leverage-low,
+html[data-theme="dark"] .leverage-no-direct{color:#9fd2b5!important}
+html[data-theme="dark"] .command-action-queue span em{color:#ff9c88}
