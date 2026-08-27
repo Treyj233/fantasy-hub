@@ -96,8 +96,23 @@
 /* Let each opponent matchup grade use the full player-content width inside
    the Fantasy Matchups team panel instead of shrinking to its label. */
 .head-to-head-player p { min-width: 0; }
+.head-to-head-player > .player-headshot {
+  grid-column: 1;
+  grid-row: 1 / 4;
+  align-self: start;
+}
+.head-to-head-player > p {
+  grid-column: 2;
+  grid-row: 1;
+}
+.head-to-head-player > b {
+  grid-column: 3;
+  grid-row: 1;
+}
 .head-to-head-matchup {
   display: grid !important;
+  grid-column: 2 / 4;
+  grid-row: 2;
   width: 100%;
   min-width: 0;
   grid-template-columns: minmax(0, 1fr);
@@ -107,6 +122,12 @@
   min-width: 0;
 }
 .head-to-head-matchup > small { max-width: 100%; }
+.head-to-head-player > .player-temperature {
+  grid-column: 2 / 4;
+  grid-row: 3;
+  width: 100%;
+  max-width: none;
+}
 
 /* My Team gives opponent strength a useful horizontal read and keeps weather
    as secondary context directly beneath the meter. */

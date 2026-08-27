@@ -10775,15 +10775,15 @@ function HeadToHeadMatchup({
             <small>
               {formatRosterSlot(player.lineupSlot)} · {player.nflTeam} · {liveStatSummary(player, matchup?.status ?? "")}
             </small>
-            <span className="head-to-head-matchup">
-              <MatchupBadge player={enriched} />
-              {enriched.weatherSummary && <small>☁ {enriched.weatherSummary}</small>}
-            </span>
-            <span className={`player-temperature ${temperature.state}`} title={`${player.name}: ${temperature.label} based on live fantasy points versus projection`}>
-              <span className="temperature-label"><b>❄ ICE</b><strong>{temperature.label}</strong><b>FIRE 🔥</b></span>
-              <span className="temperature-track"><i style={{ left: `${temperature.value}%` }} /></span>
-            </span>
           </p>
+          <span className="head-to-head-matchup">
+            <MatchupBadge player={enriched} />
+            {enriched.weatherSummary && <small>☁ {enriched.weatherSummary}</small>}
+          </span>
+          <span className={`player-temperature ${temperature.state}`} title={`${player.name}: ${temperature.label} based on live fantasy points versus projection`}>
+            <span className="temperature-label"><b>❄ ICE</b><strong>{temperature.label}</strong><b>FIRE 🔥</b></span>
+            <span className="temperature-track"><i style={{ left: `${temperature.value}%` }} /></span>
+          </span>
           <b>{player.points.toFixed(2)}</b>
         </article>
         );
