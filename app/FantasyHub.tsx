@@ -3581,6 +3581,9 @@ export default function FantasyHub({
 
 function MissionHubOnboarding({ step, displayName, onStep, onNavigate, onExit }: { step: number; displayName: string; onStep: (step: number) => void; onNavigate: (view: View) => void; onExit: () => void }) {
   const totalSteps = 5;
+  const cardRef = useRef<HTMLElement>(null);
+  const [popoverStyle, setPopoverStyle] = useState<CSSProperties>({ top: 16, right: 12 });
+  const tourTarget = step === 0 ? "priority-inbox" : step === 1 ? "choose-league" : step === 2 ? "open-my-team" : step === 3 ? "player-detail" : "";
   const next = useCallback(() => onStep(Math.min(totalSteps - 1, step + 1)), [onStep, step]);
   const back = () => {
     if (step === 3) onNavigate("All Leagues");
@@ -3588,9 +3591,8 @@ function MissionHubOnboarding({ step, displayName, onStep, onNavigate, onExit }:
   };
 
   useEffect(() => {
-    const target = step === 1 ? "choose-league" : step === 2 ? "open-my-team" : step === 3 ? "player-detail" : "";
-    if (!target) return;
-    const selector = `[data-tour="${target}"]`;
+    if (!tourTarget || step === 0) return;
+    const selector = `[data-tour="${tourTarget}"]`;
     const handleClick = (event: globalThis.MouseEvent) => {
       const element = event.target instanceof Element ? event.target.closest(selector) : null;
       if (!element) return;
@@ -3604,12 +3606,63 @@ function MissionHubOnboarding({ step, displayName, onStep, onNavigate, onExit }:
       window.clearTimeout(timer);
       document.removeEventListener("click", handleClick, true);
     };
-  }, [next, step]);
+  }, [next, step, tourTarget]);
+
+  useEffect(() => {
+    const positionPopover = () => {
+      const card = cardRef.current;
+      const viewport = window.visualViewport;
+      const safeTop = (viewport?.offsetTop ?? 0) + 12;
+      const safeBottom = (viewport?.offsetTop ?? 0) + (viewport?.height ?? window.innerHeight) - 12;
+      const cardWidth = card?.offsetWidth ?? Math.min(320, window.innerWidth - 24);
+      const cardHeight = card?.offsetHeight ?? 230;
+      const clamp = (value: number, minimum: number, maximum: number) => Math.max(minimum, Math.min(value, maximum));
+      const target = tourTarget ? document.querySelector<HTMLElement>(`[data-tour="${tourTarget}"]`) : null;
+
+      if (!target) {
+        setPopoverStyle({ top: safeTop, right: 12 });
+        return;
+      }
+
+      const rect = target.getBoundingClientRect();
+      const horizontalRoom = window.innerWidth >= 720;
+      if (horizontalRoom) {
+        const placeRight = rect.right + cardWidth + 14 <= window.innerWidth - 12;
+        const left = placeRight ? rect.right + 14 : rect.left - cardWidth - 14;
+        setPopoverStyle({
+          top: clamp(rect.top, safeTop, Math.max(safeTop, safeBottom - cardHeight)),
+          left: clamp(left, 12, window.innerWidth - cardWidth - 12),
+        });
+        return;
+      }
+
+      const roomAbove = rect.top - safeTop;
+      const roomBelow = safeBottom - rect.bottom;
+      const preferredTop = roomBelow >= cardHeight + 12 || roomBelow >= roomAbove
+        ? rect.bottom + 12
+        : rect.top - cardHeight - 12;
+      setPopoverStyle({
+        top: clamp(preferredTop, safeTop, Math.max(safeTop, safeBottom - cardHeight)),
+        left: clamp(rect.left + rect.width / 2 - cardWidth / 2, 12, window.innerWidth - cardWidth - 12),
+      });
+    };
+
+    const timer = window.setTimeout(positionPopover, 160);
+    positionPopover();
+    window.addEventListener("resize", positionPopover);
+    window.addEventListener("scroll", positionPopover, true);
+    window.visualViewport?.addEventListener("resize", positionPopover);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener("resize", positionPopover);
+      window.removeEventListener("scroll", positionPopover, true);
+      window.visualViewport?.removeEventListener("resize", positionPopover);
+    };
+  }, [step, tourTarget]);
 
   return createPortal(
     <div className={`mission-tour mission-tour-${step}`} role="region" aria-live="polite" aria-labelledby="mission-tour-title">
-      <div className="mission-tour-shade" aria-hidden="true" />
-      <section className="mission-tour-card">
+      <section className="mission-tour-card" ref={cardRef} style={popoverStyle}>
         <header>
           <div><span>FANTASY HUB TOUR · {step + 1} OF {totalSteps}</span><div className="mission-tour-progress" aria-label={`Onboarding step ${step + 1} of ${totalSteps}`}>{Array.from({ length: totalSteps }, (_, index) => <i className={index <= step ? "active" : ""} key={index} />)}</div></div>
           <button type="button" aria-label="Exit onboarding" onClick={onExit}>×</button>

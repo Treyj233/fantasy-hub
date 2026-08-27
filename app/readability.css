@@ -424,40 +424,41 @@ html[data-theme="dark"] .mission-tour-card,html[data-theme="dark"] .mission-tour
   .glossary-tour-replay button { width: 100%; }
 }
 
-/* Click-through onboarding: the app remains interactive and the coach card
-   stays between the iPhone notch and home indicator. */
+/* Click-through onboarding uses small target-anchored coach bubbles. */
 .mission-tour {
   box-sizing: border-box;
-  inset: max(8px,calc(env(safe-area-inset-top) + 8px)) 8px max(8px,calc(env(safe-area-inset-bottom) + 8px));
-  width: auto;
-  height: auto;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   min-height: 0;
   padding: 0;
-  place-items: end center;
   overflow: visible;
   pointer-events: none;
 }
-.mission-tour-shade {
-  position: fixed;
-  inset: max(0px,env(safe-area-inset-top)) 0 max(0px,env(safe-area-inset-bottom));
-  background: rgb(2 13 9 / .28);
-  backdrop-filter: none;
-  pointer-events: none;
-}
 .mission-tour-card {
-  width: min(430px,100%);
-  max-height: min(46dvh,360px);
+  position: fixed;
+  width: min(320px,calc(100vw - 24px));
+  max-height: min(330px,calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 24px));
   overflow-x: hidden;
   overflow-y: auto;
-  border-radius: 16px;
+  border-radius: 14px;
+  box-shadow: 0 16px 44px rgb(0 0 0 / .32),0 0 0 1px rgb(var(--brand-secondary-rgb,241 180 50) / .18);
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   pointer-events: auto;
 }
 .mission-tour-card > header { position: sticky; z-index: 5; top: 0; }
 .mission-tour-card > footer { position: sticky; z-index: 5; bottom: 0; background: var(--chalk); }
-.mission-tour-copy { padding: 16px; }
-.mission-tour-copy h2 { font-size: 20px; }
+.mission-tour-card > header { padding: 11px 12px; }
+.mission-tour-card > header > button { width: 30px; height: 30px; }
+.mission-tour-progress { margin-top: 5px; }
+.mission-tour-progress i { width: 19px; height: 3px; }
+.mission-tour-copy { padding: 13px 14px; }
+.mission-tour-copy h2 { margin: 5px 0 6px; font-size: 18px; }
+.mission-tour-copy > p { font-size: 12px; line-height: 1.4; }
+.mission-tour-insight,.mission-tour-tip { margin-top: 10px; padding: 10px 11px; }
+.mission-tour-card > footer { gap: 7px; padding: 10px 12px; }
+.mission-tour-card > footer button { min-height: 34px; padding: 7px 9px; font-size: 11px; }
 .mission-tour-skip { color: var(--green); background: transparent; border: 1px solid var(--line); }
 .mission-tour-target,
 .app-shell.onboarding-tour-step-0 [data-tour="priority-inbox"],
@@ -473,20 +474,17 @@ html[data-theme="dark"] .mission-tour-card > footer { background: #20242c; }
 
 @media (max-width: 600px) {
   .mission-tour {
-    display: grid;
-    flex-direction: initial;
-    justify-content: initial;
-    gap: 0;
-    width: auto;
-    height: auto;
+    display: block;
+    width: 100%;
+    height: 100%;
     min-height: 0;
     padding: 0;
     overflow: visible;
   }
   .mission-tour-card,
   .mission-tour-1 .mission-tour-card {
-    width: 100%;
-    max-height: min(48dvh,360px);
+    width: min(310px,calc(100vw - 24px));
+    max-height: min(300px,calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 24px));
     flex: initial;
     margin: 0;
   }
