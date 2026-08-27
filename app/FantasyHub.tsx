@@ -5321,7 +5321,7 @@ function AllLeagues({
                   <i title={issue.category} aria-hidden="true">
                     {leagueIssueIcon(issue.category, issue.title)}
                   </i>
-                  <p><span>{priority} · {scan.league.name} · {issue.category}</span><strong>{issue.title}</strong><small>{issue.detail}</small></p>
+                  <p><span>{priority} · {scan.league.name} · {issue.category}</span><strong>{issue.title}</strong>{issue.category !== "Waivers" && <small>{issue.detail}</small>}</p>
                   <div className="portfolio-action-buttons">
                     <button onClick={() => void onOpen(scan.league, actionView(issue.category))}>Review in Hub</button>
                     <a className="platform-link" href={platformLeagueUrl(scan.league)} onClick={(event) => openPlatformLeagueOnMobile(event, scan.league)} target="_blank" rel="noopener noreferrer" aria-label={`Open league in ${scan.league.provider === "espn" ? "ESPN" : "Sleeper"} (opens in a new tab)`}><PlatformLogo provider={scan.league.provider === "espn" ? "ESPN" : "Sleeper"} /><span>{scan.league.provider === "espn" ? "Open ESPN" : "Open Sleeper"}</span><b aria-hidden="true">↗</b></a>
