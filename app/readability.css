@@ -422,3 +422,74 @@ html[data-theme="dark"] .mission-tour-card,html[data-theme="dark"] .mission-tour
   .glossary-tour-replay { align-items: stretch; flex-direction: column; }
   .glossary-tour-replay button { width: 100%; }
 }
+
+/* Click-through onboarding: the app remains interactive and the coach card
+   stays between the iPhone notch and home indicator. */
+.mission-tour {
+  box-sizing: border-box;
+  inset: max(8px,calc(env(safe-area-inset-top) + 8px)) 8px max(8px,calc(env(safe-area-inset-bottom) + 8px));
+  width: auto;
+  height: auto;
+  min-height: 0;
+  padding: 0;
+  place-items: end center;
+  overflow: visible;
+  pointer-events: none;
+}
+.mission-tour-shade {
+  position: fixed;
+  inset: max(0px,env(safe-area-inset-top)) 0 max(0px,env(safe-area-inset-bottom));
+  background: rgb(2 13 9 / .28);
+  backdrop-filter: none;
+  pointer-events: none;
+}
+.mission-tour-card {
+  width: min(430px,100%);
+  max-height: min(46dvh,360px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  border-radius: 16px;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  pointer-events: auto;
+}
+.mission-tour-card > header { position: sticky; z-index: 5; top: 0; }
+.mission-tour-card > footer { position: sticky; z-index: 5; bottom: 0; background: var(--chalk); }
+.mission-tour-copy { padding: 16px; }
+.mission-tour-copy h2 { font-size: 20px; }
+.mission-tour-skip { color: var(--green); background: transparent; border: 1px solid var(--line); }
+.mission-tour-target,
+.app-shell.onboarding-tour-step-0 [data-tour="priority-inbox"],
+.app-shell.onboarding-tour-step-2 [data-tour="open-my-team"],
+.app-shell.onboarding-tour-step-3 [data-tour="player-detail"] {
+  position: relative;
+  z-index: 245;
+  outline: 3px solid var(--gold-light);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 7px rgb(var(--brand-secondary-rgb,241 180 50) / .24),0 12px 30px rgb(0 0 0 / .24);
+}
+html[data-theme="dark"] .mission-tour-card > footer { background: #20242c; }
+
+@media (max-width: 600px) {
+  .mission-tour {
+    display: grid;
+    flex-direction: initial;
+    justify-content: initial;
+    gap: 0;
+    width: auto;
+    height: auto;
+    min-height: 0;
+    padding: 0;
+    overflow: visible;
+  }
+  .mission-tour-card,
+  .mission-tour-1 .mission-tour-card {
+    width: 100%;
+    max-height: min(48dvh,360px);
+    flex: initial;
+    margin: 0;
+  }
+  .mission-tour-card > footer { align-items: center; flex-direction: row; }
+  .mission-tour-card > footer > span { display: flex; }
+  .mission-tour-exit { width: auto; }
+}

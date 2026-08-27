@@ -14,12 +14,12 @@ test("Mission Hub onboarding is versioned, dismissible, and runs over the real a
   assert.match(styles, /\.mission-tour \{ position: fixed/);
 });
 
-test("onboarding includes My Leagues and navigates to real tools", () => {
-  assert.match(source, /My Leagues onboarding preview/);
-  assert.match(source, /onNavigate\("My Team"\)/);
-  assert.match(source, /onNavigate\("Start \/ Sit"\)/);
-  assert.match(source, /onNavigate\("Player Rankings"\)/);
-  assert.match(source, /onNavigate\("Trade Lab"\)/);
+test("onboarding advances through real league, navigation, and player controls", () => {
+  assert.match(source, /data-tour="choose-league"/);
+  assert.match(source, /data-tour=\{item\.label === "My Team" \? "open-my-team"/);
+  assert.match(source, /data-tour=\{playerIndex === 0 \? "player-detail"/);
+  assert.match(source, /event\.target instanceof Element/);
+  assert.doesNotMatch(source, /My Leagues onboarding preview/);
 });
 
 test("Glossary can replay onboarding", () => {
@@ -28,9 +28,10 @@ test("Glossary can replay onboarding", () => {
 });
 
 test("the tour stays inside the iPhone safe viewport", () => {
-  assert.match(styles, /height: 100dvh/);
+  assert.match(styles, /inset: max\(8px,calc\(env\(safe-area-inset-top\) \+ 8px\)\) 8px max\(8px,calc\(env\(safe-area-inset-bottom\) \+ 8px\)\)/);
   assert.match(styles, /env\(safe-area-inset-top\)/);
   assert.match(styles, /env\(safe-area-inset-bottom\)/);
-  assert.match(styles, /\.mission-tour-1 \{ display: flex; flex-direction: column/);
+  assert.match(styles, /\.mission-tour-shade[\s\S]*pointer-events: none/);
+  assert.match(styles, /max-height: min\(48dvh,360px\)/);
   assert.match(styles, /\.mission-tour-card > header \{ position: sticky/);
 });
