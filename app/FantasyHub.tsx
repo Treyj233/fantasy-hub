@@ -5691,6 +5691,7 @@ function AllLeagueScoreboard({
   const [loading, setLoading] = useState(false);
   const [updatedAt, setUpdatedAt] = useState(() => initialPortfolioSnapshot?.updatedAt ?? "");
   const [expandedNeeds, setExpandedNeeds] = useState<Set<string>>(new Set());
+  const [scoresExpanded, setScoresExpanded] = useState(false);
   const [swingFeed, setSwingFeed] = useState<{ id: string; league: string; text: string; previous: number; current: number; at: string }[]>([]);
   const [pulseEvents, setPulseEvents] = useState<{ id: string; text: string; impact: "helps" | "hurts"; at: string }[]>([]);
   const previousOdds = useRef<Record<string, number>>({});
@@ -5968,6 +5969,8 @@ function AllLeagueScoreboard({
   const orderedLeagues = [...leagues].sort(
     (a, b) => dramaScore(matchupByLeague.get(b.id)) - dramaScore(matchupByLeague.get(a.id)),
   );
+  const visibleScoreLeagues = scoresExpanded ? orderedLeagues : orderedLeagues.slice(0, 2);
+  const hiddenScoreCount = Math.max(0, orderedLeagues.length - 2);
   const projectedWins = gameDay.matchups.filter((item) => (item.winProbability ?? 0) >= 50).length;
   const closest = [...gameDay.matchups].sort((a, b) => Math.abs((a.winProbability ?? 50) - 50) - Math.abs((b.winProbability ?? 50) - 50))[0];
   const statusPulseItems = [
@@ -6035,7 +6038,7 @@ function AllLeagueScoreboard({
         </div>
         <label>
           Week
-          <select value={week} onChange={(event) => { setExpandedNeeds(new Set()); setWeek(Number(event.target.value)); }}>
+          <select value={week} onChange={(event) => { setExpandedNeeds(new Set()); setScoresExpanded(false); setWeek(Number(event.target.value)); }}>
             {Array.from({ length: 18 }, (_, index) => index + 1).map((value) => <option key={value} value={value}>Week {value}</option>)}
           </select>
         </label>
@@ -6054,9 +6057,14 @@ function AllLeagueScoreboard({
         <button type="button" onClick={enterTvMode}>Full screen</button>
       </section>
       <section className="portfolio-score-rail" aria-label="Quick access to fantasy matchup scores">
-        <header><b>YOUR SCORES</b><small>{orderedLeagues.length} LEAGUES</small></header>
-        <div>
-          {orderedLeagues.map((league) => {
+        <header>
+          <span><b>YOUR SCORES</b><small>{scoresExpanded ? `${orderedLeagues.length} LEAGUES` : `TOP ${Math.min(2, orderedLeagues.length)} OF ${orderedLeagues.length}`}</small></span>
+          {hiddenScoreCount > 0 && <button className="score-rail-toggle" type="button" aria-expanded={scoresExpanded} aria-controls="portfolio-score-list" onClick={() => setScoresExpanded((current) => !current)}>
+            {scoresExpanded ? "Show top 2" : `Show ${hiddenScoreCount} more`} <i aria-hidden="true">⌄</i>
+          </button>}
+        </header>
+        <div id="portfolio-score-list">
+          {visibleScoreLeagues.map((league) => {
             const matchup = gameDay.matchups.find((item) => item.league.id === league.id);
             if (!matchup) return <button className="pending" type="button" key={league.id} onClick={() => scrollToLeagueScore(league.id)}><span><i /> {league.name}</span><strong>Matchup pending</strong></button>;
             const margin = Math.abs(matchup.mine.points - matchup.opponent.points);

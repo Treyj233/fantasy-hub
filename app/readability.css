@@ -20,6 +20,53 @@
   overflow: hidden;
   white-space: normal;
 }
+
+/* Keep the matchup shortcut rail compact until the user asks to see every league. */
+.portfolio-score-rail > header { width: 112px; }
+.portfolio-score-rail > header > span {
+  display: block;
+  min-width: 0;
+}
+.portfolio-score-rail > header > span > b,
+.portfolio-score-rail > header > span > small {
+  display: block;
+}
+.portfolio-score-rail > header > .score-rail-toggle {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  min-height: 30px;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin-top: 7px;
+  padding: 6px 7px;
+  color: var(--green);
+  background: color-mix(in srgb,var(--gold) 14%,var(--chalk));
+  border-color: color-mix(in srgb,var(--gold) 60%,var(--line));
+  font-size: 10px;
+  font-weight: 950;
+  line-height: 1;
+  white-space: nowrap;
+}
+.portfolio-score-rail > header > .score-rail-toggle > i {
+  font-style: normal;
+  transition: transform .18s ease;
+}
+.portfolio-score-rail > header > .score-rail-toggle[aria-expanded="true"] > i {
+  transform: rotate(180deg);
+}
+@media (max-width: 700px) {
+  .portfolio-score-rail > header { width: auto; }
+  .portfolio-score-rail > header > span { margin-right: auto; }
+  .portfolio-score-rail > header > .score-rail-toggle {
+    width: auto;
+    min-height: 32px;
+    margin-top: 0;
+    margin-left: 10px;
+    padding: 7px 10px;
+  }
+}
 .matchup-team > span > b,
 .matchup-team > span > small {
   display: block;
