@@ -10970,7 +10970,7 @@ function HeadToHeadMatchup({
         <>
           <section className="head-to-head-score panel">
             <div><small>{firstTeam.isMine ? "YOU" : firstTeam.teamName}</small><ScoreWithProjection team={firstTeam} /></div>
-            <span><b>{matchup.status === "Live" ? "● LIVE" : matchup.status}</b><i>VS</i><small>Week {data?.week}</small></span>
+            <span className={matchup.status === "Scheduled" ? "game-scheduled" : ""}><b>{matchup.status === "Live" ? "● LIVE" : matchup.status}</b><i>VS</i><small>Week {data?.week}</small></span>
             <div><small>{secondTeam.isMine ? "YOU" : secondTeam.teamName}</small><ScoreWithProjection team={secondTeam} /></div>
           </section>
           <div className="head-to-head-grid">

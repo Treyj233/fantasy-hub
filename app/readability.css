@@ -193,6 +193,15 @@
   box-shadow: 0 6px 16px rgb(0 0 0 / .09);
   transform: none;
 }
+.head-to-head-score > span.game-scheduled > b {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 9px;
+  letter-spacing: -.01em;
+  line-height: 1.1;
+  text-overflow: clip;
+  white-space: nowrap;
+}
 @media (max-width: 600px) {
   .head-to-head-score {
     grid-template-columns: minmax(0, 1fr) 64px minmax(0, 1fr);
