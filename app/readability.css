@@ -12,6 +12,30 @@
 .playoff-bracket article strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .waiver-list > header > span { min-width: 90px; }
 
+/* Keep the opponent-strength meter readable inside roster, ranking, and
+   comparison cards without letting its enlarged labels escape the badge. */
+.matchup-team { max-width: 100%; }
+.matchup-team > span {
+  min-width: 0;
+  overflow: hidden;
+  white-space: normal;
+}
+.matchup-team > span > b,
+.matchup-team > span > small {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.matchup-team > span > small {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 850;
+  line-height: 1.15;
+}
+
 @media (max-width: 1300px) and (min-width: 701px) {
   .trade-controls { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   .trade-controls > p { grid-column: 1 / -1; }

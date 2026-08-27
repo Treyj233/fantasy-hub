@@ -1313,7 +1313,11 @@ function MatchupBadge({ player }: { player: Pick<Player, "position" | "opponent"
       title={`${player.matchupSourceSeason ?? new Date().getUTCFullYear() - 1} ${matchupPosition(player.position)} matchup: ${strength.label}, ${strength.rank}${strength.rank === 1 ? "st" : strength.rank === 2 ? "nd" : strength.rank === 3 ? "rd" : "th"} most ${matchupPointsLabel(matchupPosition(player.position))} (${strength.pointsAllowed.toFixed(1)} per game)`}
     >
       <b>{player.opponent}</b>
-      <span><i /><b>{strength.label}</b> · #{strength.rank} vs {matchupPosition(player.position)}</span>
+      <span>
+        <i />
+        <b>{strength.label}</b>
+        <small>#{strength.rank} vs {matchupPosition(player.position)}</small>
+      </span>
     </span>
   );
 }
