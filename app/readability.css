@@ -123,9 +123,9 @@
 }
 .head-to-head-matchup > .matchup-team > span,
 .start-sit-option .compare-card > .matchup-team > span {
-  padding-right: 4px;
-  padding-left: 12px;
-  text-align: right;
+  padding-right: 8px;
+  padding-left: 8px;
+  text-align: center;
 }
 .head-to-head-matchup > small { max-width: 100%; }
 .head-to-head-player > .player-temperature {
