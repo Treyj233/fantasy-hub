@@ -110,17 +110,26 @@
 
 /* My Team gives opponent strength a useful horizontal read and keeps weather
    as secondary context directly beneath the meter. */
-.roster-section .roster-matchup-cell { min-width: 250px; }
+.roster-section .roster-matchup-cell { min-width: 225px; }
 .roster-section .roster-matchup-details {
   display: grid;
-  width: min(100%, 300px);
-  min-width: 220px;
+  width: min(100%, 260px);
+  min-width: 200px;
   gap: 5px;
 }
 .roster-section .roster-matchup-details > .matchup-team {
   width: 100%;
   min-width: 0;
-  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-columns: minmax(54px, auto) minmax(110px, 1fr);
+  padding-left: 9px;
+}
+.roster-section .roster-matchup-details > .matchup-team > b {
+  margin-left: 2px;
+}
+.roster-section .roster-matchup-details > .matchup-team > span {
+  padding-right: 4px;
+  padding-left: 4px;
+  text-align: center;
 }
 .roster-section .roster-matchup-details > .roster-weather {
   width: 100%;
@@ -134,7 +143,7 @@
     align-items: stretch;
   }
   .roster-section .roster-matchup-details {
-    width: 100%;
+    width: min(100%, 260px);
     min-width: 0;
   }
   .roster-section .roster-matchup-details > .roster-weather {
