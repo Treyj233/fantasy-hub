@@ -1720,6 +1720,7 @@ export default function FantasyHub({
   const [needsOnboarding, setNeedsOnboarding] = useState(cachedAccount?.preferences ? !cachedAccount.preferences.onboardingCompletedAt : false);
   const [onboardingTourOpen, setOnboardingTourOpen] = useState(false);
   const [onboardingTourStep, setOnboardingTourStep] = useState(0);
+  const [onboardingTourEligible, setOnboardingTourEligible] = useState(() => typeof window !== "undefined" && (isNativeIosApp() || window.matchMedia("(max-width: 700px)").matches));
   const [theme, setTheme] = useState<Theme>(() => {
     if (typeof window === "undefined") return "light";
     const savedTheme = cachedAccount?.preferences?.colorMode ?? window.localStorage.getItem("fantasy-hub-theme");
@@ -1773,7 +1774,23 @@ export default function FantasyHub({
   useEffect(() => initializeNativeRuntime(), []);
 
   useEffect(() => {
-    if (!accountUser || accountLoading || onboardingTourChecked.current) return;
+    if (isNativeIosApp()) {
+      setOnboardingTourEligible(true);
+      return;
+    }
+    const phoneViewport = window.matchMedia("(max-width: 700px)");
+    const updateEligibility = () => setOnboardingTourEligible(phoneViewport.matches);
+    updateEligibility();
+    phoneViewport.addEventListener("change", updateEligibility);
+    return () => phoneViewport.removeEventListener("change", updateEligibility);
+  }, []);
+
+  useEffect(() => {
+    if (!onboardingTourEligible) setOnboardingTourOpen(false);
+  }, [onboardingTourEligible]);
+
+  useEffect(() => {
+    if (!accountUser || accountLoading || !onboardingTourEligible || onboardingTourChecked.current) return;
     onboardingTourChecked.current = true;
     const tourKey = `fantasy-hub-mission-tour-v1:${accountUser.email.trim().toLowerCase()}`;
     if (window.localStorage.getItem(tourKey) === "complete") return;
@@ -1788,7 +1805,7 @@ export default function FantasyHub({
       setOnboardingTourOpen(true);
     }, 0);
     return () => { cancelled = true; };
-  }, [accountLoading, accountUser, needsOnboarding]);
+  }, [accountLoading, accountUser, needsOnboarding, onboardingTourEligible]);
 
   useEffect(() => {
     if (!onboardingTourOpen) return;
@@ -2241,6 +2258,7 @@ export default function FantasyHub({
   }
 
   function startOnboardingTour() {
+    if (!onboardingTourEligible) return;
     setView("All Leagues");
     setSidebarCollapsed(false);
     setMobileNavOpen(false);
@@ -3507,7 +3525,7 @@ export default function FantasyHub({
           ) : (
             rosterEmptyState
           ))}
-        {view === "Glossary" && <Glossary onNavigate={setView} onStartOnboarding={startOnboardingTour} />}
+        {view === "Glossary" && <Glossary onNavigate={setView} onStartOnboarding={startOnboardingTour} showOnboarding={onboardingTourEligible} />}
         {view === "Theme Locker" && (
           <ThemeStore
             teamTheme={effectiveTeamTheme}
@@ -3550,7 +3568,7 @@ export default function FantasyHub({
         {view === "My Account" && <AccessAccount accountUser={accountUser} entitlement={entitlement} onPlans={() => setView("Fantasy Hub Pro")} />}
       </section>
 
-      {onboardingTourOpen && (
+      {onboardingTourEligible && onboardingTourOpen && (
         <MissionHubOnboarding
           step={onboardingTourStep}
           displayName={accountUser.displayName}
@@ -3682,7 +3700,7 @@ function MissionHubOnboarding({ step, displayName, onStep, onNavigate, onExit }:
   );
 }
 
-function Glossary({ onNavigate, onStartOnboarding }: { onNavigate: (view: View) => void; onStartOnboarding: () => void }) {
+function Glossary({ onNavigate, onStartOnboarding, showOnboarding }: { onNavigate: (view: View) => void; onStartOnboarding: () => void; showOnboarding: boolean }) {
   const categories = mobileCategoryNav.map((category) => ({
     ...category,
     leadPage: nav.find((item) => item.label === category.lead)!,
@@ -3704,7 +3722,7 @@ function Glossary({ onNavigate, onStartOnboarding }: { onNavigate: (view: View) 
           </a>
         ))}
       </nav>
-      <section className="glossary-tour-replay panel"><div><span>NEW HERE—or need a refresher?</span><strong>Replay the guided Fantasy Hub tour</strong><small>Walk through Mission Hub, My Leagues, navigation, and interactive insights.</small></div><button type="button" onClick={onStartOnboarding}>Replay onboarding →</button></section>
+      {showOnboarding && <section className="glossary-tour-replay panel"><div><span>NEW HERE—or need a refresher?</span><strong>Replay the guided Fantasy Hub tour</strong><small>Walk through Mission Hub, My Leagues, navigation, and interactive insights.</small></div><button type="button" onClick={onStartOnboarding}>Replay onboarding →</button></section>}
       <div className="glossary-groups">
         {categories.map((category) => (
           <section className="panel glossary-group" id={`glossary-${category.group.toLowerCase().replaceAll(" ", "-")}`} key={category.group}>

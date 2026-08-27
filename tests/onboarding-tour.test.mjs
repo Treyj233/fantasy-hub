@@ -27,6 +27,12 @@ test("Glossary can replay onboarding", () => {
   assert.match(source, /Replay onboarding/);
 });
 
+test("desktop web does not open or advertise onboarding", () => {
+  assert.match(source, /isNativeIosApp\(\) \|\| window\.matchMedia\("\(max-width: 700px\)"\)\.matches/);
+  assert.match(source, /if \(!onboardingTourEligible\) setOnboardingTourOpen\(false\)/);
+  assert.match(source, /\{showOnboarding && <section className="glossary-tour-replay panel">/);
+});
+
 test("the tour stays inside the iPhone safe viewport", () => {
   assert.match(source, /window\.visualViewport/);
   assert.match(source, /safeBottom - cardHeight/);
