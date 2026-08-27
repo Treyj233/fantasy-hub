@@ -31,7 +31,7 @@
 .matchup-team > span > small {
   margin-top: 2px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 11px !important;
   font-weight: 850;
   line-height: 1.15;
 }
@@ -44,6 +44,38 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* Pro Trade Finder was designed around 5–9px labels. Let its cards grow with
+   the app readability floor instead of preserving that compressed type. */
+.trade-recommendation-picker > header > small,
+.trade-position-filter > div:first-child small,
+.trade-finder-label > small,
+.trade-partner-grid > button > span small {
+  font-size: 11px !important;
+  line-height: 1.35;
+}
+.trade-position-filter > div:first-child b,
+.trade-finder-label > b,
+.trade-partner-grid > button > span strong,
+.trade-position-filter button,
+.trade-finder-empty {
+  font-size: 12px !important;
+  line-height: 1.25;
+}
+.trade-partner-grid > button > b small {
+  font-size: 10px !important;
+}
+.trade-recommendation-picker .suggestion-tabs button > span {
+  font-size: 11px !important;
+}
+.trade-recommendation-picker .suggestion-tabs button > strong {
+  font-size: 14px !important;
+}
+.trade-recommendation-picker .suggestion-tabs button > small,
+.trade-recommendation-picker .suggestion-tabs button > em {
+  font-size: 12px !important;
+  line-height: 1.4;
 }
 
 @media (max-width: 1300px) and (min-width: 701px) {
