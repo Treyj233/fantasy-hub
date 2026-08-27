@@ -170,8 +170,24 @@ html[data-theme="dark"] .mission-tour-card,html[data-theme="dark"] .mission-tour
   .mission-tour-1 .mission-tour-card { margin-top: 43vh; }
 }
 @media (max-width: 600px) {
-  .mission-tour { padding: 8px; }
-  .mission-tour-card { width: calc(100vw - 16px); max-height: calc(100svh - 16px); overflow-y: auto; border-radius: 16px; }
+  .mission-tour {
+    box-sizing: border-box;
+    width: 100vw;
+    height: 100dvh;
+    min-height: 100svh;
+    padding: max(8px,env(safe-area-inset-top)) 8px max(8px,env(safe-area-inset-bottom));
+    overflow: hidden;
+  }
+  .mission-tour-card {
+    width: calc(100vw - 16px);
+    max-height: calc(100dvh - max(8px,env(safe-area-inset-top)) - max(8px,env(safe-area-inset-bottom)));
+    overflow-x: hidden;
+    overflow-y: auto;
+    border-radius: 16px;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+  .mission-tour-card > header { position: sticky; z-index: 5; top: 0; }
   .mission-tour-copy { padding: 17px 16px 15px; }
   .mission-tour-copy h2 { font-size: 21px; }
   .mission-tour-actions { grid-template-columns: 1fr; }
@@ -179,8 +195,21 @@ html[data-theme="dark"] .mission-tour-card,html[data-theme="dark"] .mission-tour
   .mission-tour-card > footer > span { display: grid; grid-template-columns: auto minmax(0,1fr); }
   .mission-tour-card > footer > span > .mission-tour-next:only-child { grid-column: 1/-1; }
   .mission-tour-exit { width: 100%; }
-  .mission-tour-leagues { max-height: 39vh; }
-  .mission-tour-1 .mission-tour-card { max-height: 57vh; margin-top: 40vh; }
+  .mission-tour-1 { display: flex; flex-direction: column; justify-content: flex-end; gap: 8px; }
+  .mission-tour-1 .mission-tour-leagues {
+    position: relative;
+    inset: auto;
+    width: 100%;
+    min-height: 0;
+    max-height: none;
+    flex: 1 1 auto;
+  }
+  .mission-tour-1 .mission-tour-card {
+    width: 100%;
+    max-height: 58%;
+    flex: 0 1 auto;
+    margin: 0;
+  }
   .mission-tour-leagues > header { padding: 12px 14px; }
   .mission-tour-leagues > div { gap: 5px; padding: 8px; }
   .mission-tour-leagues article { padding: 8px 9px; }

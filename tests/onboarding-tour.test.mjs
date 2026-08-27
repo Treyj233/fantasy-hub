@@ -26,3 +26,11 @@ test("Glossary can replay onboarding", () => {
   assert.match(source, /onStartOnboarding=\{startOnboardingTour\}/);
   assert.match(source, /Replay onboarding/);
 });
+
+test("the tour stays inside the iPhone safe viewport", () => {
+  assert.match(styles, /height: 100dvh/);
+  assert.match(styles, /env\(safe-area-inset-top\)/);
+  assert.match(styles, /env\(safe-area-inset-bottom\)/);
+  assert.match(styles, /\.mission-tour-1 \{ display: flex; flex-direction: column/);
+  assert.match(styles, /\.mission-tour-card > header \{ position: sticky/);
+});
