@@ -6244,7 +6244,9 @@ function AllLeagueScoreboard({
           const matchup = data?.matchups.find((item) => item.teams.some((team) => team.isMine));
           const mine = matchup?.teams.find((team) => team.isMine);
           const opponent = matchup?.teams.find((team) => !team.isMine);
-          const leader = mine && opponent ? (mine.points >= opponent.points ? mine.rosterId : opponent.rosterId) : "";
+          const leader = matchup?.status === "Live" && mine && opponent && mine.points !== opponent.points
+            ? (mine.points > opponent.points ? mine.rosterId : opponent.rosterId)
+            : "";
           const consequence = gameDay.matchups.find((item) => item.league.id === league.id);
           const need = consequence ? whatDoINeed({ yourPoints: consequence.mine.points, opponentPoints: consequence.opponent.points, opponentRemaining: consequence.opponentRemaining, players: consequence.mineStarters, scoring: consequence.data.league.scoring ?? {} }) : null;
           const winProbability = consequence?.winProbability ?? null;
@@ -6417,7 +6419,7 @@ function Scoreboard({
           const away = matchup.teams[0];
           const home = matchup.teams[1];
           const leader =
-            home && away
+            matchup.status === "Live" && home && away && away.points !== home.points
               ? away.points > home.points
                 ? away.rosterId
                 : home.rosterId
@@ -10862,8 +10864,8 @@ function HeadToHeadMatchup({
   const firstTeam = orderedTeams[0];
   const secondTeam = orderedTeams[1];
   const leaderId =
-    firstTeam && secondTeam
-      ? firstTeam.points >= secondTeam.points
+    matchup?.status === "Live" && firstTeam && secondTeam && firstTeam.points !== secondTeam.points
+      ? firstTeam.points > secondTeam.points
         ? firstTeam.rosterId
         : secondTeam.rosterId
       : "";
