@@ -10777,8 +10777,8 @@ function HeadToHeadMatchup({
             </small>
           </p>
           <span className="head-to-head-matchup">
-            <MatchupBadge player={enriched} />
             {enriched.weatherSummary && <small>☁ {enriched.weatherSummary}</small>}
+            <MatchupBadge player={enriched} />
           </span>
           <span className={`player-temperature ${temperature.state}`} title={`${player.name}: ${temperature.label} based on live fantasy points versus projection`}>
             <span className="temperature-label"><b>❄ ICE</b><strong>{temperature.label}</strong><b>FIRE 🔥</b></span>
