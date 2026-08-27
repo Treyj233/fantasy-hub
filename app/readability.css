@@ -527,3 +527,113 @@ html[data-theme="dark"] .mission-tour-card > footer { background: #20242c; }
   font-weight: 800;
   text-decoration: underline;
 }
+
+/* Polished mobile tour shell and safe-area measuring probe. */
+.mission-tour-safe-area {
+  position: fixed;
+  visibility: hidden;
+  padding: max(12px,calc(env(safe-area-inset-top) + 10px)) max(12px,calc(env(safe-area-inset-right) + 10px)) max(12px,calc(env(safe-area-inset-bottom) + 10px)) max(12px,calc(env(safe-area-inset-left) + 10px));
+  pointer-events: none;
+}
+.mission-tour-card {
+  border-color: color-mix(in srgb,var(--gold) 58%,var(--line));
+  animation: mission-tour-pop .22s cubic-bezier(.2,.8,.2,1);
+}
+.mission-tour-card.mission-tour-prompt::before {
+  position: absolute;
+  z-index: 6;
+  width: 12px;
+  height: 12px;
+  background: var(--chalk);
+  border: solid color-mix(in srgb,var(--gold) 58%,var(--line));
+  content: "";
+  transform: rotate(45deg);
+}
+.mission-tour-placement-below.mission-tour-prompt::before {
+  top: -7px;
+  left: calc(50% - 6px);
+  border-width: 1px 0 0 1px;
+}
+.mission-tour-placement-above.mission-tour-prompt::before {
+  bottom: -7px;
+  left: calc(50% - 6px);
+  border-width: 0 1px 1px 0;
+}
+.mission-tour-placement-right.mission-tour-prompt::before {
+  top: calc(50% - 6px);
+  left: -7px;
+  border-width: 0 0 1px 1px;
+}
+.mission-tour-placement-left.mission-tour-prompt::before {
+  top: calc(50% - 6px);
+  right: -7px;
+  border-width: 1px 1px 0 0;
+}
+.mission-tour-welcome,.mission-tour-complete { text-align: center; }
+.mission-tour-welcome-mark {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  margin: 0 auto 10px;
+  place-items: center;
+  color: var(--gold-light);
+  background: linear-gradient(145deg,var(--green),var(--deep));
+  border: 2px solid var(--gold);
+  border-radius: 13px;
+  box-shadow: 0 8px 18px rgb(0 0 0 / .18);
+  font-size: 14px;
+  font-style: normal;
+  font-weight: 950;
+}
+.mission-tour-route {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 13px;
+}
+.mission-tour-route b {
+  padding: 5px 7px;
+  color: var(--green);
+  background: color-mix(in srgb,var(--green) 7%,var(--chalk));
+  border: 1px solid color-mix(in srgb,var(--green) 22%,var(--line));
+  border-radius: 7px;
+  font-size: 10px;
+}
+.mission-tour-route i { color: var(--gold); font-size: 11px; font-style: normal; font-weight: 950; }
+.mission-tour-complete > i {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  margin: 0 auto 9px;
+  place-items: center;
+  color: #fff;
+  background: var(--green);
+  border-radius: 50%;
+  box-shadow: 0 0 0 6px color-mix(in srgb,var(--green) 12%,transparent);
+  font-size: 20px;
+  font-style: normal;
+  font-weight: 950;
+}
+.mission-tour-complete > small { display: block; margin-top: 9px; color: var(--green); font-size: 10px; font-weight: 900; }
+.mission-tour-target,
+.app-shell.onboarding-tour-step-0 [data-tour="priority-inbox"],
+.app-shell.onboarding-tour-step-2 [data-tour="open-my-team"],
+.app-shell.onboarding-tour-step-3 [data-tour="player-detail"] {
+  animation: mission-tour-target-pulse 1.35s ease-in-out infinite;
+}
+@keyframes mission-tour-pop {
+  from { opacity: 0; transform: translateY(5px) scale(.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes mission-tour-target-pulse {
+  0%,100% { outline-color: var(--gold-light); }
+  50% { outline-color: var(--gold); box-shadow: 0 0 0 9px rgb(var(--brand-secondary-rgb,241 180 50) / .14),0 10px 26px rgb(0 0 0 / .2); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mission-tour-card,
+  .mission-tour-target,
+  .app-shell.onboarding-tour-step-0 [data-tour="priority-inbox"],
+  .app-shell.onboarding-tour-step-2 [data-tour="open-my-team"],
+  .app-shell.onboarding-tour-step-3 [data-tour="player-detail"] { animation: none; }
+}

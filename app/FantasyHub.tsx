@@ -3601,7 +3601,9 @@ function MissionHubOnboarding({ step, displayName, onStep, onNavigate, onExit }:
   const totalSteps = 5;
   const isTaskStep = step >= 1 && step <= 3;
   const cardRef = useRef<HTMLElement>(null);
+  const safeAreaRef = useRef<HTMLElement>(null);
   const [popoverStyle, setPopoverStyle] = useState<CSSProperties>({ top: 16, right: 12 });
+  const [popoverPlacement, setPopoverPlacement] = useState<"above" | "below" | "left" | "right" | "center">("center");
   const tourTarget = step === 0 ? "priority-inbox" : step === 1 ? "choose-league" : step === 2 ? "open-my-team" : step === 3 ? "player-detail" : "";
   const next = useCallback(() => onStep(Math.min(totalSteps - 1, step + 1)), [onStep, step]);
   const back = () => {
@@ -3631,38 +3633,62 @@ function MissionHubOnboarding({ step, displayName, onStep, onNavigate, onExit }:
     const positionPopover = () => {
       const card = cardRef.current;
       const viewport = window.visualViewport;
-      const safeTop = (viewport?.offsetTop ?? 0) + 12;
-      const safeBottom = (viewport?.offsetTop ?? 0) + (viewport?.height ?? window.innerHeight) - 12;
+      const safeArea = safeAreaRef.current ? getComputedStyle(safeAreaRef.current) : null;
+      const insetTop = Number.parseFloat(safeArea?.paddingTop ?? "12") || 12;
+      const insetRight = Number.parseFloat(safeArea?.paddingRight ?? "12") || 12;
+      const insetBottom = Number.parseFloat(safeArea?.paddingBottom ?? "12") || 12;
+      const insetLeft = Number.parseFloat(safeArea?.paddingLeft ?? "12") || 12;
+      const viewportTop = viewport?.offsetTop ?? 0;
+      const viewportLeft = viewport?.offsetLeft ?? 0;
+      const viewportWidth = viewport?.width ?? window.innerWidth;
+      const safeTop = viewportTop + insetTop;
+      const safeRight = viewportLeft + viewportWidth - insetRight;
+      const safeBottom = viewportTop + (viewport?.height ?? window.innerHeight) - insetBottom;
+      const safeLeft = viewportLeft + insetLeft;
       const cardWidth = card?.offsetWidth ?? Math.min(320, window.innerWidth - 24);
       const cardHeight = card?.offsetHeight ?? 230;
       const clamp = (value: number, minimum: number, maximum: number) => Math.max(minimum, Math.min(value, maximum));
       const target = tourTarget ? document.querySelector<HTMLElement>(`[data-tour="${tourTarget}"]`) : null;
 
-      if (!target) {
-        setPopoverStyle({ top: safeTop, right: 12 });
-        return;
-      }
-
-      const rect = target.getBoundingClientRect();
-      const horizontalRoom = window.innerWidth >= 720;
-      if (horizontalRoom) {
-        const placeRight = rect.right + cardWidth + 14 <= window.innerWidth - 12;
-        const left = placeRight ? rect.right + 14 : rect.left - cardWidth - 14;
+      if (!target || !isTaskStep) {
+        setPopoverPlacement("center");
         setPopoverStyle({
-          top: clamp(rect.top, safeTop, Math.max(safeTop, safeBottom - cardHeight)),
-          left: clamp(left, 12, window.innerWidth - cardWidth - 12),
+          top: clamp(safeTop + (safeBottom - safeTop - cardHeight) / 2, safeTop, Math.max(safeTop, safeBottom - cardHeight)),
+          left: clamp(safeLeft + (safeRight - safeLeft - cardWidth) / 2, safeLeft, Math.max(safeLeft, safeRight - cardWidth)),
         });
         return;
       }
 
+      const rect = target.getBoundingClientRect();
+      const gap = 14;
       const roomAbove = rect.top - safeTop;
       const roomBelow = safeBottom - rect.bottom;
-      const preferredTop = roomBelow >= cardHeight + 12 || roomBelow >= roomAbove
-        ? rect.bottom + 12
-        : rect.top - cardHeight - 12;
+      const roomLeft = rect.left - safeLeft;
+      const roomRight = safeRight - rect.right;
+
+      if (roomBelow >= cardHeight + gap || roomBelow >= roomAbove) {
+        setPopoverPlacement("below");
+        setPopoverStyle({
+          top: clamp(rect.bottom + gap, safeTop, Math.max(safeTop, safeBottom - cardHeight)),
+          left: clamp(rect.left + rect.width / 2 - cardWidth / 2, safeLeft, Math.max(safeLeft, safeRight - cardWidth)),
+        });
+        return;
+      }
+      if (roomAbove >= cardHeight + gap) {
+        setPopoverPlacement("above");
+        setPopoverStyle({
+          top: clamp(rect.top - cardHeight - gap, safeTop, Math.max(safeTop, safeBottom - cardHeight)),
+          left: clamp(rect.left + rect.width / 2 - cardWidth / 2, safeLeft, Math.max(safeLeft, safeRight - cardWidth)),
+        });
+        return;
+      }
+      const placeRight = roomRight >= cardWidth + gap || roomRight >= roomLeft;
+      setPopoverPlacement(placeRight ? "right" : "left");
       setPopoverStyle({
-        top: clamp(preferredTop, safeTop, Math.max(safeTop, safeBottom - cardHeight)),
-        left: clamp(rect.left + rect.width / 2 - cardWidth / 2, 12, window.innerWidth - cardWidth - 12),
+        top: clamp(rect.top + rect.height / 2 - cardHeight / 2, safeTop, Math.max(safeTop, safeBottom - cardHeight)),
+        left: placeRight
+          ? clamp(rect.right + gap, safeLeft, Math.max(safeLeft, safeRight - cardWidth))
+          : clamp(rect.left - cardWidth - gap, safeLeft, Math.max(safeLeft, safeRight - cardWidth)),
       });
     };
 
@@ -3677,22 +3703,23 @@ function MissionHubOnboarding({ step, displayName, onStep, onNavigate, onExit }:
       window.removeEventListener("scroll", positionPopover, true);
       window.visualViewport?.removeEventListener("resize", positionPopover);
     };
-  }, [step, tourTarget]);
+  }, [isTaskStep, step, tourTarget]);
 
   return createPortal(
     <div className={`mission-tour mission-tour-${step}`} role="region" aria-live="polite" aria-labelledby="mission-tour-title">
-      <section className={`mission-tour-card${isTaskStep ? " mission-tour-prompt" : ""}`} ref={cardRef} style={popoverStyle}>
+      <i className="mission-tour-safe-area" ref={safeAreaRef} aria-hidden="true" />
+      <section className={`mission-tour-card mission-tour-placement-${popoverPlacement}${isTaskStep ? " mission-tour-prompt" : ""}`} ref={cardRef} style={popoverStyle}>
         <header>
           <div><span>{isTaskStep ? `STEP ${step + 1} OF ${totalSteps}` : `FANTASY HUB TOUR · ${step + 1} OF ${totalSteps}`}</span>{!isTaskStep && <div className="mission-tour-progress" aria-label={`Onboarding step ${step + 1} of ${totalSteps}`}>{Array.from({ length: totalSteps }, (_, index) => <i className={index <= step ? "active" : ""} key={index} />)}</div>}</div>
           <button type="button" aria-label="Exit onboarding" onClick={onExit}>×</button>
         </header>
-        {step === 0 && <div className="mission-tour-copy"><span>WELCOME TO YOUR MISSION HUB</span><h2 id="mission-tour-title">{displayName ? `${displayName}, your leagues are ready.` : "Your leagues are ready."}</h2><p>This is a click-through tour of the actual app. We’ll highlight real controls while you use them.</p><div className="mission-tour-insight"><b>START HERE</b><strong>Mission Hub ranks what needs your attention first.</strong><small>Lineup risks, waivers, trades, injuries, and live matchups rise automatically.</small></div></div>}
+        {step === 0 && <div className="mission-tour-copy mission-tour-welcome"><i className="mission-tour-welcome-mark" aria-hidden="true">FH</i><span>READY FOR KICKOFF</span><h2 id="mission-tour-title">{displayName ? `Welcome, ${displayName.split(" ")[0]}.` : "Welcome to Fantasy Hub."}</h2><p>Take a quick guided lap through your real app. You’ll make every tap yourself.</p><div className="mission-tour-route" aria-label="Tour route"><b>League</b><i>→</i><b>My Team</b><i>→</i><b>Player</b></div></div>}
         {step === 1 && <div className="mission-tour-command"><b id="mission-tour-title">Tap a league to continue</b><small>Choose any league in the open tray.</small></div>}
         {step === 2 && <div className="mission-tour-command"><b id="mission-tour-title">Tap My Team to continue</b><small>Use the highlighted navigation button.</small></div>}
         {step === 3 && <div className="mission-tour-command"><b id="mission-tour-title">Tap a player to continue</b><small>Choose the highlighted roster row.</small></div>}
-        {step === 4 && <div className="mission-tour-copy"><span>YOU’RE READY</span><h2 id="mission-tour-title">Let the Mission Hub set the agenda.</h2><p>Return here first, work down the prioritized inbox, then use the deeper tools when a decision needs more context.</p><div className="mission-tour-insight"><b>REPLAY ANYTIME</b><strong>Open Glossary → Replay onboarding.</strong><small>Exiting now also marks this tour complete, so it won’t interrupt your next login.</small></div></div>}
+        {step === 4 && <div className="mission-tour-copy mission-tour-complete"><i aria-hidden="true">✓</i><span>TOUR COMPLETE</span><h2 id="mission-tour-title">You’re ready to run the Hub.</h2><p>Start with the Mission Hub, then open a tool whenever a decision needs a deeper look.</p><small>Replay anytime from Glossary.</small></div>}
         {isTaskStep ? <button type="button" className="mission-tour-prompt-skip" onClick={next}>Skip</button> : <footer>
-          <button type="button" className="mission-tour-exit" onClick={onExit}>Exit tour</button>
+          <button type="button" className="mission-tour-exit" onClick={onExit}>{step === 0 ? "Maybe later" : "Exit tour"}</button>
           <span>{step > 0 && <button type="button" className="mission-tour-back" onClick={back}>Back</button>}{step === 0 ? <button type="button" className="mission-tour-next" onClick={next}>Start walkthrough →</button> : <button type="button" className="mission-tour-next" onClick={() => { onNavigate("All Leagues"); onExit(); }}>Finish on Mission Hub →</button>}</span>
         </footer>}
       </section>
