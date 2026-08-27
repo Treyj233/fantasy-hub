@@ -3599,6 +3599,7 @@ export default function FantasyHub({
 
 function MissionHubOnboarding({ step, displayName, onStep, onNavigate, onExit }: { step: number; displayName: string; onStep: (step: number) => void; onNavigate: (view: View) => void; onExit: () => void }) {
   const totalSteps = 5;
+  const isTaskStep = step >= 1 && step <= 3;
   const cardRef = useRef<HTMLElement>(null);
   const [popoverStyle, setPopoverStyle] = useState<CSSProperties>({ top: 16, right: 12 });
   const tourTarget = step === 0 ? "priority-inbox" : step === 1 ? "choose-league" : step === 2 ? "open-my-team" : step === 3 ? "player-detail" : "";
@@ -3680,20 +3681,20 @@ function MissionHubOnboarding({ step, displayName, onStep, onNavigate, onExit }:
 
   return createPortal(
     <div className={`mission-tour mission-tour-${step}`} role="region" aria-live="polite" aria-labelledby="mission-tour-title">
-      <section className="mission-tour-card" ref={cardRef} style={popoverStyle}>
+      <section className={`mission-tour-card${isTaskStep ? " mission-tour-prompt" : ""}`} ref={cardRef} style={popoverStyle}>
         <header>
-          <div><span>FANTASY HUB TOUR · {step + 1} OF {totalSteps}</span><div className="mission-tour-progress" aria-label={`Onboarding step ${step + 1} of ${totalSteps}`}>{Array.from({ length: totalSteps }, (_, index) => <i className={index <= step ? "active" : ""} key={index} />)}</div></div>
+          <div><span>{isTaskStep ? `STEP ${step + 1} OF ${totalSteps}` : `FANTASY HUB TOUR · ${step + 1} OF ${totalSteps}`}</span>{!isTaskStep && <div className="mission-tour-progress" aria-label={`Onboarding step ${step + 1} of ${totalSteps}`}>{Array.from({ length: totalSteps }, (_, index) => <i className={index <= step ? "active" : ""} key={index} />)}</div>}</div>
           <button type="button" aria-label="Exit onboarding" onClick={onExit}>×</button>
         </header>
         {step === 0 && <div className="mission-tour-copy"><span>WELCOME TO YOUR MISSION HUB</span><h2 id="mission-tour-title">{displayName ? `${displayName}, your leagues are ready.` : "Your leagues are ready."}</h2><p>This is a click-through tour of the actual app. We’ll highlight real controls while you use them.</p><div className="mission-tour-insight"><b>START HERE</b><strong>Mission Hub ranks what needs your attention first.</strong><small>Lineup risks, waivers, trades, injuries, and live matchups rise automatically.</small></div></div>}
-        {step === 1 && <div className="mission-tour-copy"><span>YOUR TURN · MY LEAGUES</span><h2 id="mission-tour-title">Choose a league in the open tray.</h2><p>Tap any real league—even the active one—to continue. Every tool will follow that team.</p></div>}
-        {step === 2 && <div className="mission-tour-copy"><span>YOUR TURN · NAVIGATION</span><h2 id="mission-tour-title">Open My Team.</h2><p>Tap the highlighted My Team button in the real navigation to view your roster.</p></div>}
-        {step === 3 && <div className="mission-tour-copy"><span>YOUR TURN · PLAYER DETAILS</span><h2 id="mission-tour-title">Tap a player on your roster.</h2><p>Open the highlighted player to see the evidence behind projections, matchups, and recommendations.</p></div>}
+        {step === 1 && <div className="mission-tour-command"><b id="mission-tour-title">Tap a league to continue</b><small>Choose any league in the open tray.</small></div>}
+        {step === 2 && <div className="mission-tour-command"><b id="mission-tour-title">Tap My Team to continue</b><small>Use the highlighted navigation button.</small></div>}
+        {step === 3 && <div className="mission-tour-command"><b id="mission-tour-title">Tap a player to continue</b><small>Choose the highlighted roster row.</small></div>}
         {step === 4 && <div className="mission-tour-copy"><span>YOU’RE READY</span><h2 id="mission-tour-title">Let the Mission Hub set the agenda.</h2><p>Return here first, work down the prioritized inbox, then use the deeper tools when a decision needs more context.</p><div className="mission-tour-insight"><b>REPLAY ANYTIME</b><strong>Open Glossary → Replay onboarding.</strong><small>Exiting now also marks this tour complete, so it won’t interrupt your next login.</small></div></div>}
-        <footer>
+        {isTaskStep ? <button type="button" className="mission-tour-prompt-skip" onClick={next}>Skip</button> : <footer>
           <button type="button" className="mission-tour-exit" onClick={onExit}>Exit tour</button>
-          <span>{step > 0 && <button type="button" className="mission-tour-back" onClick={back}>Back</button>}{step === 0 ? <button type="button" className="mission-tour-next" onClick={next}>Start walkthrough →</button> : step < totalSteps - 1 ? <button type="button" className="mission-tour-skip" onClick={next}>Skip this step →</button> : <button type="button" className="mission-tour-next" onClick={() => { onNavigate("All Leagues"); onExit(); }}>Finish on Mission Hub →</button>}</span>
-        </footer>
+          <span>{step > 0 && <button type="button" className="mission-tour-back" onClick={back}>Back</button>}{step === 0 ? <button type="button" className="mission-tour-next" onClick={next}>Start walkthrough →</button> : <button type="button" className="mission-tour-next" onClick={() => { onNavigate("All Leagues"); onExit(); }}>Finish on Mission Hub →</button>}</span>
+        </footer>}
       </section>
     </div>,
     document.body,

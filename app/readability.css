@@ -492,3 +492,38 @@ html[data-theme="dark"] .mission-tour-card > footer { background: #20242c; }
   .mission-tour-card > footer > span { display: flex; }
   .mission-tour-exit { width: auto; }
 }
+
+/* Action steps are directions, not dialogs. Keep them glanceable and out of
+   the way of the real control the user needs to tap. */
+.mission-tour-card.mission-tour-prompt {
+  width: min(238px,calc(100vw - 24px));
+  max-height: none;
+  overflow: visible;
+  border-radius: 12px;
+  box-shadow: 0 10px 28px rgb(0 0 0 / .25),0 0 0 1px rgb(var(--brand-secondary-rgb,241 180 50) / .22);
+}
+.mission-tour-prompt > header {
+  position: static;
+  align-items: center;
+  padding: 7px 8px 0 11px;
+  background: transparent;
+  border: 0;
+}
+.mission-tour-prompt > header > div > span { font-size: 9px; letter-spacing: .09em; }
+.mission-tour-prompt > header > button { width: 25px; height: 25px; border: 0; font-size: 17px; }
+.mission-tour-command { padding: 3px 30px 11px 11px; }
+.mission-tour-command b,.mission-tour-command small { display: block; }
+.mission-tour-command b { font-size: 14px; line-height: 1.2; }
+.mission-tour-command small { margin-top: 3px; color: var(--muted); font-size: 10px; line-height: 1.3; }
+.mission-tour-prompt-skip {
+  position: absolute;
+  right: 9px;
+  bottom: 8px;
+  padding: 2px;
+  color: var(--muted);
+  background: transparent;
+  border: 0;
+  font-size: 9px;
+  font-weight: 800;
+  text-decoration: underline;
+}
