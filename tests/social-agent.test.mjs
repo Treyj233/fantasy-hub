@@ -76,9 +76,15 @@ test("social agent is live, sourced, deduplicated, and rate limited", async () =
   assert.match(worker, /await this\.regenerateCurrentFeed\(\)/);
   assert.match(content, /replace\(\/\\b\(\?:\[A-Z\]\\\.\)\{2,\}\//);
   assert.match(worker, /\.filter\(\(story\) => !processed\.has\(story\.id\)\)\.slice\(0, 2\)/);
-  assert.match(worker, /async publicFeed\(\) \{\s*this\.ensureStorySchema\(\);\s*this\.migrateDraftFormat\(\);\s*await this\.regenerateCurrentFeed\(\)/);
+  assert.match(worker, /async publicFeed\(\) \{\s*this\.ensureStorySchema\(\);\s*this\.migrateDraftFormat\(\);\s*this\.migrateFeedOnlyStories\(\);\s*await this\.regenerateCurrentFeed\(\)/);
   assert.match(worker, /Live or media-dependent source cannot be summarized reliably/);
-  assert.match(worker, /status IN \('draft', 'posted'\)/);
+  assert.match(worker, /status IN \('draft', 'posted', 'feed_only'\)/);
+  assert.match(worker, /const storyStatus = validation\.approvedForX \? "draft" : feedEligible \? "feed_only" : "suppressed"/);
+  assert.match(worker, /Approve by default/);
+  assert.match(worker, /Do not reject for tone, style, cautious wording/);
+  assert.match(worker, /WHERE status = 'draft' AND published_at >=/);
+  assert.match(worker, /FEED_SUPPRESSION_MIGRATION/);
+  assert.match(worker, /AND error IS NULL/);
   assert.match(worker, /const sourceCategory = categorizeStory\(sourceText\)/);
   assert.match(worker, /isPotentialTradeStory\(`\$\{story\.title\} \$\{story\.summary\}`\)/);
   assert.match(worker, /category: sourceCategory/);
@@ -119,7 +125,7 @@ test("social agent is live, sourced, deduplicated, and rate limited", async () =
   assert.match(worker, /one concrete action or decision trigger/);
   assert.match(worker, /headline must be a complete factual sentence under 94 characters/);
   assert.match(worker, /fantasyImpact must be a complete thought under 108 characters/);
-  assert.match(worker, /specific, useful next step/);
+  assert.match(worker, /specific material factual or player-safety conflict/);
   assert.doesNotMatch(content, /Monitor the depth chart and projections before making your next move/);
   assert.doesNotMatch(content, /Compare this report|routes, targets and snaps|before moving projections/);
   assert.match(worker, /const originalUrl = curated && reference && originalReporter/);

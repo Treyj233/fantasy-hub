@@ -20,6 +20,7 @@ const POST_FRESHNESS_MINUTES = 60;
 const GAMEDAY_POST_FRESHNESS_MINUTES = 20;
 const DRAFT_FORMAT_VERSION = "x-sources-v40-confirmed-trade-language";
 const MANUAL_REPOST_KEY = "manual-repost-v42-complete-copy";
+const FEED_SUPPRESSION_MIGRATION = "feed-only-v43-soft-editorial-gate";
 const RETRACTED_STORY_IDS = ["2090186160634986677", "2090197243202609473", "2090202303143747828", "2090517793737158739:2", "2090871356099379667"];
 
 type StoredStory = {
@@ -258,6 +259,21 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
     this.sql`INSERT OR REPLACE INTO agent_meta (key, value) VALUES ('draft_format', ${DRAFT_FORMAT_VERSION})`;
   }
 
+  private migrateFeedOnlyStories() {
+    this.sql`CREATE TABLE IF NOT EXISTS agent_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)`;
+    const [completed] = [...this.sql<{ value: string }>`SELECT value FROM agent_meta WHERE key = ${FEED_SUPPRESSION_MIGRATION} LIMIT 1`];
+    if (completed?.value === "complete") return;
+    this.sql`UPDATE stories
+      SET status = 'feed_only'
+      WHERE status = 'suppressed'
+        AND draft IS NOT NULL
+        AND confidence IN ('medium', 'high')
+        AND related_players_json IS NOT NULL
+        AND error IS NULL
+        AND published_at >= datetime('now', '-48 hours')`;
+    this.sql`INSERT OR REPLACE INTO agent_meta (key, value) VALUES (${FEED_SUPPRESSION_MIGRATION}, 'complete')`;
+  }
+
   async onStart() {
     this.sql`CREATE TABLE IF NOT EXISTS stories (
       id TEXT PRIMARY KEY,
@@ -274,6 +290,7 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
     )`;
     this.ensureStorySchema();
     this.migrateDraftFormat();
+    this.migrateFeedOnlyStories();
     this.sql`CREATE TABLE IF NOT EXISTS source_accounts (
       username TEXT PRIMARY KEY,
       x_user_id TEXT NOT NULL,
@@ -630,8 +647,8 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
     try {
       const result = await this.env.AI.run("@cf/meta/llama-3.3-70b-instruct-fp8-fast", {
         messages: [
-          { role: "system", content: "You are the final editor for a fantasy-football news account. Reject a post if it overstates the source, misclassifies the event, recommends an injured, unavailable, or unlisted teammate, ignores preseason versus regular-season timing, gives vague boilerplate advice, or makes an action recommendation unsupported by the evidence. Return JSON only." },
-          { role: "user", content: `Source evidence: ${story.summary}\nStructured facts: ${JSON.stringify(facts)}\nAllowed affected-player names: ${JSON.stringify(context ? [...new Set([...context.affectedPlayers, ...context.backups])] : [])}\nDraft: ${draft}\nApprove only when every factual claim and recommendation is supported and the fantasy impact gives a specific, useful next step.` },
+          { role: "system", content: "You are the final safety editor for a fantasy-football news account. The deterministic checks have already approved structure, relevance, and length. Approve by default. Reject only for a material factual or safety failure: the draft invents or overstates a central fact, identifies the wrong event or player, recommends acquiring or starting a player the evidence says is injured or unavailable, names an unlisted teammate as a beneficiary, or converts preseason or practice evidence into a regular-season conclusion. Do not reject for tone, style, cautious wording, repetition, lack of novelty, or because the recommendation is to hold or wait. A useful but conservative next step is acceptable. Return JSON only." },
+          { role: "user", content: `Source evidence: ${story.summary}\nStructured facts: ${JSON.stringify(facts)}\nAllowed affected-player names: ${JSON.stringify(context ? [...new Set([...context.affectedPlayers, ...context.backups])] : [])}\nDraft: ${draft}\nApprove unless you can identify a specific material factual or player-safety conflict with the supplied evidence. Reasons must name that concrete conflict, not an editorial preference.` },
         ],
         response_format: {
           type: "json_schema",
@@ -727,12 +744,13 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
   async publicFeed() {
     this.ensureStorySchema();
     this.migrateDraftFormat();
+    this.migrateFeedOnlyStories();
     await this.regenerateCurrentFeed();
     const stories = [...this.sql<StoredStory>`
       SELECT id, title, source, category, draft, status, published_at, confidence, lifecycle_stage, related_players_json, source_count,
         feed_headline, feed_summary, feed_why_it_matters, feed_next_move
       FROM stories
-      WHERE status IN ('draft', 'posted') AND draft IS NOT NULL
+      WHERE status IN ('draft', 'posted', 'feed_only') AND draft IS NOT NULL
       ORDER BY published_at DESC LIMIT 100`];
     const hydratedStories = await Promise.all(stories.filter((story) => !RETRACTED_STORY_IDS.includes(story.id)).map(async (story) => {
       const savedPlayers = parseJson<Array<{ id: string; name: string; position: string; team: string; relationship: "subject" | "beneficiary" | "backup" }>>(story.related_players_json, []);
@@ -759,6 +777,7 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
       const gameDay = await isNflRegularOrPostseasonGameDay();
       this.ensureStorySchema();
       this.migrateDraftFormat();
+      this.migrateFeedOnlyStories();
       // Remove drafts created by the retired RSS source. X-origin stories use an @handle.
       this.sql`DELETE FROM stories WHERE source NOT LIKE '@%' AND source != 'weather'`;
       this.sql`UPDATE stories
@@ -775,7 +794,7 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
         .sort((a, b) => Date.parse(b.publishedAt) - Date.parse(a.publishedAt));
 
       let selected: Story | null = null;
-      const newlyCreated: Array<{ story: Story; approved: boolean }> = [];
+      const newlyCreated: Array<{ story: Story; approved: boolean; feedEligible: boolean }> = [];
       for (const story of candidates) {
         const existing = [...this.sql<{ id: string }>`SELECT id FROM stories WHERE id = ${story.id} LIMIT 1`];
         if (existing.length) continue;
@@ -803,11 +822,12 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
         const validation = Date.parse(preparedStory.publishedAt) >= now.getTime() - POST_FRESHNESS_MINUTES * 60_000
           ? await this.critiqueForPublishing(preparedStory, context, draft, facts, deterministicValidation)
           : deterministicValidation;
+        const feedEligible = deterministicValidation.approvedForX && facts.confidence !== "low";
         const relatedPlayers = context?.relatedPlayers ?? (story.category === "weather" ? await findTeamFantasyPlayers(story.sourceContext ?? []) : []);
-        const editorial = validation.approvedForX
+        const editorial = feedEligible
           ? await this.createFeedEditorial(preparedStory, context, draft)
           : this.fallbackFeedEditorial(preparedStory, draft);
-        const storyStatus = validation.approvedForX ? "draft" : "suppressed";
+        const storyStatus = validation.approvedForX ? "draft" : feedEligible ? "feed_only" : "suppressed";
         const previousFacts = semanticDuplicate.length ? parseJson<StoryFacts | null>(semanticDuplicate[0].facts_json, null) : null;
         const materialUpdate = isMaterialStoryUpdate(previousFacts, facts, preparedStory);
         if (semanticDuplicate.length && !materialUpdate) {
@@ -824,7 +844,7 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
         this.sql`INSERT OR IGNORE INTO story_evidence (story_id, source_story_id, source, url, title, published_at)
           VALUES (${preparedStory.id}, ${preparedStory.id}, ${preparedStory.source}, ${preparedStory.url}, ${story.title}, ${preparedStory.publishedAt})`;
         selected ??= preparedStory;
-        newlyCreated.push({ story: preparedStory, approved: validation.approvedForX });
+        newlyCreated.push({ story: preparedStory, approved: validation.approvedForX, feedEligible });
       }
 
       const mode = this.mode();
@@ -853,7 +873,19 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
       } else {
         this.setState({ ...this.state, lastRunAt: now.toISOString(), lastError: null, mode });
       }
-      console.log(JSON.stringify({ event: "social_agent_cycle", mode, gameDay, candidates: candidates.length, selected: selected?.id ?? null, newlyCreated: newlyCreated.length, publishable: publishableStories.length, postingGate }));
+      console.log(JSON.stringify({
+        event: "social_agent_cycle",
+        mode,
+        gameDay,
+        candidates: candidates.length,
+        selected: selected?.id ?? null,
+        newlyCreated: newlyCreated.length,
+        approvedForX: newlyCreated.filter((item) => item.approved).length,
+        feedOnly: newlyCreated.filter((item) => !item.approved && item.feedEligible).length,
+        suppressed: newlyCreated.filter((item) => !item.approved && !item.feedEligible).length,
+        publishable: publishableStories.length,
+        postingGate,
+      }));
       return this.status();
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown social agent failure";

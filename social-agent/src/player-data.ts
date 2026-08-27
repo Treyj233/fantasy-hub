@@ -25,8 +25,8 @@ export type PlayerContext = {
 
 let playerCache: { expires: number; players: SleeperPlayer[] } | null = null;
 
-const MAX_FANTASY_SEARCH_RANK = 400;
-const MAX_RELEVANT_DEPTH_ORDER = 2;
+const MAX_FANTASY_SEARCH_RANK = 800;
+const MAX_RELEVANT_DEPTH_ORDER = 5;
 const materialRoleChange = /season-ending|out for (?:the )?(?:season|year|multiple weeks?)|placed on (?:injured reserve|ir)|ruled out|will miss|released|waived|cut|traded away/i;
 const materialAvailabilityReturn = /cleared(?: to| for)|full(?: practice)? participant|practice without limitations|activated from (?:nfi|pup)|removed from (?:nfi|pup)|returned to (?:full )?practice/i;
 
