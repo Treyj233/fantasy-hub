@@ -1984,6 +1984,7 @@ html[data-theme="dark"] .player-verdict,html[data-theme="dark"] .player-range-co
 .portfolio-score-bug>div>.score-with-projection>b{font-size:20px}
 .portfolio-score-game>header{min-width:0;align-items:center;gap:10px}
 .portfolio-score-game>header>span{flex:0 0 auto;max-width:100%;white-space:nowrap}
+.portfolio-score-game>header>.game-scheduled{font-size:10px!important;letter-spacing:.05em}
 .portfolio-score-game>header>b{min-width:0;overflow:hidden;text-align:right;text-overflow:ellipsis;white-space:nowrap}
 .portfolio-score-rail button>p>.score-with-projection{justify-self:end}
 .portfolio-score-rail button>p>.score-with-projection>b{font-size:14px}

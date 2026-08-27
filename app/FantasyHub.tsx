@@ -6253,7 +6253,7 @@ function AllLeagueScoreboard({
           return (
             <article id={`portfolio-matchup-${league.id}`} className={`score-game portfolio-score-game ${matchup ? "my-game" : ""}`} key={league.id}>
               <header>
-                <span className={matchup?.status === "Live" ? "game-live" : ""}>{matchup?.status === "Live" ? "● LIVE" : matchup?.status ?? `WEEK ${week}`}</span>
+                <span className={matchup?.status === "Live" ? "game-live" : matchup?.status === "Scheduled" ? "game-scheduled" : ""}>{matchup?.status === "Live" ? "● LIVE" : matchup?.status ?? `WEEK ${week}`}</span>
                 <b>{league.name}</b>
               </header>
               {mine && opponent ? (
