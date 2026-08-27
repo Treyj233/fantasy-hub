@@ -92,6 +92,9 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.player-matchup-intel > header > .matchup-team > span {
+  text-align: center;
+}
 
 /* Let each opponent matchup grade use the full player-content width inside
    the Fantasy Matchups team panel instead of shrinking to its label. */
