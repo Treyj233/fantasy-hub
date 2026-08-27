@@ -1718,6 +1718,8 @@ export default function FantasyHub({
   const [entitlement, setEntitlement] = useState<AccountEntitlement>(cachedAccount?.entitlement ?? { plan: "free", status: "inactive", pro: false, elite: false, currentPeriodEnd: null, provider: null, owner: false });
   const [rivalryWeek, setRivalryWeek] = useState<RivalryWeek | null>(null);
   const [needsOnboarding, setNeedsOnboarding] = useState(cachedAccount?.preferences ? !cachedAccount.preferences.onboardingCompletedAt : false);
+  const [onboardingTourOpen, setOnboardingTourOpen] = useState(false);
+  const [onboardingTourStep, setOnboardingTourStep] = useState(0);
   const [theme, setTheme] = useState<Theme>(() => {
     if (typeof window === "undefined") return "light";
     const savedTheme = cachedAccount?.preferences?.colorMode ?? window.localStorage.getItem("fantasy-hub-theme");
@@ -1766,8 +1768,43 @@ export default function FantasyHub({
   const importRequest = useRef(0);
   const preferenceSaveQueue = useRef<Promise<void>>(Promise.resolve());
   const leagueDragOccurred = useRef(false);
+  const onboardingTourChecked = useRef(false);
 
   useEffect(() => initializeNativeRuntime(), []);
+
+  useEffect(() => {
+    if (!accountUser || accountLoading || onboardingTourChecked.current) return;
+    onboardingTourChecked.current = true;
+    const tourKey = `fantasy-hub-mission-tour-v1:${accountUser.email.trim().toLowerCase()}`;
+    if (window.localStorage.getItem(tourKey) === "complete") return;
+    let cancelled = false;
+    window.setTimeout(() => {
+      if (cancelled) return;
+      setView("All Leagues");
+      setSidebarCollapsed(false);
+      setMobileNavOpen(false);
+      setMobileCategoryOpen(null);
+      setOnboardingTourStep(0);
+      setOnboardingTourOpen(true);
+    }, 0);
+    return () => { cancelled = true; };
+  }, [accountLoading, accountUser, needsOnboarding]);
+
+  useEffect(() => {
+    if (!onboardingTourOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      const tourKey = accountUser ? `fantasy-hub-mission-tour-v1:${accountUser.email.trim().toLowerCase()}` : "";
+      if (tourKey) safeLocalStorageSet(tourKey, "complete");
+      setOnboardingTourOpen(false);
+      setLeagueDrawerOpen(false);
+      if (needsOnboarding) void saveAccountPreferences({}, true);
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+    // saveAccountPreferences is intentionally omitted; the handler always uses current state.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accountUser, needsOnboarding, onboardingTourOpen]);
 
   useEffect(() => {
     let secondFrame = 0;
@@ -2173,6 +2210,24 @@ export default function FantasyHub({
     } catch {
       setAccountError("Your changes are applied on this device, but account sync will retry later.");
     }
+  }
+
+  function finishOnboardingTour() {
+    if (accountUser) safeLocalStorageSet(`fantasy-hub-mission-tour-v1:${accountUser.email.trim().toLowerCase()}`, "complete");
+    setOnboardingTourOpen(false);
+    setLeagueDrawerOpen(false);
+    if (needsOnboarding) void saveAccountPreferences({}, true);
+  }
+
+  function startOnboardingTour() {
+    setView("All Leagues");
+    setSidebarCollapsed(false);
+    setMobileNavOpen(false);
+    setMobileCategoryOpen(null);
+    setLeagueDrawerOpen(false);
+    setOnboardingTourStep(0);
+    setOnboardingTourOpen(true);
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
   }
 
   function toggleLeagueVisibility(id: string) {
@@ -2701,16 +2756,14 @@ export default function FantasyHub({
 
   if (!accountUser) return <SignInScreen />;
   if (accountLoading) return <AccountLoading />;
-  if (needsOnboarding)
-    return <AccountOnboarding displayName={accountUser.displayName} colorMode={theme} teamTheme={effectiveTeamTheme} badgeTheme={effectiveBadgeTheme} isPro={entitlement.pro} onColorMode={setTheme} onTeamTheme={setTeamTheme} onBadgeTheme={setBadgeTheme} onComplete={() => void saveAccountPreferences({}, true)} />;
   return (
     <ProjectionPlatformContext.Provider value={leaguePlatform}>
     <PlayerOpenContext.Provider value={setSelectedPlayer}>
     <main
-      className={`app-shell ${sidebarCollapsed ? "sidebar-collapsed" : ""} ${mobileNavOpen ? "mobile-nav-open" : ""} ${activeRivalryWeek ? "rivalry-week-active" : ""}`}
+      className={`app-shell ${sidebarCollapsed ? "sidebar-collapsed" : ""} ${mobileNavOpen ? "mobile-nav-open" : ""} ${activeRivalryWeek ? "rivalry-week-active" : ""} ${onboardingTourOpen ? `onboarding-tour-active onboarding-tour-step-${onboardingTourStep}` : ""}`}
       data-release="scoreboard-render-fix-2"
     >
-      <aside className="sidebar" id="primary-sidebar">
+      <aside className="sidebar" id="primary-sidebar" data-tour="navigation">
         <button
           className="sidebar-collapse"
           type="button"
@@ -3039,7 +3092,7 @@ export default function FantasyHub({
         )}
 
         {view !== "Manage Leagues" && visibleLeagues.length > 0 && (
-          <section className="league-switcher">
+          <section className="league-switcher" data-tour="my-leagues">
             <div>
               <header>
                 <span>MY LEAGUES</span>
@@ -3433,7 +3486,7 @@ export default function FantasyHub({
           ) : (
             rosterEmptyState
           ))}
-        {view === "Glossary" && <Glossary onNavigate={setView} />}
+        {view === "Glossary" && <Glossary onNavigate={setView} onStartOnboarding={startOnboardingTour} />}
         {view === "Theme Locker" && (
           <ThemeStore
             teamTheme={effectiveTeamTheme}
@@ -3476,6 +3529,23 @@ export default function FantasyHub({
         {view === "My Account" && <AccessAccount accountUser={accountUser} entitlement={entitlement} onPlans={() => setView("Fantasy Hub Pro")} />}
       </section>
 
+      {onboardingTourOpen && (
+        <MissionHubOnboarding
+          step={onboardingTourStep}
+          displayName={accountUser.displayName}
+          leagues={visibleLeagues}
+          activeLeagueId={leagueId}
+          onStep={setOnboardingTourStep}
+          onNavigate={(destination) => {
+            setView(destination);
+            setMobileNavOpen(false);
+            setMobileCategoryOpen(null);
+            window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+          }}
+          onExit={finishOnboardingTour}
+        />
+      )}
+
       {selectedPlayer && (
         <PlayerPanel
           key={selectedPlayer.id}
@@ -3490,7 +3560,55 @@ export default function FantasyHub({
   );
 }
 
-function Glossary({ onNavigate }: { onNavigate: (view: View) => void }) {
+function MissionHubOnboarding({ step, displayName, leagues, activeLeagueId, onStep, onNavigate, onExit }: { step: number; displayName: string; leagues: ConnectedLeague[]; activeLeagueId: string; onStep: (step: number) => void; onNavigate: (view: View) => void; onExit: () => void }) {
+  const totalSteps = 5;
+  const next = () => onStep(Math.min(totalSteps - 1, step + 1));
+  const back = () => {
+    if (step === 3) onNavigate("All Leagues");
+    onStep(Math.max(0, step - 1));
+  };
+  return createPortal(
+    <div className={`mission-tour mission-tour-${step}`} role="dialog" aria-modal="true" aria-labelledby="mission-tour-title">
+      <div className="mission-tour-shade" aria-hidden="true" />
+      {step === 1 && (
+        <aside className="mission-tour-leagues" aria-label="My Leagues onboarding preview">
+          <header><span>MY LEAGUES</span><strong>Your teams, one sidebar</strong></header>
+          <div>
+            {(leagues.length ? leagues.slice(0, 6) : [
+              { id: "demo-1", name: "Sunday Legends", season: "2026", teams: 12, format: "Redraft", scoring: "PPR" },
+              { id: "demo-2", name: "Dynasty North", season: "2026", teams: 10, format: "Dynasty", scoring: "Superflex" },
+              { id: "demo-3", name: "Office League", season: "2026", teams: 12, format: "Redraft", scoring: "Half PPR" },
+            ]).map((league) => (
+              <article className={league.id === activeLeagueId ? "active" : ""} key={league.id}>
+                <span><b>{league.name}</b><small>{league.season} · {league.teams} teams · {league.format}</small></span>
+                {league.id === activeLeagueId ? <em>ACTIVE</em> : <strong aria-hidden="true">›</strong>}
+              </article>
+            ))}
+          </div>
+          <footer>Switching leagues updates every tool automatically.</footer>
+        </aside>
+      )}
+      <section className="mission-tour-card">
+        <header>
+          <div><span>FANTASY HUB TOUR · {step + 1} OF {totalSteps}</span><div className="mission-tour-progress" aria-label={`Onboarding step ${step + 1} of ${totalSteps}`}>{Array.from({ length: totalSteps }, (_, index) => <i className={index <= step ? "active" : ""} key={index} />)}</div></div>
+          <button type="button" aria-label="Exit onboarding" onClick={onExit}>×</button>
+        </header>
+        {step === 0 && <div className="mission-tour-copy"><span>WELCOME TO YOUR MISSION HUB</span><h2 id="mission-tour-title">{displayName ? `${displayName}, your leagues are ready.` : "Your leagues are ready."}</h2><p>Fantasy Hub turns every connected league into one prioritized workspace. This quick tour uses the real app, so you’ll know exactly where to look when the season gets busy.</p><div className="mission-tour-insight"><b>START HERE</b><strong>Mission Hub ranks what needs your attention first.</strong><small>Lineup risks, waivers, trades, injuries, and live matchups rise automatically.</small></div></div>}
+        {step === 1 && <div className="mission-tour-copy"><span>MY LEAGUES</span><h2 id="mission-tour-title">Switch leagues without losing your place.</h2><p>The My Leagues sidebar keeps every connected team within reach. Pick a league and the current page refreshes for that roster.</p><div className="mission-tour-tip"><b>TIP</b><span>On phones, tap or swipe from the right-edge league handle to open this sidebar.</span></div></div>}
+        {step === 2 && <div className="mission-tour-copy"><span>NAVIGATE YOUR TOOLS</span><h2 id="mission-tour-title">Move from a problem to an answer.</h2><p>The navigation groups tools by purpose. Try one now—the tour will follow you while the real page opens.</p><div className="mission-tour-actions"><button type="button" onClick={() => { onNavigate("My Team"); next(); }}><b>♟</b><span><strong>Open My Team</strong><small>Roster, roles, weather, and matchups</small></span></button><button type="button" onClick={() => { onNavigate("Start / Sit"); next(); }}><b>⚡</b><span><strong>Open Start / Sit</strong><small>Compare your closest lineup calls</small></span></button></div></div>}
+        {step === 3 && <div className="mission-tour-copy"><span>OPEN THE DETAILS</span><h2 id="mission-tour-title">Useful insights lead somewhere.</h2><p>Player names, matchup cards, alerts, and recommendations are interactive. Open them to see the evidence behind a score—not just the answer.</p><div className="mission-tour-actions"><button type="button" onClick={() => { onNavigate("Player Rankings"); next(); }}><b>♛</b><span><strong>See Player Rankings</strong><small>League-adjusted tiers and weekly outlook</small></span></button><button type="button" onClick={() => { onNavigate("Trade Lab"); next(); }}><b>↔</b><span><strong>Explore Trade Lab</strong><small>Test packages and find roster fits</small></span></button></div></div>}
+        {step === 4 && <div className="mission-tour-copy"><span>YOU’RE READY</span><h2 id="mission-tour-title">Let the Mission Hub set the agenda.</h2><p>Return here first, work down the prioritized inbox, then use the deeper tools when a decision needs more context.</p><div className="mission-tour-insight"><b>REPLAY ANYTIME</b><strong>Open Glossary → Replay onboarding.</strong><small>Exiting now also marks this tour complete, so it won’t interrupt your next login.</small></div></div>}
+        <footer>
+          <button type="button" className="mission-tour-exit" onClick={onExit}>Exit tour</button>
+          <span>{step > 0 && <button type="button" className="mission-tour-back" onClick={back}>Back</button>}{step < totalSteps - 1 ? <button type="button" className="mission-tour-next" onClick={next}>{step === 0 ? "Start tour" : "Continue"} →</button> : <button type="button" className="mission-tour-next" onClick={() => { onNavigate("All Leagues"); onExit(); }}>Finish on Mission Hub →</button>}</span>
+        </footer>
+      </section>
+    </div>,
+    document.body,
+  );
+}
+
+function Glossary({ onNavigate, onStartOnboarding }: { onNavigate: (view: View) => void; onStartOnboarding: () => void }) {
   const categories = mobileCategoryNav.map((category) => ({
     ...category,
     leadPage: nav.find((item) => item.label === category.lead)!,
@@ -3512,6 +3630,7 @@ function Glossary({ onNavigate }: { onNavigate: (view: View) => void }) {
           </a>
         ))}
       </nav>
+      <section className="glossary-tour-replay panel"><div><span>NEW HERE—or need a refresher?</span><strong>Replay the guided Fantasy Hub tour</strong><small>Walk through Mission Hub, My Leagues, navigation, and interactive insights.</small></div><button type="button" onClick={onStartOnboarding}>Replay onboarding →</button></section>
       <div className="glossary-groups">
         {categories.map((category) => (
           <section className="panel glossary-group" id={`glossary-${category.group.toLowerCase().replaceAll(" ", "-")}`} key={category.group}>
@@ -3542,6 +3661,8 @@ function Glossary({ onNavigate }: { onNavigate: (view: View) => void }) {
   );
 }
 
+// Retained for backward-compatible snapshots while the Mission Hub tour replaces this gate.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function AccountOnboarding({ displayName, colorMode, teamTheme, badgeTheme, isPro, onColorMode, onTeamTheme, onBadgeTheme, onComplete }: { displayName: string; colorMode: Theme; teamTheme: string; badgeTheme: BadgeTheme; isPro: boolean; onColorMode: (value: Theme) => void; onTeamTheme: (value: string) => void; onBadgeTheme: (value: BadgeTheme) => void; onComplete: () => void }) {
   return <main className="onboarding-shell">
     <section className="onboarding-card">
