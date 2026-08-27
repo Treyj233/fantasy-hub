@@ -5933,18 +5933,18 @@ function AllLeagueScoreboard({
         <button type="button" onClick={enterTvMode}>Full screen</button>
       </section>
       <section className="portfolio-score-rail" aria-label="Quick access to fantasy matchup scores">
-        <header><b>YOUR SCORES</b><small>Tap a matchup for the full view</small></header>
+        <header><b>YOUR SCORES</b><small>{orderedLeagues.length} LEAGUES</small></header>
         <div>
           {orderedLeagues.map((league) => {
             const matchup = gameDay.matchups.find((item) => item.league.id === league.id);
-            if (!matchup) return <button className="pending" type="button" key={league.id} onClick={() => scrollToLeagueScore(league.id)}><span><i /> {league.name}</span><strong>Matchup pending</strong><small>Open details →</small></button>;
+            if (!matchup) return <button className="pending" type="button" key={league.id} onClick={() => scrollToLeagueScore(league.id)}><span><i /> {league.name}</span><strong>Matchup pending</strong></button>;
             const margin = Math.abs(matchup.mine.points - matchup.opponent.points);
             const urgency = matchup.status === "live" && margin <= 12 ? "urgent" : matchup.status === "live" ? "live" : matchup.status;
             return <button className={urgency} type="button" key={league.id} onClick={() => scrollToLeagueScore(league.id)}>
               <span><i /> {matchup.status === "live" ? "LIVE" : matchup.status === "final" ? "FINAL" : `WEEK ${week}`} · {league.name}</span>
               <p><b>{matchup.mine.teamName}</b><ScoreWithProjection team={matchup.mine} precision={1} /></p>
               <p><b>{matchup.opponent.teamName}</b><ScoreWithProjection team={matchup.opponent} precision={1} /></p>
-              <small><em>{matchup.winProbability == null ? "—" : `${matchup.winProbability}%`} WIN</em>{margin <= 12 && matchup.status === "live" ? "One-play range" : "Open details →"}</small>
+              <small><em>{matchup.winProbability == null ? "WIN ODDS —" : `${matchup.winProbability}% WIN`}</em>{margin <= 12 && matchup.status === "live" ? "ONE-PLAY RANGE" : null}</small>
             </button>;
           })}
         </div>
