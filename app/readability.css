@@ -111,7 +111,7 @@
 }
 .head-to-head-matchup {
   display: grid !important;
-  grid-column: 2 / 4;
+  grid-column: 1 / 4;
   grid-row: 2;
   width: 100%;
   min-width: 0;
