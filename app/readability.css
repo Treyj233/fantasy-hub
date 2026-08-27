@@ -1,19 +1,5 @@
 /* Reflow dense surfaces around the app-wide readable type scale. */
-@media (min-width: 701px) {
-  .hero { min-height: 340px; }
-  .all-leagues-hero { min-height: 320px; }
-  .manager-report-hero,
-  .league-stories-hero { min-height: 220px; }
-  .playoff-bracket { min-height: 590px; }
-  .pro-plans-hero { min-height: 590px; }
-  .tier-plans { min-height: 730px; height: auto !important; }
-  .premium-theme-releases .premium-pack-card { min-height: 610px; height: auto; }
-  .premium-theme-releases .premium-bundle-art { min-height: 220px; }
-}
-
 .section-intro.compact { min-height: 48px; height: auto; }
-.metric-grid .metric,
-.team-rank-summary .metric { min-height: 165px; height: auto; }
 .dynasty-metrics .metric strong { overflow: visible; line-height: 1.15; }
 .dynasty-plan > div { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .dynasty-plan article,
@@ -32,14 +18,5 @@
 }
 
 @media (max-width: 700px) {
-  .hero,
-  .all-leagues-hero,
-  .manager-report-hero,
-  .league-stories-hero,
-  .playoff-bracket,
-  .pro-plans-hero,
-  .tier-plans,
-  .premium-theme-releases .premium-pack-card { min-height: 0; height: auto; }
-  .premium-theme-releases .premium-bundle-art { min-height: 180px; }
   .dynasty-plan > div { grid-template-columns: 1fr; }
 }
