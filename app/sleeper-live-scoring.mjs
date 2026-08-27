@@ -39,6 +39,9 @@ export function sleeperFantasyPoints(stats = {}, scoring = {}, position = "") {
     if (!Number.isFinite(weight) || weight === 0) continue;
     let value = typeof stats[key] === "number" ? Number(stats[key]) : null;
     if (value == null && key === "bonus_rec_te") value = position === "TE" ? Number(stats.rec ?? 0) : 0;
+    if (value == null && key === "bonus_rec_rb") value = position === "RB" ? Number(stats.rec ?? 0) : 0;
+    if (value == null && key === "bonus_rec_wr") value = position === "WR" ? Number(stats.rec ?? 0) : 0;
+    if (value == null && key === "rec_te") value = position === "TE" ? Number(stats.rec ?? 0) : 0;
     if (value == null) value = thresholdBonus(key, stats);
     if (value == null) value = bandValue(key, stats, pointsAllowedBands, "pts_allow");
     if (value == null) value = bandValue(key, stats, yardsAllowedBands, "yds_allow");

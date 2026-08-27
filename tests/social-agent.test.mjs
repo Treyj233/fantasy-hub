@@ -23,6 +23,9 @@ test("social agent is live, sourced, deduplicated, and rate limited", async () =
   assert.match(worker, /POST_FRESHNESS_MINUTES = 60/);
   assert.match(worker, /GAMEDAY_POST_FRESHNESS_MINUTES = 20/);
   assert.match(worker, /WHERE status = 'draft' AND published_at >=/);
+  assert.match(worker, /x_duplicate_suppressed/);
+  assert.match(worker, /status = 'feed_only', error = 'X rejected duplicate content'/);
+  assert.match(worker, /if \(\/duplicate content\/i\.test\(state\.lastError/);
   assert.match(worker, /Retry every still-fresh approved draft/);
   assert.match(worker, /reason: gapRemainingMs > 0 \? "minimum-gap"/);
   assert.match(worker, /publishableStories\.slice\(0, 1\)/);
@@ -122,7 +125,7 @@ test("social agent is live, sourced, deduplicated, and rate limited", async () =
   assert.doesNotMatch(content, /via \$\{story\.curator\}/);
   assert.match(content, /Do not pay up for one camp highlight/);
   assert.match(content, /Check \$\{context\.player\}'s next practice participation/);
-  assert.match(worker, /one concrete action or decision trigger/);
+  assert.match(worker, /one concrete decision trigger/);
   assert.match(worker, /headline must be a complete factual sentence under 94 characters/);
   assert.match(worker, /fantasyImpact must be a complete thought under 108 characters/);
   assert.match(worker, /specific material factual or player-safety conflict/);
@@ -427,6 +430,24 @@ test("availability progression is treated as material new information", async ()
   assert.match(intelligence, /practiced in limited fashion/);
   assert.match(intelligence, /full participant\|practiced in full/);
   assert.match(intelligence, /next\.availabilityLevel && next\.availabilityLevel !== previous\.availabilityLevel/);
+});
+
+test("off-field reports require an explicit fantasy availability consequence", async () => {
+  const { categorizeStory, isFantasyRelevant } = await import("../social-agent/src/content.ts");
+  const legalReport = "Josh Jacobs was charged with two misdemeanors after an arrest.";
+  assert.equal(categorizeStory(legalReport), "news");
+  assert.equal(isFantasyRelevant({ title: legalReport, summary: "" }), false);
+  assert.equal(isFantasyRelevant({
+    title: "Josh Jacobs faces a possible suspension after misdemeanor charges.",
+    summary: "The Packers are preparing for a potential suspension.",
+  }), true);
+});
+
+test("X validation rejects vague updates, canned holds, and actionable practice advice", async () => {
+  const intelligence = await readFile(new URL("../social-agent/src/intelligence.ts", import.meta.url), "utf8");
+  assert.match(intelligence, /Headline describes an update without stating what changed/);
+  assert.match(intelligence, /\\bhold on\\b/);
+  assert.match(intelligence, /A single practice report cannot trigger an acquisition or value change/);
 });
 
 test("X posting uses signed user context and never stores credentials in source", async () => {

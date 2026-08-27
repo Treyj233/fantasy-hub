@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { getDb } from "../../../db";
 import { sleeperConnections } from "../../../db/schema";
 import { getChatGPTUser } from "../../chatgpt-auth";
+import { sleeperFantasyPoints } from "../../sleeper-live-scoring.mjs";
 import { loadNflSeasonSchedule } from "../../nfl-schedule-data";
 import { getNflGames } from "../../highlightly-nfl";
 
@@ -121,10 +122,10 @@ export async function GET(request: Request) {
     : {};
   const projectionPayload: unknown = projectionsResponse?.ok ? await projectionsResponse.json().catch(() => []) : [];
   const projectionRows: SourceProjection[] = Array.isArray(projectionPayload) ? projectionPayload : [];
-  const receptionValue = league.scoring_settings?.rec ?? 1;
-  const projectionKey = receptionValue >= .75 ? "pts_ppr" : receptionValue >= .25 ? "pts_half_ppr" : "pts_std";
   const projectionByPlayer = new Map(projectionRows.flatMap((row) => {
-    const value = row.stats?.[projectionKey];
+    const value = row.player_id && row.stats
+      ? sleeperFantasyPoints(row.stats, league.scoring_settings ?? {}, players[row.player_id]?.position ?? "")
+      : null;
     return row.player_id && typeof value === "number" ? [[row.player_id, Number(value.toFixed(2))]] : [];
   }));
   const myRoster = rosters.find(

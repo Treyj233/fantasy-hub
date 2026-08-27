@@ -13,6 +13,9 @@ test("calculates conventional PPR offense from raw weekly stats", () => {
 
 test("derives TE premium, yardage bonuses, and defense points-allowed bands", () => {
   assert.equal(sleeperFantasyPoints({ rec: 5, rec_yd: 105 }, { rec: 1, rec_yd: 0.1, bonus_rec_te: 0.5, bonus_rec_yd_100: 2 }, "TE"), 20);
+  assert.equal(sleeperFantasyPoints({ rec: 4, rec_yd: 40 }, { rec: 1, rec_yd: 0.1, bonus_rec_rb: 0.25 }, "RB"), 9);
+  assert.equal(sleeperFantasyPoints({ rec: 4, rec_yd: 40 }, { rec: 1, rec_yd: 0.1, bonus_rec_rb: 0.25 }, "WR"), 8);
+  assert.equal(sleeperFantasyPoints({ rec: 3, rec_yd: 30 }, { rec: 1, rec_yd: 0.1, rec_te: 0.5 }, "TE"), 7.5);
   assert.equal(sleeperFantasyPoints({ pts_allow: 6, sack: 3 }, { pts_allow_1_6: 7, sack: 1 }, "DEF"), 10);
 });
 

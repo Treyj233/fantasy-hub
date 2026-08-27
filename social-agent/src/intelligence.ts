@@ -1,4 +1,4 @@
-import { categorizeStory, type Story, type StoryCategory } from "./content";
+import { categorizeStory, isPracticeSetting, type Story, type StoryCategory } from "./content";
 import type { PlayerContext } from "./player-data";
 
 export type Confidence = "high" | "medium" | "low";
@@ -101,12 +101,16 @@ export function validateStoryDraft(story: Story, context: PlayerContext | null, 
   if (!context && story.category !== "weather") reasons.push("No fantasy-relevant player resolved");
   if (facts.confidence === "low") reasons.push("Extracted facts are low confidence");
   if (draft.length > 280) reasons.push("Draft exceeds the X character limit");
-  if (/told reporters\.$|according to (?:a )?source\.$|has a new (?:injury )?update\.$/im.test(draft)) reasons.push("Headline ends before the actionable fact");
-  if (/\b(?:not|and|or|but|with|for|to|during)\.$/im.test(draft)) reasons.push("Headline ends with a dangling word");
   const headline = draft.split(/\n{2,}/)[1] ?? "";
+  if (/told reporters\.$|according to (?:a )?source\.$|has a new (?:injury )?update\.$/im.test(draft)) reasons.push("Headline ends before the actionable fact");
+  if (/\b(?:updated?|new update|situation develops?)\b/i.test(headline)
+    && !/\b(?:returned|cleared|limited|practiced|signed|traded|released|waived|named|ruled|targets?|carries|receptions?|yards?|touchdowns?|snaps?|suspend)\b/i.test(headline)) reasons.push("Headline describes an update without stating what changed");
+  if (/\b(?:not|and|or|but|with|for|to|during)\.$/im.test(draft)) reasons.push("Headline ends with a dangling word");
   if (context && headline.toLowerCase().split(context.player.toLowerCase()).length - 1 > 1) reasons.push("Headline repeats the subject name");
   if (story.category === "injury" && facts.diagnosis && !draft.toLowerCase().includes(facts.diagnosis.toLowerCase().replace(/^(?:tweaked)\s+(?:his|her|their)\s+/, ""))) reasons.push("Draft omits the reported injury detail");
   if (!/FANTASY IMPACT:/i.test(draft)) reasons.push("Fantasy impact is missing");
-  if (/adjust projections|monitor the depth chart|compare (?:this report )?(?:with )?(?:routes|targets|snaps)|routes, targets and snaps/i.test(draft)) reasons.push("Fantasy impact uses vague boilerplate");
+  if (/adjust projections|monitor the depth chart|compare (?:this report )?(?:with )?(?:routes|targets|snaps)|routes, targets and snaps|\bhold on\b|\bawait (?:clarity|resolution|usage|an? update)\b/i.test(draft)) reasons.push("Fantasy impact uses vague boilerplate");
+  if (isPracticeSetting(`${story.title} ${story.summary}`)
+    && /FANTASY IMPACT:[\s\S]*\b(?:draft|add|waiver|buy|sell|boosts? (?:his )?(?:value|appeal))\b/i.test(draft)) reasons.push("A single practice report cannot trigger an acquisition or value change");
   return { approvedForX: reasons.length === 0, reasons };
 }

@@ -113,10 +113,9 @@ export async function GET(request: Request) {
   const players = playerDirectory.value;
   const statsByPlayer = statsSnapshot?.value ?? new Map<string, Record<string, number>>();
   const useCalculatedLiveScoring = nflGameInProgress && statsByPlayer.size > 0;
-  const receptionValue = league.scoring_settings?.rec ?? 1;
-  const projectionKey = receptionValue >= .75 ? "pts_ppr" : receptionValue >= .25 ? "pts_half_ppr" : "pts_std";
   const projectionsByPlayer = new Map([...(projectionsSnapshot?.value ?? new Map<string, Record<string, number>>()).entries()].flatMap(([playerId, stats]) => {
-    const value = stats[projectionKey];
+    const position = players.get(playerId)?.position ?? "";
+    const value = sleeperFantasyPoints(stats, league.scoring_settings ?? {}, position);
     return typeof value === "number" ? [[playerId, Number(value.toFixed(2))] as const] : [];
   }));
   const rosterById = new Map(rosters.flatMap((roster) => roster.roster_id ? [[roster.roster_id, roster]] : []));

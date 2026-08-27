@@ -502,7 +502,7 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
           },
           {
             role: "user",
-            content: `Player: ${context.player} (${context.position}, ${context.team})\nCategory: ${story.category}\nPublished: ${story.publishedAt}\nSeason phase: ${seasonPhase(story.publishedAt)}\nSetting: ${isPracticeSetting(`${story.title} ${story.summary}`) ? "practice/camp" : "not identified as practice"}\nPotentially affected players you may name: ${candidates.length ? candidates.join(", ") : "none supplied"}\nSource material: ${story.title} ${story.summary}\n\nWrite the two content fields for one X post. The headline must be a complete factual sentence under 94 characters${isCurated ? " that paraphrases the source" : ""}; preserve the central event, result, and material qualifier instead of ending at an attribution or setup. The fantasyImpact must be a complete thought under 108 characters with the practical fantasy meaning and one concrete action or decision trigger. These limits are firm because the label and source credit must also fit inside X's 280-character limit. If no action is warranted, say to hold and identify the specific development that would change the decision. Injury advice must reflect timing, severity, and season phase. Practice stats are samples, not game production. A preseason scoring play is a positive signal worth celebrating and can increase draft or watchlist appeal; describe that upside first, then name the role or usage evidence that would strengthen it. Only recommend named players from the supplied list. Avoid canned phrases such as “adjust projections,” “monitor the depth chart,” “compare routes, targets and snaps,” or generic metric checklists. Vary the rhythm and opening from post to post. Do not use ellipses, colons that introduce omitted information, or sentence fragments.`,
+            content: `Player: ${context.player} (${context.position}, ${context.team})\nCategory: ${story.category}\nPublished: ${story.publishedAt}\nSeason phase: ${seasonPhase(story.publishedAt)}\nSetting: ${isPracticeSetting(`${story.title} ${story.summary}`) ? "practice/camp" : "not identified as practice"}\nPotentially affected players you may name: ${candidates.length ? candidates.join(", ") : "none supplied"}\nSource material: ${story.title} ${story.summary}\n\nWrite the two content fields for one X post. The headline must be a complete factual sentence under 94 characters${isCurated ? " that paraphrases the source" : ""}; state exactly what changed and never use vague constructions such as “updated,” “has an update,” or “situation develops.” The fantasyImpact must be a complete thought under 108 characters with the practical fantasy meaning and one concrete decision trigger. These limits are firm because the label and source credit must also fit inside X's 280-character limit. When no move is warranted, preserve the player's current value and name the next specific signal that would change it; never write “hold on,” “await clarity,” or “await resolution.” Injury advice must reflect timing, severity, and season phase. A single practice stat line cannot justify drafting, adding, buying, selling, or changing a player's value; it can only identify the exact role evidence worth checking next. Playing most or all of a preseason game is not automatically positive and can indicate evaluation or a reserve role. Do not connect a quarterback report to a pass catcher unless the evidence establishes a role or usage effect. A preseason scoring play is a positive signal worth celebrating and can increase watchlist appeal, but still requires repeat first-team or scoring-area usage. Only recommend named players from the supplied list. Avoid canned phrases such as “adjust projections,” “monitor the depth chart,” “compare routes, targets and snaps,” or generic metric checklists. Vary the rhythm and opening from post to post. Do not use ellipses, colons that introduce omitted information, or sentence fragments.`,
           },
         ],
         response_format: {
@@ -768,7 +768,12 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
   }
 
   async status() {
-    return { state: this.state, postingConfigured: Boolean(this.env.X_API_KEY && this.env.X_ACCESS_TOKEN), recent: this.recentDrafts() };
+    let state = this.state;
+    if (/duplicate content/i.test(state.lastError ?? "")) {
+      state = { ...state, lastError: null };
+      this.setState(state);
+    }
+    return { state, postingConfigured: Boolean(this.env.X_API_KEY && this.env.X_ACCESS_TOKEN), recent: this.recentDrafts() };
   }
 
   async runCycle(_payload?: { trigger: string }) {
@@ -813,7 +818,7 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
         const duplicateWindowMs = story.category === "performance" ? 20 * 60_000 : 24 * 60 * 60_000;
         const duplicateCutoff = new Date(Date.parse(story.publishedAt) - duplicateWindowMs).toISOString();
         const semanticDuplicate = [...this.sql<{ id: string; source_count: number | null; facts_json: string | null }>`SELECT id, source_count, facts_json FROM stories
-          WHERE semantic_key = ${storySemanticKey} AND published_at >= ${duplicateCutoff} AND status IN ('draft', 'posted')
+          WHERE semantic_key = ${storySemanticKey} AND published_at >= ${duplicateCutoff} AND status IN ('draft', 'posted', 'feed_only')
           ORDER BY published_at DESC LIMIT 1`];
         const preparedStory = await this.enrichStory(story, context);
         const draft = composeFantasyPost(preparedStory, context);
@@ -864,7 +869,18 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
         for (const story of queue) {
           if (!this.postingEligibility(gameDay).eligible) break;
           const [{ draft }] = [...this.sql<{ draft: string }>`SELECT draft FROM stories WHERE id = ${story.id} LIMIT 1`];
-          const postId = await createXPost(draft, credentials);
+          let postId: string;
+          try {
+            postId = await createXPost(draft, credentials);
+          } catch (error) {
+            const message = error instanceof Error ? error.message : "Unknown X posting error";
+            if (/duplicate content/i.test(message)) {
+              this.sql`UPDATE stories SET status = 'feed_only', error = 'X rejected duplicate content' WHERE id = ${story.id}`;
+              console.warn(JSON.stringify({ event: "x_duplicate_suppressed", storyId: story.id }));
+              continue;
+            }
+            throw error;
+          }
           lastPostAt = new Date().toISOString();
           this.sql`UPDATE stories SET status = 'posted', x_post_id = ${postId}, error = NULL WHERE id = ${story.id}`;
           this.setState({ ...this.state, lastPostAt });

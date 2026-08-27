@@ -7,16 +7,17 @@ import { getDb } from "../../../db";
 import { leagueDataSnapshots } from "../../../db/schema";
 import { fetchCachedUpstream } from "../upstream-cache";
 import { adpPlayerKey, loadEspnAdpByPlayerKey, loadUnderdogAdpByPlayerKey } from "../../adp-data";
+import { sleeperFantasyPoints } from "../../sleeper-live-scoring.mjs";
 
 type SourcePlayer = { player_id?: string; full_name?: string; first_name?: string; last_name?: string; position?: string; team?: string; injury_status?: string | null; search_rank?: number; age?: number; status?: string; depth_chart_order?: number | null; depth_chart_position?: string | null };
 type SourceProjection = { player_id?: string; stats?: Record<string, number> };
 type MatchupRow = { roster_id?: number; matchup_id?: number | null };
 type TrendingRow = { player_id?: string; count?: number };
 
-const LEAGUE_PAYLOAD_VERSION = 12;
+const LEAGUE_PAYLOAD_VERSION = 13;
 const LEAGUE_SNAPSHOT_TTL_MS = 30 * 60 * 1000;
 const SHARED_TTL_SECONDS = {
-  projections: 4 * 60 * 60,
+  projections: 15 * 60,
   adp: 12 * 60 * 60,
   trends: 20 * 60,
 } as const;
@@ -92,17 +93,9 @@ export async function GET(request: Request) {
     const matchupRows = matchupResponse?.ok ? await matchupResponse.json().catch(() => []) as MatchupRow[] : [];
     const matchupByRoster = new Map(matchupRows.flatMap((row) => row.roster_id ? [[row.roster_id, row.matchup_id ?? null]] : []));
     const projectionKey = receptionValue >= .75 ? "pts_ppr" : receptionValue >= .25 ? "pts_half_ppr" : "pts_std";
-    const scoreProjectedStats = (playerId: string, stats: Record<string, number>) => {
-      const position = sourcePlayers[playerId]?.position ?? "";
-      let total = Object.entries(scoring).reduce((points, [statKey, multiplier]) => points + (typeof stats[statKey] === "number" ? stats[statKey] * multiplier : 0), 0);
-      const positionReceptionKey = position === "TE" ? "bonus_rec_te" : position === "RB" ? "bonus_rec_rb" : position === "WR" ? "bonus_rec_wr" : "";
-      if (positionReceptionKey && typeof scoring[positionReceptionKey] === "number" && typeof stats[positionReceptionKey] !== "number") total += (stats.rec ?? 0) * scoring[positionReceptionKey];
-      if (position === "TE" && typeof scoring.rec_te === "number" && typeof stats.rec_te !== "number") total += (stats.rec ?? 0) * scoring.rec_te;
-      return total;
-    };
     const leagueProjections = new Map(sourceProjections.flatMap((entry) => {
       if (!entry.player_id || !entry.stats) return [];
-      const customPoints = scoreProjectedStats(entry.player_id, entry.stats);
+      const customPoints = sleeperFantasyPoints(entry.stats, scoring, sourcePlayers[entry.player_id]?.position ?? "");
       const fallbackPoints = entry.stats[projectionKey];
       const points = customPoints > 0 ? customPoints : fallbackPoints;
       return typeof points === "number" ? [[entry.player_id, Number(points.toFixed(2))]] : [];

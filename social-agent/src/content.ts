@@ -26,9 +26,19 @@ export type FantasyPlayerContext = {
 };
 
 const practiceSettingPattern = /\b(?:practice|training camp|camp practice|joint practice|walkthrough|seven-on-seven|7-on-7|team drills?|individual drills?|scrimmage)\b/i;
+const offFieldIncidentPattern = /\b(?:arrest(?:ed)?|charged with|criminal charges?|misdemeanou?rs?|felon(?:y|ies)|domestic (?:abuse|violence)|police report|district attorney|court case|lawsuit)\b/i;
+const availabilityConsequencePattern = /\b(?:suspend(?:ed)?|suspension|commissioner(?:'s)? exempt|inactive|ruled out|released|waived|placed on leave|team discipline|miss(?:es|ing|ed)? (?:a )?games?)\b/i;
 
 export function isPracticeSetting(value: string) {
   return practiceSettingPattern.test(value);
+}
+
+export function isOffFieldIncident(value: string) {
+  return offFieldIncidentPattern.test(value);
+}
+
+export function hasFantasyAvailabilityConsequence(value: string) {
+  return availabilityConsequencePattern.test(value);
 }
 
 const liveContentPattern = /(?:^|\b)(?:live now|going live|we(?:'re| are) live|join (?:us|me) live|watch live|listen live|tune in live|live ?stream|x space|twitter space)(?:\b|:)/i;
@@ -98,6 +108,7 @@ const atomLink = (xml: string) => {
 
 export function categorizeStory(text: string): StoryCategory {
   const normalized = text.toLowerCase();
+  if (isOffFieldIncident(normalized)) return "news";
   const nonRosterExtension = /\b(?:contract extension|extended|restructured|reworked|renegotiated)\b/.test(normalized)
     && !/\b(?:traded|released|waived|claimed|acquired|sign(?:s|ed|ing) with)\b/.test(normalized);
   if (/potential trade candidate|trade candidate|trade target|drawing trade interest|interested in trading for/.test(normalized)) return "contract";
@@ -122,6 +133,7 @@ export function isFantasyRelevant(story: Pick<Story, "title" | "summary">) {
     && /\bcontracts?\b|\bsecond contracts?\b/i.test(text);
   const nonRosterExtension = /\b(?:contract extension|extended|restructured|reworked|renegotiated)\b/.test(text)
     && !/\b(?:holdout|injur|practice|will play|return(?:ed|ing)?|traded|released|waived|claimed|acquired|sign(?:s|ed|ing) with)\b/.test(text);
+  if (isOffFieldIncident(text) && !hasFantasyAvailabilityConsequence(text)) return false;
   return (fantasySignals.test(text) || gameAvailabilitySignal.test(text))
     && !unreliableSignals.test(text) && !historicalContractList && !nonRosterExtension;
 }
