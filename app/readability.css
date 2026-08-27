@@ -93,6 +93,21 @@
   white-space: nowrap;
 }
 
+/* Let each opponent matchup grade use the full player-content width inside
+   the Fantasy Matchups team panel instead of shrinking to its label. */
+.head-to-head-player p { min-width: 0; }
+.head-to-head-matchup {
+  display: grid !important;
+  width: 100%;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
+}
+.head-to-head-matchup > .matchup-team {
+  width: 100%;
+  min-width: 0;
+}
+.head-to-head-matchup > small { max-width: 100%; }
+
 /* Pro Trade Finder was designed around 5–9px labels. Let its cards grow with
    the app readability floor instead of preserving that compressed type. */
 .trade-recommendation-picker > header > small,
