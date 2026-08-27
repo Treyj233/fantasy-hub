@@ -3229,11 +3229,9 @@ export default function FantasyHub({
                   ? selectedLeagueTeam.teamName
                   : "Which team is yours?"}
               </strong>
-              <small>
-                {selectedLeagueTeam
-                  ? `Managed by ${selectedLeagueTeam.managerName}. Your roster now powers every dashboard view.`
-                  : "Choose your fantasy team so another manager’s roster never replaces yours."}
-              </small>
+              {!selectedLeagueTeam && (
+                <small>Choose your fantasy team so another manager’s roster never replaces yours.</small>
+              )}
             </div>
             <button
               className={`team-active-live ${liveMatchupCount === null ? "checking" : liveMatchupCount > 0 ? "live" : "idle"}`}
