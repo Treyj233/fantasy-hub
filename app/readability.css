@@ -136,6 +136,75 @@
   max-width: 340px;
 }
 
+/* Keep the Fantasy Matchups scorebug truly symmetrical around its center
+   status marker, with equal visual treatment for both teams. */
+.head-to-head-score {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 86px minmax(0, 1fr);
+  align-items: stretch;
+  gap: 12px;
+  padding: 14px;
+}
+.head-to-head-score > div,
+.head-to-head-score > div:first-child,
+.head-to-head-score > div:last-child {
+  display: grid;
+  min-width: 0;
+  grid-column: auto;
+  align-content: center;
+  justify-items: center;
+  gap: 5px;
+  padding: 12px 10px;
+  background: color-mix(in srgb,var(--green) 5%,var(--chalk));
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  text-align: center !important;
+}
+.head-to-head-score > div:first-child { box-shadow: inset 0 3px var(--gold); }
+.head-to-head-score > div:last-child { box-shadow: inset 0 3px color-mix(in srgb,var(--green) 62%,var(--line)); }
+.head-to-head-score > div > small {
+  width: 100%;
+  min-height: 1.25em;
+  text-align: center;
+}
+.head-to-head-score > div > .score-with-projection,
+.head-to-head-score > div:first-child > .score-with-projection,
+.head-to-head-score > div:last-child > .score-with-projection {
+  justify-content: center;
+}
+.head-to-head-score > span {
+  position: static;
+  z-index: auto;
+  left: auto;
+  top: auto;
+  display: grid;
+  align-self: center;
+  justify-self: center;
+  justify-items: center;
+  width: 76px;
+  padding: 8px 6px;
+  background: var(--chalk);
+  border: 1px solid color-mix(in srgb,var(--gold) 45%,var(--line));
+  border-radius: 11px;
+  box-shadow: 0 6px 16px rgb(0 0 0 / .09);
+  transform: none;
+}
+@media (max-width: 600px) {
+  .head-to-head-score {
+    grid-template-columns: minmax(0, 1fr) 64px minmax(0, 1fr);
+    gap: 6px;
+    padding: 10px 8px;
+  }
+  .head-to-head-score > div,
+  .head-to-head-score > div:first-child,
+  .head-to-head-score > div:last-child { padding: 10px 5px; }
+  .head-to-head-score > span {
+    width: 60px;
+    padding: 7px 3px;
+  }
+}
+
 /* My Team gives opponent strength a useful horizontal read and keeps weather
    as secondary context directly beneath the meter. */
 .roster-section .roster-matchup-cell { min-width: 225px; }
