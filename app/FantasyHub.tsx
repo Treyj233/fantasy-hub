@@ -5277,10 +5277,6 @@ function AllLeagues({
               {!isPro && <b>PRO</b>}
             </button>
           </div>
-          <p>
-            Fantasy Hub scans your real rosters and moves the most urgent
-            decisions to the top.
-          </p>
         </div>
         <div className="mission-hero-actions">
           <button
@@ -5626,7 +5622,7 @@ function LeagueStories({ leagueId, setView }: { leagueId: string; setView: (view
   const highScoreText = story.recap.highScore ? `${story.recap.highScore.teamName} led ${story.league.name} in Week ${story.recap.week} with ${story.recap.highScore.points.toFixed(1)} points.` : "";
   const biggestMargin = story.recap.biggestWin ? Math.abs(story.recap.biggestWin.teams[0].points - story.recap.biggestWin.teams[1].points) : 0;
   return <><div className="page-content league-stories-page">
-    <section className="league-stories-hero"><div><span>THE {story.league.season} LEAGUE STORY</span><h2>{story.league.name}</h2><p>Recaps, rivalries and the moments your group will actually talk about.</p></div><button onClick={() => void shareStory({ id: "league", kind: "league", shareText: `${story.league.name}: ${story.playoff.summary} ${highScoreText}` })}>{shared === "league" ? "PDF ready!" : "Share league report"}</button></section>
+    <section className="league-stories-hero"><div><span>THE {story.league.season} LEAGUE STORY</span><h2>{story.league.name}</h2></div><button onClick={() => void shareStory({ id: "league", kind: "league", shareText: `${story.league.name}: ${story.playoff.summary} ${highScoreText}` })}>{shared === "league" ? "PDF ready!" : "Share league report"}</button></section>
     <section className="story-ticker panel"><span>WEEK {story.league.currentWeek}</span><strong>{story.playoff.summary}</strong><small>Updated {new Date(story.updatedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</small></section>
     <section className="panel rivalry-reports">
       <header><div><span>RIVALRY REPORTS</span><h3>Your league. Your grudges.</h3><p>Track up to three rivals and unlock a share-ready reaction when you beat them or they lose.</p></div><button type="button" aria-expanded={rivalPickerOpen} onClick={() => setRivalPickerOpen((open) => !open)}>{rivalPickerOpen ? "Done" : story.rivalries.selectedRosterIds.length ? "Edit rivals" : "Choose rivals"}</button></header>
@@ -5647,7 +5643,7 @@ function LeagueStories({ leagueId, setView }: { leagueId: string; setView: (view
     <section className="narrative-trends panel"><header><div><span>STORYLINES OVER TIME</span><h3>Fantasy Hub’s observed history</h3></div><small>Saved weekly · no reconstructed snapshots</small></header>{story.seasonNarrative.snapshots.length ? <div className="trend-grid"><article><strong>PLAYOFF OUTLOOK</strong>{story.seasonNarrative.snapshots.map((snapshot) => <div key={`odds-${snapshot.week}`}><span>W{snapshot.week}</span><i><b style={{ width: `${snapshot.playoffProbability ?? 0}%` }} /></i><em>{snapshot.playoffProbability ?? "—"}%</em></div>)}</article><article><strong>ROSTER VALUE INDEX</strong>{story.seasonNarrative.snapshots.map((snapshot) => <div key={`value-${snapshot.week}`}><span>W{snapshot.week}</span><i><b style={{ width: `${Math.min(100, Math.max(0, snapshot.rosterValueIndex ?? 0) / 1.3)}%` }} /></i><em>{snapshot.rosterValueIndex ?? "—"}</em></div>)}</article></div> : <p className="story-empty">The first weekly history point will appear after Fantasy Hub records this league.</p>}<p className="trend-note">Roster Value Index compares your average points to the league average (100 = league average). Estimated playoff outlook is a transparent standings-based indicator, not a Sleeper probability.</p></section>
     <section className={`fantasy-wrapped ${story.seasonNarrative.wrapped.ready ? "ready" : "preview"}`}><div><span>{story.seasonNarrative.wrapped.ready ? "FANTASY WRAPPED" : "SEASON STORY SO FAR"}</span><h3>{story.seasonNarrative.wrapped.headline}</h3><p>{story.seasonNarrative.wrapped.ready ? "Your year, distilled into the moments worth sharing." : "This card becomes your full Fantasy Wrapped as the playoffs arrive."}</p></div><div className="wrapped-stats"><article><strong>{story.seasonNarrative.wrapped.record}</strong><small>RECORD</small></article><article><strong>{story.seasonNarrative.wrapped.points.toFixed(1)}</strong><small>POINTS</small></article><article><strong>{story.seasonNarrative.wrapped.closeWins}</strong><small>CLOSE WINS</small></article><article><strong>{story.seasonNarrative.wrapped.bestWeek ? `W${story.seasonNarrative.wrapped.bestWeek.week}` : "—"}</strong><small>BEST WEEK</small></article></div><button onClick={() => void shareStory("wrapped", story.seasonNarrative.wrapped.shareText)}>{shared === "wrapped" ? "Copied!" : story.seasonNarrative.wrapped.ready ? "Share my Wrapped" : "Share season story"}</button></section>
     <section className="playoff-bracket panel">
-      <header><div><span>PLAYOFF BRACKET</span><h3>The road to the title</h3><p>Seeds update with current standings. Percentages are Fantasy Hub’s standings-based playoff outlook.</p></div><div><b>{story.playoff.bracket.status}</b><small>{story.playoff.teams} teams · starts Week {story.playoff.startsWeek}</small></div></header>
+      <header><div><span>PLAYOFF BRACKET</span><h3>The road to the title</h3></div><div><b>{story.playoff.bracket.status}</b><small>{story.playoff.teams} teams · starts Week {story.playoff.startsWeek}</small></div></header>
       <div className="playoff-seed-strip" aria-label="Current projected playoff seeds">{story.playoff.bracket.seeds.map((team) => <article className={team.isMine ? "mine" : ""} key={team.rosterId}><b>#{team.seed}</b><span><strong>{team.teamName}</strong><small>{team.record} · {team.points.toFixed(1)} PF</small></span><em>{team.playoffOdds}%<small>odds</small></em></article>)}</div>
       <div className="bracket-scroll"><div className="bracket-rounds">{story.playoff.bracket.rounds.map((round, roundIndex) => <section key={round.name}><h4>{round.name}</h4><div>{round.matchups.map((matchup, matchupIndex) => <article className={matchup.teams.some((team) => team?.isMine) ? "mine" : ""} key={matchup.id}>{matchup.teams.map((team, teamIndex) => <div key={`${matchup.id}-${teamIndex}`} className={team ? "seeded" : "pending"}>{team ? <><b>{team.seed}</b><span>{team.teamName}</span><em>{team.playoffOdds}%</em></> : <><b>—</b><span>{matchup.bye && teamIndex === 1 ? "BYE" : roundIndex ? `Winner ${Math.min(story.playoff.bracket.rounds[roundIndex - 1]?.matchups.length ?? 1, matchupIndex * 2 + teamIndex + 1)}` : "TBD"}</span></>}</div>)}</article>)}</div></section>)}</div></div>
       <footer><span><i /> Current projected field</span><small>Projected bracket only. Official seeding and tiebreakers remain controlled by {story.league.provider}.</small></footer>
@@ -6034,7 +6030,6 @@ function AllLeagueScoreboard({
         <div>
           <span>FANTASY SCOREBOARD</span>
           <h2>Your matchups, one live view.</h2>
-          <p>Only your matchup from each connected league is shown. Scores refresh every 30 seconds.</p>
         </div>
         <label>
           Week
@@ -6104,11 +6099,11 @@ function AllLeagueScoreboard({
         </div>
       </section>}
       <section className="portfolio-win-path panel">
-        <header><div><span>WHAT DO I NEED?</span><h3>Your most important live win paths</h3><small>One consequential starter per league first, then the next-highest leverage players until five paths are filled.</small></div><b>{selectedWinPaths.length} ACTIVE PATH{selectedWinPaths.length === 1 ? "" : "S"}</b></header>
+        <header><div><span>WHAT DO I NEED?</span><h3>Your most important live win paths</h3></div><b>{selectedWinPaths.length} ACTIVE PATH{selectedWinPaths.length === 1 ? "" : "S"}</b></header>
         {mostImportantPath ? <><div className="primary-win-path"><div className="win-path-player"><PlayerHeadshot id={mostImportantPath.target.id} position={mostImportantPath.target.position} /><i aria-hidden="true">!</i></div><p><span>MOST IMPORTANT RIGHT NOW</span><button className="inline-player-link" onClick={() => openPlayer(playerShell(mostImportantPath.target))}>{mostImportantPath.target.name}</button><small>{mostImportantPath.need.message} {mostImportantPath.target.name} carries the largest current share of the path.</small><span className="win-path-leagues">{mostImportantLeagues.map((item) => <b key={`${item.league.id}-${item.target.id}`}>{item.league.name} · {item.target.pointsNeeded.toFixed(1)} needed</b>)}</span></p><div><strong>{mostImportantPath.target.pointsNeeded.toFixed(1)}</strong><small>MORE PTS</small><span><i style={{ width: `${mostImportantPath.target.progress}%` }} /></span><em>{mostImportantPath.target.statLine}</em></div></div><div className="league-win-paths">{secondaryWinPaths.map((item) => <article key={`${item.league.id}-${item.target.id}`}><span className={item.status === "live" ? "live" : "upcoming"}>{item.status === "live" ? "● LIVE" : "UP NEXT"}</span><PlayerHeadshot id={item.target.id} position={item.target.position} /><p><strong>{item.league.name}</strong><button className="inline-player-link" onClick={() => openPlayer(playerShell(item.target))}>{item.target.name}</button><small>{item.target.pointsNeeded.toFixed(1)} more points · {item.winProbability ?? "—"}% win chance</small><span className="mini-win-progress"><i style={{ width: `${item.target.progress}%` }} /></span></p><b>{item.target.progress}%</b></article>)}</div></> : <p className="game-day-empty">A portfolio-wide win path will appear when connected matchups have remaining projected starters.</p>}
       </section>
       <section className="on-fire-board panel" data-visual-source={displayedOnFire === preKickoffOnFire && displayedOnFire.length ? "pre-kickoff" : "observed"}>
-        <header><div><span>🔥 ON FIRE</span><h3>Week {week}&apos;s hottest performers</h3><small>{displayedOnFire === preKickoffOnFire && displayedOnFire.length ? "Projected impact leaders based on your connected lineups. Live scoring replaces this outlook automatically." : "Top production currently affecting your matchups across every connected league."}</small></div><b>{gameDay.onFire.length ? "LIVE LEADERS" : displayedOnFire.length ? "SUNDAY OUTLOOK" : "WAITING FOR KICKOFF"}</b></header>
+        <header><div><span>🔥 ON FIRE</span><h3>Week {week}&apos;s hottest performers</h3></div><b>{gameDay.onFire.length ? "LIVE LEADERS" : displayedOnFire.length ? "SUNDAY OUTLOOK" : "WAITING FOR KICKOFF"}</b></header>
         {displayedOnFire.length ? <div className="on-fire-grid">{displayedOnFire.map((item, index) => {
           const helps = item.leagues.filter((league) => league.side === "helps").length;
           const hurts = item.leagues.length - helps;
@@ -6272,9 +6267,6 @@ function Scoreboard({
         <div>
           <span>FANTASY SCOREBOARD</span>
           <h2>{data?.league.name ?? "Loading league scores…"}</h2>
-          <p>
-            Scores and player stat lines refresh automatically every 30 seconds.
-          </p>
           <button className="scoreboard-back" type="button" onClick={onBackAll}>← All leagues scoreboard</button>
         </div>
         <label>
@@ -6839,7 +6831,7 @@ function RedraftAnalytics({ players, rankings, context, setSelectedPlayer }: { p
   const emptySlots = Math.max(0, requiredSlots - starters.length);
   const posture = emptySlots ? "Repair the active lineup first" : injuryRisks.length >= 3 ? "Protect weekly availability" : usableDepth.length < 3 ? "Add playable bench depth" : "Press weekly matchup advantages";
   return <div className="page-content dynasty-page league-analytics-redraft">
-    <section className="dynasty-hero"><div><span>REDRAFT ANALYTICS</span><h2>{posture}</h2><p>Weekly projection ranges, lineup availability, usable depth, positional concentration, and league-adjusted ranks shape this season’s roster plan.</p></div><div className="window-score"><small>LINEUP MEDIAN</small><strong>{projection.toFixed(1)}</strong><span>{floor.toFixed(1)} floor · {ceiling.toFixed(1)} ceiling</span></div></section>
+    <section className="dynasty-hero"><div><span>REDRAFT ANALYTICS</span><h2>{posture}</h2></div><div className="window-score"><small>LINEUP MEDIAN</small><strong>{projection.toFixed(1)}</strong><span>{floor.toFixed(1)} floor · {ceiling.toFixed(1)} ceiling</span></div></section>
     <div className="dynasty-metrics"><Metric label="Starting projection" value={projection.toFixed(1)} detail={`${starters.length} active lineup players`} tone="good"/><Metric label="Playable depth" value={String(usableDepth.length)} detail="Bench players projected for 5+ points" tone={usableDepth.length >= 3 ? "good" : "warn"}/><Metric label="Availability flags" value={String(injuryRisks.length)} detail="Injury or suspension designations" tone={injuryRisks.length ? "warn" : "good"}/><Metric label="Empty starters" value={String(emptySlots)} detail="Unfilled required lineup slots" tone={emptySlots ? "warn" : "good"}/></div>
     <div className="dynasty-main"><section className="panel dynasty-trajectory"><Header eyebrow="WEEKLY OUTCOME RANGE" title="How wide is this lineup’s path?"/><div className="redraft-range"><span style={{ width: `${Math.min(100, (floor / Math.max(ceiling, 1)) * 100)}%` }}/><i style={{ left: `${Math.min(96, (projection / Math.max(ceiling, 1)) * 100)}%` }}/></div><div className="redraft-range-labels"><b>Floor {floor.toFixed(1)}</b><b>Median {projection.toFixed(1)}</b><b>Ceiling {ceiling.toFixed(1)}</b></div><p>A wider range creates comeback upside but increases the chance of a low weekly result. Start/Sit aggressiveness decides which part of this distribution matters most.</p></section><section className="panel dynasty-allocation"><Header eyebrow="POSITION ROOMS" title="Where this roster’s points live"/><div className="allocation-grid">{roomAnalytics.map((room) => <article key={room.position}><strong>{room.position}</strong><span>{room.room.length} players · {room.bestRank < 9999 ? `best asset #${room.bestRank}` : "rank pending"}</span><div><i className="prime" style={{ width: `${Math.min(100, room.projected * 2)}%` }}/></div><small>{room.projected.toFixed(1)} combined projected points</small></article>)}</div></section></div>
     <div className="dynasty-lists"><section className="panel"><Header eyebrow="WEEKLY FOUNDATIONS" title="Players carrying the median"/><p className="model-caveat">These are the largest current contributors to the connected platform’s weekly lineup projection.</p><div className="dynasty-player-list">{strengths.map((player) => <button key={player.id} onClick={() => setSelectedPlayer(player)}><span className={`pos pos-${player.position.toLowerCase()}`}>{player.position}</span><p><strong>{player.name}</strong><small>{player.team} · {formatRosterSlot(player.role)}</small></p><b>{player.projection.toFixed(1)}<small>Projected points</small></b><em className="core">Foundation</em></button>)}</div></section><section className="panel"><Header eyebrow="VOLATILITY WATCH" title="Players who can swing the week"/><p className="model-caveat">Large floor-to-ceiling ranges can help an underdog and hurt a favorite. This is role variance, not a recommendation to bench the player.</p><div className="dynasty-player-list">{volatilityWatch.map(({ player, range }) => <button key={player.id} onClick={() => setSelectedPlayer(player)}><span className={`pos pos-${player.position.toLowerCase()}`}>{player.position}</span><p><strong>{player.name}</strong><small>{range.floor.toFixed(1)} floor · {range.ceiling.toFixed(1)} ceiling</small></p><b>{(range.ceiling - range.floor).toFixed(1)}<small>Point range</small></b><em className="watch">Monitor</em></button>)}</div></section></div>
@@ -7069,10 +7061,6 @@ function LeagueAnalytics({
         <div>
           <span>DYNASTY COMMAND CENTER</span>
           <h2>{strategy}</h2>
-          <p>
-            Age curves, league-adjusted player value, positional scarcity,
-            lineup role, and multi-year trajectory shape this roster plan.
-          </p>
         </div>
         <div className="window-score">
           <small>DYNASTY WINDOW SCORE</small>
@@ -7614,10 +7602,6 @@ function CommandCenter({
                 : `${periodLabel}.`}
             </em>
           </h2>
-          <span>
-            Your roster is in the mix. One smart lineup call and an early waiver
-            swing can turn a good week into a statement win.
-          </span>
           <div className="game-day-pills">
             <b>🔥 Roster ready</b>
             <b>⚡ Lineup edges</b>
@@ -10835,7 +10819,6 @@ function HeadToHeadMatchup({
         <div>
           <span>FANTASY MATCHUPS</span>
           <h2>{data?.league.name ?? "Loading matchup…"}</h2>
-          <p>Fantasy scoring refreshes every 30 seconds. Opponent, weather, and position matchup grades use live schedule data and {matchupStrengths?.sourceSeason ?? new Date().getUTCFullYear() - 1} fantasy points allowed.</p>
         </div>
         <label>
           Week
