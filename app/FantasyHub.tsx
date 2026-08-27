@@ -7970,11 +7970,13 @@ function RosterSection({
                     {formatRosterSlot(player.role)}
                   </span>
                 </td>
-                <td>
-                  <MatchupBadge player={player} />
-                  {player.weatherSummary && (
-                    <small className="roster-weather">☁ {player.weatherSummary}</small>
-                  )}
+                <td className="roster-matchup-cell">
+                  <span className="roster-matchup-details">
+                    <MatchupBadge player={player} />
+                    {player.weatherSummary && (
+                      <small className="roster-weather">☁ {player.weatherSummary}</small>
+                    )}
+                  </span>
                   <span className={`player-temperature roster-temperature ${temperature.state}`}>
                     <span className="temperature-label"><b>❄ ICE</b><strong>{temperature.label}</strong><b>FIRE 🔥</b></span>
                     <span className="temperature-track"><i style={{ left: `${temperature.value}%` }} /></span>

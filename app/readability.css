@@ -108,6 +108,43 @@
 }
 .head-to-head-matchup > small { max-width: 100%; }
 
+/* My Team gives opponent strength a useful horizontal read and keeps weather
+   as secondary context directly beneath the meter. */
+.roster-section .roster-matchup-cell { min-width: 250px; }
+.roster-section .roster-matchup-details {
+  display: grid;
+  width: min(100%, 300px);
+  min-width: 220px;
+  gap: 5px;
+}
+.roster-section .roster-matchup-details > .matchup-team {
+  width: 100%;
+  min-width: 0;
+  grid-template-columns: auto minmax(0, 1fr);
+}
+.roster-section .roster-matchup-details > .roster-weather {
+  width: 100%;
+  max-width: none;
+  margin-top: 0;
+}
+@media (max-width: 700px) {
+  .roster-section tbody td.roster-matchup-cell {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
+  }
+  .roster-section .roster-matchup-details {
+    width: 100%;
+    min-width: 0;
+  }
+  .roster-section .roster-matchup-details > .roster-weather {
+    overflow: hidden;
+    max-width: 100%;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
 /* Pro Trade Finder was designed around 5–9px labels. Let its cards grow with
    the app readability floor instead of preserving that compressed type. */
 .trade-recommendation-picker > header > small,
