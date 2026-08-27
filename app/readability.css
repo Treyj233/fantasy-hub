@@ -129,10 +129,11 @@
 }
 .head-to-head-matchup > small { max-width: 100%; }
 .head-to-head-player > .player-temperature {
-  grid-column: 2 / 4;
+  grid-column: 1 / 4;
   grid-row: 3;
-  width: 100%;
-  max-width: none;
+  justify-self: center;
+  width: min(100%, 340px);
+  max-width: 340px;
 }
 
 /* My Team gives opponent strength a useful horizontal read and keeps weather
