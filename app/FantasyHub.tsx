@@ -1262,7 +1262,8 @@ function applyWeather(player: Player, weather: WeatherData | null) {
   const windPenalty = game.indoor ? 0 : (game.windMph ?? 0) >= 25 ? (passCatcher ? -.16 : -.05) : (game.windMph ?? 0) >= 18 ? (passCatcher ? -.1 : -.03) : 0;
   const rainPenalty = game.indoor ? 0 : (game.precipitationProbability ?? 0) >= 60 ? (player.position === "RB" ? -.02 : -.06) : 0;
   const coldPenalty = game.indoor ? 0 : (game.temperatureF ?? 60) <= 25 ? -.04 : 0;
-  return { ...player, weatherAdjustment: Math.max(-.22, windPenalty + rainPenalty + coldPenalty), weatherSummary: game.summary };
+  const weatherSummary = game.summary.replace(/\s*·\s*(?:WeatherAPI\.com|Highlightly)\s*$/i, "");
+  return { ...player, weatherAdjustment: Math.max(-.22, windPenalty + rainPenalty + coldPenalty), weatherSummary };
 }
 
 function applyOpponent(

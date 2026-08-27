@@ -35,6 +35,16 @@
   font-weight: 850;
   line-height: 1.15;
 }
+.roster-weather,
+.head-to-head-matchup > small,
+.weekly-weather > small,
+.player-matchup-intel article:first-child strong {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 @media (max-width: 1300px) and (min-width: 701px) {
   .trade-controls { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }

@@ -93,7 +93,7 @@ export async function GET(request: Request) {
     const summary = indoor
       ? "Indoor stadium · weather neutral"
       : forecast
-        ? `${forecast.condition ? `${forecast.condition} · ` : ""}${forecast.temperatureF != null ? `${Math.round(forecast.temperatureF)}°F · ` : ""}${forecast.windMph != null ? `${Math.round(forecast.windMph)} mph wind · ` : ""}${forecast.precipitationProbability != null ? `${Math.round(forecast.precipitationProbability)}% precip.` : "Forecast available"} · ${weatherSource}`
+        ? `${forecast.condition ? `${forecast.condition} · ` : ""}${forecast.temperatureF != null ? `${Math.round(forecast.temperatureF)}°F · ` : ""}${forecast.windMph != null ? `${Math.round(forecast.windMph)} mph wind · ` : ""}${forecast.precipitationProbability != null ? `${Math.round(forecast.precipitationProbability)}% precip.` : "Forecast available"}`
         : "Forecast available closer to kickoff";
     return { gameId: game.id, date: game.date, venue: venue.name ?? "Venue TBD", indoor, forecastAvailable: Boolean(forecast), weatherSource, summary, teams: [normalizeTeam(game.away.abbreviation), normalizeTeam(game.home.abbreviation)], ...forecast };
   }));
