@@ -1769,7 +1769,7 @@ export default function FantasyHub({
   const importRequest = useRef(0);
   const preferenceSaveQueue = useRef<Promise<void>>(Promise.resolve());
   const leagueDragOccurred = useRef(false);
-  const onboardingTourChecked = useRef(false);
+  const onboardingTourCheckedMode = useRef<"connection" | "product" | null>(null);
 
   useEffect(() => initializeNativeRuntime(), []);
 
@@ -1790,9 +1790,15 @@ export default function FantasyHub({
   }, [onboardingTourEligible]);
 
   useEffect(() => {
-    if (!accountUser || accountLoading || !onboardingTourEligible || onboardingTourChecked.current) return;
-    onboardingTourChecked.current = true;
-    const tourKey = `fantasy-hub-mission-tour-v1:${accountUser.email.trim().toLowerCase()}`;
+    if (!accountUser || accountLoading || !onboardingTourEligible) return;
+    const hasLeagues = availableLeagues.some((league) => !hiddenLeagueIds.includes(league.id));
+    const tourMode = hasLeagues ? "product" : "connection";
+    if (onboardingTourCheckedMode.current === tourMode) return;
+    onboardingTourCheckedMode.current = tourMode;
+    const normalizedEmail = accountUser.email.trim().toLowerCase();
+    const tourKey = hasLeagues
+      ? `fantasy-hub-mission-tour-v1:${normalizedEmail}`
+      : `fantasy-hub-connection-tour-v1:${normalizedEmail}`;
     if (window.localStorage.getItem(tourKey) === "complete") return;
     let cancelled = false;
     window.setTimeout(() => {
@@ -1805,44 +1811,58 @@ export default function FantasyHub({
       setOnboardingTourOpen(true);
     }, 0);
     return () => { cancelled = true; };
-  }, [accountLoading, accountUser, needsOnboarding, onboardingTourEligible]);
+  }, [accountLoading, accountUser, availableLeagues, hiddenLeagueIds, needsOnboarding, onboardingTourEligible]);
 
   useEffect(() => {
     if (!onboardingTourOpen) return;
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
-      const tourKey = accountUser ? `fantasy-hub-mission-tour-v1:${accountUser.email.trim().toLowerCase()}` : "";
+      const hasLeagues = availableLeagues.some((league) => !hiddenLeagueIds.includes(league.id));
+      const normalizedEmail = accountUser?.email.trim().toLowerCase() ?? "";
+      const tourKey = normalizedEmail
+        ? hasLeagues ? `fantasy-hub-mission-tour-v1:${normalizedEmail}` : `fantasy-hub-connection-tour-v1:${normalizedEmail}`
+        : "";
       if (tourKey) safeLocalStorageSet(tourKey, "complete");
       setOnboardingTourOpen(false);
       setLeagueDrawerOpen(false);
-      if (needsOnboarding) void saveAccountPreferences({}, true);
+      if (hasLeagues && needsOnboarding) void saveAccountPreferences({}, true);
     };
     window.addEventListener("keydown", closeOnEscape);
     return () => window.removeEventListener("keydown", closeOnEscape);
     // saveAccountPreferences is intentionally omitted; the handler always uses current state.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [accountUser, needsOnboarding, onboardingTourOpen]);
+  }, [accountUser, availableLeagues, hiddenLeagueIds, needsOnboarding, onboardingTourOpen]);
 
   useEffect(() => {
     if (!onboardingTourOpen) return;
-    if (onboardingTourStep === 0) {
-      setView("All Leagues");
-      setLeagueDrawerOpen(false);
-      setMobileNavOpen(false);
-    } else if (onboardingTourStep === 1) {
-      setLeagueDrawerOpen(true);
-      setMobileNavOpen(false);
-    } else if (onboardingTourStep === 2) {
-      setLeagueDrawerOpen(false);
-      setSidebarCollapsed(false);
-      setMobileNavOpen(window.matchMedia("(max-width: 700px)").matches);
-    } else if (onboardingTourStep === 3) {
-      setView("My Team");
-      setLeagueDrawerOpen(false);
-      setMobileNavOpen(false);
-      window.scrollTo({ top: 0, left: 0, behavior: "auto" });
-    }
-  }, [onboardingTourOpen, onboardingTourStep]);
+    const hasLeagues = availableLeagues.some((league) => !hiddenLeagueIds.includes(league.id));
+    const timer = window.setTimeout(() => {
+      if (!hasLeagues) {
+        if (onboardingTourStep <= 1) setView("All Leagues");
+        setLeagueDrawerOpen(false);
+        setMobileNavOpen(false);
+        return;
+      }
+      if (onboardingTourStep === 0) {
+        setView("All Leagues");
+        setLeagueDrawerOpen(false);
+        setMobileNavOpen(false);
+      } else if (onboardingTourStep === 1) {
+        setLeagueDrawerOpen(true);
+        setMobileNavOpen(false);
+      } else if (onboardingTourStep === 2) {
+        setLeagueDrawerOpen(false);
+        setSidebarCollapsed(false);
+        setMobileNavOpen(window.matchMedia("(max-width: 700px)").matches);
+      } else if (onboardingTourStep === 3) {
+        setView("My Team");
+        setLeagueDrawerOpen(false);
+        setMobileNavOpen(false);
+        window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+      }
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [availableLeagues, hiddenLeagueIds, onboardingTourOpen, onboardingTourStep]);
 
   useEffect(() => {
     let secondFrame = 0;
@@ -2250,11 +2270,17 @@ export default function FantasyHub({
     }
   }
 
-  function finishOnboardingTour() {
-    if (accountUser) safeLocalStorageSet(`fantasy-hub-mission-tour-v1:${accountUser.email.trim().toLowerCase()}`, "complete");
+  function finishOnboardingTour(completeProductTour = visibleLeagues.length > 0) {
+    if (accountUser) {
+      const normalizedEmail = accountUser.email.trim().toLowerCase();
+      safeLocalStorageSet(
+        completeProductTour ? `fantasy-hub-mission-tour-v1:${normalizedEmail}` : `fantasy-hub-connection-tour-v1:${normalizedEmail}`,
+        "complete",
+      );
+    }
     setOnboardingTourOpen(false);
     setLeagueDrawerOpen(false);
-    if (needsOnboarding) void saveAccountPreferences({}, true);
+    if (completeProductTour && needsOnboarding) void saveAccountPreferences({}, true);
   }
 
   function startOnboardingTour() {
@@ -3572,6 +3598,7 @@ export default function FantasyHub({
         <MissionHubOnboarding
           step={onboardingTourStep}
           displayName={accountUser.displayName}
+          hasLeagues={visibleLeagues.length > 0}
           onStep={setOnboardingTourStep}
           onNavigate={(destination) => {
             setView(destination);
@@ -3597,15 +3624,17 @@ export default function FantasyHub({
   );
 }
 
-function MissionHubOnboarding({ step, displayName, onStep, onNavigate, onExit }: { step: number; displayName: string; onStep: (step: number) => void; onNavigate: (view: View) => void; onExit: () => void }) {
-  const totalSteps = 5;
-  const isTaskStep = step >= 1 && step <= 3;
+function MissionHubOnboarding({ step, displayName, hasLeagues, onStep, onNavigate, onExit }: { step: number; displayName: string; hasLeagues: boolean; onStep: (step: number) => void; onNavigate: (view: View) => void; onExit: (completeProductTour?: boolean) => void }) {
+  const totalSteps = hasLeagues ? 5 : 3;
+  const isTaskStep = hasLeagues ? step >= 1 && step <= 3 : step === 1;
   const cardRef = useRef<HTMLElement>(null);
   const safeAreaRef = useRef<HTMLElement>(null);
   const [popoverStyle, setPopoverStyle] = useState<CSSProperties>({ top: 16, right: 12 });
   const [popoverPlacement, setPopoverPlacement] = useState<"above" | "below" | "left" | "right" | "center">("center");
-  const tourTarget = step === 0 ? "priority-inbox" : step === 1 ? "choose-league" : step === 2 ? "open-my-team" : step === 3 ? "player-detail" : "";
-  const next = useCallback(() => onStep(Math.min(totalSteps - 1, step + 1)), [onStep, step]);
+  const tourTarget = !hasLeagues
+    ? step === 1 ? "connect-league" : ""
+    : step === 0 ? "priority-inbox" : step === 1 ? "choose-league" : step === 2 ? "open-my-team" : step === 3 ? "player-detail" : "";
+  const next = useCallback(() => onStep(Math.min(totalSteps - 1, step + 1)), [onStep, step, totalSteps]);
   const back = () => {
     if (step === 3) onNavigate("All Leagues");
     onStep(Math.max(0, step - 1));
@@ -3713,14 +3742,15 @@ function MissionHubOnboarding({ step, displayName, onStep, onNavigate, onExit }:
           <div><span>{isTaskStep ? `STEP ${step + 1} OF ${totalSteps}` : `FANTASY HUB TOUR · ${step + 1} OF ${totalSteps}`}</span>{!isTaskStep && <div className="mission-tour-progress" aria-label={`Onboarding step ${step + 1} of ${totalSteps}`}>{Array.from({ length: totalSteps }, (_, index) => <i className={index <= step ? "active" : ""} key={index} />)}</div>}</div>
           <button type="button" aria-label="Exit onboarding" onClick={onExit}>×</button>
         </header>
-        {step === 0 && <div className="mission-tour-copy mission-tour-welcome"><i className="mission-tour-welcome-mark" aria-hidden="true">FH</i><span>READY FOR KICKOFF</span><h2 id="mission-tour-title">{displayName ? `Welcome, ${displayName.split(" ")[0]}.` : "Welcome to Fantasy Hub."}</h2><p>Take a quick guided lap through your real app. You’ll make every tap yourself.</p><div className="mission-tour-route" aria-label="Tour route"><b>League</b><i>→</i><b>My Team</b><i>→</i><b>Player</b></div></div>}
-        {step === 1 && <div className="mission-tour-command"><b id="mission-tour-title">Tap a league to continue</b><small>Choose any league in the open tray.</small></div>}
-        {step === 2 && <div className="mission-tour-command"><b id="mission-tour-title">Tap My Team to continue</b><small>Use the highlighted navigation button.</small></div>}
-        {step === 3 && <div className="mission-tour-command"><b id="mission-tour-title">Tap a player to continue</b><small>Choose the highlighted roster row.</small></div>}
-        {step === 4 && <div className="mission-tour-copy mission-tour-complete"><i aria-hidden="true">✓</i><span>TOUR COMPLETE</span><h2 id="mission-tour-title">You’re ready to run the Hub.</h2><p>Start with the Mission Hub, then open a tool whenever a decision needs a deeper look.</p><small>Replay anytime from Glossary.</small></div>}
+        {step === 0 && <div className="mission-tour-copy mission-tour-welcome"><i className="mission-tour-welcome-mark" aria-hidden="true">FH</i><span>{hasLeagues ? "READY FOR KICKOFF" : "WELCOME TO FANTASY HUB"}</span><h2 id="mission-tour-title">{displayName ? `Welcome, ${displayName.split(" ")[0]}.` : "Welcome to Fantasy Hub."}</h2><p>{hasLeagues ? "Take a quick guided lap through your real app. You’ll make every tap yourself." : "Connect your first league to turn Fantasy Hub into your cross-league command center."}</p><div className="mission-tour-route" aria-label="Tour route">{hasLeagues ? <><b>League</b><i>→</i><b>My Team</b><i>→</i><b>Player</b></> : <><b>Connect</b><i>→</i><b>Sync</b><i>→</i><b>Explore</b></>}</div></div>}
+        {step === 1 && <div className="mission-tour-command"><b id="mission-tour-title">{hasLeagues ? "Tap a league to continue" : "Connect your first league"}</b><small>{hasLeagues ? "Choose any league in the open tray." : "Tap the highlighted button. We’ll guide you through the full app after your league syncs."}</small></div>}
+        {hasLeagues && step === 2 && <div className="mission-tour-command"><b id="mission-tour-title">Tap My Team to continue</b><small>Use the highlighted navigation button.</small></div>}
+        {hasLeagues && step === 3 && <div className="mission-tour-command"><b id="mission-tour-title">Tap a player to continue</b><small>Choose the highlighted roster row.</small></div>}
+        {hasLeagues && step === 4 && <div className="mission-tour-copy mission-tour-complete"><i aria-hidden="true">✓</i><span>TOUR COMPLETE</span><h2 id="mission-tour-title">You’re ready to run the Hub.</h2><p>Start with the Mission Hub, then open a tool whenever a decision needs a deeper look.</p><small>Replay anytime from Glossary.</small></div>}
+        {!hasLeagues && step === 2 && <div className="mission-tour-copy mission-tour-complete"><i aria-hidden="true">✓</i><span>FIRST STEP READY</span><h2 id="mission-tour-title">Connect a league to unlock your Hub.</h2><p>After the first sync, Fantasy Hub will start the interactive product walkthrough with your real roster.</p><small>The full tour remains available after you connect.</small></div>}
         {isTaskStep ? <button type="button" className="mission-tour-prompt-skip" onClick={next}>Skip</button> : <footer>
-          <button type="button" className="mission-tour-exit" onClick={onExit}>{step === 0 ? "Maybe later" : "Exit tour"}</button>
-          <span>{step > 0 && <button type="button" className="mission-tour-back" onClick={back}>Back</button>}{step === 0 ? <button type="button" className="mission-tour-next" onClick={next}>Start walkthrough →</button> : <button type="button" className="mission-tour-next" onClick={() => { onNavigate("All Leagues"); onExit(); }}>Finish on Mission Hub →</button>}</span>
+          <button type="button" className="mission-tour-exit" onClick={() => onExit(hasLeagues)}>{step === 0 ? "Maybe later" : "Exit tour"}</button>
+          <span>{step > 0 && <button type="button" className="mission-tour-back" onClick={back}>Back</button>}{step === 0 ? <button type="button" className="mission-tour-next" onClick={next}>{hasLeagues ? "Start walkthrough →" : "Show me how →"}</button> : hasLeagues ? <button type="button" className="mission-tour-next" onClick={() => { onNavigate("All Leagues"); onExit(true); }}>Finish on Mission Hub →</button> : <button type="button" className="mission-tour-next" onClick={() => { onNavigate("Manage Leagues"); onExit(false); }}>Connect a league →</button>}</span>
         </footer>}
       </section>
     </div>,
@@ -5372,7 +5402,7 @@ function AllLeagues({
         <section className="panel portfolio-empty">
           <strong>Your portfolio starts with one connection.</strong>
           <p>Add a username or league ID. Fantasy Hub will keep each league isolated while bringing every decision into this one home.</p>
-          <button onClick={onManage}>Connect a league</button>
+          <button data-tour="connect-league" onClick={onManage}>Connect a league</button>
         </section>
       </div>
     );
