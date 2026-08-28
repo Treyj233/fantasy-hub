@@ -1848,16 +1848,27 @@ export default function FantasyHub({
         setLeagueDrawerOpen(false);
         setMobileNavOpen(false);
       } else if (onboardingTourStep === 1) {
-        setLeagueDrawerOpen(true);
+        setLeagueDrawerOpen(false);
         setMobileNavOpen(false);
       } else if (onboardingTourStep === 2) {
-        setLeagueDrawerOpen(false);
-        setSidebarCollapsed(false);
-        setMobileNavOpen(window.matchMedia("(max-width: 700px)").matches);
+        setMobileNavOpen(false);
       } else if (onboardingTourStep === 3) {
-        setView("My Team");
         setLeagueDrawerOpen(false);
         setMobileNavOpen(false);
+      } else if (onboardingTourStep === 4) {
+        setMobileNavOpen(true);
+      } else if (onboardingTourStep === 5) {
+        setMobileNavOpen(false);
+      } else if (onboardingTourStep === 6) {
+        setSelectedPlayer(null);
+        setView("All Leagues");
+        setMobileNavOpen(false);
+        setMobileCategoryOpen(null);
+      } else if (onboardingTourStep === 11 || onboardingTourStep === 12) {
+        setMobileCategoryOpen(null);
+      } else if (onboardingTourStep === 14) {
+        setView("All Leagues");
+        setMobileCategoryOpen(null);
         window.scrollTo({ top: 0, left: 0, behavior: "auto" });
       }
     }, 0);
@@ -2944,6 +2955,7 @@ export default function FantasyHub({
         <header className="topbar">
           <button
             className="mobile-menu-toggle"
+            data-tour="open-navigation"
             type="button"
             aria-label={mobileNavOpen ? "Close navigation menu" : "Open navigation menu"}
             aria-controls="primary-sidebar"
@@ -2992,11 +3004,12 @@ export default function FantasyHub({
                     <b aria-hidden="true">↗</b>
                   </a>
                 )}
-                <button className="ghost season-roll pro-top-action" onClick={() => setView("Fantasy Hub Pro")}>
+                <button className="ghost season-roll pro-top-action" data-tour="open-pro-store" onClick={() => setView("Fantasy Hub Pro")}>
                   <span>Fantasy Hub Pro</span> <b>PRO</b>
                 </button>
                 <button
                   className="account-theme-customizer"
+                  data-tour="open-theme-store"
                   type="button"
                   aria-label="Open Theme Locker"
                   onClick={() => {
@@ -3019,6 +3032,7 @@ export default function FantasyHub({
             return (
             <button
               key={item.group}
+              data-tour={`category-${item.group.toLowerCase().replaceAll(" ", "-")}`}
               type="button"
               className={activeNavGroup === item.group ? "active" : ""}
               aria-label={item.group}
@@ -3028,7 +3042,7 @@ export default function FantasyHub({
                 void nativeImpact();
                 if (item.group === "Home") {
                   setView("All Leagues");
-                  setMobileCategoryOpen(null);
+                  setMobileCategoryOpen(onboardingTourOpen && onboardingTourStep === 6 ? "Home" : null);
                 } else {
                   setMobileNavOpen(false);
                   setMobileCategoryOpen((current) => current === item.group ? null : item.group);
@@ -3080,6 +3094,7 @@ export default function FantasyHub({
           <section className={`tool-context-bar ${view === "All Leagues" ? "home-context" : ""}`} aria-label="Current tool context">
             <button
               className="context-league-button"
+              data-tour="open-leagues"
               type="button"
               aria-label={`Switch league. Current league: ${leagueName}`}
               aria-expanded={leagueDrawerOpen}
@@ -3133,7 +3148,7 @@ export default function FantasyHub({
                     key={league.id}
                     type="button"
                     data-tour="choose-league"
-                    className={`${leagueId === league.id ? "active" : ""}${onboardingTourOpen && onboardingTourStep === 1 ? " mission-tour-target" : ""}`}
+                    className={`${leagueId === league.id ? "active" : ""}${onboardingTourOpen && onboardingTourStep === 2 ? " mission-tour-target" : ""}`}
                     aria-current={leagueId === league.id ? "true" : undefined}
                     disabled={importState === "loading"}
                     onClick={() => {
@@ -3625,24 +3640,38 @@ export default function FantasyHub({
 }
 
 function MissionHubOnboarding({ step, displayName, hasLeagues, onStep, onNavigate, onExit }: { step: number; displayName: string; hasLeagues: boolean; onStep: (step: number) => void; onNavigate: (view: View) => void; onExit: (completeProductTour?: boolean) => void }) {
-  const totalSteps = hasLeagues ? 5 : 3;
-  const isTaskStep = hasLeagues ? step >= 1 && step <= 3 : step === 1;
+  const totalSteps = hasLeagues ? 15 : 3;
+  const isTaskStep = hasLeagues ? step >= 1 && step <= 13 : step === 1;
   const cardRef = useRef<HTMLElement>(null);
   const safeAreaRef = useRef<HTMLElement>(null);
   const [popoverStyle, setPopoverStyle] = useState<CSSProperties>({ top: 16, right: 12 });
   const [popoverPlacement, setPopoverPlacement] = useState<"above" | "below" | "left" | "right" | "center">("center");
   const tourTarget = !hasLeagues
     ? step === 1 ? "connect-league" : ""
-    : step === 0 ? "priority-inbox" : step === 1 ? "choose-league" : step === 2 ? "open-my-team" : step === 3 ? "player-detail" : "";
+    : step === 1 ? "open-leagues"
+      : step === 2 ? "choose-league"
+        : step === 3 ? "open-navigation"
+          : step === 4 ? "open-my-team"
+            : step === 5 ? "player-detail"
+              : step === 6 || step === 13 ? "category-home"
+                : step === 7 ? "category-game-day"
+                  : step === 8 ? "category-manage-team"
+                    : step === 9 ? "category-analyze-league"
+                      : step === 10 ? "category-utilities"
+                        : step === 11 ? "open-theme-store"
+                          : step === 12 ? "open-pro-store"
+                            : "";
   const next = useCallback(() => onStep(Math.min(totalSteps - 1, step + 1)), [onStep, step, totalSteps]);
   const back = () => {
-    if (step === 3) onNavigate("All Leagues");
+    if (step >= 6) onNavigate("All Leagues");
     onStep(Math.max(0, step - 1));
   };
 
   useEffect(() => {
     if (!tourTarget || step === 0) return;
     const selector = `[data-tour="${tourTarget}"]`;
+    const target = document.querySelector<HTMLElement>(selector);
+    target?.classList.add("mission-tour-target");
     const handleClick = (event: globalThis.MouseEvent) => {
       const element = event.target instanceof Element ? event.target.closest(selector) : null;
       if (!element) return;
@@ -3655,6 +3684,7 @@ function MissionHubOnboarding({ step, displayName, hasLeagues, onStep, onNavigat
     return () => {
       window.clearTimeout(timer);
       document.removeEventListener("click", handleClick, true);
+      target?.classList.remove("mission-tour-target");
     };
   }, [next, step, tourTarget]);
 
@@ -3742,11 +3772,21 @@ function MissionHubOnboarding({ step, displayName, hasLeagues, onStep, onNavigat
           <div><span>{isTaskStep ? `STEP ${step + 1} OF ${totalSteps}` : `FANTASY HUB TOUR · ${step + 1} OF ${totalSteps}`}</span>{!isTaskStep && <div className="mission-tour-progress" aria-label={`Onboarding step ${step + 1} of ${totalSteps}`}>{Array.from({ length: totalSteps }, (_, index) => <i className={index <= step ? "active" : ""} key={index} />)}</div>}</div>
           <button type="button" aria-label="Exit onboarding" onClick={onExit}>×</button>
         </header>
-        {step === 0 && <div className="mission-tour-copy mission-tour-welcome"><i className="mission-tour-welcome-mark" aria-hidden="true">FH</i><span>{hasLeagues ? "READY FOR KICKOFF" : "WELCOME TO FANTASY HUB"}</span><h2 id="mission-tour-title">{displayName ? `Welcome, ${displayName.split(" ")[0]}.` : "Welcome to Fantasy Hub."}</h2><p>{hasLeagues ? "Take a quick guided lap through your real app. You’ll make every tap yourself." : "Connect your first league to turn Fantasy Hub into your cross-league command center."}</p><div className="mission-tour-route" aria-label="Tour route">{hasLeagues ? <><b>League</b><i>→</i><b>My Team</b><i>→</i><b>Player</b></> : <><b>Connect</b><i>→</i><b>Sync</b><i>→</i><b>Explore</b></>}</div></div>}
-        {step === 1 && <div className="mission-tour-command"><b id="mission-tour-title">{hasLeagues ? "Tap a league to continue" : "Connect your first league"}</b><small>{hasLeagues ? "Choose any league in the open tray." : "Tap the highlighted button. We’ll guide you through the full app after your league syncs."}</small></div>}
-        {hasLeagues && step === 2 && <div className="mission-tour-command"><b id="mission-tour-title">Tap My Team to continue</b><small>Use the highlighted navigation button.</small></div>}
-        {hasLeagues && step === 3 && <div className="mission-tour-command"><b id="mission-tour-title">Tap a player to continue</b><small>Choose the highlighted roster row.</small></div>}
-        {hasLeagues && step === 4 && <div className="mission-tour-copy mission-tour-complete"><i aria-hidden="true">✓</i><span>TOUR COMPLETE</span><h2 id="mission-tour-title">You’re ready to run the Hub.</h2><p>Start with the Mission Hub, then open a tool whenever a decision needs a deeper look.</p><small>Replay anytime from Glossary.</small></div>}
+        {step === 0 && <div className="mission-tour-copy mission-tour-welcome"><i className="mission-tour-welcome-mark" aria-hidden="true">FH</i><span>{hasLeagues ? "READY FOR KICKOFF" : "WELCOME TO FANTASY HUB"}</span><h2 id="mission-tour-title">{displayName ? `Welcome, ${displayName.split(" ")[0]}.` : "Welcome to Fantasy Hub."}</h2><p>{hasLeagues ? "Take an interactive lap through your real app. You’ll open every panel and make every tap yourself." : "Connect your first league to turn Fantasy Hub into your cross-league command center."}</p><div className="mission-tour-route" aria-label="Tour route">{hasLeagues ? <><b>Leagues</b><i>→</i><b>Tools</b><i>→</i><b>Stores</b></> : <><b>Connect</b><i>→</i><b>Sync</b><i>→</i><b>Explore</b></>}</div></div>}
+        {step === 1 && <div className="mission-tour-command"><b id="mission-tour-title">{hasLeagues ? "Open All Leagues" : "Connect your first league"}</b><small>{hasLeagues ? "Tap the highlighted league control to open your league tray." : "Tap the highlighted button. We’ll guide you through the full app after your league syncs."}</small></div>}
+        {hasLeagues && step === 2 && <div className="mission-tour-command"><b id="mission-tour-title">Choose a league</b><small>Tap any league in the tray to continue.</small></div>}
+        {hasLeagues && step === 3 && <div className="mission-tour-command"><b id="mission-tour-title">Open the main sidebar</b><small>Tap the highlighted menu button.</small></div>}
+        {hasLeagues && step === 4 && <div className="mission-tour-command"><b id="mission-tour-title">Open My Team</b><small>Choose the highlighted tool from the sidebar.</small></div>}
+        {hasLeagues && step === 5 && <div className="mission-tour-command"><b id="mission-tour-title">Preview a player</b><small>Tap the highlighted roster row to see detailed context.</small></div>}
+        {hasLeagues && step === 6 && <div className="mission-tour-command"><b id="mission-tour-title">Preview Home</b><small>Tap Home to return to your Mission Hub.</small></div>}
+        {hasLeagues && step === 7 && <div className="mission-tour-command"><b id="mission-tour-title">Preview Game Day</b><small>Tap the category to see its live Sunday tools.</small></div>}
+        {hasLeagues && step === 8 && <div className="mission-tour-command"><b id="mission-tour-title">Preview Manage</b><small>Tap the category to see roster and league tools.</small></div>}
+        {hasLeagues && step === 9 && <div className="mission-tour-command"><b id="mission-tour-title">Preview Analyze</b><small>Tap the category to see research and draft tools.</small></div>}
+        {hasLeagues && step === 10 && <div className="mission-tour-command"><b id="mission-tour-title">Preview Utilities</b><small>Tap the category to see settings and supporting tools.</small></div>}
+        {hasLeagues && step === 11 && <div className="mission-tour-command"><b id="mission-tour-title">Visit Theme Locker</b><small>Use the highlighted top-right customization icon.</small></div>}
+        {hasLeagues && step === 12 && <div className="mission-tour-command"><b id="mission-tour-title">Preview Pro upgrades</b><small>Tap the highlighted PRO icon to see membership options.</small></div>}
+        {hasLeagues && step === 13 && <div className="mission-tour-command"><b id="mission-tour-title">Return to Mission Hub</b><small>Tap Home to finish where every week begins.</small></div>}
+        {hasLeagues && step === 14 && <div className="mission-tour-copy mission-tour-complete"><i aria-hidden="true">✓</i><span>TOUR COMPLETE</span><h2 id="mission-tour-title">You’re ready to run the Hub.</h2><p>You’ve opened your leagues, explored every tool category, and found customization and Pro.</p><small>Replay anytime from Glossary.</small></div>}
         {!hasLeagues && step === 2 && <div className="mission-tour-copy mission-tour-complete"><i aria-hidden="true">✓</i><span>FIRST STEP READY</span><h2 id="mission-tour-title">Connect a league to unlock your Hub.</h2><p>After the first sync, Fantasy Hub will start the interactive product walkthrough with your real roster.</p><small>The full tour remains available after you connect.</small></div>}
         {isTaskStep ? <button type="button" className="mission-tour-prompt-skip" onClick={next}>Skip</button> : <footer>
           <button type="button" className="mission-tour-exit" onClick={() => onExit(hasLeagues)}>{step === 0 ? "Maybe later" : "Exit tour"}</button>
