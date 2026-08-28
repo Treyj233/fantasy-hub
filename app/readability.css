@@ -479,6 +479,10 @@ html[data-theme="dark"] .mission-tour-card,html[data-theme="dark"] .mission-tour
   outline-offset: 3px;
   box-shadow: 0 0 0 7px rgb(var(--brand-secondary-rgb,241 180 50) / .24),0 12px 30px rgb(0 0 0 / .24);
 }
+.league-edge-handle.mission-tour-target {
+  position: fixed;
+  z-index: 2147483001;
+}
 html[data-theme="dark"] .mission-tour-card > footer { background: #20242c; }
 
 @media (max-width: 600px) {
@@ -572,21 +576,21 @@ html[data-theme="dark"] .mission-tour-card > footer { background: #20242c; }
 }
 .mission-tour-placement-below.mission-tour-prompt::before {
   top: -7px;
-  left: calc(50% - 6px);
+  left: calc(var(--tour-arrow-x,50%) - 6px);
   border-width: 1px 0 0 1px;
 }
 .mission-tour-placement-above.mission-tour-prompt::before {
   bottom: -7px;
-  left: calc(50% - 6px);
+  left: calc(var(--tour-arrow-x,50%) - 6px);
   border-width: 0 1px 1px 0;
 }
 .mission-tour-placement-right.mission-tour-prompt::before {
-  top: calc(50% - 6px);
+  top: calc(var(--tour-arrow-y,50%) - 6px);
   left: -7px;
   border-width: 0 0 1px 1px;
 }
 .mission-tour-placement-left.mission-tour-prompt::before {
-  top: calc(50% - 6px);
+  top: calc(var(--tour-arrow-y,50%) - 6px);
   right: -7px;
   border-width: 1px 1px 0 0;
 }

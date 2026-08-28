@@ -3718,13 +3718,29 @@ function MissionHubOnboarding({ step, displayName, hasLeagues, onStep, onNavigat
       const roomBelow = safeBottom - rect.bottom;
       const roomLeft = rect.left - safeLeft;
       const roomRight = safeRight - rect.right;
+      const targetCenterX = rect.left + rect.width / 2;
+      const targetCenterY = rect.top + rect.height / 2;
+      const belowStyle = () => {
+        const top = clamp(rect.bottom + gap, safeTop, Math.max(safeTop, safeBottom - cardHeight));
+        const left = clamp(targetCenterX - cardWidth / 2, safeLeft, Math.max(safeLeft, safeRight - cardWidth));
+        return { top, left, "--tour-arrow-x": `${clamp(targetCenterX - left, 16, cardWidth - 16)}px` } as CSSProperties;
+      };
+      const aboveStyle = () => {
+        const top = clamp(rect.top - cardHeight - gap, safeTop, Math.max(safeTop, safeBottom - cardHeight));
+        const left = clamp(targetCenterX - cardWidth / 2, safeLeft, Math.max(safeLeft, safeRight - cardWidth));
+        return { top, left, "--tour-arrow-x": `${clamp(targetCenterX - left, 16, cardWidth - 16)}px` } as CSSProperties;
+      };
+      const sideStyle = (side: "left" | "right") => {
+        const top = clamp(targetCenterY - cardHeight / 2, safeTop, Math.max(safeTop, safeBottom - cardHeight));
+        const left = side === "right"
+          ? clamp(rect.right + gap, safeLeft, Math.max(safeLeft, safeRight - cardWidth))
+          : clamp(rect.left - cardWidth - gap, safeLeft, Math.max(safeLeft, safeRight - cardWidth));
+        return { top, left, "--tour-arrow-y": `${clamp(targetCenterY - top, 16, cardHeight - 16)}px` } as CSSProperties;
+      };
 
       if (tourTarget === "open-leagues-tray") {
         setPopoverPlacement("left");
-        setPopoverStyle({
-          top: clamp(rect.top + rect.height / 2 - cardHeight / 2, safeTop, Math.max(safeTop, safeBottom - cardHeight)),
-          left: clamp(rect.left - cardWidth - gap, safeLeft, Math.max(safeLeft, safeRight - cardWidth)),
-        });
+        setPopoverStyle(sideStyle("left"));
         return;
       }
 
@@ -3734,37 +3750,23 @@ function MissionHubOnboarding({ step, displayName, hasLeagues, onStep, onNavigat
         || tourTarget === "open-pro-store";
       if (prefersBelow && roomBelow >= cardHeight + gap) {
         setPopoverPlacement("below");
-        setPopoverStyle({
-          top: clamp(rect.bottom + gap, safeTop, Math.max(safeTop, safeBottom - cardHeight)),
-          left: clamp(rect.left + rect.width / 2 - cardWidth / 2, safeLeft, Math.max(safeLeft, safeRight - cardWidth)),
-        });
+        setPopoverStyle(belowStyle());
         return;
       }
 
       if (roomBelow >= cardHeight + gap || roomBelow >= roomAbove) {
         setPopoverPlacement("below");
-        setPopoverStyle({
-          top: clamp(rect.bottom + gap, safeTop, Math.max(safeTop, safeBottom - cardHeight)),
-          left: clamp(rect.left + rect.width / 2 - cardWidth / 2, safeLeft, Math.max(safeLeft, safeRight - cardWidth)),
-        });
+        setPopoverStyle(belowStyle());
         return;
       }
       if (roomAbove >= cardHeight + gap) {
         setPopoverPlacement("above");
-        setPopoverStyle({
-          top: clamp(rect.top - cardHeight - gap, safeTop, Math.max(safeTop, safeBottom - cardHeight)),
-          left: clamp(rect.left + rect.width / 2 - cardWidth / 2, safeLeft, Math.max(safeLeft, safeRight - cardWidth)),
-        });
+        setPopoverStyle(aboveStyle());
         return;
       }
       const placeRight = roomRight >= cardWidth + gap || roomRight >= roomLeft;
       setPopoverPlacement(placeRight ? "right" : "left");
-      setPopoverStyle({
-        top: clamp(rect.top + rect.height / 2 - cardHeight / 2, safeTop, Math.max(safeTop, safeBottom - cardHeight)),
-        left: placeRight
-          ? clamp(rect.right + gap, safeLeft, Math.max(safeLeft, safeRight - cardWidth))
-          : clamp(rect.left - cardWidth - gap, safeLeft, Math.max(safeLeft, safeRight - cardWidth)),
-      });
+      setPopoverStyle(sideStyle(placeRight ? "right" : "left"));
     };
 
     const timer = window.setTimeout(positionPopover, 160);
