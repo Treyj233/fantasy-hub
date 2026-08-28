@@ -3669,7 +3669,10 @@ function MissionHubOnboarding({ step, displayName, hasLeagues, onStep, onNavigat
       window.setTimeout(next, 0);
     };
     const timer = window.setTimeout(() => {
-      document.querySelector<HTMLElement>(selector)?.scrollIntoView({ block: "center", behavior: "smooth" });
+      const scrollTarget = document.querySelector<HTMLElement>(selector);
+      if (scrollTarget && tourTarget !== "open-leagues-tray" && getComputedStyle(scrollTarget).position !== "fixed") {
+        scrollTarget.scrollIntoView({ block: "center", behavior: "smooth" });
+      }
     }, 100);
     document.addEventListener("click", handleClick, true);
     return () => {
@@ -3716,6 +3719,28 @@ function MissionHubOnboarding({ step, displayName, hasLeagues, onStep, onNavigat
       const roomLeft = rect.left - safeLeft;
       const roomRight = safeRight - rect.right;
 
+      if (tourTarget === "open-leagues-tray") {
+        setPopoverPlacement("left");
+        setPopoverStyle({
+          top: clamp(rect.top + rect.height / 2 - cardHeight / 2, safeTop, Math.max(safeTop, safeBottom - cardHeight)),
+          left: clamp(rect.left - cardWidth - gap, safeLeft, Math.max(safeLeft, safeRight - cardWidth)),
+        });
+        return;
+      }
+
+      const prefersBelow = tourTarget === "open-navigation"
+        || tourTarget.startsWith("category-")
+        || tourTarget === "open-theme-store"
+        || tourTarget === "open-pro-store";
+      if (prefersBelow && roomBelow >= cardHeight + gap) {
+        setPopoverPlacement("below");
+        setPopoverStyle({
+          top: clamp(rect.bottom + gap, safeTop, Math.max(safeTop, safeBottom - cardHeight)),
+          left: clamp(rect.left + rect.width / 2 - cardWidth / 2, safeLeft, Math.max(safeLeft, safeRight - cardWidth)),
+        });
+        return;
+      }
+
       if (roomBelow >= cardHeight + gap || roomBelow >= roomAbove) {
         setPopoverPlacement("below");
         setPopoverStyle({
@@ -3758,7 +3783,7 @@ function MissionHubOnboarding({ step, displayName, hasLeagues, onStep, onNavigat
   return createPortal(
     <div className={`mission-tour mission-tour-${step}`} role="region" aria-live="polite" aria-labelledby="mission-tour-title">
       <i className="mission-tour-safe-area" ref={safeAreaRef} aria-hidden="true" />
-      <section className={`mission-tour-card mission-tour-placement-${popoverPlacement}${isTaskStep ? " mission-tour-prompt" : ""}`} ref={cardRef} style={popoverStyle}>
+      <section className={`mission-tour-card mission-tour-placement-${popoverPlacement}${isTaskStep ? " mission-tour-prompt" : ""}${tourTarget ? ` mission-tour-target-${tourTarget}` : ""}`} ref={cardRef} style={popoverStyle}>
         <header>
           <div><span>{isTaskStep ? `STEP ${step + 1} OF ${totalSteps}` : `FANTASY HUB TOUR · ${step + 1} OF ${totalSteps}`}</span>{!isTaskStep && <div className="mission-tour-progress" aria-label={`Onboarding step ${step + 1} of ${totalSteps}`}>{Array.from({ length: totalSteps }, (_, index) => <i className={index <= step ? "active" : ""} key={index} />)}</div>}</div>
           <button type="button" aria-label="Exit onboarding" onClick={onExit}>×</button>

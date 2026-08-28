@@ -332,7 +332,7 @@
 }
 
 /* Versioned, replayable Mission Hub onboarding. */
-.mission-tour { position: fixed; z-index: 240; inset: 0; display: grid; place-items: end; padding: 24px; pointer-events: none; }
+.mission-tour { position: fixed; z-index: 2147483000; inset: 0; display: grid; place-items: end; padding: 24px; isolation: isolate; pointer-events: none; }
 .mission-tour-shade { position: absolute; inset: 0; background: rgb(2 13 9 / .62); backdrop-filter: blur(2px); pointer-events: auto; }
 .mission-tour-card { position: relative; z-index: 2; width: min(560px, calc(100vw - 48px)); overflow: hidden; color: var(--ink); background: var(--chalk); border: 1px solid color-mix(in srgb,var(--gold) 65%,var(--line)); border-radius: 20px; box-shadow: 0 30px 90px rgb(0 0 0 / .48); pointer-events: auto; }
 .mission-tour-card > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; padding: 16px 18px; background: color-mix(in srgb,var(--green) 7%,var(--chalk)); border-bottom: 1px solid var(--line); }
@@ -472,12 +472,9 @@ html[data-theme="dark"] .mission-tour-card,html[data-theme="dark"] .mission-tour
 .mission-tour-card > footer { gap: 7px; padding: 10px 12px; }
 .mission-tour-card > footer button { min-height: 34px; padding: 7px 9px; font-size: 11px; }
 .mission-tour-skip { color: var(--green); background: transparent; border: 1px solid var(--line); }
-.mission-tour-target,
-.app-shell.onboarding-tour-step-0 [data-tour="priority-inbox"],
-.app-shell.onboarding-tour-step-2 [data-tour="open-my-team"],
-.app-shell.onboarding-tour-step-3 [data-tour="player-detail"] {
+.mission-tour-target {
   position: relative;
-  z-index: 245;
+  z-index: 2147483001;
   outline: 3px solid var(--gold-light);
   outline-offset: 3px;
   box-shadow: 0 0 0 7px rgb(var(--brand-secondary-rgb,241 180 50) / .24),0 12px 30px rgb(0 0 0 / .24);
@@ -495,11 +492,12 @@ html[data-theme="dark"] .mission-tour-card > footer { background: #20242c; }
   }
   .mission-tour-card,
   .mission-tour-1 .mission-tour-card {
-    width: min(310px,calc(100vw - 24px));
-    max-height: min(300px,calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 24px));
+    width: min(340px,calc(100vw - 20px));
+    max-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 20px);
     flex: initial;
     margin: 0;
   }
+  .mission-tour-card:not(.mission-tour-prompt) { overflow-y: hidden; }
   .mission-tour-card > footer { align-items: center; flex-direction: row; }
   .mission-tour-card > footer > span { display: flex; }
   .mission-tour-exit { width: auto; }
@@ -513,6 +511,17 @@ html[data-theme="dark"] .mission-tour-card > footer { background: #20242c; }
   overflow: visible;
   border-radius: 12px;
   box-shadow: 0 10px 28px rgb(0 0 0 / .25),0 0 0 1px rgb(var(--brand-secondary-rgb,241 180 50) / .22);
+}
+.mission-tour-card.mission-tour-target-open-leagues-tray {
+  width: min(210px,calc(100vw - 72px));
+}
+.mission-tour-target-open-leagues-tray .mission-tour-command {
+  padding-right: 12px;
+}
+.mission-tour-target-open-leagues-tray .mission-tour-prompt-skip {
+  position: static;
+  display: block;
+  margin: -7px 11px 8px auto;
 }
 .mission-tour-prompt > header {
   position: static;
@@ -628,10 +637,7 @@ html[data-theme="dark"] .mission-tour-card > footer { background: #20242c; }
   font-weight: 950;
 }
 .mission-tour-complete > small { display: block; margin-top: 9px; color: var(--green); font-size: 10px; font-weight: 900; }
-.mission-tour-target,
-.app-shell.onboarding-tour-step-0 [data-tour="priority-inbox"],
-.app-shell.onboarding-tour-step-2 [data-tour="open-my-team"],
-.app-shell.onboarding-tour-step-3 [data-tour="player-detail"] {
+.mission-tour-target {
   animation: mission-tour-target-pulse 1.35s ease-in-out infinite;
 }
 @keyframes mission-tour-pop {
@@ -644,8 +650,5 @@ html[data-theme="dark"] .mission-tour-card > footer { background: #20242c; }
 }
 @media (prefers-reduced-motion: reduce) {
   .mission-tour-card,
-  .mission-tour-target,
-  .app-shell.onboarding-tour-step-0 [data-tour="priority-inbox"],
-  .app-shell.onboarding-tour-step-2 [data-tour="open-my-team"],
-  .app-shell.onboarding-tour-step-3 [data-tour="player-detail"] { animation: none; }
+  .mission-tour-target { animation: none; }
 }
