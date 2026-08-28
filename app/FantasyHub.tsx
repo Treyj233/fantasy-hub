@@ -4488,6 +4488,7 @@ function ManageLeagues({
   ) => void;
   onToggleVisibility: (id: string) => void;
 }) {
+  const nativeIos = isNativeIosApp();
   const [provider, setProvider] = useState<LeagueProvider>("sleeper");
   const [identifierType, setIdentifierType] = useState<
     "username" | "league_id"
@@ -4717,18 +4718,24 @@ function ManageLeagues({
               <b>WANT LIVE GAME-DAY REFRESHES?</b>
               <p>Make the league public in ESPN and connect it by league ID. Private leagues connected through the extension use saved snapshots and must be synced again to update.</p>
             </aside>
-            <div className="espn-sync-actions">
-              <a className="manage-add" href="/extensions/fantasy-hub-espn-sync.zip" download>Download extension</a>
-              <button className="manage-add secondary" onClick={() => void createEspnPairing()} disabled={busy}>{busy ? "Generating…" : "Generate pairing code"}</button>
-              <button className="manage-add secondary" onClick={() => void onRefresh().then(() => setSuccess("Synced ESPN leagues refreshed."))}>Refresh synced leagues</button>
-            </div>
-            {pairing && (
-              <div className="espn-pairing-code">
-                <span><small>ONE-TIME CODE</small><strong>{pairing.code}</strong><em>Expires {new Date(pairing.expiresAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</em></span>
-                <button onClick={() => void navigator.clipboard.writeText(pairing.code)}>Copy code</button>
+            {nativeIos ? (
+              <aside className="espn-live-refresh-note">
+                <b>DESKTOP SETUP REQUIRED</b>
+                <p>Private ESPN league syncing uses the Fantasy Hub browser extension. Visit fantasyhubapp.com while signed in on desktop Chrome, Edge, or Brave to download the extension and complete setup. After syncing, the league will appear in this app.</p>
+              </aside>
+            ) : <>
+              <div className="espn-sync-actions">
+                <a className="manage-add" href="/extensions/fantasy-hub-espn-sync.zip" download>Download extension</a>
+                <button className="manage-add secondary" onClick={() => void createEspnPairing()} disabled={busy}>{busy ? "Generating…" : "Generate pairing code"}</button>
+                <button className="manage-add secondary" onClick={() => void onRefresh().then(() => setSuccess("Synced ESPN leagues refreshed."))}>Refresh synced leagues</button>
               </div>
-            )}
-            <div className="espn-detailed-instructions">
+              {pairing && (
+                <div className="espn-pairing-code">
+                  <span><small>ONE-TIME CODE</small><strong>{pairing.code}</strong><em>Expires {new Date(pairing.expiresAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</em></span>
+                  <button onClick={() => void navigator.clipboard.writeText(pairing.code)}>Copy code</button>
+                </div>
+              )}
+              <div className="espn-detailed-instructions">
               <header><span>COMPLETE SETUP GUIDE</span><strong>Chrome desktop · Extension v0.1.4</strong></header>
               <ol>
                 <li><b>1</b><span><strong>Download and extract the extension</strong><small>Click <em>Download extension</em> above. Open your Downloads folder and double-click the ZIP so you have a normal folder containing manifest.json, popup.html, popup.js, and popup.css.</small></span></li>
@@ -4751,7 +4758,8 @@ function ManageLeagues({
                   <li>Use desktop Chrome, Edge, or Brave; mobile browsers cannot load this preliminary extension.</li>
                 </ul>
               </aside>
-            </div>
+              </div>
+            </>}
           </section>
         )}
         {espnSelection && (
