@@ -190,18 +190,42 @@ const compact = (value: string, length: number) => value.length <= length
   ? value
   : `${value.slice(0, Math.max(0, length - 1)).trimEnd()}…`;
 
+const escapePattern = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+export const expandPlayerNames = (value: string, context: FantasyPlayerContext | null) => {
+  if (!context) return value;
+  const names = [...new Set([context.player, ...context.affectedPlayers, ...context.backups])]
+    .filter((name) => name.trim().split(/\s+/).length > 1)
+    .sort((left, right) => right.length - left.length);
+  const surnameCounts = names.reduce((counts, name) => {
+    const surname = name.trim().split(/\s+/).at(-1)?.toLowerCase();
+    if (surname) counts.set(surname, (counts.get(surname) ?? 0) + 1);
+    return counts;
+  }, new Map<string, number>());
+  let expanded = value;
+  for (const fullName of names) {
+    const lastName = fullName.trim().split(/\s+/).at(-1);
+    if (!lastName || surnameCounts.get(lastName.toLowerCase()) !== 1) continue;
+    expanded = expanded.replace(new RegExp(`\\b${escapePattern(lastName)}\\b`, "gi"), (match, offset: number, source: string) => {
+      const throughMatch = source.slice(0, offset + match.length);
+      return throughMatch.toLowerCase().endsWith(fullName.toLowerCase()) ? match : fullName;
+    });
+  }
+  return expanded;
+};
+
 const cleanEnding = (value: string) => value.replace(/[,:;\-–—\s]+$/g, "").replace(/[.!?]?$/, ".");
 const compactCompleteImpact = (value: string) => {
   if (/\b(?:injur|practice|limited|questionable|doubtful|out|available|cleared|return)/i.test(value)) {
-    return "Hold for now; reassess after the next availability update.";
+    return "Availability now changes lineup and workload certainty.";
   }
   if (/\b(?:add|waiver|watchlist|draft|stash)/i.test(value)) {
-    return "Add him to your watchlist; act when the role is confirmed.";
+    return "The developing role could create fantasy value.";
   }
   if (/\b(?:positive|encouraging|upside|breakout|touchdown|scored)/i.test(value)) {
-    return "Treat this as a positive signal; wait for confirmed usage.";
+    return "The result matters if the underlying role continues.";
   }
-  return "Hold the current value; act when the player's role changes.";
+  return "This changes the player's role or fantasy value.";
 };
 const completeImpact = (value: string, budget: number) => {
   const cleaned = value.replace(/\s+/g, " ").trim();
@@ -216,7 +240,7 @@ const completeImpact = (value: string, budget: number) => {
   if (result) return cleanEnding(result);
   const fallback = compactCompleteImpact(cleaned);
   if (fallback.length <= budget) return fallback;
-  return "Hold; wait for a confirmed role change.";
+  return "This changes the player's fantasy value.";
 };
 const potentialTrade = /potential trade candidate|trade candidate|trade target|drawing trade interest|interested in trading for/i;
 
@@ -270,8 +294,7 @@ const summarizeHeadline = (story: Story, context: FantasyPlayerContext | null, b
   }
   if (context && story.category === "contract") {
     if (potentialTrade.test(cleaned)) {
-      const lastName = context.player.split(/\s+/).at(-1) || context.player;
-      return cleanEnding(`${lastName} is a potential trade candidate`);
+      return cleanEnding(`${context.player} is a potential trade candidate`);
     }
     const move = cleaned.match(/(?:signed|signs|agreed|extended|traded|released|waived)[^.!;,]{0,80}/i)?.[0];
     const summary = move ? `${context.player} ${move}` : `${context.player}'s roster situation has changed`;
@@ -420,7 +443,7 @@ const specificImpact = (story: Story, context: FantasyPlayerContext | null) => {
 export function composeFantasyPost(story: Story, context: FantasyPlayerContext | null) {
   const isGameDay = story.category === "performance" && gameDayPlay.test(`${story.title} ${story.summary}`) && !isPracticeSetting(`${story.title} ${story.summary}`);
   const label = isGameDay ? "🏈 SUNDAY PULSE" : labels[story.category];
-  const impact = specificImpact(story, context);
+  const impact = expandPlayerNames(specificImpact(story, context), context);
   const reporter = story.reporter || creditedReporters[story.source.toLowerCase()];
   const attribution = reporter
     ? `\n\nReported by ${reporter}`
@@ -428,14 +451,15 @@ export function composeFantasyPost(story: Story, context: FantasyPlayerContext |
   if (story.fantasyImpact) {
     // AI-authored X fields are generated as one coordinated package. Reserve
     // space for the complete source fact, then fit the already concise impact.
-    const headline = summarizeHeadline(story, context, 94);
-    const fixed = `${label}\n\n${headline}\n\nFANTASY IMPACT: ${attribution}`;
+    const headline = expandPlayerNames(summarizeHeadline(story, context, 94), context);
+    const fixed = `${label}\n\n${headline}\n\nWHY IT MATTERS: ${attribution}`;
     const impactBudget = Math.max(48, 280 - fixed.length);
-    return `${label}\n\n${headline}\n\nFANTASY IMPACT: ${completeImpact(impact, impactBudget)}${attribution}`;
+    return `${label}\n\n${headline}\n\nWHY IT MATTERS: ${completeImpact(impact, impactBudget)}${attribution}`;
   }
   // Deterministic fallbacks retain their fuller context so named beneficiaries
   // and contingency options are not silently discarded if AI is unavailable.
-  const fixed = `${label}\n\n\n\nFANTASY IMPACT: ${impact}${attribution}`;
+  const fixed = `${label}\n\n\n\nWHY IT MATTERS: ${impact}${attribution}`;
   const headlineBudget = Math.max(42, 275 - fixed.length);
-  return `${label}\n\n${summarizeHeadline(story, context, headlineBudget)}\n\nFANTASY IMPACT: ${impact}${attribution}`;
+  const headline = expandPlayerNames(summarizeHeadline(story, context, headlineBudget), context);
+  return `${label}\n\n${headline}\n\nWHY IT MATTERS: ${impact}${attribution}`;
 }

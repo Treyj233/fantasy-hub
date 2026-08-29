@@ -250,21 +250,26 @@ function PlayerHeadshot({
   );
 }
 const playerShell = (
-  player: { id: string; name: string; position: string; team?: string; nflTeam?: string },
-): Player => ({
-  id: player.id,
-  name: player.name,
-  position: player.position,
-  team: player.team ?? player.nflTeam ?? "FA",
-  opponent: "Matchup details in league view",
-  projection: 0,
-  leagueProjection: null,
-  floor: 0,
-  ceiling: 0,
-  trend: 0,
-  status: "Healthy",
-  role: "Player",
-});
+  player: { id: string; name: string; position: string; team?: string; nflTeam?: string; projection?: number | null; leagueProjection?: number | null; points?: number },
+): Player => {
+  const projection = typeof player.projection === "number" && Number.isFinite(player.projection)
+    ? player.projection
+    : 0;
+  return {
+    id: player.id,
+    name: player.name,
+    position: player.position,
+    team: player.team ?? player.nflTeam ?? "FA",
+    opponent: "Matchup details in league view",
+    projection,
+    leagueProjection: typeof player.leagueProjection === "number" ? player.leagueProjection : null,
+    floor: Number((projection * .68).toFixed(1)),
+    ceiling: Number((projection * 1.38).toFixed(1)),
+    trend: 0,
+    status: "Healthy",
+    role: "Player",
+  };
+};
 type RankedPlayer = Player & {
   overallRank: number;
   positionRank: number;
@@ -3420,7 +3425,12 @@ export default function FantasyHub({
             players={players}
           />
         )}
-        {view === "News & Notes" && <NewsAndNotes onOpenPlayer={(player) => setSelectedPlayer(playerShell(player))} />}
+        {view === "News & Notes" && <NewsAndNotes onOpenPlayer={(player) => {
+          const connectedPlayer = [...players, ...waiverPlayers, ...leagueRankings].find((candidate) =>
+            candidate.id === player.id || (candidate.name === player.name && candidate.position === player.position),
+          );
+          setSelectedPlayer(connectedPlayer ?? playerShell(player));
+        }} />}
         {view === "League Analytics" && !entitlement.pro && <ProGate feature="League Analytics" onUpgrade={() => setView("Fantasy Hub Pro")} />}
         {view === "League Analytics" && entitlement.pro &&
           (rosterReady ? (
@@ -4526,6 +4536,10 @@ function ManageLeagues({
     },
   ];
   const selectedProvider = providers.find((item) => item.id === provider)!;
+  const supplementalManagedLeagues = managedLeagues.filter(
+    (league) => league.status !== "live" && (league.provider === "sleeper" || league.provider === "espn"),
+  );
+  const connectedSourceCount = connectedLeagues.length + supplementalManagedLeagues.length;
 
   async function addLeague() {
     if (!identifier.trim()) return;
@@ -4792,7 +4806,7 @@ function ManageLeagues({
             <span>CONNECTED SOURCES</span>
             <h3>Your leagues and accounts</h3>
           </div>
-          <b>{connectedLeagues.length + managedLeagues.length} records</b>
+          <b>{connectedSourceCount} {connectedSourceCount === 1 ? "record" : "records"}</b>
         </div>
         {connectedLeagues.map((league, index) => (
           <article
@@ -4879,7 +4893,7 @@ function ManageLeagues({
             </div>
           </article>
         ))}
-        {managedLeagues.filter((league) => league.status !== "live" && (league.provider === "sleeper" || league.provider === "espn")).map((league) => (
+        {supplementalManagedLeagues.map((league) => (
           <article key={league.id}>
             <i className={`provider-badge ${league.provider}`}>
               {league.provider.slice(0, 1).toUpperCase()}
@@ -4909,7 +4923,7 @@ function ManageLeagues({
             </button>
           </article>
         ))}
-        {!connectedLeagues.length && !managedLeagues.length && (
+        {connectedSourceCount === 0 && (
           <div className="managed-empty">
             <strong>No leagues added yet</strong>
             <p>
@@ -11666,9 +11680,9 @@ function PlayerPanel({
 }) {
   const projectionPlatform = useContext(ProjectionPlatformContext);
   const platformProjection =
-    typeof player.leagueProjection === "number"
+    typeof player.leagueProjection === "number" && player.leagueProjection > 0
       ? player.leagueProjection
-      : Number.isFinite(player.projection)
+      : Number.isFinite(player.projection) && player.projection > 0
         ? player.projection
         : null;
   const [history, setHistory] = useState<PlayerHistory | null>(null);
@@ -11766,12 +11780,12 @@ function PlayerPanel({
     ),
   );
   const adjustedRange = matchupAdjustedRange(player);
-  const projectionValue = platformProjection ?? player.projection;
+  const projectionValue = platformProjection;
   const rangeWidth = Math.max(1, adjustedRange.ceiling - adjustedRange.floor);
-  const projectionPosition = Math.max(4, Math.min(96, ((projectionValue - adjustedRange.floor) / rangeWidth) * 100));
+  const projectionPosition = projectionValue === null ? 50 : Math.max(4, Math.min(96, ((projectionValue - adjustedRange.floor) / rangeWidth) * 100));
   const statusRisk = /out|doubtful|ir|suspend/i.test(player.status);
-  const verdict = statusRisk ? "AVOID UNTIL ACTIVE" : projectionValue >= 18 ? "CONFIDENT START" : projectionValue >= 12 ? "LINEUP READY" : projectionValue >= 8 ? "MATCHUP FLEX" : "BENCH / WATCH";
-  const verdictTone = statusRisk ? "risk" : projectionValue >= 12 ? "strong" : projectionValue >= 8 ? "watch" : "risk";
+  const verdict = statusRisk ? "AVOID UNTIL ACTIVE" : projectionValue === null ? "PROJECTION UNAVAILABLE" : projectionValue >= 18 ? "CONFIDENT START" : projectionValue >= 12 ? "LINEUP READY" : projectionValue >= 8 ? "MATCHUP FLEX" : "BENCH / WATCH";
+  const verdictTone = statusRisk || projectionValue === null ? "risk" : projectionValue >= 12 ? "strong" : projectionValue >= 8 ? "watch" : "risk";
   const latestSeason = history?.seasons[0];
   const recentAverage = history?.recentWeeks.length
     ? history.recentWeeks.reduce((total, week) => total + week.points, 0) / history.recentWeeks.length
@@ -11808,7 +11822,7 @@ function PlayerPanel({
           <div className="player-verdict">
             <span>FANTASY HUB VERDICT</span>
             <strong className={verdictTone}>{verdict}</strong>
-            <p>{statusRisk ? `${player.status} status overrides the current projection until availability is confirmed.` : `${projectionPlatform} projects ${projectionValue.toFixed(1)} points with a ${player.matchupStrength?.label.toLowerCase() ?? "neutral"} positional matchup.`}</p>
+            <p>{statusRisk ? `${player.status} status overrides the current projection until availability is confirmed.` : projectionValue === null ? "Open a connected league with current weekly projections to see a fantasy-point estimate." : `${projectionPlatform} projects ${projectionValue.toFixed(1)} points with a ${player.matchupStrength?.label.toLowerCase() ?? "neutral"} positional matchup.`}</p>
           </div>
           <div className="player-projection-command">
             <span>{projectionPlatform.toUpperCase()} PROJECTION</span>
@@ -11818,7 +11832,7 @@ function PlayerPanel({
           <div className="player-range-command">
             <header><span>WEEKLY OUTCOME RANGE</span><small>{(adjustedRange.ceiling - adjustedRange.floor).toFixed(1)} point spread</small></header>
             <div className="player-range-track"><i style={{ left: `${projectionPosition}%` }} /></div>
-            <footer><span><b>{adjustedRange.floor.toFixed(1)}</b> FLOOR</span><span><b>{projectionValue.toFixed(1)}</b> PROJ</span><span><b>{adjustedRange.ceiling.toFixed(1)}</b> CEILING</span></footer>
+            <footer><span><b>{platformProjection === null ? "—" : adjustedRange.floor.toFixed(1)}</b> FLOOR</span><span><b>{projectionValue === null ? "—" : projectionValue.toFixed(1)}</b> PROJ</span><span><b>{platformProjection === null ? "—" : adjustedRange.ceiling.toFixed(1)}</b> CEILING</span></footer>
           </div>
         </section>
         <section className="player-decision-rail">

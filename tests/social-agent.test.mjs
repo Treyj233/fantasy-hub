@@ -30,7 +30,7 @@ test("social agent is live, sourced, deduplicated, and rate limited", async () =
   assert.match(worker, /reason: gapRemainingMs > 0 \? "minimum-gap"/);
   assert.match(worker, /publishableStories\.slice\(0, 1\)/);
   assert.match(worker, /safeEqual\(provided, env\.ADMIN_TOKEN\)/);
-  assert.match(content, /FANTASY IMPACT:/);
+  assert.match(content, /WHY IT MATTERS:/);
   assert.doesNotMatch(content, /Source:/);
   assert.match(config, /RapSheet,AdamSchefter,TomPelissero,MikeGarafolo,UnderdogNFL,32BeatWriters,Schultz_Report/);
   assert.match(worker, /source_accounts/);
@@ -57,7 +57,7 @@ test("social agent is live, sourced, deduplicated, and rate limited", async () =
   assert.match(content, /\\bir\\b/);
   assert.match(content, /arrival adds real competition/);
   assert.match(content, /departure clears an opening/);
-  assert.match(worker, /x-sources-v40-confirmed-trade-language/);
+  assert.match(worker, /x-editorial-v45-why-it-matters-full-names/);
   assert.match(worker, /2091958236685520923/);
   assert.match(worker, /2090517793737158739:2/);
   assert.match(worker, /2090493186653249579/);
@@ -84,7 +84,7 @@ test("social agent is live, sourced, deduplicated, and rate limited", async () =
   assert.match(worker, /status IN \('draft', 'posted', 'feed_only'\)/);
   assert.match(worker, /const storyStatus = validation\.approvedForX \? "draft" : feedEligible \? "feed_only" : "suppressed"/);
   assert.match(worker, /Approve by default/);
-  assert.match(worker, /Do not reject for tone, style, cautious wording/);
+  assert.match(worker, /Do not reject merely for tone or stylistic preference/);
   assert.match(worker, /WHERE status = 'draft' AND published_at >=/);
   assert.match(worker, /FEED_SUPPRESSION_MIGRATION/);
   assert.match(worker, /AND error IS NULL/);
@@ -125,10 +125,14 @@ test("social agent is live, sourced, deduplicated, and rate limited", async () =
   assert.doesNotMatch(content, /via \$\{story\.curator\}/);
   assert.match(content, /Do not pay up for one camp highlight/);
   assert.match(content, /Check \$\{context\.player\}'s next practice participation/);
-  assert.match(worker, /one concrete decision trigger/);
-  assert.match(worker, /headline must be a complete factual sentence under 94 characters/);
-  assert.match(worker, /fantasyImpact must be a complete thought under 108 characters/);
-  assert.match(worker, /specific material factual or player-safety conflict/);
+  assert.match(worker, /whatChanged: one plain-language sentence/);
+  assert.match(worker, /fantasyMeaning: explain the football-to-fantasy connection/);
+  assert.match(worker, /actionNow: the clearest justified action today/);
+  assert.match(worker, /nextTrigger: the single specific future report/);
+  assert.match(worker, /headline: a complete, standalone factual sentence under 94 characters/);
+  assert.match(worker, /whyItMatters: a clear complete thought under 108 characters/);
+  assert.match(worker, /reader-comprehension failure/);
+  assert.match(worker, /specific factual, player-safety, or reader-comprehension failure/);
   assert.doesNotMatch(content, /Monitor the depth chart and projections before making your next move/);
   assert.doesNotMatch(content, /Compare this report|routes, targets and snaps|before moving projections/);
   assert.match(worker, /const originalUrl = curated && reference && originalReporter/);
@@ -156,7 +160,7 @@ test("X drafts preserve a complete headline before fitting fantasy impact", asyn
   }, { player: "Example Player", position: "RB", team: "CHI", backups: ["Backup Runner"], affectedPlayers: [] });
   assert.ok(post.length <= 280);
   assert.match(post, /will miss Week 1 with a high ankle sprain\./);
-  assert.match(post, /FANTASY IMPACT: [^\n]+[.!?]/);
+  assert.match(post, /WHY IT MATTERS: [^\n]+[.!?]/);
   assert.doesNotMatch(post, /…|\.\.\./);
 });
 
@@ -174,8 +178,25 @@ test("X impact fitting never turns a cut-off phrase into a sentence", async () =
     fantasyImpact: "Keep Henderson on your draft board after the full return, but verify that he remains unrestricted throughout the rest of the week before moving him aggressively above nearby running backs.",
   }, { player: "TreVeyon Henderson", position: "RB", team: "NE", backups: [], affectedPlayers: [] });
   assert.ok(post.length <= 280);
-  assert.match(post, /FANTASY IMPACT: (?:Hold for now; reassess after the next availability update|Hold; wait for a confirmed role change)\./);
+  assert.match(post, /WHY IT MATTERS: (?:Availability now changes lineup and workload certainty|This changes the player's fantasy value)\./);
   assert.doesNotMatch(post, /before moving\./);
+});
+
+test("X posts expand surname-only player references and explain why the story matters", async () => {
+  const { composeFantasyPost } = await import("../social-agent/src/content.ts");
+  const post = composeFantasyPost({
+    id: "full-name-why-it-matters",
+    title: "Henderson returned to full practice.",
+    summary: "TreVeyon Henderson returned to full practice.",
+    url: "https://example.com/full-name-why-it-matters",
+    source: "@AdamSchefter",
+    publishedAt: "2026-08-24T16:00:00.000Z",
+    category: "injury",
+    fantasyImpact: "Henderson's full return restores his lineup viability.",
+  }, { player: "TreVeyon Henderson", position: "RB", team: "NE", backups: [], affectedPlayers: [] });
+  assert.match(post, /TreVeyon Henderson returned to full practice\./);
+  assert.match(post, /WHY IT MATTERS: TreVeyon Henderson's full return restores his lineup viability\./);
+  assert.doesNotMatch(post, /YOUR NEXT MOVE|FANTASY IMPACT/);
 });
 
 test("roundup posts are split into atomic player updates", async () => {
@@ -280,7 +301,7 @@ test("potential trade reports remain roster moves when an injury provides contex
     publishedAt: "2026-08-20T17:36:29.000Z",
     category: "contract",
   }, { player: "Kayshon Boutte", position: "WR", team: "NE", backups: [], affectedPlayers: [] });
-  assert.match(draft, /Boutte is a potential trade candidate\./);
+  assert.match(draft, /Kayshon Boutte is a potential trade candidate\./);
   assert.doesNotMatch(draft, /roster situation has changed/);
 });
 
