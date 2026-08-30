@@ -199,6 +199,12 @@ test("X posts expand surname-only player references and explain why the story ma
   assert.doesNotMatch(post, /YOUR NEXT MOVE|FANTASY IMPACT/);
 });
 
+test("X validation accepts the current WHY IT MATTERS section label", async () => {
+  const intelligence = await readFile(new URL("../social-agent/src/intelligence.ts", import.meta.url), "utf8");
+  assert.match(intelligence, /\(\?:WHY IT MATTERS\|FANTASY IMPACT\):/);
+  assert.doesNotMatch(intelligence, /if \(!\/FANTASY IMPACT:\/i\.test\(draft\)\)/);
+});
+
 test("roundup posts are split into atomic player updates", async () => {
   const { splitAtomicUpdates } = await import("../social-agent/src/content.ts");
   assert.deepEqual(splitAtomicUpdates("• Player One left with an ankle injury\n• Player Two returned to practice in full"), [

@@ -13,6 +13,18 @@ type AgentState = {
   lastPostAt: string | null;
   lastError: string | null;
   mode: "preview" | "live";
+  lastCycle?: DeliveryCycle;
+};
+
+type DeliveryCycle = {
+  candidates: number;
+  newlyCreated: number;
+  approvedForX: number;
+  feedOnly: number;
+  suppressed: number;
+  publishable: number;
+  postingEligible: boolean;
+  postingReason: string;
 };
 
 const RECENT_STORY_HOURS = 18;
@@ -21,6 +33,7 @@ const GAMEDAY_POST_FRESHNESS_MINUTES = 20;
 const DRAFT_FORMAT_VERSION = "x-editorial-v45-why-it-matters-full-names";
 const MANUAL_REPOST_KEY = "manual-repost-v42-complete-copy";
 const FEED_SUPPRESSION_MIGRATION = "feed-only-v43-soft-editorial-gate";
+const WHY_IT_MATTERS_VALIDATION_REPAIR = "why-it-matters-validation-v46";
 const RETRACTED_STORY_IDS = ["2090186160634986677", "2090197243202609473", "2090202303143747828", "2090517793737158739:2", "2090871356099379667"];
 
 type StoredStory = {
@@ -274,6 +287,28 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
     this.sql`INSERT OR REPLACE INTO agent_meta (key, value) VALUES (${FEED_SUPPRESSION_MIGRATION}, 'complete')`;
   }
 
+  private repairWhyItMattersValidation() {
+    this.sql`CREATE TABLE IF NOT EXISTS agent_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)`;
+    const [completed] = [...this.sql<{ value: string }>`SELECT value FROM agent_meta WHERE key = ${WHY_IT_MATTERS_VALIDATION_REPAIR} LIMIT 1`];
+    if (completed?.value === "complete") return;
+    const cutoff = new Date(Date.now() - 24 * 60 * 60_000).toISOString();
+    const postCutoff = new Date(Date.now() - POST_FRESHNESS_MINUTES * 60_000).toISOString();
+    const affected = [...this.sql<{ id: string; published_at: string; validation_json: string }>`
+      SELECT id, published_at, validation_json FROM stories
+      WHERE status = 'suppressed' AND draft IS NOT NULL
+        AND discovered_at >= ${cutoff} AND validation_json IS NOT NULL`];
+    for (const story of affected) {
+      const validation = parseJson<ValidationResult>(story.validation_json, { approvedForX: false, reasons: [] });
+      if (validation.reasons.length !== 1 || validation.reasons[0] !== "Fantasy impact is missing") continue;
+      const status = story.published_at >= postCutoff ? "draft" : "feed_only";
+      this.sql`UPDATE stories
+        SET status = ${status}, error = NULL,
+            validation_json = ${JSON.stringify({ approvedForX: true, reasons: [] })}
+        WHERE id = ${story.id}`;
+    }
+    this.sql`INSERT OR REPLACE INTO agent_meta (key, value) VALUES (${WHY_IT_MATTERS_VALIDATION_REPAIR}, 'complete')`;
+  }
+
   async onStart() {
     this.sql`CREATE TABLE IF NOT EXISTS stories (
       id TEXT PRIMARY KEY,
@@ -291,6 +326,7 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
     this.ensureStorySchema();
     this.migrateDraftFormat();
     this.migrateFeedOnlyStories();
+    this.repairWhyItMattersValidation();
     this.sql`CREATE TABLE IF NOT EXISTS source_accounts (
       username TEXT PRIMARY KEY,
       x_user_id TEXT NOT NULL,
@@ -782,7 +818,45 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
       state = { ...state, lastError: null };
       this.setState(state);
     }
-    return { state, postingConfigured: Boolean(this.env.X_API_KEY && this.env.X_ACCESS_TOKEN), recent: this.recentDrafts() };
+    return { state, postingConfigured: Boolean(this.env.X_API_KEY && this.env.X_ACCESS_TOKEN), recent: this.recentDrafts(), delivery: this.deliverySummary() };
+  }
+
+  private deliverySummary() {
+    this.ensureStorySchema();
+    const cutoff = new Date(Date.now() - 24 * 60 * 60_000).toISOString();
+    const counts = [...this.sql<{ status: string; count: number }>`
+      SELECT status, COUNT(*) AS count FROM stories
+      WHERE discovered_at >= ${cutoff}
+      GROUP BY status`];
+    const rejectionReasons = [...this.sql<{ reason: string; count: number }>`
+      SELECT COALESCE(NULLIF(error, ''), 'unspecified') AS reason, COUNT(*) AS count
+      FROM stories
+      WHERE discovered_at >= ${cutoff} AND status = 'suppressed'
+      GROUP BY COALESCE(NULLIF(error, ''), 'unspecified')
+      ORDER BY count DESC LIMIT 8`];
+    const validationGroups = [...this.sql<{ validation_json: string; count: number }>`
+      SELECT validation_json, COUNT(*) AS count
+      FROM stories
+      WHERE discovered_at >= ${cutoff} AND status = 'suppressed'
+        AND validation_json IS NOT NULL
+      GROUP BY validation_json
+      ORDER BY count DESC LIMIT 20`];
+    const validationReasons = new Map<string, number>();
+    for (const group of validationGroups) {
+      const validation = parseJson<ValidationResult>(group.validation_json, { approvedForX: false, reasons: [] });
+      for (const reason of validation.reasons) {
+        validationReasons.set(reason, (validationReasons.get(reason) ?? 0) + Number(group.count));
+      }
+    }
+    return {
+      windowHours: 24,
+      counts: Object.fromEntries(counts.map((row) => [row.status, Number(row.count)])),
+      rejectionReasons: rejectionReasons.map((row) => ({ reason: row.reason, count: Number(row.count) })),
+      validationReasons: [...validationReasons.entries()]
+        .map(([reason, count]) => ({ reason, count }))
+        .sort((left, right) => right.count - left.count)
+        .slice(0, 8),
+    };
   }
 
   async runCycle(_payload?: { trigger: string }) {
@@ -792,6 +866,7 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
       this.ensureStorySchema();
       this.migrateDraftFormat();
       this.migrateFeedOnlyStories();
+      this.repairWhyItMattersValidation();
       // Remove drafts created by the retired RSS source. X-origin stories use an @handle.
       this.sql`DELETE FROM stories WHERE source NOT LIKE '@%' AND source != 'weather'`;
       this.sql`UPDATE stories
@@ -853,8 +928,8 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
             WHERE id = ${canonical.id}`;
           continue;
         }
-        this.sql`INSERT INTO stories (id, title, url, source, category, published_at, discovered_at, draft, status, semantic_key, parent_story_id, confidence, lifecycle_stage, facts_json, validation_json, related_players_json, source_count, feed_headline, feed_summary, feed_why_it_matters, feed_next_move)
-          VALUES (${preparedStory.id}, ${preparedStory.title}, ${preparedStory.url}, ${preparedStory.source}, ${preparedStory.category}, ${preparedStory.publishedAt}, ${now.toISOString()}, ${draft}, ${storyStatus}, ${storySemanticKey}, ${preparedStory.parentId ?? preparedStory.id}, ${facts.confidence}, ${facts.lifecycleStage}, ${JSON.stringify(facts)}, ${JSON.stringify(validation)}, ${JSON.stringify(relatedPlayers)}, 1, ${editorial.headline}, ${editorial.summary}, ${editorial.whyItMatters}, ${editorial.nextMove})`;
+        this.sql`INSERT INTO stories (id, title, url, source, category, published_at, discovered_at, draft, status, semantic_key, parent_story_id, confidence, lifecycle_stage, facts_json, validation_json, related_players_json, source_count, feed_headline, feed_summary, feed_why_it_matters, feed_next_move, error)
+          VALUES (${preparedStory.id}, ${preparedStory.title}, ${preparedStory.url}, ${preparedStory.source}, ${preparedStory.category}, ${preparedStory.publishedAt}, ${now.toISOString()}, ${draft}, ${storyStatus}, ${storySemanticKey}, ${preparedStory.parentId ?? preparedStory.id}, ${facts.confidence}, ${facts.lifecycleStage}, ${JSON.stringify(facts)}, ${JSON.stringify(validation)}, ${JSON.stringify(relatedPlayers)}, 1, ${editorial.headline}, ${editorial.summary}, ${editorial.whyItMatters}, ${editorial.nextMove}, ${storyStatus === "suppressed" ? validation.reasons.join("; ") : null})`;
         this.sql`INSERT OR IGNORE INTO story_evidence (story_id, source_story_id, source, url, title, published_at)
           VALUES (${preparedStory.id}, ${preparedStory.id}, ${preparedStory.source}, ${preparedStory.url}, ${story.title}, ${preparedStory.publishedAt})`;
         selected ??= preparedStory;
@@ -898,17 +973,23 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
       } else {
         this.setState({ ...this.state, lastRunAt: now.toISOString(), lastError: null, mode });
       }
-      console.log(JSON.stringify({
-        event: "social_agent_cycle",
-        mode,
-        gameDay,
+      const cycle: DeliveryCycle = {
         candidates: candidates.length,
-        selected: selected?.id ?? null,
         newlyCreated: newlyCreated.length,
         approvedForX: newlyCreated.filter((item) => item.approved).length,
         feedOnly: newlyCreated.filter((item) => !item.approved && item.feedEligible).length,
         suppressed: newlyCreated.filter((item) => !item.approved && !item.feedEligible).length,
         publishable: publishableStories.length,
+        postingEligible: postingGate.eligible,
+        postingReason: postingGate.reason,
+      };
+      this.setState({ ...this.state, lastCycle: cycle });
+      console.log(JSON.stringify({
+        event: "social_agent_cycle",
+        mode,
+        gameDay,
+        ...cycle,
+        selected: selected?.id ?? null,
         postingGate,
       }));
       return this.status();
@@ -955,6 +1036,8 @@ export default {
         lastRunAt: status.state.lastRunAt,
         lastError: status.state.lastError,
         draftCount: status.recent.filter((story) => story.status === "draft").length,
+        lastCycle: status.state.lastCycle ?? null,
+        delivery: status.delivery,
       }, { status: status.state.lastError ? 503 : 200 });
     }
     if (url.pathname === "/feed" && request.method === "GET") {

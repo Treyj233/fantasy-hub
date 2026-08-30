@@ -108,9 +108,9 @@ export function validateStoryDraft(story: Story, context: PlayerContext | null, 
   if (/\b(?:not|and|or|but|with|for|to|during)\.$/im.test(draft)) reasons.push("Headline ends with a dangling word");
   if (context && headline.toLowerCase().split(context.player.toLowerCase()).length - 1 > 1) reasons.push("Headline repeats the subject name");
   if (story.category === "injury" && facts.diagnosis && !draft.toLowerCase().includes(facts.diagnosis.toLowerCase().replace(/^(?:tweaked)\s+(?:his|her|their)\s+/, ""))) reasons.push("Draft omits the reported injury detail");
-  if (!/FANTASY IMPACT:/i.test(draft)) reasons.push("Fantasy impact is missing");
+  if (!/(?:WHY IT MATTERS|FANTASY IMPACT):/i.test(draft)) reasons.push("Fantasy impact is missing");
   if (/adjust projections|monitor the depth chart|compare (?:this report )?(?:with )?(?:routes|targets|snaps)|routes, targets and snaps|\bhold on\b|\bawait (?:clarity|resolution|usage|an? update)\b/i.test(draft)) reasons.push("Fantasy impact uses vague boilerplate");
   if (isPracticeSetting(`${story.title} ${story.summary}`)
-    && /FANTASY IMPACT:[\s\S]*\b(?:draft|add|waiver|buy|sell|boosts? (?:his )?(?:value|appeal))\b/i.test(draft)) reasons.push("A single practice report cannot trigger an acquisition or value change");
+    && /(?:WHY IT MATTERS|FANTASY IMPACT):[\s\S]*\b(?:draft|add|waiver|buy|sell|boosts? (?:his )?(?:value|appeal))\b/i.test(draft)) reasons.push("A single practice report cannot trigger an acquisition or value change");
   return { approvedForX: reasons.length === 0, reasons };
 }
