@@ -15,7 +15,7 @@ type SourceProjection = { player_id?: string; stats?: Record<string, number> };
 type MatchupRow = { roster_id?: number; matchup_id?: number | null };
 type TrendingRow = { player_id?: string; count?: number };
 
-const LEAGUE_PAYLOAD_VERSION = 14;
+const LEAGUE_PAYLOAD_VERSION = 15;
 const LEAGUE_SNAPSHOT_TTL_MS = 30 * 60 * 1000;
 const SHARED_TTL_SECONDS = {
   projections: 15 * 60,
@@ -100,6 +100,13 @@ export async function GET(request: Request) {
       const fallbackPoints = entry.stats[projectionKey];
       const points = customPoints > 0 ? customPoints : fallbackPoints;
       return typeof points === "number" ? [[entry.player_id, Number(points.toFixed(2))]] : [];
+    }));
+    const seasonProjections = new Map(sleeperAdpRows.flatMap((entry) => {
+      if (!entry.player_id || !entry.stats) return [];
+      const customPoints = sleeperFantasyPoints(entry.stats, scoring, sourcePlayers[entry.player_id]?.position ?? "");
+      const fallbackPoints = entry.stats[projectionKey];
+      const points = customPoints > 0 ? customPoints : fallbackPoints;
+      return typeof points === "number" && points > 0 ? [[entry.player_id, Number(points.toFixed(2))]] : [];
     }));
     const rosterSlots = league.roster_positions ?? [];
     const slotCounts = rosterSlots.reduce<Record<string, number>>((counts, slot) => ({ ...counts, [slot]: (counts[slot] ?? 0) + 1 }), {});
@@ -188,7 +195,10 @@ export async function GET(request: Request) {
               { value: directEspnAdp, weight: .1 },
             ],
         sourceRank,
-        historicalPointsPerGame,
+        projectedSeasonPoints: seasonProjections.get(playerId) ?? null,
+        age: format === "Redraft" ? player.age ?? null : null,
+        position,
+        priorSeasonGames: format === "Redraft" ? seasonProfile?.games ?? null : null,
         lineupAdjustment,
       });
       const waiverProjection = platformProjection;
