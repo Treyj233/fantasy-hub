@@ -25,6 +25,8 @@ test("Team Rankings groups assets by position and removes mobile horizontal scro
   assert.match(rankings, /\.slice\(0, 4\)/);
   assert.match(rankings, /rank-elite/);
   assert.match(rankings, /rank-trailing/);
+  assert.match(rankings, /`\$\{ranking\.position\} #\$\{ranking\.positionRank\}`/);
+  assert.doesNotMatch(rankings, /ranking \? `#\$\{ranking\.overallRank\}`/);
   assert.match(rankings, /aria-controls=\{`team-assets-\$\{team\.id\}`\}/);
   assert.match(styles, /\.team-rank-table\{width:100%;overflow-x:hidden!important/);
   assert.match(styles, /\.team-rank-row,.team-rank-row\.dynasty\{position:relative;display:grid;grid-template-columns:repeat\(2,minmax\(0,1fr\)\)!important/);
@@ -40,6 +42,8 @@ test("Team Rankings groups assets by position and removes mobile horizontal scro
   assert.match(styles, /\.team-assets-mobile-open\{font-weight:700!important\}/);
   assert.match(styles, /\.room-rank\.rank-elite b/);
   assert.match(styles, /\.room-rank\.rank-trailing b/);
+  assert.match(styles, /\.team-rank-legend \.rank-elite\{border-color:#55d28e;background:#087342\}/);
+  assert.match(styles, /\.team-rank-legend \.rank-trailing\{border-color:#f28b85;background:#8f242d\}/);
   assert.match(styles, /\.team-rank-row \.room-position-label\{display:block/);
   assert.match(styles, /@media\(max-width:700px\)[\s\S]*?\.team-rank-row \.room-position-label\{display:none\}/);
   assert.match(styles, /\.team-rank-row \.room-rank\{[^}]*background:rgb\(var\(--brand-primary-rgb,11 134 80\) \/ \.14\)/);

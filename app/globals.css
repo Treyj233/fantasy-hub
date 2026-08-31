@@ -1083,7 +1083,7 @@ html[data-theme="dark"] .team-rank-row .core-assets button{background:rgb(var(--
 .team-assets-mobile-open{display:none}
 .team-assets-modal-layer{position:fixed;z-index:2147483599;inset:0;display:grid;place-items:center;padding:clamp(18px,4vw,54px);background:rgb(2 16 11 / .72);backdrop-filter:blur(7px);overscroll-behavior:contain}
 .team-rankings-page,.team-assets-modal-layer{font-family:var(--font-geist-sans),Arial,sans-serif}.rank-team-name strong{color:var(--green);font-family:inherit;font-size:13px;font-style:normal;font-weight:850;letter-spacing:-.015em;text-transform:none}.room-rank b{display:inline-grid;place-items:center;min-width:31px;padding:4px 6px;color:#fff;background:linear-gradient(135deg,var(--green),var(--deep));border:1px solid color-mix(in srgb,var(--gold) 55%,var(--green));border-radius:8px;font-family:inherit;font-size:12px;font-style:normal;font-weight:900;letter-spacing:0;box-shadow:0 3px 8px rgb(0 0 0 / .14)}.room-rank small{font-weight:900;letter-spacing:.035em}
-.room-rank.rank-elite b{color:#342400;background:linear-gradient(135deg,#ffe88a,var(--gold));border-color:#b68112;box-shadow:0 3px 10px rgb(190 139 20 / .3)}.room-rank.rank-middle b{color:#fff;background:linear-gradient(135deg,#587267,#263e34);border-color:#769486}.room-rank.rank-trailing b{color:#fff;background:linear-gradient(135deg,#d56a63,#8d3435);border-color:#e6968f}.room-rank.rank-elite small{color:#8b6517}.room-rank.rank-trailing small{color:#a44743}
+.room-rank.rank-elite b{color:#fff;background:linear-gradient(135deg,#22a865,#087342);border-color:#55d28e;box-shadow:0 3px 10px rgb(12 125 72 / .3)}.room-rank.rank-middle b{color:#fff;background:linear-gradient(135deg,#60788e,#334759);border-color:#8298aa}.room-rank.rank-trailing b{color:#fff;background:linear-gradient(135deg,#e05252,#8f242d);border-color:#f28b85;box-shadow:0 3px 10px rgb(151 38 45 / .24)}.room-rank.rank-elite small{color:#087342}.room-rank.rank-trailing small{color:#a42d35}
 .team-rank-row .room-position-label{display:block;margin-top:4px;color:var(--muted);font-size:11px;font-weight:850;letter-spacing:.08em;line-height:1;text-align:center}
 .team-position-rooms{display:grid;gap:11px}
 .team-position-room{min-width:0;overflow:hidden;background:color-mix(in srgb,var(--chalk) 90%,transparent);border:1px solid var(--line);border-radius:11px}
@@ -1149,7 +1149,7 @@ html[data-theme="dark"] .team-position-room{background:#20242c;border-color:#404
 .team-rank-legend{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:6px}
 .team-rank-legend span{padding:6px 8px;background:#ffffff12;border:1px solid #ffffff28;border-radius:999px;font-size:10px;font-weight:900;white-space:nowrap}
 .team-rank-legend span:before{display:inline-block;width:7px;height:7px;margin-right:5px;border-radius:50%;content:""}
-.team-rank-legend .rank-elite:before{background:var(--gold)}.team-rank-legend .rank-middle:before{background:#7b9b8c}.team-rank-legend .rank-trailing:before{background:#d56a63}
+.team-rank-legend .rank-elite{border-color:#55d28e;background:#087342}.team-rank-legend .rank-middle{border-color:#8298aa;background:#334759}.team-rank-legend .rank-trailing{border-color:#f28b85;background:#8f242d}.team-rank-legend .rank-elite:before{background:#7df0ac}.team-rank-legend .rank-middle:before{background:#b7c7d4}.team-rank-legend .rank-trailing:before{background:#ffaaa5}
 .team-rank-table>.team-rank-head{margin:0 12px;padding:12px 12px 8px;border:0;color:var(--muted);background:transparent}
 .team-rank-table>.team-rank-head span{text-align:center}.team-rank-table>.team-rank-head span:nth-child(2),.team-rank-table>.team-rank-head span:last-child{text-align:left}
 .team-rank-table>.team-rank-row:not(.team-rank-head){position:relative;margin:0 12px 9px;padding:11px 12px;background:color-mix(in srgb,var(--chalk) 96%,var(--green));border:1px solid color-mix(in srgb,var(--green) 14%,var(--line));border-radius:12px;box-shadow:0 6px 16px rgb(6 38 26 / .055);transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease}
@@ -1167,7 +1167,7 @@ html[data-theme="dark"] .team-rank-table>.team-rank-row:not(.team-rank-head){bac
 html[data-theme="dark"] .team-rank-table>.team-rank-row.your-team{background:linear-gradient(90deg,#343126,#222d29);border-color:#8f742a}
 html[data-theme="dark"] .team-rank-table .core-assets button{color:#f4fbf7;background:#293630;border-color:#46564e}
 html[data-theme="dark"] .team-rankings-page :is(.team-position-room>header strong,.team-assets-grid p strong,.team-assets-grid>button>b){color:#f4fbf7}
-html[data-theme="dark"] .team-rankings-page .room-rank.rank-elite small{color:#f6d477}
+html[data-theme="dark"] .team-rankings-page .room-rank.rank-elite small{color:#7df0ac}
 html[data-theme="dark"] .team-rankings-page .room-rank.rank-middle small{color:#c3d6cc}
 html[data-theme="dark"] .team-rankings-page .room-rank.rank-trailing small{color:#ffaaa5}
 html[data-theme="dark"] .team-rankings-page .team-rank-head span{color:#c3d6cc}

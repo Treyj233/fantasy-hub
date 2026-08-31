@@ -8549,7 +8549,7 @@ function TeamRankings({
                     <header><span className={`pos pos-${position.toLowerCase()}`}>{position === "OTHER" ? "ST" : position}</span><strong>{position === "OTHER" ? "KICKERS & DEFENSE" : `${position}s`}</strong><small>{positionPlayers.length} PLAYERS</small></header>
                     <div className="team-assets-grid">{positionPlayers.map((player) => {
                       const ranking = rankingById.get(player.id);
-                      return <button type="button" key={player.id} onClick={() => { setExpandedTeamId(""); setSelectedPlayer(player); }}><span className={`pos pos-${player.position.toLowerCase()}`}>{player.position}</span><p><strong>{player.name}</strong><small>{player.team} · {formatRosterSlot(player.role)}</small></p><b>{ranking ? `#${ranking.overallRank}` : `${player.projection.toFixed(1)} PTS`}</b></button>;
+                      return <button type="button" key={player.id} onClick={() => { setExpandedTeamId(""); setSelectedPlayer(player); }}><span className={`pos pos-${player.position.toLowerCase()}`}>{player.position}</span><p><strong>{player.name}</strong><small>{player.team} · {formatRosterSlot(player.role)}</small></p><b>{ranking ? `${ranking.position} #${ranking.positionRank}` : `${player.projection.toFixed(1)} PTS`}</b></button>;
                     })}</div>
                   </section>;
                 })}
