@@ -119,8 +119,11 @@ export function seasonRankingValue({
     : Math.min(16, Math.max(0, projectedPointsPerGame * .85));
   const availabilityShare = Math.max(0, 17 - Math.max(0, unavailableGames)) / 17;
   const forwardProjectionBonus = rawForwardProjectionBonus * availabilityShare;
-  const ageThreshold = position === "RB" ? 26 : position === "WR" ? 28 : position === "TE" ? 30 : position === "QB" ? 33 : 30;
-  const ageRate = position === "RB" ? 2.25 : position === "WR" ? 1.5 : position === "TE" ? 1.1 : position === "QB" ? .65 : 1;
+  // This is a one-season ranking. Market value, forward projection and explicit
+  // availability already carry most veteran risk, so RB age should be a small
+  // late-career modifier rather than a dynasty-style cliff.
+  const ageThreshold = position === "RB" ? 28 : position === "WR" ? 28 : position === "TE" ? 30 : position === "QB" ? 33 : 30;
+  const ageRate = position === "RB" ? .65 : position === "WR" ? 1.5 : position === "TE" ? 1.1 : position === "QB" ? .65 : 1;
   const yearsPastThreshold = age == null ? 0 : Math.max(0, age - ageThreshold);
   const ageRisk = Math.min(18, Math.pow(yearsPastThreshold, 1.25) * ageRate);
   const availabilityRisk = priorSeasonGames == null

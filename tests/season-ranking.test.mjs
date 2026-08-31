@@ -95,6 +95,22 @@ test("an older running back's history cannot override younger elite ROS profiles
   assert.ok(youngerBack.value > olderBack.value);
 });
 
+test("elite redraft running backs receive only a modest late-career age adjustment", () => {
+  const valueAt24 = seasonRankingValue({
+    marketSources: [{ value: 5, weight: 1 }], sourceRank: 5,
+    projectedSeasonPoints: 300, age: 24, position: "RB",
+    priorSeasonGames: 17, unavailableGames: 0, lineupAdjustment: 3,
+  }).value;
+  const valueAt30 = seasonRankingValue({
+    marketSources: [{ value: 5, weight: 1 }], sourceRank: 5,
+    projectedSeasonPoints: 300, age: 30, position: "RB",
+    priorSeasonGames: 17, unavailableGames: 0, lineupAdjustment: 3,
+  }).value;
+
+  assert.ok(valueAt24 > valueAt30);
+  assert.ok(valueAt24 - valueAt30 < 2, "age alone should not move an elite RB several ranking tiers");
+});
+
 test("DNR and SUS tags receive the same assumed suspension adjustment", () => {
   assert.equal(assumedSuspensionGames("DNR"), 8);
   assert.equal(assumedSuspensionGames("sus"), 8);
