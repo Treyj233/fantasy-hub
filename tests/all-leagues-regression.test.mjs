@@ -679,6 +679,21 @@ test("Game Day Command Center always orders leagues by drama without a display t
   assert.doesNotMatch(component, /viewMode|setViewMode|Drama first|League order|scoreboard-view-toggle/);
 });
 
+test("desktop fantasy scoreboard exposes every league while mobile remains compact", async () => {
+  const [source, styles] = await Promise.all([
+    readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+  const start = source.indexOf("function AllLeagueScoreboard(");
+  const end = source.indexOf("function Scoreboard(", start);
+  const component = source.slice(start, end);
+
+  assert.match(component, /orderedLeagues\.map\(\(league, index\)/);
+  assert.doesNotMatch(component, /visibleScoreLeagues|orderedLeagues\.slice\(0, 2\)/);
+  assert.match(component, /score-rail-mobile-overflow/);
+  assert.match(styles, /\.portfolio-score-rail \.score-rail-mobile-overflow\{display:none\}/);
+});
+
 test("NFL game impact details open in an accessible popout", async () => {
   const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
   assert.match(source, /isExpanded \? "is-expanded"/);
