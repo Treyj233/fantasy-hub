@@ -692,6 +692,9 @@ test("desktop fantasy scoreboard exposes every league while mobile remains compa
   assert.doesNotMatch(component, /visibleScoreLeagues|orderedLeagues\.slice\(0, 2\)/);
   assert.match(component, /score-rail-mobile-overflow/);
   assert.match(styles, /\.portfolio-score-rail \.score-rail-mobile-overflow\{display:none\}/);
+  const finePointerRules = styles.slice(styles.lastIndexOf("@media(pointer:fine)"));
+  assert.match(finePointerRules, /\.portfolio-score-rail \.score-rail-toggle\{display:none!important\}/);
+  assert.match(finePointerRules, /\.portfolio-score-rail \.score-rail-mobile-overflow\{display:grid\}/);
 });
 
 test("NFL game impact details open in an accessible popout", async () => {
