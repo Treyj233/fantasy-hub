@@ -81,9 +81,15 @@ export function statLineEquivalent(position, points, scoring = {}) {
   if (position === "QB") {
     const passTd = scoring.pass_td ?? 4;
     const passYd = scoring.pass_yd ?? 0.04;
-    const touchdowns = rounded >= 12 ? Math.max(1, Math.floor(rounded / 8)) : 1;
-    const yards = Math.max(0, Math.round((points - touchdowns * passTd) / Math.max(0.01, passYd) / 25) * 25);
-    return `about ${yards} passing yards and ${touchdowns} passing TD${touchdowns === 1 ? "" : "s"}`;
+    const yardRate = Math.max(0.001, passYd);
+    const candidates = Array.from({ length: 7 }, (_, touchdowns) => {
+      const yards = Math.max(0, Math.round((points - touchdowns * passTd) / yardRate / 25) * 25);
+      const scored = yards * yardRate + touchdowns * passTd;
+      const typicalYards = 125 + touchdowns * 75;
+      return { touchdowns, yards, score: Math.abs(scored - points) * 100 + Math.abs(yards - typicalYards) / 25 };
+    });
+    const best = candidates.sort((a, b) => a.score - b.score || a.touchdowns - b.touchdowns)[0];
+    return `about ${best.yards} passing yards and ${best.touchdowns} passing TD${best.touchdowns === 1 ? "" : "s"} (${passTd}-point passing TD scoring)`;
   }
   if (["WR", "TE"].includes(position)) {
     const reception = scoring.rec ?? 1;

@@ -29,6 +29,7 @@ test("ESPN connected leagues feed the shared live scoreboard", async () => {
   const adapter = await readFile(new URL("../app/api/espn.ts", import.meta.url), "utf8");
   const scoreboard = await readFile(new URL("../app/api/scoreboard/route.ts", import.meta.url), "utf8");
   assert.match(adapter, /normalizeEspnScoreboard/);
+  assert.match(adapter, /scoring: normalizeEspnScoring\(payload\)/);
   assert.match(scoreboard, /leagueId\?\.startsWith\("espn:"\)/);
   assert.match(scoreboard, /Select your ESPN team in Manage Leagues/);
 });

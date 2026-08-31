@@ -34,6 +34,26 @@ const positionById: Record<number, string> = { 1: "QB", 2: "RB", 3: "WR", 4: "TE
 const slotById: Record<number, string> = { 0: "QB", 2: "RB", 4: "WR", 6: "TE", 7: "SUPER_FLEX", 16: "DEF", 17: "K", 20: "Bench", 21: "IR", 23: "FLEX", 24: "FLEX" };
 const nflTeamById: Record<number, string> = { 1: "ATL", 2: "BUF", 3: "CHI", 4: "CIN", 5: "CLE", 6: "DAL", 7: "DEN", 8: "DET", 9: "GB", 10: "TEN", 11: "IND", 12: "KC", 13: "LV", 14: "LAR", 15: "MIA", 16: "MIN", 17: "NE", 18: "NO", 19: "NYG", 20: "NYJ", 21: "PHI", 22: "ARI", 23: "PIT", 24: "LAC", 25: "SF", 26: "SEA", 27: "TB", 28: "WSH", 29: "CAR", 30: "JAX", 33: "BAL", 34: "HOU" };
 
+/** Convert ESPN's core offensive stat IDs to the scoring keys used by game-day models. */
+export function normalizeEspnScoring(payload: EspnPayload) {
+  const keyByStatId: Record<number, string> = {
+    3: "pass_yd",
+    4: "pass_td",
+    20: "pass_int",
+    24: "rush_yd",
+    25: "rush_td",
+    42: "rec_yd",
+    43: "rec_td",
+    53: "rec",
+    72: "fum_lost",
+  };
+  return (payload.settings?.scoringSettings?.scoringItems ?? []).reduce<Record<string, number>>((scoring, item) => {
+    const key = keyByStatId[item.statId ?? -1];
+    if (key && typeof item.points === "number") scoring[key] = item.points;
+    return scoring;
+  }, {});
+}
+
 function teamName(team: EspnTeam) {
   return team.name?.trim() || `${team.location ?? ""} ${team.nickname ?? ""}`.trim() || team.abbrev || `Team ${team.id ?? ""}`;
 }
@@ -101,7 +121,8 @@ export function espnLeagueSummary(payload: EspnPayload) {
 export async function normalizeEspnLeague(payload: EspnPayload) {
   const week = Math.max(1, payload.scoringPeriodId ?? payload.status?.latestScoringPeriod ?? 1);
   const leagueSeason = Number(payload.seasonId ?? new Date().getUTCFullYear());
-  const receptionPoints = payload.settings?.scoringSettings?.scoringItems?.find((item) => item.statId === 53)?.points ?? 0;
+  const normalizedScoring = normalizeEspnScoring(payload);
+  const receptionPoints = normalizedScoring.rec ?? 0;
   const lineupCounts = payload.settings?.rosterSettings?.lineupSlotCounts ?? {};
   const rosterSlots = Object.entries(lineupCounts).flatMap(([slot, count]) => Array.from({ length: count }, () => slotById[Number(slot)] ?? "Bench"));
   const slotCounts = rosterSlots.reduce<Record<string, number>>((map, slot) => ({ ...map, [slot]: (map[slot] ?? 0) + 1 }), {});
@@ -164,7 +185,7 @@ export async function normalizeEspnLeague(payload: EspnPayload) {
     league: { name: payload.settings?.name ?? "ESPN League", platform: "ESPN", status: hasRosteredPlayers ? "in_season" : "pre_draft", teams: payload.settings?.size ?? teams.length, season: String(payload.seasonId ?? new Date().getUTCFullYear()), currentWeek: payload.status?.latestScoringPeriod ?? 0, projectionWeek: week, managers: members.size },
     teams,
     managers: teams.map((team) => ({ id: team.ownerId, name: team.managerName, teamName: team.teamName, style: "Neutral" as const })),
-    rankingContext: { format, scoring, teams: payload.settings?.size ?? teams.length, rosterSlots, positionDemand: { QB: (slotCounts.QB ?? 0) + (slotCounts.SUPER_FLEX ?? 0) * .85, RB: (slotCounts.RB ?? 0) + (slotCounts.FLEX ?? 0) * .35 + (slotCounts.SUPER_FLEX ?? 0) * .05, WR: (slotCounts.WR ?? 0) + (slotCounts.FLEX ?? 0) * .5 + (slotCounts.SUPER_FLEX ?? 0) * .05, TE: (slotCounts.TE ?? 0) + (slotCounts.FLEX ?? 0) * .15 + (slotCounts.SUPER_FLEX ?? 0) * .05, K: slotCounts.K ?? 0, DEF: slotCounts.DEF ?? 0 }, tePremium: 0, passTouchdown: 4, interception: -2, bonusRuleCount: 0, scoringRuleCount: payload.settings?.scoringSettings?.scoringItems?.length ?? 0 },
+    rankingContext: { format, scoring, teams: payload.settings?.size ?? teams.length, rosterSlots, positionDemand: { QB: (slotCounts.QB ?? 0) + (slotCounts.SUPER_FLEX ?? 0) * .85, RB: (slotCounts.RB ?? 0) + (slotCounts.FLEX ?? 0) * .35 + (slotCounts.SUPER_FLEX ?? 0) * .05, WR: (slotCounts.WR ?? 0) + (slotCounts.FLEX ?? 0) * .5 + (slotCounts.SUPER_FLEX ?? 0) * .05, TE: (slotCounts.TE ?? 0) + (slotCounts.FLEX ?? 0) * .15 + (slotCounts.SUPER_FLEX ?? 0) * .05, K: slotCounts.K ?? 0, DEF: slotCounts.DEF ?? 0 }, tePremium: 0, passTouchdown: normalizedScoring.pass_td ?? 4, interception: normalizedScoring.pass_int ?? -2, bonusRuleCount: 0, scoringRuleCount: payload.settings?.scoringSettings?.scoringItems?.length ?? 0 },
     rankings: rankingPool,
     waiverPlayers: rankingPool.filter((player) => !rosteredIds.has(Number(player.id.replace("espn-player:", "")))),
   };
@@ -190,7 +211,7 @@ export function normalizeEspnScoreboard(payload: EspnPayload, ownedRosterId: str
   };
   const schedule = (payload.schedule ?? []).filter((row) => row.matchupPeriodId === week);
   const matchups = schedule.map((row, index) => ({ matchupId: index + 1, teams: [teamShape(row.home), teamShape(row.away)].sort((a, b) => Number(b.isMine) - Number(a.isMine)), status: week < currentWeek ? "Final" : week === currentWeek ? "Live" : "Scheduled" })).sort((a, b) => Number(b.teams.some((team) => team.isMine)) - Number(a.teams.some((team) => team.isMine)));
-  return { league: { id: String(payload.id ?? ""), name: payload.settings?.name ?? "ESPN League", season: String(payload.seasonId ?? new Date().getUTCFullYear()), currentWeek, provider: "ESPN", projectionSource: "ESPN Projections", scoring: {} }, week, updatedAt: new Date().toISOString(), matchups };
+  return { league: { id: String(payload.id ?? ""), name: payload.settings?.name ?? "ESPN League", season: String(payload.seasonId ?? new Date().getUTCFullYear()), currentWeek, provider: "ESPN", projectionSource: "ESPN Projections", scoring: normalizeEspnScoring(payload) }, week, updatedAt: new Date().toISOString(), matchups };
 }
 
 export function normalizeEspnSimulation(payload: EspnPayload) {

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { estimatedWinProbability, gameLeverage, playerLeverage, rootingInterests, whatDoINeed } from "../app/game-day-model.mjs";
+import { estimatedWinProbability, gameLeverage, playerLeverage, rootingInterests, statLineEquivalent, whatDoINeed } from "../app/game-day-model.mjs";
 
 test("player and game leverage rise with close multi-league exposure", () => {
   const exposures = [{ side: "you", margin: 2, remainingProjection: 18, state: "live" }, { side: "you", margin: -7, remainingProjection: 18, state: "pre" }];
@@ -46,4 +46,12 @@ test("what-do-I-need splits the target by remaining projection and handles a pro
   assert.equal(result.targets.length, 2);
   assert.ok(result.targets[0].pointsNeeded > result.targets[1].pointsNeeded);
   assert.equal(whatDoINeed({ yourPoints: 120, opponentPoints: 100, players: [{ id: "1", points: 0, projection: 10 }] }).targets.length, 0);
+});
+
+test("quarterback win paths use the league's passing-touchdown value", () => {
+  const fourPoint = statLineEquivalent("QB", 20, { pass_td: 4, pass_yd: 0.04 });
+  const sixPoint = statLineEquivalent("QB", 20, { pass_td: 6, pass_yd: 0.04 });
+  assert.match(fourPoint, /300 passing yards and 2 passing TDs \(4-point passing TD scoring\)/);
+  assert.match(sixPoint, /200 passing yards and 2 passing TDs \(6-point passing TD scoring\)/);
+  assert.notEqual(fourPoint, sixPoint);
 });
