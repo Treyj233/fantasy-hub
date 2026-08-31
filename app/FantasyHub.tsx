@@ -1020,8 +1020,44 @@ const buildRosterPlayerValue = (rankings: LeagueRanking[]) => {
   };
 };
 
-const buildStarterStrengths = (teams: LeagueTeam[], rankings: LeagueRanking[]) => {
-  const playerValue = buildRosterPlayerValue(rankings);
+const buildTeamRankingPlayerValue = (
+  rankings: LeagueRanking[],
+  teamCount: number,
+  context: RankingContext | null,
+) => {
+  const baseValue = buildRosterPlayerValue(rankings);
+  const superflexSlots = (context?.rosterSlots ?? []).filter(
+    (slot) => slot === "SUPER_FLEX" || slot === "QB_FLEX",
+  ).length;
+  if (superflexSlots > 0) return baseValue;
+
+  const positionRanks = new Map<string, number>();
+  const replacementValues = new Map<string, number>();
+  for (const position of ["QB", "TE"]) {
+    const ordered = rankings
+      .filter((player) => player.position === position)
+      .sort((a, b) => a.overallRank - b.overallRank);
+    ordered.forEach((player, index) => positionRanks.set(player.id, index + 1));
+    const replacementPlayer = ordered[Math.max(0, Math.min(ordered.length - 1, teamCount - 1))];
+    if (replacementPlayer) replacementValues.set(position, baseValue(replacementPlayer));
+  }
+
+  return (player: Player) => {
+    const value = baseValue(player);
+    if (!["QB", "TE"].includes(player.position) || (positionRanks.get(player.id) ?? 99) > 3)
+      return value;
+    const replacementValue = replacementValues.get(player.position) ?? value;
+    const aboveReplacement = Math.max(0, value - replacementValue);
+    return value + Math.min(3, aboveReplacement * .12);
+  };
+};
+
+const buildStarterStrengths = (
+  teams: LeagueTeam[],
+  rankings: LeagueRanking[],
+  context: RankingContext | null,
+) => {
+  const playerValue = buildTeamRankingPlayerValue(rankings, teams.length, context);
   return new Map(teams.map((team) => {
     const starterValues = team.roster.filter(isStartingPlayer).map(playerValue);
     return [
@@ -8306,7 +8342,7 @@ function TeamRankings({
     Record<string, number>
   >((counts, slot) => ({ ...counts, [slot]: (counts[slot] ?? 0) + 1 }), {});
   const superflexSlots = (slotCounts.SUPER_FLEX ?? 0) + (slotCounts.QB_FLEX ?? 0);
-  const playerValue = buildRosterPlayerValue(rankings);
+  const playerValue = buildTeamRankingPlayerValue(rankings, teams.length, context);
   const roomNeed = (position: string) => Math.max(1,
     (slotCounts[position] ?? (position === "RB" || position === "WR" ? 2 : 1)) +
     (position === "QB" ? superflexSlots : 0));
@@ -11351,11 +11387,19 @@ function seededRandom(seed: number) {
   };
 }
 
+function formatOrdinal(value: number) {
+  const remainder100 = value % 100;
+  if (remainder100 >= 11 && remainder100 <= 13) return `${value}th`;
+  const suffix = value % 10 === 1 ? "st" : value % 10 === 2 ? "nd" : value % 10 === 3 ? "rd" : "th";
+  return `${value}${suffix}`;
+}
+
 function runLeagueSimulation(
   volume: number,
   simulation: SimulationContext,
   teams: LeagueTeam[],
   rankings: LeagueRanking[],
+  context: RankingContext | null,
   selectedTeamId: string,
   seed: number,
 ): SimulationResult {
@@ -11381,7 +11425,7 @@ function runLeagueSimulation(
       ];
     }),
   );
-  const starterStrengths = buildStarterStrengths(teams, rankings);
+  const starterStrengths = buildStarterStrengths(teams, rankings, context);
   // Team Rankings and the simulator must agree about relative lineup quality.
   // Convert the shared starter-strength scores into the league's weekly point
   // scale so the simulation preserves realistic totals without introducing a
@@ -11521,7 +11565,7 @@ function runLeagueSimulation(
           `${player.name} anchors the lineup at ${player.projection.toFixed(1)} projected points.`,
       ),
     riskDrivers: [
-      `Projected starter strength ranks ${strengthRank}th of ${teams.length} teams.`,
+      `Projected starter strength ranks ${formatOrdinal(strengthRank)} of ${teams.length} teams.`,
       lowOpportunity.length
         ? `${lowOpportunity.length} starting slot${lowOpportunity.length === 1 ? " has" : "s have"} under 2.0 expected points.`
         : "No current starter is below the 2.0-point opportunity threshold.",
@@ -11586,6 +11630,7 @@ function Simulator({
           simulation,
           teams,
           rankings,
+          context,
           selectedTeamId,
           seed,
         ),
