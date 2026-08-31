@@ -23,6 +23,20 @@ test("single-QB team rankings give only super-elite QBs and TEs a capped replace
   assert.match(source, /if \(superflexSlots > 0\) return baseValue/);
 });
 
+test("Team Rankings and Simulator use the final league-adjusted season composite", async () => {
+  const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
+  const teamRankingsStart = source.indexOf("function TeamRankings(");
+  const playerRankingsStart = source.indexOf("function buildSeasonCompositeRankings(", teamRankingsStart);
+  const teamRankings = source.slice(teamRankingsStart, playerRankingsStart);
+  const simulatorStart = source.indexOf("function Simulator(");
+  const simulator = source.slice(simulatorStart, source.indexOf("function Glossary(", simulatorStart));
+
+  assert.match(teamRankings, /const teamRankings = buildSeasonCompositeRankings\(rankings, context\)/);
+  assert.match(teamRankings, /new Map\(teamRankings\.map/);
+  assert.match(simulator, /const teamRankings = buildSeasonCompositeRankings\(rankings, context\)/);
+  assert.match(simulator, /runLeagueSimulation\([\s\S]*?teamRankings,/);
+});
+
 test("simulator league settings are expanded when the page opens", async () => {
   const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
 

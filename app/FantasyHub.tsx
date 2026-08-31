@@ -8326,10 +8326,11 @@ function TeamRankings({
       window.removeEventListener("keydown", closeOnEscape);
     };
   }, [expandedTeamId]);
-  const rankingById = new Map(rankings.map((player) => [player.id, player]));
+  const teamRankings = buildSeasonCompositeRankings(rankings, context);
+  const rankingById = new Map(teamRankings.map((player) => [player.id, player]));
   const playerPositionRanks = new Map<string, number>();
   const playerPositionCounts = new Map<string, number>();
-  [...rankings]
+  [...teamRankings]
     .sort((a, b) => a.overallRank - b.overallRank)
     .forEach((player) => {
       const positionRank = (playerPositionCounts.get(player.position) ?? 0) + 1;
@@ -8342,7 +8343,7 @@ function TeamRankings({
     Record<string, number>
   >((counts, slot) => ({ ...counts, [slot]: (counts[slot] ?? 0) + 1 }), {});
   const superflexSlots = (slotCounts.SUPER_FLEX ?? 0) + (slotCounts.QB_FLEX ?? 0);
-  const playerValue = buildTeamRankingPlayerValue(rankings, teams.length, context);
+  const playerValue = buildTeamRankingPlayerValue(teamRankings, teams.length, context);
   const roomNeed = (position: string) => Math.max(1,
     (slotCounts[position] ?? (position === "RB" || position === "WR" ? 2 : 1)) +
     (position === "QB" ? superflexSlots : 0));
@@ -11624,12 +11625,13 @@ function Simulator({
     setRunning(true);
     window.setTimeout(() => {
       const seed = Math.floor(Math.random() * 2_147_483_647);
+      const teamRankings = buildSeasonCompositeRankings(rankings, context);
       setResult(
         runLeagueSimulation(
           simulations,
           simulation,
           teams,
-          rankings,
+          teamRankings,
           context,
           selectedTeamId,
           seed,
