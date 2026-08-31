@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { assumedSuspensionGames, seasonRankingValue } from "../app/season-ranking.ts";
+import { assumedSuspensionGames, rosUnavailableGames, seasonRankingValue } from "../app/season-ranking.ts";
 
 test("season value does not accept weekly projection or injury inputs", () => {
   const first = seasonRankingValue({
@@ -122,4 +122,11 @@ test("DNR and SUS tags receive the same assumed suspension adjustment", () => {
   });
   assert.equal(active.value - suspended.value, 21);
   assert.equal(suspended.availabilityPenalty, 21);
+});
+
+test("IR assumes four missed games unless the season is explicitly over", () => {
+  assert.equal(rosUnavailableGames({ status: "IR", remainingGames: 17, outForSeason: false }), 4);
+  assert.equal(rosUnavailableGames({ status: "IR", remainingGames: 3, outForSeason: false }), 3);
+  assert.equal(rosUnavailableGames({ status: "IR", remainingGames: 11, outForSeason: true }), 11);
+  assert.equal(rosUnavailableGames({ status: "Questionable", remainingGames: 11, outForSeason: false }), 0);
 });

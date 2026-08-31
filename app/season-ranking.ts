@@ -4,6 +4,21 @@ export function assumedSuspensionGames(status: string | null | undefined) {
   return ["DNR", "SUS"].includes((status ?? "").trim().toUpperCase()) ? 6 : 0;
 }
 
+export function rosUnavailableGames({
+  status,
+  remainingGames,
+  outForSeason,
+}: {
+  status: string | null | undefined;
+  remainingGames: number;
+  outForSeason: boolean;
+}) {
+  const remaining = Math.max(0, remainingGames);
+  if (outForSeason) return remaining;
+  if ((status ?? "").trim().toUpperCase() === "IR") return Math.min(4, remaining);
+  return Math.min(assumedSuspensionGames(status), remaining);
+}
+
 export function seasonRankingValue({
   marketSources,
   sourceRank,
@@ -46,7 +61,7 @@ export function seasonRankingValue({
   const availabilityRisk = priorSeasonGames == null
     ? 0
     : Math.min(6, Math.max(0, 14 - priorSeasonGames) * .55);
-  const suspensionRisk = Math.min(24, Math.max(0, unavailableGames) * 3.5);
+  const suspensionRisk = Math.min(60, Math.max(0, unavailableGames) * 3.5);
   return {
     marketRank: Number(marketRank.toFixed(2)),
     availabilityPenalty: Number(suspensionRisk.toFixed(2)),

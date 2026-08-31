@@ -8,14 +8,15 @@ import { leagueDataSnapshots } from "../../../db/schema";
 import { fetchCachedUpstream } from "../upstream-cache";
 import { adpPlayerKey, loadEspnAdpByPlayerKey, loadUnderdogAdpByPlayerKey } from "../../adp-data";
 import { sleeperFantasyPoints } from "../../sleeper-live-scoring.mjs";
-import { assumedSuspensionGames, seasonRankingValue } from "../../season-ranking";
+import { rosUnavailableGames, seasonRankingValue } from "../../season-ranking";
+import { seasonEndingPlayerIds } from "../../news-availability";
 
 type SourcePlayer = { player_id?: string; full_name?: string; first_name?: string; last_name?: string; position?: string; team?: string; injury_status?: string | null; search_rank?: number; age?: number; status?: string; depth_chart_order?: number | null; depth_chart_position?: string | null };
 type SourceProjection = { player_id?: string; stats?: Record<string, number> };
 type MatchupRow = { roster_id?: number; matchup_id?: number | null };
 type TrendingRow = { player_id?: string; count?: number };
 
-const LEAGUE_PAYLOAD_VERSION = 16;
+const LEAGUE_PAYLOAD_VERSION = 17;
 const LEAGUE_SNAPSHOT_TTL_MS = 30 * 60 * 1000;
 const SHARED_TTL_SECONDS = {
   projections: 15 * 60,
@@ -81,16 +82,23 @@ export async function GET(request: Request) {
     const projectionWeek = Math.min(18, Math.max(1, league.leg ?? 1));
     const scoring = league.scoring_settings ?? {};
     const receptionValue = scoring.rec ?? 1;
-    const [projectionResponse, matchupResponse, sleeperAdpResponse, espnAdp] = await Promise.all([
+    const [projectionResponse, matchupResponse, sleeperAdpResponse, espnAdp, newsFeedResponse] = await Promise.all([
       fetchCachedUpstream(`https://api.sleeper.com/projections/nfl/${league.season ?? new Date().getUTCFullYear()}/${projectionWeek}?season_type=regular`, SHARED_TTL_SECONDS.projections).catch(() => null),
       fetch(`https://api.sleeper.app/v1/league/${id}/matchups/${projectionWeek}`, { cache: "no-store" }).catch(() => null),
       fetchCachedUpstream(`https://api.sleeper.com/projections/nfl/${league.season ?? new Date().getUTCFullYear()}?season_type=regular&order_by=adp_ppr`, SHARED_TTL_SECONDS.adp).catch(() => null),
       loadEspnAdpByPlayerKey(Number(league.season ?? new Date().getUTCFullYear())),
+      fetchCachedUpstream(process.env.SOCIAL_AGENT_FEED_URL || "https://fantasy-hub-social-agent.treyj233.workers.dev/feed", 10 * 60).catch(() => null),
     ]);
     const projectionPayload: unknown = projectionResponse?.ok ? await projectionResponse.json().catch(() => []) : [];
     const sourceProjections = Array.isArray(projectionPayload) ? projectionPayload as SourceProjection[] : [];
     const sleeperAdpPayload: unknown = sleeperAdpResponse?.ok ? await sleeperAdpResponse.json().catch(() => []) : [];
     const sleeperAdpRows = Array.isArray(sleeperAdpPayload) ? sleeperAdpPayload as SourceProjection[] : [];
+    const newsFeedPayload: unknown = newsFeedResponse?.ok ? await newsFeedResponse.json().catch(() => ({ items: [] })) : { items: [] };
+    const seasonEndingIds = seasonEndingPlayerIds(
+      newsFeedPayload && typeof newsFeedPayload === "object" && "items" in newsFeedPayload && Array.isArray(newsFeedPayload.items)
+        ? newsFeedPayload.items
+        : [],
+    );
     const matchupRows = matchupResponse?.ok ? await matchupResponse.json().catch(() => []) as MatchupRow[] : [];
     const matchupByRoster = new Map(matchupRows.flatMap((row) => row.roster_id ? [[row.roster_id, row.matchup_id ?? null]] : []));
     const projectionKey = receptionValue >= .75 ? "pts_ppr" : receptionValue >= .25 ? "pts_half_ppr" : "pts_std";
@@ -199,7 +207,11 @@ export async function GET(request: Request) {
         age: format === "Redraft" ? player.age ?? null : null,
         position,
         priorSeasonGames: format === "Redraft" ? seasonProfile?.games ?? null : null,
-        unavailableGames: Math.min(assumedSuspensionGames(player.injury_status), Math.max(0, 18 - projectionWeek)),
+        unavailableGames: rosUnavailableGames({
+          status: player.injury_status,
+          remainingGames: Math.max(0, 18 - projectionWeek),
+          outForSeason: seasonEndingIds.has(playerId),
+        }),
         lineupAdjustment,
       });
       const waiverProjection = platformProjection;
