@@ -417,6 +417,7 @@ type LeagueRanking = Player & {
   rosAvailabilityPenalty?: number;
   rosRoleAdjustment?: number;
   rosPerformanceAdjustment?: number;
+  rosOpportunityAdjustment?: number;
 };
 type CompositeLeagueRanking = LeagueRanking & {
   compositeAdp: number | null;
@@ -8551,7 +8552,7 @@ function TeamRankings({
             {expanded && (() => {
               const drawer = <div className="team-assets-modal-layer" onClick={() => setExpandedTeamId("")}><section className="team-assets-drawer" id={`team-assets-${team.id}`} role="dialog" aria-modal="true" aria-label={`${team.teamName} complete team assets`} onClick={(event) => event.stopPropagation()}>
               <header><div><span>COMPLETE TEAM ASSETS</span><strong>{team.teamName}</strong></div><small>{allAssets.length} rostered players{isDynasty ? ` · ${team.draftCapital?.picks.length ?? 0} draft picks` : ""}</small><button className="team-assets-close" type="button" aria-label="Close team assets" onClick={() => setExpandedTeamId("")}>×</button></header>
-              <div className="team-rating-breakdown"><article><span>STARTERS</span><b>{team.starterScore.toFixed(0)}</b></article><article><span>DEPTH</span><b>{team.depthScore.toFixed(0)}</b></article><article><span>BALANCE</span><b>{team.balanceScore.toFixed(0)}</b></article>{isDynasty && <><article><span>RUNWAY</span><b>{team.runwayScore.toFixed(0)}</b><small>10%</small></article><article><span>DRAFT</span><b>{team.draftValue.toFixed(0)}</b><small>8%</small></article></>}</div>
+              <div className="team-rating-breakdown"><article><span>STARTERS</span><b>{team.starterScore.toFixed(0)}</b></article><article><span>DEPTH</span><b>{team.depthScore.toFixed(0)}</b></article><article><span>BALANCE</span><b>{team.balanceScore.toFixed(0)}</b></article>{isDynasty && <><article><span>RUNWAY</span><b>{team.runwayScore.toFixed(0)}</b></article><article><span>DRAFT</span><b>{team.draftValue.toFixed(0)}</b></article></>}</div>
               <div className="team-position-rooms">
                 {[...positions, "OTHER"].map((position) => {
                   const positionPlayers = allAssets.filter((player) => position === "OTHER" ? !positions.includes(player.position) : player.position === position);
@@ -8623,7 +8624,7 @@ function buildSeasonCompositeRankings(
     TE: 1,
   };
   const contextWeight = redraftMarketHorizon
-    ? 0.35
+    ? 0
     : context?.format === "Dynasty"
       ? 0.65
       : context?.format === "Keeper"
@@ -8692,15 +8693,19 @@ function buildSeasonCompositeRankings(
         : player.rosAvailabilityPenalty ?? 0;
       const currentSeasonRankAdjustment = redraftMarketHorizon
         ? 0
-        : (player.rosRoleAdjustment ?? 0) + (player.rosPerformanceAdjustment ?? 0);
-      const leagueAdjustedMarketRank = Math.max(
-        1,
-        marketRank -
-          demandDelta * (context?.teams ?? 12) * demandMultiplier -
-          scoringAdjustment +
-          availabilityRankPenalty -
-          currentSeasonRankAdjustment,
-      );
+        : (player.rosRoleAdjustment ?? 0) +
+          (player.rosPerformanceAdjustment ?? 0) +
+          (player.rosOpportunityAdjustment ?? 0);
+      const leagueAdjustedMarketRank = redraftMarketHorizon
+        ? marketRank
+        : Math.max(
+            1,
+            marketRank -
+              demandDelta * (context?.teams ?? 12) * demandMultiplier -
+              scoringAdjustment +
+              availabilityRankPenalty -
+              currentSeasonRankAdjustment,
+          );
       const hubRankScore =
         leagueAdjustedMarketRank * (1 - contextWeight) +
         internalRank * contextWeight;

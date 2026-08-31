@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { assumedSuspensionGames, depthChartRoleAdjustment, rosPerformanceAdjustment, rosUnavailableGames, seasonRankingValue } from "../app/season-ranking.ts";
+import { assumedSuspensionGames, depthChartRoleAdjustment, rosPerformanceAdjustment, rosUnavailableGames, seasonRankingValue, suspensionReplacementAdjustment } from "../app/season-ranking.ts";
 
 test("season value does not accept weekly projection or injury inputs", () => {
   const first = seasonRankingValue({
@@ -147,4 +147,13 @@ test("current-season performance ramps from 25 percent to full weight", () => {
   assert.equal(weekOne, 1.6);
   assert.equal(weekFive, 6.4);
   assert.equal(rosPerformanceAdjustment({ currentPointsPerGame: 20, projectedPointsPerGame: 12, currentWeek: 5, games: 0 }), 0);
+});
+
+test("suspended starters boost likely replacements only while ADP is lagging", () => {
+  const laggingMarket = suspensionReplacementAdjustment({ missedGames: 8, depthChartOrder: 2, replacementMarketRank: 120, suspendedMarketRank: 35 });
+  const updatedMarket = suspensionReplacementAdjustment({ missedGames: 8, depthChartOrder: 2, replacementMarketRank: 45, suspendedMarketRank: 35 });
+  const deepBackup = suspensionReplacementAdjustment({ missedGames: 8, depthChartOrder: 4, replacementMarketRank: 120, suspendedMarketRank: 35 });
+  assert.equal(laggingMarket, 18);
+  assert.equal(updatedMarket, 0);
+  assert.ok(deepBackup < laggingMarket);
 });

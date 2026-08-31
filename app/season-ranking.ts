@@ -33,6 +33,32 @@ export function depthChartRoleAdjustment(order: number | null | undefined) {
   return -6;
 }
 
+export function suspensionReplacementAdjustment({
+  missedGames,
+  depthChartOrder,
+  replacementMarketRank,
+  suspendedMarketRank,
+}: {
+  missedGames: number;
+  depthChartOrder: number | null | undefined;
+  replacementMarketRank: number | null;
+  suspendedMarketRank: number | null;
+}) {
+  if (missedGames <= 0 || replacementMarketRank == null || suspendedMarketRank == null) return 0;
+  const marketGap = replacementMarketRank - suspendedMarketRank;
+  // A narrow market gap means ADP has already priced in the replacement role.
+  // A gap of 72+ picks receives the full opportunity adjustment.
+  const marketLagShare = Math.max(0, Math.min(1, (marketGap - 12) / 60));
+  const depthShare = depthChartOrder == null || depthChartOrder <= 0
+    ? .35
+    : depthChartOrder <= 2
+      ? 1
+      : depthChartOrder === 3
+        ? .55
+        : .25;
+  return Number(Math.min(20, missedGames * 2.25 * depthShare * marketLagShare).toFixed(2));
+}
+
 export function rosPerformanceAdjustment({
   currentPointsPerGame,
   projectedPointsPerGame,
@@ -61,6 +87,7 @@ export function seasonRankingValue({
   lineupAdjustment,
   roleAdjustment = 0,
   performanceAdjustment = 0,
+  opportunityAdjustment = 0,
 }: {
   marketSources: SeasonMarketSource[];
   sourceRank: number;
@@ -72,6 +99,7 @@ export function seasonRankingValue({
   lineupAdjustment: number;
   roleAdjustment?: number;
   performanceAdjustment?: number;
+  opportunityAdjustment?: number;
 }) {
   const available = marketSources.filter(
     (source) => typeof source.value === "number" && source.value > 0 && source.value < 999,
@@ -105,6 +133,7 @@ export function seasonRankingValue({
     availabilityPenalty: Number(suspensionRisk.toFixed(2)),
     roleAdjustment: Number(roleAdjustment.toFixed(2)),
     performanceAdjustment: Number(performanceAdjustment.toFixed(2)),
-    value: Number((Math.max(0, 210 - leagueAdjustedRank) + forwardProjectionBonus - ageRisk - availabilityRisk - suspensionRisk + roleAdjustment + performanceAdjustment).toFixed(2)),
+    opportunityAdjustment: Number(opportunityAdjustment.toFixed(2)),
+    value: Number((Math.max(0, 210 - leagueAdjustedRank) + forwardProjectionBonus - ageRisk - availabilityRisk - suspensionRisk + roleAdjustment + performanceAdjustment + opportunityAdjustment).toFixed(2)),
   };
 }
