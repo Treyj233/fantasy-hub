@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { seasonRankingValue } from "../app/season-ranking.ts";
+import { assumedSuspensionGames, seasonRankingValue } from "../app/season-ranking.ts";
 
 test("season value does not accept weekly projection or injury inputs", () => {
   const first = seasonRankingValue({
@@ -11,6 +11,7 @@ test("season value does not accept weekly projection or injury inputs", () => {
     age: 25,
     position: "RB",
     priorSeasonGames: 17,
+    unavailableGames: 0,
     lineupAdjustment: 4,
   });
   const sameSeasonInputs = seasonRankingValue({
@@ -20,6 +21,7 @@ test("season value does not accept weekly projection or injury inputs", () => {
     age: 25,
     position: "RB",
     priorSeasonGames: 17,
+    unavailableGames: 0,
     lineupAdjustment: 4,
   });
   assert.deepEqual(first, sameSeasonInputs);
@@ -35,6 +37,7 @@ test("elite market value stays above a lower-market player regardless of weekly 
     age: 24,
     position: "RB",
     priorSeasonGames: 17,
+    unavailableGames: 0,
     lineupAdjustment: 3,
   });
   const lowerMarket = seasonRankingValue({
@@ -44,6 +47,7 @@ test("elite market value stays above a lower-market player regardless of weekly 
     age: 24,
     position: "RB",
     priorSeasonGames: 17,
+    unavailableGames: 0,
     lineupAdjustment: 3,
   });
   assert.ok(elite.value > lowerMarket.value);
@@ -61,6 +65,7 @@ test("available market sources are normalized by their actual weights", () => {
     age: null,
     position: "WR",
     priorSeasonGames: null,
+    unavailableGames: 0,
     lineupAdjustment: 0,
   });
   assert.equal(result.marketRank, 11.43);
@@ -74,6 +79,7 @@ test("an older running back's history cannot override younger elite ROS profiles
     age: 30,
     position: "RB",
     priorSeasonGames: 10,
+    unavailableGames: 0,
     lineupAdjustment: 3,
   });
   const youngerBack = seasonRankingValue({
@@ -83,7 +89,37 @@ test("an older running back's history cannot override younger elite ROS profiles
     age: 24,
     position: "RB",
     priorSeasonGames: 17,
+    unavailableGames: 0,
     lineupAdjustment: 3,
   });
   assert.ok(youngerBack.value > olderBack.value);
+});
+
+test("DNR and SUS tags receive the same assumed suspension adjustment", () => {
+  assert.equal(assumedSuspensionGames("DNR"), 6);
+  assert.equal(assumedSuspensionGames("sus"), 6);
+  assert.equal(assumedSuspensionGames("Questionable"), 0);
+
+  const active = seasonRankingValue({
+    marketSources: [{ value: 20, weight: 1 }],
+    sourceRank: 20,
+    projectedSeasonPoints: 255,
+    age: 27,
+    position: "RB",
+    priorSeasonGames: 17,
+    unavailableGames: 0,
+    lineupAdjustment: 3,
+  });
+  const suspended = seasonRankingValue({
+    marketSources: [{ value: 20, weight: 1 }],
+    sourceRank: 20,
+    projectedSeasonPoints: 255,
+    age: 27,
+    position: "RB",
+    priorSeasonGames: 17,
+    unavailableGames: assumedSuspensionGames("SUS"),
+    lineupAdjustment: 3,
+  });
+  assert.equal(active.value - suspended.value, 21);
+  assert.equal(suspended.availabilityPenalty, 21);
 });

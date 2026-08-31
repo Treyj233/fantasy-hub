@@ -1,5 +1,9 @@
 export type SeasonMarketSource = { value: number | null; weight: number };
 
+export function assumedSuspensionGames(status: string | null | undefined) {
+  return ["DNR", "SUS"].includes((status ?? "").trim().toUpperCase()) ? 6 : 0;
+}
+
 export function seasonRankingValue({
   marketSources,
   sourceRank,
@@ -7,6 +11,7 @@ export function seasonRankingValue({
   age,
   position,
   priorSeasonGames,
+  unavailableGames,
   lineupAdjustment,
 }: {
   marketSources: SeasonMarketSource[];
@@ -15,6 +20,7 @@ export function seasonRankingValue({
   age: number | null;
   position: string;
   priorSeasonGames: number | null;
+  unavailableGames: number;
   lineupAdjustment: number;
 }) {
   const available = marketSources.filter(
@@ -40,8 +46,10 @@ export function seasonRankingValue({
   const availabilityRisk = priorSeasonGames == null
     ? 0
     : Math.min(6, Math.max(0, 14 - priorSeasonGames) * .55);
+  const suspensionRisk = Math.min(24, Math.max(0, unavailableGames) * 3.5);
   return {
     marketRank: Number(marketRank.toFixed(2)),
-    value: Number((Math.max(0, 210 - leagueAdjustedRank) + forwardProjectionBonus - ageRisk - availabilityRisk).toFixed(2)),
+    availabilityPenalty: Number(suspensionRisk.toFixed(2)),
+    value: Number((Math.max(0, 210 - leagueAdjustedRank) + forwardProjectionBonus - ageRisk - availabilityRisk - suspensionRisk).toFixed(2)),
   };
 }
