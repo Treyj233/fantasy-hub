@@ -7,13 +7,22 @@ test("waiver pool rejects retired and inactive player-directory records", async 
 
   assert.match(source, /isCurrentFantasyPlayer/);
   assert.match(source, /retired\|inactive\|deceased/);
-  assert.match(source, /!isCurrentFantasyPlayer\(player\)/);
+  assert.match(source, /!isCurrentFantasyPlayer\(player\) && !isRostered/);
   assert.match(source, /hasCurrentRoleSignal/);
   assert.match(source, /leagueProjections\.has\(playerId\)/);
   assert.match(source, /directSleeperAdp != null/);
   assert.match(source, /Boolean\(snapProfile\?\.games\)/);
   assert.match(source, /Boolean\(seasonProfile\?\.games\)/);
-  assert.match(source, /if \(!hasCurrentRoleSignal\) return \[\]/);
+  assert.match(source, /if \(!hasCurrentRoleSignal && !isRostered\) return \[\]/);
+  assert.match(source, /index < 600 \|\| rosteredPlayerIds\.has\(player\.id\)/);
+});
+
+test("team rankings retain rostered players without a weekly projection or market signal", async () => {
+  const source = await readFile(new URL("../app/api/league/route.ts", import.meta.url), "utf8");
+
+  assert.match(source, /const isRostered = rosteredPlayerIds\.has\(playerId\)/);
+  assert.match(source, /\(!isCurrentFantasyPlayer\(player\) && !isRostered\)/);
+  assert.match(source, /!hasCurrentRoleSignal && !isRostered/);
 });
 
 test("league snapshots refresh when waiver eligibility rules change", async () => {
