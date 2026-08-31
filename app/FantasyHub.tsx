@@ -415,6 +415,8 @@ type LeagueRanking = Player & {
   compositeAdp?: number | null;
   seasonMarketRank?: number | null;
   rosAvailabilityPenalty?: number;
+  rosRoleAdjustment?: number;
+  rosPerformanceAdjustment?: number;
 };
 type CompositeLeagueRanking = LeagueRanking & {
   compositeAdp: number | null;
@@ -8688,12 +8690,16 @@ function buildSeasonCompositeRankings(
       const availabilityRankPenalty = redraftMarketHorizon
         ? 0
         : player.rosAvailabilityPenalty ?? 0;
+      const currentSeasonRankAdjustment = redraftMarketHorizon
+        ? 0
+        : (player.rosRoleAdjustment ?? 0) + (player.rosPerformanceAdjustment ?? 0);
       const leagueAdjustedMarketRank = Math.max(
         1,
         marketRank -
           demandDelta * (context?.teams ?? 12) * demandMultiplier -
           scoringAdjustment +
-          availabilityRankPenalty,
+          availabilityRankPenalty -
+          currentSeasonRankAdjustment,
       );
       const hubRankScore =
         leagueAdjustedMarketRank * (1 - contextWeight) +

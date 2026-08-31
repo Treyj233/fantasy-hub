@@ -17,6 +17,7 @@ test("player and offense history roll forward with an early-season blend", async
   assert.match(history, /loadBlendedPlayerSeasonProfiles/);
   assert.match(history, /loadBlendedTeamOffenseProfiles/);
   assert.match(history, /Math\.min\(1, Math\.max\(\.25, \(currentWeek - 1\) \/ 4\)\)/);
+  assert.match(history, /currentProfiles: current/);
   assert.doesNotMatch(sleeper, /loadPlayerSeasonProfiles\(2025\)|loadTeamOffenseProfiles\(2025\)/);
   assert.doesNotMatch(espn, /leagueSeason > 2025 \? 2025/);
 });

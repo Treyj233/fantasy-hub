@@ -8,7 +8,7 @@ import { leagueDataSnapshots } from "../../../db/schema";
 import { fetchCachedUpstream } from "../upstream-cache";
 import { adpPlayerKey, loadEspnAdpByPlayerKey, loadUnderdogAdpByPlayerKey } from "../../adp-data";
 import { sleeperFantasyPoints } from "../../sleeper-live-scoring.mjs";
-import { rosUnavailableGames, seasonRankingValue } from "../../season-ranking";
+import { depthChartRoleAdjustment, rosPerformanceAdjustment, rosUnavailableGames, seasonRankingValue } from "../../season-ranking";
 import { seasonEndingPlayerIds } from "../../news-availability";
 
 type SourcePlayer = { player_id?: string; full_name?: string; first_name?: string; last_name?: string; position?: string; team?: string; injury_status?: string | null; search_rank?: number; age?: number; status?: string; depth_chart_order?: number | null; depth_chart_position?: string | null };
@@ -16,7 +16,7 @@ type SourceProjection = { player_id?: string; stats?: Record<string, number> };
 type MatchupRow = { roster_id?: number; matchup_id?: number | null };
 type TrendingRow = { player_id?: string; count?: number };
 
-const LEAGUE_PAYLOAD_VERSION = 19;
+const LEAGUE_PAYLOAD_VERSION = 20;
 const LEAGUE_SNAPSHOT_TTL_MS = 30 * 60 * 1000;
 const SHARED_TTL_SECONDS = {
   projections: 15 * 60,
@@ -183,6 +183,13 @@ export async function GET(request: Request) {
         : 0;
       const fantasyPoints = seasonProfile ? seasonProfile.fantasyPoints + receptionBonus : null;
       const historicalPointsPerGame = seasonProfile?.games && fantasyPoints != null ? fantasyPoints / seasonProfile.games : null;
+      const currentSeasonProfile = playerSeasonProfileFor(playerSeasonContext.currentProfiles, name);
+      const currentSeasonFantasyPoints = currentSeasonProfile
+        ? currentSeasonProfile.fantasyPoints + currentSeasonProfile.receptions * (receptionValue + (position === "TE" ? tePremiumValue : 0))
+        : null;
+      const currentSeasonPointsPerGame = currentSeasonProfile?.games && currentSeasonFantasyPoints != null
+        ? currentSeasonFantasyPoints / currentSeasonProfile.games
+        : null;
       const directSleeperSingleQbAdp = sleeperSingleQbAdp.get(playerId) ?? null;
       const directSleeperSuperflexAdp = sleeperSuperflexAdp.get(playerId) ?? null;
       const directSleeperAdp = (superflex ? directSleeperSuperflexAdp : directSleeperSingleQbAdp) ?? null;
@@ -215,9 +222,16 @@ export async function GET(request: Request) {
           outForSeason: seasonEndingIds.has(playerId),
         }),
         lineupAdjustment,
+        roleAdjustment: depthChartRoleAdjustment(player.depth_chart_order),
+        performanceAdjustment: rosPerformanceAdjustment({
+          currentPointsPerGame: currentSeasonPointsPerGame,
+          projectedPointsPerGame: (seasonProjections.get(playerId) ?? 0) > 0 ? (seasonProjections.get(playerId) ?? 0) / 17 : null,
+          currentWeek: projectionWeek,
+          games: currentSeasonProfile?.games ?? 0,
+        }),
       });
       const waiverProjection = platformProjection;
-      return [{ id: player.player_id ?? playerId, name, position, team: player.team, opponent: "Matchup pending", projection: platformProjection, leagueProjection: leagueProjections.get(playerId) ?? null, waiverProjection: Number(waiverProjection.toFixed(2)), floor: Number((platformProjection * .68).toFixed(1)), ceiling: Number((platformProjection * 1.38).toFixed(1)), trend: 0, status: player.injury_status ?? "Healthy", role: "Player pool", age: player.age ?? null, rankingValue: seasonValue.value, seasonMarketRank: seasonValue.marketRank, rosAvailabilityPenalty: seasonValue.availabilityPenalty, sleeperRank: sourceRank, ageAdjustment: Number(ageAdjustment.toFixed(1)), lineupAdjustment: Number(lineupAdjustment.toFixed(1)), snapPct: snapProfile?.latestPct ?? null, snapAverage: snapProfile?.averagePct ?? null, snapWeek: snapProfile?.latestWeek ?? null, snapSeason: snapProfile?.season ?? null, statsSourceSeason, statsBlended, fantasyPoints2025: fantasyPoints == null ? null : Number(fantasyPoints.toFixed(1)), fantasyPpg2025: historicalPointsPerGame == null ? null : Number(historicalPointsPerGame.toFixed(1)), gamesPlayed2025: seasonProfile?.games ?? null, targets2025: seasonProfile?.targets ?? null, receptions2025: seasonProfile?.receptions ?? null, receivingYards2025: seasonProfile?.receivingYards ?? null, receivingTouchdowns2025: seasonProfile?.receivingTouchdowns ?? null, rushingAttempts2025: seasonProfile?.rushingAttempts ?? null, rushingYards2025: seasonProfile?.rushingYards ?? null, rushingTouchdowns2025: seasonProfile?.rushingTouchdowns ?? null, passingAttempts2025: seasonProfile?.passingAttempts ?? null, passingYards2025: seasonProfile?.passingYards ?? null, passingTouchdowns2025: seasonProfile?.passingTouchdowns ?? null, team2025: seasonProfile?.team ?? null, teamOffenseRank2025: seasonTeamOffense?.rank ?? null, teamPointsPerGame2025: seasonTeamOffense?.pointsPerGame ?? null, adpBySite }];
+      return [{ id: player.player_id ?? playerId, name, position, team: player.team, opponent: "Matchup pending", projection: platformProjection, leagueProjection: leagueProjections.get(playerId) ?? null, waiverProjection: Number(waiverProjection.toFixed(2)), floor: Number((platformProjection * .68).toFixed(1)), ceiling: Number((platformProjection * 1.38).toFixed(1)), trend: 0, status: player.injury_status ?? "Healthy", role: "Player pool", age: player.age ?? null, rankingValue: seasonValue.value, seasonMarketRank: seasonValue.marketRank, rosAvailabilityPenalty: seasonValue.availabilityPenalty, rosRoleAdjustment: seasonValue.roleAdjustment, rosPerformanceAdjustment: seasonValue.performanceAdjustment, sleeperRank: sourceRank, ageAdjustment: Number(ageAdjustment.toFixed(1)), lineupAdjustment: Number(lineupAdjustment.toFixed(1)), snapPct: snapProfile?.latestPct ?? null, snapAverage: snapProfile?.averagePct ?? null, snapWeek: snapProfile?.latestWeek ?? null, snapSeason: snapProfile?.season ?? null, statsSourceSeason, statsBlended, fantasyPoints2025: fantasyPoints == null ? null : Number(fantasyPoints.toFixed(1)), fantasyPpg2025: historicalPointsPerGame == null ? null : Number(historicalPointsPerGame.toFixed(1)), gamesPlayed2025: seasonProfile?.games ?? null, targets2025: seasonProfile?.targets ?? null, receptions2025: seasonProfile?.receptions ?? null, receivingYards2025: seasonProfile?.receivingYards ?? null, receivingTouchdowns2025: seasonProfile?.receivingTouchdowns ?? null, rushingAttempts2025: seasonProfile?.rushingAttempts ?? null, rushingYards2025: seasonProfile?.rushingYards ?? null, rushingTouchdowns2025: seasonProfile?.rushingTouchdowns ?? null, passingAttempts2025: seasonProfile?.passingAttempts ?? null, passingYards2025: seasonProfile?.passingYards ?? null, passingTouchdowns2025: seasonProfile?.passingTouchdowns ?? null, team2025: seasonProfile?.team ?? null, teamOffenseRank2025: seasonTeamOffense?.rank ?? null, teamPointsPerGame2025: seasonTeamOffense?.pointsPerGame ?? null, adpBySite }];
     }).sort((a, b) => b.rankingValue - a.rankingValue).filter((player, index) => index < 600 || rosteredPlayerIds.has(player.id)).map((player, index) => ({ ...player, overallRank: index + 1 }));
     const rankingById = new Map(rankingPool.map((player) => [player.id, player]));
     const availablePool = league.status === "pre_draft" ? [] : rankingPool.filter((player) => !rosteredPlayerIds.has(player.id));

@@ -187,9 +187,9 @@ export async function loadBlendedPlayerSeasonProfiles(currentSeason: number, cur
     loadPlayerSeasonProfiles(currentSeason),
     loadPlayerSeasonProfiles(previousSeason),
   ]);
-  if (!current.size) return { profiles: previous, sourceSeason: previousSeason, blended: false };
+  if (!current.size) return { profiles: previous, currentProfiles: current, sourceSeason: previousSeason, blended: false };
   const weight = Math.min(1, Math.max(.25, (currentWeek - 1) / 4));
-  if (weight >= 1) return { profiles: current, sourceSeason: currentSeason, blended: false };
+  if (weight >= 1) return { profiles: current, currentProfiles: current, sourceSeason: currentSeason, blended: false };
   const profiles = new Map(previous);
   current.forEach((latest, key) => {
     const prior = previous.get(key);
@@ -216,7 +216,7 @@ export async function loadBlendedPlayerSeasonProfiles(currentSeason: number, cur
       team: latest.team ?? prior.team,
     });
   });
-  return { profiles, sourceSeason: currentSeason, blended: true };
+  return { profiles, currentProfiles: current, sourceSeason: currentSeason, blended: true };
 }
 
 export async function loadBlendedTeamOffenseProfiles(currentSeason: number, currentWeek: number) {

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { assumedSuspensionGames, rosUnavailableGames, seasonRankingValue } from "../app/season-ranking.ts";
+import { assumedSuspensionGames, depthChartRoleAdjustment, rosPerformanceAdjustment, rosUnavailableGames, seasonRankingValue } from "../app/season-ranking.ts";
 
 test("season value does not accept weekly projection or injury inputs", () => {
   const first = seasonRankingValue({
@@ -128,5 +128,23 @@ test("IR assumes four missed games unless the season is explicitly over", () => 
   assert.equal(rosUnavailableGames({ status: "IR", remainingGames: 17, outForSeason: false }), 4);
   assert.equal(rosUnavailableGames({ status: "IR", remainingGames: 3, outForSeason: false }), 3);
   assert.equal(rosUnavailableGames({ status: "IR", remainingGames: 11, outForSeason: true }), 11);
-  assert.equal(rosUnavailableGames({ status: "Questionable", remainingGames: 11, outForSeason: false }), 0);
+  assert.equal(rosUnavailableGames({ status: "Questionable", remainingGames: 11, outForSeason: false }), .15);
+  assert.equal(rosUnavailableGames({ status: "Out", remainingGames: 11, outForSeason: false }), 1);
+  assert.equal(rosUnavailableGames({ status: "Doubtful", remainingGames: 11, outForSeason: false }), .5);
+});
+
+test("ROS value responds to depth-chart movement without using the weekly matchup", () => {
+  assert.equal(depthChartRoleAdjustment(1), 3);
+  assert.equal(depthChartRoleAdjustment(2), 0);
+  assert.equal(depthChartRoleAdjustment(3), -3);
+  assert.equal(depthChartRoleAdjustment(5), -6);
+  assert.equal(depthChartRoleAdjustment(null), 0);
+});
+
+test("current-season performance ramps from 25 percent to full weight", () => {
+  const weekOne = rosPerformanceAdjustment({ currentPointsPerGame: 20, projectedPointsPerGame: 12, currentWeek: 1, games: 1 });
+  const weekFive = rosPerformanceAdjustment({ currentPointsPerGame: 20, projectedPointsPerGame: 12, currentWeek: 5, games: 5 });
+  assert.equal(weekOne, 1.6);
+  assert.equal(weekFive, 6.4);
+  assert.equal(rosPerformanceAdjustment({ currentPointsPerGame: 20, projectedPointsPerGame: 12, currentWeek: 5, games: 0 }), 0);
 });

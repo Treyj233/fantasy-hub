@@ -15,8 +15,39 @@ export function rosUnavailableGames({
 }) {
   const remaining = Math.max(0, remainingGames);
   if (outForSeason) return remaining;
-  if ((status ?? "").trim().toUpperCase() === "IR") return Math.min(4, remaining);
-  return Math.min(assumedSuspensionGames(status), remaining);
+  const normalized = (status ?? "").trim().toUpperCase();
+  if (["IR", "PUP", "NFI"].includes(normalized)) return Math.min(4, remaining);
+  const suspensionGames = assumedSuspensionGames(normalized);
+  if (suspensionGames) return Math.min(suspensionGames, remaining);
+  if (["OUT", "O"].includes(normalized)) return Math.min(1, remaining);
+  if (["DOUBTFUL", "D"].includes(normalized)) return Math.min(.5, remaining);
+  if (["QUESTIONABLE", "Q"].includes(normalized)) return Math.min(.15, remaining);
+  return 0;
+}
+
+export function depthChartRoleAdjustment(order: number | null | undefined) {
+  if (order == null || order <= 0) return 0;
+  if (order === 1) return 3;
+  if (order === 2) return 0;
+  if (order === 3) return -3;
+  return -6;
+}
+
+export function rosPerformanceAdjustment({
+  currentPointsPerGame,
+  projectedPointsPerGame,
+  currentWeek,
+  games,
+}: {
+  currentPointsPerGame: number | null;
+  projectedPointsPerGame: number | null;
+  currentWeek: number;
+  games: number;
+}) {
+  if (games <= 0 || currentPointsPerGame == null || projectedPointsPerGame == null) return 0;
+  const currentSeasonWeight = Math.min(1, Math.max(.25, (currentWeek - 1) / 4));
+  const performanceDelta = (currentPointsPerGame - projectedPointsPerGame) * .8 * currentSeasonWeight;
+  return Number(Math.max(-10, Math.min(10, performanceDelta)).toFixed(2));
 }
 
 export function seasonRankingValue({
@@ -28,6 +59,8 @@ export function seasonRankingValue({
   priorSeasonGames,
   unavailableGames,
   lineupAdjustment,
+  roleAdjustment = 0,
+  performanceAdjustment = 0,
 }: {
   marketSources: SeasonMarketSource[];
   sourceRank: number;
@@ -37,6 +70,8 @@ export function seasonRankingValue({
   priorSeasonGames: number | null;
   unavailableGames: number;
   lineupAdjustment: number;
+  roleAdjustment?: number;
+  performanceAdjustment?: number;
 }) {
   const available = marketSources.filter(
     (source) => typeof source.value === "number" && source.value > 0 && source.value < 999,
@@ -45,8 +80,8 @@ export function seasonRankingValue({
   const marketRank = availableWeight > 0
     ? available.reduce((total, source) => total + source.value * source.weight, 0) / availableWeight
     : sourceRank;
-  // ROS value is deliberately independent from the active week's projection,
-  // matchup and temporary injury designation. Those belong in Weekly Rankings.
+  // ROS value ignores the active matchup and weekly projection, but it should
+  // react to durable availability, depth-chart movement and actual production.
   const leagueAdjustedRank = Math.max(1, marketRank - lineupAdjustment * 1.5);
   const projectedPointsPerGame = projectedSeasonPoints == null
     ? null
@@ -68,6 +103,8 @@ export function seasonRankingValue({
   return {
     marketRank: Number(marketRank.toFixed(2)),
     availabilityPenalty: Number(suspensionRisk.toFixed(2)),
-    value: Number((Math.max(0, 210 - leagueAdjustedRank) + forwardProjectionBonus - ageRisk - availabilityRisk - suspensionRisk).toFixed(2)),
+    roleAdjustment: Number(roleAdjustment.toFixed(2)),
+    performanceAdjustment: Number(performanceAdjustment.toFixed(2)),
+    value: Number((Math.max(0, 210 - leagueAdjustedRank) + forwardProjectionBonus - ageRisk - availabilityRisk - suspensionRisk + roleAdjustment + performanceAdjustment).toFixed(2)),
   };
 }
