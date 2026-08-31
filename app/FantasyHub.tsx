@@ -4788,6 +4788,19 @@ function ManageLeagues({
           </p>
         </div>
         {provider === "espn" && (
+          <section className="espn-public-guide" aria-label="ESPN public league setup instructions">
+            <header><span>CONNECT WITH LIVE REFRESH</span><h4>Prepare your ESPN league</h4><p>Complete these steps before selecting <b>Find ESPN league</b>.</p></header>
+            <div>
+              <article>
+                <b>1</b><span><strong>Find the League ID</strong><small><em>ESPN Fantasy app:</em> open the league, choose <b>League</b>, then <b>League Info</b>. Copy the numeric League ID.</small><small><em>Desktop:</em> open the league and copy the number shown after <code>leagueId=</code> in the browser address.</small><a href="https://support.espn.com/hc/en-us/articles/4669614193556-League-ID" target="_blank" rel="noopener noreferrer">ESPN League ID help ↗</a></span>
+              </article>
+              <article>
+                <b>2</b><span><strong>Make the league viewable to the public</strong><small>On ESPN’s desktop website, the League Manager goes to <b>League → Settings → Basic Settings → Edit Basic Settings</b>, sets <b>Make League Viewable to Public</b> to <b>Yes</b>, then saves.</small><small>This makes league pages viewable by link; it does not let strangers join. Only the League Manager can change this setting.</small><a href="https://support.espn.com/hc/en-us/articles/360000991871-Making-a-Private-League-Viewable-to-the-Public" target="_blank" rel="noopener noreferrer">ESPN public-viewing help ↗</a></span>
+              </article>
+            </div>
+          </section>
+        )}
+        {provider === "espn" && (
           <section className="espn-private-sync">
             <div className="espn-private-heading">
               <div><span>PRIVATE ESPN LEAGUES</span><h4>Sync through your signed-in browser</h4></div>

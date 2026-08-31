@@ -23,6 +23,10 @@ test("ESPN connection requires explicit team ownership and persists it", async (
   assert.match(client, /automatic live score refreshes/);
   assert.match(client, /WANT LIVE GAME-DAY REFRESHES/);
   assert.match(client, /saved snapshots and must be synced again/);
+  assert.match(client, /Prepare your ESPN league/);
+  assert.match(client, /League → Settings → Basic Settings → Edit Basic Settings/);
+  assert.match(client, /leagueId=/);
+  assert.match(client, /Only the League Manager can change this setting/);
 });
 
 test("ESPN connected leagues feed the shared live scoreboard", async () => {
