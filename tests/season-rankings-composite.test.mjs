@@ -15,6 +15,8 @@ test("season-long Hub rankings use the requested ADP weights and six tiers", asy
   assert.match(composite, /value: player\.adpBySite\?\.\[sleeperAdpKey\], weight: 0\.3/);
   assert.match(composite, /value: player\.adpBySite\?\.ESPN, weight: 0\.1/);
   assert.match(composite, /source\.value \* source\.weight/);
+  assert.match(composite, /const availabilityRankPenalty = redraftMarketHorizon[\s\S]*?player\.rosAvailabilityPenalty \?\? 0/);
+  assert.match(composite, /scoringAdjustment \+[\s\S]*?availabilityRankPenalty/);
   assert.match(playerRanks, /buildSeasonCompositeRankings\(leagueRankings, context\)/);
   assert.match(playerRanks, /const tiers = \[1, 2, 3, 4, 5, 6\] as const/);
   assert.doesNotMatch(playerRanks, /60% UNDERDOG/);

@@ -413,6 +413,8 @@ type LeagueRanking = Player & {
   snapAverage?: number | null;
   statsSourceSeason?: number | null;
   compositeAdp?: number | null;
+  seasonMarketRank?: number | null;
+  rosAvailabilityPenalty?: number;
 };
 type CompositeLeagueRanking = LeagueRanking & {
   compositeAdp: number | null;
@@ -8671,11 +8673,18 @@ function buildSeasonCompositeRankings(
             : 0;
       const internalRank = internalRankById.get(player.id) ?? player.overallRank;
       const marketRank = compositeAdp ?? internalRank;
+      // Market ADP is intentionally slow to react to late availability news.
+      // Preserve the API's ROS missed-game adjustment in the final Hub rank,
+      // while keeping the dedicated ADP page as a pure market view.
+      const availabilityRankPenalty = redraftMarketHorizon
+        ? 0
+        : player.rosAvailabilityPenalty ?? 0;
       const leagueAdjustedMarketRank = Math.max(
         1,
         marketRank -
           demandDelta * (context?.teams ?? 12) * demandMultiplier -
-          scoringAdjustment,
+          scoringAdjustment +
+          availabilityRankPenalty,
       );
       const hubRankScore =
         leagueAdjustedMarketRank * (1 - contextWeight) +
