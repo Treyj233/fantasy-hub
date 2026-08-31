@@ -1,7 +1,7 @@
 export type SeasonMarketSource = { value: number | null; weight: number };
 
 export function assumedSuspensionGames(status: string | null | undefined) {
-  return ["DNR", "SUS"].includes((status ?? "").trim().toUpperCase()) ? 6 : 0;
+  return ["DNR", "SUS"].includes((status ?? "").trim().toUpperCase()) ? 8 : 0;
 }
 
 export function rosUnavailableGames({
@@ -51,9 +51,11 @@ export function seasonRankingValue({
   const projectedPointsPerGame = projectedSeasonPoints == null
     ? null
     : projectedSeasonPoints / 17;
-  const forwardProjectionBonus = projectedPointsPerGame == null
+  const rawForwardProjectionBonus = projectedPointsPerGame == null
     ? 0
     : Math.min(16, Math.max(0, projectedPointsPerGame * .85));
+  const availabilityShare = Math.max(0, 17 - Math.max(0, unavailableGames)) / 17;
+  const forwardProjectionBonus = rawForwardProjectionBonus * availabilityShare;
   const ageThreshold = position === "RB" ? 26 : position === "WR" ? 28 : position === "TE" ? 30 : position === "QB" ? 33 : 30;
   const ageRate = position === "RB" ? 2.25 : position === "WR" ? 1.5 : position === "TE" ? 1.1 : position === "QB" ? .65 : 1;
   const yearsPastThreshold = age == null ? 0 : Math.max(0, age - ageThreshold);
@@ -61,7 +63,8 @@ export function seasonRankingValue({
   const availabilityRisk = priorSeasonGames == null
     ? 0
     : Math.min(6, Math.max(0, 14 - priorSeasonGames) * .55);
-  const suspensionRisk = Math.min(60, Math.max(0, unavailableGames) * 3.5);
+  const availabilityPenaltyRate = unavailableGames >= 6 ? 4.5 : 3.5;
+  const suspensionRisk = Math.min(72, Math.max(0, unavailableGames) * availabilityPenaltyRate);
   return {
     marketRank: Number(marketRank.toFixed(2)),
     availabilityPenalty: Number(suspensionRisk.toFixed(2)),

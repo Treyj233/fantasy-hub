@@ -96,8 +96,8 @@ test("an older running back's history cannot override younger elite ROS profiles
 });
 
 test("DNR and SUS tags receive the same assumed suspension adjustment", () => {
-  assert.equal(assumedSuspensionGames("DNR"), 6);
-  assert.equal(assumedSuspensionGames("sus"), 6);
+  assert.equal(assumedSuspensionGames("DNR"), 8);
+  assert.equal(assumedSuspensionGames("sus"), 8);
   assert.equal(assumedSuspensionGames("Questionable"), 0);
 
   const active = seasonRankingValue({
@@ -120,8 +120,8 @@ test("DNR and SUS tags receive the same assumed suspension adjustment", () => {
     unavailableGames: assumedSuspensionGames("SUS"),
     lineupAdjustment: 3,
   });
-  assert.equal(active.value - suspended.value, 21);
-  assert.equal(suspended.availabilityPenalty, 21);
+  assert.equal(active.value - suspended.value, 42);
+  assert.equal(suspended.availabilityPenalty, 36);
 });
 
 test("IR assumes four missed games unless the season is explicitly over", () => {
