@@ -1010,6 +1010,28 @@ const normalizeNflTeam = (team: string) =>
 const isStartingPlayer = (player: Player) =>
   !["Bench", "IR", "TAXI"].includes(player.role);
 
+const buildRosterPlayerValue = (rankings: LeagueRanking[]) => {
+  const rankingById = new Map(rankings.map((player) => [player.id, player]));
+  return (player: Player) => {
+    const rank = rankingById.get(player.id)?.overallRank;
+    return rank
+      ? Math.max(24, 106 - Math.log2(rank + 1) * 10.5)
+      : Math.min(88, player.projection * 3.3);
+  };
+};
+
+const buildStarterStrengths = (teams: LeagueTeam[], rankings: LeagueRanking[]) => {
+  const playerValue = buildRosterPlayerValue(rankings);
+  return new Map(teams.map((team) => {
+    const starterValues = team.roster.filter(isStartingPlayer).map(playerValue);
+    return [
+      team.id,
+      starterValues.reduce((sum, value) => sum + value, 0) /
+        Math.max(1, starterValues.length),
+    ];
+  }));
+};
+
 const leagueRelativeGrade = (value: number, values: number[]) => {
   if (values.length < 2) return 72;
   const mean = values.reduce((sum, item) => sum + item, 0) / values.length;
@@ -3569,6 +3591,7 @@ export default function FantasyHub({
               key={`${leagueId}-${selectedTeamId}`}
               leagueId={leagueId}
               teams={leagueTeams}
+              rankings={leagueRankings}
               selectedTeamId={selectedTeamId}
               context={rankingContext}
             />
@@ -8283,12 +8306,7 @@ function TeamRankings({
     Record<string, number>
   >((counts, slot) => ({ ...counts, [slot]: (counts[slot] ?? 0) + 1 }), {});
   const superflexSlots = (slotCounts.SUPER_FLEX ?? 0) + (slotCounts.QB_FLEX ?? 0);
-  const playerValue = (player: Player) => {
-    const rank = rankingById.get(player.id)?.overallRank;
-    return rank
-      ? Math.max(24, 106 - Math.log2(rank + 1) * 10.5)
-      : Math.min(88, player.projection * 3.3);
-  };
+  const playerValue = buildRosterPlayerValue(rankings);
   const roomNeed = (position: string) => Math.max(1,
     (slotCounts[position] ?? (position === "RB" || position === "WR" ? 2 : 1)) +
     (position === "QB" ? superflexSlots : 0));
@@ -11337,6 +11355,7 @@ function runLeagueSimulation(
   volume: number,
   simulation: SimulationContext,
   teams: LeagueTeam[],
+  rankings: LeagueRanking[],
   selectedTeamId: string,
   seed: number,
 ): SimulationResult {
@@ -11362,6 +11381,7 @@ function runLeagueSimulation(
       ];
     }),
   );
+  const starterStrengths = buildStarterStrengths(teams, rankings);
   const sampleScore = (teamId: string) => {
     const base = strengths.get(teamId) ?? 1;
     const weeklyVariance = Math.max(7, base * 0.17);
@@ -11456,7 +11476,7 @@ function runLeagueSimulation(
       )
       .sort((a, b) => b.projection - a.projection) ?? [];
   const strengthRank =
-    [...strengths.entries()]
+    [...starterStrengths.entries()]
       .sort((a, b) => b[1] - a[1])
       .findIndex(([id]) => id === selectedTeamId) + 1;
   const lowOpportunity = starters.filter((player) => player.projection < 2);
@@ -11495,11 +11515,13 @@ function runLeagueSimulation(
 function Simulator({
   leagueId,
   teams,
+  rankings,
   selectedTeamId,
   context,
 }: {
   leagueId: string;
   teams: LeagueTeam[];
+  rankings: LeagueRanking[];
   selectedTeamId: string;
   context: RankingContext | null;
 }) {
@@ -11545,6 +11567,7 @@ function Simulator({
           simulations,
           simulation,
           teams,
+          rankings,
           selectedTeamId,
           seed,
         ),
@@ -11581,6 +11604,21 @@ function Simulator({
       simulation.league.regularSeasonWeeks,
     ]),
   );
+  const selectedTeam = teams.find((team) => team.id === selectedTeamId);
+  const completedWeeks = Math.max(0, Math.min(
+    simulation.league.regularSeasonWeeks,
+    simulation.league.currentWeek - 1,
+  ));
+  const remainingWeeks = Math.max(0, simulation.league.regularSeasonWeeks - completedWeeks);
+  const outcomeLabel = !result
+    ? "Model ready"
+    : result.playoffOdds >= 75
+      ? "Strong playoff position"
+      : result.playoffOdds >= 50
+        ? "Playoff race advantage"
+        : result.playoffOdds >= 25
+          ? "In the playoff chase"
+          : "Needs an upside run";
   return (
     <div className="page-content simulator-live">
       <SectionIntro
@@ -11589,7 +11627,12 @@ function Simulator({
         title={`Simulate ${simulation.league.name}, not a generic league`}
         text="Each run uses actual rosters, corrected opportunity-aware projections, weekly fantasy matchups, completed results, lineup rules, scoring configuration, playoff field, and playoff timing."
       />
-      <section className="simulation-context panel">
+      <details className="simulation-settings panel" open>
+        <summary>
+          <span><b>LEAGUE SETTINGS</b><small>The rules used for this simulation</small></span>
+          <i aria-hidden="true">⌄</i>
+        </summary>
+        <div className="simulation-context">
         <span>
           <b>{simulation.league.totalTeams}</b> teams
         </span>
@@ -11608,12 +11651,21 @@ function Simulator({
         <span>
           <b>{simulation.league.scoringRuleCount}</b> scoring rules
         </span>
-      </section>
-      <section className="sim-hero">
-        <div>
+        </div>
+      </details>
+      <section className="sim-hero panel">
+        <div className="sim-hero-copy">
+          <span>SEASON FORECAST</span>
+          <h2>{selectedTeam?.teamName ?? "Your team"}</h2>
+          <p>{remainingWeeks} regular-season week{remainingWeeks === 1 ? "" : "s"} remain. Run 10,000 paths through the real schedule and playoff bracket.</p>
+          <div className="sim-hero-tags"><b>{simulation.league.season} SEASON</b><b>{simulation.league.format}</b><b>{completedWeeks} WEEKS LOCKED</b></div>
+        </div>
+        <div className="sim-run-control">
+          <span>{outcomeLabel}</span>
           <button onClick={run} disabled={running}>
-            {running ? "Simulating…" : "Sim season"}
+            {running ? "Running 10,000 seasons…" : result ? "Run new simulation" : "Sim season"}
           </button>
+          <small>Each run uses a fresh random seed</small>
         </div>
         {result ? (
           <div className="sim-results">
@@ -11637,13 +11689,23 @@ function Simulator({
           </div>
         ) : (
           <div className="simulation-ready">
-            <strong>Ready to simulate</strong>
-            <p>Results remain hidden until you run the model.</p>
+            <strong>10,000</strong>
+            <p>season paths ready</p>
           </div>
         )}
       </section>
+      <section className="sim-model-grid" aria-label="Simulation model inputs">
+        <article className="panel"><i>01</i><span><b>REAL SCHEDULE</b><strong>{completedWeeks} completed · {remainingWeeks} remaining</strong><small>Finished matchups stay fixed while future weeks are modeled.</small></span></article>
+        <article className="panel"><i>02</i><span><b>LINEUP POWER</b><strong>{simulation.league.starterSlots.length} active starter slots</strong><small>Current starters set each team’s weekly scoring range.</small></span></article>
+        <article className="panel"><i>03</i><span><b>PLAYOFF PATH</b><strong>{simulation.league.playoffTeams} teams · Week {simulation.league.playoffWeekStart}</strong><small>Seeding, byes, and the title bracket follow league rules.</small></span></article>
+      </section>
       {result && (
         <>
+          <section className="sim-outlook panel">
+            <div className="sim-outlook-ring" style={{ "--sim-odds": `${result.playoffOdds * 3.6}deg` } as CSSProperties}><span><strong>{result.playoffOdds.toFixed(0)}%</strong><small>PLAYOFFS</small></span></div>
+            <div><span>SEASON OUTLOOK</span><h3>{outcomeLabel}</h3><p>The median path finishes with <b>{result.medianWins} wins</b>. A first-round bye appears in <b>{result.byeOdds.toFixed(1)}%</b> of seasons, and this roster wins the league in <b>{result.titleOdds.toFixed(1)}%</b>.</p></div>
+            <aside><small>SIMULATION ID</small><b>#{result.seed.toString(16).toUpperCase()}</b><span>10K paths</span></aside>
+          </section>
           <section className="win-distribution panel">
             <div className="panel-header">
               <div>
