@@ -11364,7 +11364,7 @@ function runLeagueSimulation(
     Math.sqrt(-2 * Math.log(Math.max(0.000001, random()))) *
     Math.cos(2 * Math.PI * random());
   const teamById = new Map(teams.map((team) => [team.id, team]));
-  const strengths = new Map(
+  const projectedTeamTotals = new Map(
     teams.map((team) => {
       const starters = team.roster.filter(
         (player) =>
@@ -11382,6 +11382,24 @@ function runLeagueSimulation(
     }),
   );
   const starterStrengths = buildStarterStrengths(teams, rankings);
+  // Team Rankings and the simulator must agree about relative lineup quality.
+  // Convert the shared starter-strength scores into the league's weekly point
+  // scale so the simulation preserves realistic totals without introducing a
+  // second, contradictory ordering based only on one week's projections.
+  const averageProjectedTotal = [...projectedTeamTotals.values()].reduce(
+    (sum, value) => sum + value,
+    0,
+  ) / Math.max(1, projectedTeamTotals.size);
+  const averageStarterStrength = [...starterStrengths.values()].reduce(
+    (sum, value) => sum + value,
+    0,
+  ) / Math.max(1, starterStrengths.size);
+  const strengths = new Map(
+    [...starterStrengths.entries()].map(([teamId, strength]) => [
+      teamId,
+      Math.max(1, averageProjectedTotal * strength / Math.max(1, averageStarterStrength)),
+    ]),
+  );
   const sampleScore = (teamId: string) => {
     const base = strengths.get(teamId) ?? 1;
     const weeklyVariance = Math.max(7, base * 0.17);

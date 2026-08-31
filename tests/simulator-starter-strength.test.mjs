@@ -7,6 +7,7 @@ test("simulator starter strength uses the same ranking model as Team Rankings", 
 
   assert.match(source, /const buildStarterStrengths = \(teams: LeagueTeam\[\], rankings: LeagueRanking\[\]\)/);
   assert.match(source, /const starterStrengths = buildStarterStrengths\(teams, rankings\)/);
+  assert.match(source, /averageProjectedTotal \* strength \/ Math\.max\(1, averageStarterStrength\)/);
   assert.match(source, /const strengthRank =\s*\[\.\.\.starterStrengths\.entries\(\)\]/);
   assert.match(source, /<Simulator[\s\S]*?rankings=\{leagueRankings\}/);
 });
