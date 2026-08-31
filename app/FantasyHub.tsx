@@ -8265,6 +8265,15 @@ function TeamRankings({
     };
   }, [expandedTeamId]);
   const rankingById = new Map(rankings.map((player) => [player.id, player]));
+  const playerPositionRanks = new Map<string, number>();
+  const playerPositionCounts = new Map<string, number>();
+  [...rankings]
+    .sort((a, b) => a.overallRank - b.overallRank)
+    .forEach((player) => {
+      const positionRank = (playerPositionCounts.get(player.position) ?? 0) + 1;
+      playerPositionCounts.set(player.position, positionRank);
+      playerPositionRanks.set(player.id, positionRank);
+    });
   const isDynasty = context?.format === "Dynasty";
   const positions = ["QB", "RB", "WR", "TE"];
   const slotCounts = (context?.rosterSlots ?? []).reduce<
@@ -8540,7 +8549,7 @@ function TeamRankings({
             {expanded && (() => {
               const drawer = <div className="team-assets-modal-layer" onClick={() => setExpandedTeamId("")}><section className="team-assets-drawer" id={`team-assets-${team.id}`} role="dialog" aria-modal="true" aria-label={`${team.teamName} complete team assets`} onClick={(event) => event.stopPropagation()}>
               <header><div><span>COMPLETE TEAM ASSETS</span><strong>{team.teamName}</strong></div><small>{allAssets.length} rostered players{isDynasty ? ` · ${team.draftCapital?.picks.length ?? 0} draft picks` : ""}</small><button className="team-assets-close" type="button" aria-label="Close team assets" onClick={() => setExpandedTeamId("")}>×</button></header>
-              <div className="team-rating-breakdown"><article><span>STARTERS</span><b>{team.starterScore.toFixed(0)}</b><small>{isDynasty ? "52%" : "72%"}</small></article><article><span>DEPTH</span><b>{team.depthScore.toFixed(0)}</b><small>{isDynasty ? "14%" : "18%"}</small></article><article><span>BALANCE</span><b>{team.balanceScore.toFixed(0)}</b><small>{isDynasty ? "16%" : "10%"}</small></article>{isDynasty && <><article><span>RUNWAY</span><b>{team.runwayScore.toFixed(0)}</b><small>10%</small></article><article><span>DRAFT</span><b>{team.draftValue.toFixed(0)}</b><small>8%</small></article></>}</div>
+              <div className="team-rating-breakdown"><article><span>STARTERS</span><b>{team.starterScore.toFixed(0)}</b></article><article><span>DEPTH</span><b>{team.depthScore.toFixed(0)}</b></article><article><span>BALANCE</span><b>{team.balanceScore.toFixed(0)}</b></article>{isDynasty && <><article><span>RUNWAY</span><b>{team.runwayScore.toFixed(0)}</b><small>10%</small></article><article><span>DRAFT</span><b>{team.draftValue.toFixed(0)}</b><small>8%</small></article></>}</div>
               <div className="team-position-rooms">
                 {[...positions, "OTHER"].map((position) => {
                   const positionPlayers = allAssets.filter((player) => position === "OTHER" ? !positions.includes(player.position) : player.position === position);
@@ -8549,7 +8558,7 @@ function TeamRankings({
                     <header><span className={`pos pos-${position.toLowerCase()}`}>{position === "OTHER" ? "ST" : position}</span><strong>{position === "OTHER" ? "KICKERS & DEFENSE" : `${position}s`}</strong><small>{positionPlayers.length} PLAYERS</small></header>
                     <div className="team-assets-grid">{positionPlayers.map((player) => {
                       const ranking = rankingById.get(player.id);
-                      return <button type="button" key={player.id} onClick={() => { setExpandedTeamId(""); setSelectedPlayer(player); }}><span className={`pos pos-${player.position.toLowerCase()}`}>{player.position}</span><p><strong>{player.name}</strong><small>{player.team} · {formatRosterSlot(player.role)}</small></p><b>{ranking ? `${ranking.position} #${ranking.positionRank}` : `${player.projection.toFixed(1)} PTS`}</b></button>;
+                      return <button type="button" key={player.id} onClick={() => { setExpandedTeamId(""); setSelectedPlayer(player); }}><span className={`pos pos-${player.position.toLowerCase()}`}>{player.position}</span><p><strong>{player.name}</strong><small>{player.team} · {formatRosterSlot(player.role)}</small></p><b>{ranking ? `${ranking.position} #${playerPositionRanks.get(ranking.id) ?? "—"}` : `${player.projection.toFixed(1)} PTS`}</b></button>;
                     })}</div>
                   </section>;
                 })}
@@ -9103,7 +9112,7 @@ function AdpPage({
             ? adpSite === "Sleeper"
               ? `Sleeper ${sleeperAdpFormat} draft-market ADP aligned to ${context.scoring}.`
               : adpSite === "Underdog"
-                ? `Official Underdog 2026 Best Ball ${underdogAdpFormat} draft market, updated August 21.`
+                ? `Official Underdog 2026 Best Ball ${underdogAdpFormat} draft market, updated August 30.`
                 : "ESPN Single-QB platform ADP reflects ESPN's redraft market and is shown separately for direct comparison."
             : "Import a league to compare platform-specific Sleeper, ESPN, and Underdog draft markets."
         }

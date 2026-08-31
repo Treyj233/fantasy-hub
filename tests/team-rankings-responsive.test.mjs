@@ -25,7 +25,8 @@ test("Team Rankings groups assets by position and removes mobile horizontal scro
   assert.match(rankings, /\.slice\(0, 4\)/);
   assert.match(rankings, /rank-elite/);
   assert.match(rankings, /rank-trailing/);
-  assert.match(rankings, /`\$\{ranking\.position\} #\$\{ranking\.positionRank\}`/);
+  assert.match(rankings, /const playerPositionRanks = new Map<string, number>\(\)/);
+  assert.match(rankings, /`\$\{ranking\.position\} #\$\{playerPositionRanks\.get\(ranking\.id\) \?\? "—"\}`/);
   assert.doesNotMatch(rankings, /ranking \? `#\$\{ranking\.overallRank\}`/);
   assert.match(rankings, /aria-controls=\{`team-assets-\$\{team\.id\}`\}/);
   assert.match(styles, /\.team-rank-table\{width:100%;overflow-x:hidden!important/);
