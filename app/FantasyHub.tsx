@@ -17,6 +17,7 @@ import NewsAndNotes from "./NewsAndNotes";
 import DraftDashboard from "./DraftDashboard";
 import { cacheActiveLeagueBootstrap, readSessionCache, safeLocalStorageSet, writeSessionCache } from "./local-storage";
 import { teamPositionStrength } from "./team-position-strength";
+import { weeklyProjectionValue } from "./weekly-projection";
 
 type View =
   | "Command Center"
@@ -8955,13 +8956,16 @@ function WeeklyPlayerRankings({
     { position: "TE", limit: 24, label: "Tight ends" },
   ] as const;
   const cards = positionConfig.map((config) => {
-    const positionPlayers = players.filter((player) => player.position === config.position && player.opponent !== "BYE");
+    const positionPlayers = players.filter((player) =>
+      player.position === config.position &&
+      player.opponent !== "BYE" &&
+      weeklyProjectionValue(player) !== null);
     const ranges = new Map(positionPlayers.map((player) => [player.id, matchupAdjustedRange(player)]));
-    const maxProjection = Math.max(1, ...positionPlayers.map((player) => Math.max(0, player.leagueProjection ?? player.projection)));
+    const maxProjection = Math.max(1, ...positionPlayers.map((player) => weeklyProjectionValue(player) ?? 0));
     const maxCeiling = Math.max(1, ...positionPlayers.map((player) => ranges.get(player.id)?.ceiling ?? player.ceiling));
     const ranked = positionPlayers
       .map((player) => {
-        const projection = Math.max(0, player.leagueProjection ?? player.projection);
+        const projection = weeklyProjectionValue(player) ?? 0;
         const range = ranges.get(player.id) ?? matchupAdjustedRange(player);
         const projectionScore = (projection / maxProjection) * 100;
         const ceilingScore = (range.ceiling / maxCeiling) * 100;
