@@ -16,6 +16,7 @@ import LaunchSplash from "./LaunchSplash";
 import NewsAndNotes from "./NewsAndNotes";
 import DraftDashboard from "./DraftDashboard";
 import { cacheActiveLeagueBootstrap, readSessionCache, safeLocalStorageSet, writeSessionCache } from "./local-storage";
+import { teamPositionStrength } from "./team-position-strength";
 
 type View =
   | "Command Center"
@@ -8281,17 +8282,9 @@ function TeamRankings({
       positions.map((position) => {
         const values = team.roster
           .filter((player) => player.position === position)
-          .map(playerValue)
-          .sort((a, b) => b - a);
+          .map(playerValue);
         const count = roomNeed(position);
-        const core =
-          values.slice(0, count).reduce((sum, value) => sum + value, 0) / count;
-        const depth =
-          values
-            .slice(count, count + 2)
-            .reduce((sum, value) => sum + value, 0) /
-          Math.max(1, Math.min(2, values.length - count));
-        return [position, Number((core * 0.82 + depth * 0.18).toFixed(1))];
+        return [position, teamPositionStrength(values, count)];
       }),
     );
     const starterValues = team.roster.filter(isStartingPlayer).map(playerValue);
@@ -8421,7 +8414,7 @@ function TeamRankings({
         compact
         kicker="LEAGUE POWER RANKINGS"
         title="See where every roster has an edge"
-        text={`Overall rank blends league-adjusted starters, usable depth, and positional balance${isDynasty ? ", plus roster runway and calibrated three-year draft capital" : " using this league’s lineup and scoring settings"}. Superflex leagues count the second quarterback as a required starter, while pick hoards are compressed so one outlier cannot distort the league.`}
+        text={`Overall rank blends league-adjusted starters, usable depth, and positional balance${isDynasty ? ", plus roster runway and calibrated three-year draft capital" : " using this league’s lineup and scoring settings"}. Single-starter rooms emphasize the starter with a small platoon bonus for an elite backup; Superflex counts the second quarterback as required.`}
       />
       <div className="team-rank-summary">
         <Metric
