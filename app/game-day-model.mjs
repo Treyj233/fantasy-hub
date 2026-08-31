@@ -47,9 +47,12 @@ export function rootingInterests(exposures) {
     const helps = items.filter((item) => item.side === "you").length;
     const hurts = items.length - helps;
     const leverage = playerLeverage(items);
+    const closestWinPath = items
+      .filter((item) => item.side === "you" && item.pointsNeeded > 0)
+      .sort((a, b) => a.pointsNeeded - b.pointsNeeded)[0];
     let text;
     if (helps && hurts) text = `${first.playerName} helps you in ${helps} league${helps === 1 ? "" : "s"} but hurts you in ${hurts}.`;
-    else if (helps && first.pointsNeeded > 0) text = `About ${Math.ceil(first.pointsNeeded)} points from ${first.playerName} would move that matchup to a projected lead.`;
+    else if (closestWinPath) text = `You need about ${Math.ceil(closestWinPath.pointsNeeded)} more points from ${first.playerName} to project ahead in ${closestWinPath.leagueName ?? "this league"}.`;
     else if (helps) text = `${first.playerName} is active for you across ${helps} connected matchup${helps === 1 ? "" : "s"}.`;
     else text = `${first.playerName} is an opposing player in ${hurts} connected matchup${hurts === 1 ? "" : "s"}.`;
     return { playerId: first.playerId, playerName: first.playerName, text, ...leverage };
