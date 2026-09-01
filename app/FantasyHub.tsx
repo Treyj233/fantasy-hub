@@ -7782,6 +7782,7 @@ function CommandCenter({
   leagueTeams: LeagueTeam[];
   selectedTeamId: string;
 }) {
+  const openPlayer = useContext(PlayerOpenContext);
   const projectionPlatform = useContext(ProjectionPlatformContext);
   const [scenario, setScenario] = useState<"safe" | "balanced" | "upside">("balanced");
   const [commandChanges, setCommandChanges] = useState<string[]>([]);
@@ -9368,8 +9369,16 @@ function StartSit({
   isPro: boolean;
   onUpgrade: () => void;
 }) {
+  const openPlayer = useContext(PlayerOpenContext);
   const projectionPlatform = useContext(ProjectionPlatformContext);
-  const decisions = useMemo(() => startSitDecisions(players), [players]);
+  const startSitPlayers = useMemo(
+    () => players.map((player) => ({
+      ...player,
+      projection: weeklyProjectionValue(player) ?? 0,
+    })),
+    [players],
+  );
+  const decisions = useMemo(() => startSitDecisions(startSitPlayers), [startSitPlayers]);
   const [selectedBySlot, setSelectedBySlot] = useState<Record<string, string>>({});
   const yourTeam = teams.find((team) => team.id === selectedTeamId);
   const opponentTeam =
@@ -9382,13 +9391,13 @@ function StartSit({
   const lineupProjection = (team?: LeagueTeam) =>
     team?.roster
       .filter(isStartingPlayer)
-      .reduce((total, player) => total + (player.leagueProjection ?? 0), 0) ??
+      .reduce((total, player) => total + (weeklyProjectionValue(player) ?? 0), 0) ??
     0;
   const teamProjection = yourTeam
     ? lineupProjection(yourTeam)
-    : players
+    : startSitPlayers
         .filter(isStartingPlayer)
-        .reduce((total, player) => total + (player.leagueProjection ?? 0), 0);
+        .reduce((total, player) => total + player.projection, 0);
   const opponentProjection = opponentTeam
     ? lineupProjection(opponentTeam)
     : null;
@@ -9575,6 +9584,7 @@ function StartSit({
                 setChoice(player.name);
                 const memory = rememberedStartSit[decisionIndex];
                 if (isPro && memory) rememberDecision({ ...memory, userSelection: player.name });
+                openPlayer(player);
               }}
             >
               <div className="choice-top">
