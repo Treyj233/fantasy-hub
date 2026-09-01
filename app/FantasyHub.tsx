@@ -96,8 +96,8 @@ type MatchupStrengthData = {
 const PlayerOpenContext = createContext<(player: Player) => void>(() => undefined);
 const ProjectionPlatformContext = createContext("League platform");
 const PORTFOLIO_CACHE_VERSION = 2;
-const PORTFOLIO_SCAN_TTL_MS = 30 * 60 * 1000;
-const LEAGUE_DISCOVERY_TTL_MS = 30 * 60 * 1000;
+const ACCOUNT_BOOTSTRAP_TTL_MS = 6 * 60 * 60 * 1000;
+const LEAGUE_DISCOVERY_TTL_MS = 24 * 60 * 60 * 1000;
 const weatherRequestCache = new Map<
   string,
   { expiresAt: number; request: Promise<WeatherData | null> }
@@ -2206,7 +2206,7 @@ export default function FantasyHub({
       const cachedLeagueId = window.localStorage.getItem("fantasy-hub-active-league");
       if (cachedLeagueId) void importLeague(cachedLeagueId);
       try {
-        const freshlyBootstrapped = cachedAccount && Date.now() - cachedAccount.savedAt < 10_000;
+        const freshlyBootstrapped = cachedAccount && Date.now() - cachedAccount.savedAt < ACCOUNT_BOOTSTRAP_TTL_MS;
         const data = freshlyBootstrapped ? cachedAccount : await (async () => {
           const response = await fetch("/api/v1/bootstrap");
           if (!response.ok) throw new Error("Account unavailable");
@@ -5100,19 +5100,13 @@ function AllLeagues({
     const cacheMatches =
       cachedAtScanStart.length === leagues.length &&
       cachedAtScanStart.every((scan) => leagueIds.has(scan.league.id));
-    const cacheIsFresh =
-      cacheMatches &&
-      cachedScansSavedAt > 0 &&
-      Date.now() - cachedScansSavedAt < PORTFOLIO_SCAN_TTL_MS;
-    // A complete recent portfolio snapshot is the Mission Hub's immediate
-    // source of truth. Avoid re-fetching every league merely because the page
-    // was revisited; the refresh control below remains an explicit override.
-    if (refreshKey === 0 && cacheIsFresh) {
+    const isBackgroundRevalidation = refreshKey === 0 && cacheMatches;
+    // A complete portfolio snapshot is rendered immediately, then refreshed
+    // without putting the Mission Hub back into its initial loading state.
+    if (isBackgroundRevalidation) {
       setScans(cachedAtScanStart);
       setScanCompleted(leagues.length);
       setLoading(false);
-      setRefreshing(false);
-      return;
     }
     const controller = new AbortController();
     setRefreshing(true);
@@ -5131,7 +5125,7 @@ function AllLeagues({
           for (let attempt = 0; attempt < 3; attempt += 1) {
             try {
               leagueResponse = await fetchWithTimeout(
-                `/api/league?id=${encodeURIComponent(league.id)}${refreshKey > 0 ? "&refresh=1" : ""}`,
+                `/api/league?id=${encodeURIComponent(league.id)}${refreshKey > 0 || isBackgroundRevalidation ? "&refresh=1" : ""}`,
                 { signal: controller.signal },
                 15_000,
               );
@@ -5407,6 +5401,10 @@ function AllLeagues({
             issues: ordered,
           };
         } catch {
+          const savedScan = isBackgroundRevalidation
+            ? cachedAtScanStart.find((scan) => scan.league.id === league.id)
+            : undefined;
+          if (savedScan) return { ...savedScan, league };
           return {
             league,
             teamName: "Roster unavailable",

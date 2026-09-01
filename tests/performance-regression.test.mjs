@@ -16,11 +16,17 @@ test("account bootstrap restores cached UI and avoids the legacy launch waterfal
 test("portfolio scans preserve saved results while weather requests use a bounded client cache", async () => {
   const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
   assert.match(source, /PORTFOLIO_CACHE_VERSION = 2/);
+  assert.match(source, /ACCOUNT_BOOTSTRAP_TTL_MS = 6 \* 60 \* 60 \* 1000/);
+  assert.match(source, /LEAGUE_DISCOVERY_TTL_MS = 24 \* 60 \* 60 \* 1000/);
+  assert.match(source, /Date\.now\(\) - cachedAccount\.savedAt < ACCOUNT_BOOTSTRAP_TTL_MS/);
   assert.match(source, /fantasy-hub-portfolio-scans:/);
   assert.match(source, /weatherRequestCache/);
   assert.match(source, /lastAutomaticScan/);
   assert.match(source, /cachedScansRef/);
   assert.match(source, /Showing saved results/);
+  assert.match(source, /const isBackgroundRevalidation = refreshKey === 0 && cacheMatches/);
+  assert.match(source, /refreshKey > 0 \|\| isBackgroundRevalidation/);
+  assert.match(source, /if \(savedScan\) return \{ \.\.\.savedScan, league \}/);
 });
 
 test("launch traffic is bounded and public provider data is edge cached", async () => {
@@ -36,6 +42,7 @@ test("launch traffic is bounded and public provider data is edge cached", async 
   assert.match(client, /document\.visibilityState === "visible"/);
   assert.match(scoreboard, /fetchCachedUpstream/);
   assert.match(league, /fetchCachedUpstream/);
+  assert.match(league, /LEAGUE_SNAPSHOT_TTL_MS = 6 \* 60 \* 60 \* 1000/);
   assert.match(scoreboard, /leagueConfiguration: 6 \* 60 \* 60/);
   assert.match(scoreboard, /matchupReconciliation: 15 \* 60/);
   assert.match(scoreboard, /rosterOwners: 60 \* 60/);
