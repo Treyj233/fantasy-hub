@@ -1,7 +1,7 @@
 export type SeasonMarketSource = { value: number | null; weight: number };
 
 export function assumedSuspensionGames(status: string | null | undefined) {
-  return ["DNR", "SUS"].includes((status ?? "").trim().toUpperCase()) ? 8 : 0;
+  return ["DNR", "SUS", "NA"].includes((status ?? "").trim().toUpperCase()) ? 8 : 0;
 }
 
 export function rosUnavailableGames({

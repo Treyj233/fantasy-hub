@@ -111,9 +111,10 @@ test("elite redraft running backs receive only a modest late-career age adjustme
   assert.ok(valueAt24 - valueAt30 < 2, "age alone should not move an elite RB several ranking tiers");
 });
 
-test("DNR and SUS tags receive the same assumed suspension adjustment", () => {
+test("DNR, SUS, and NA tags receive the same assumed suspension adjustment", () => {
   assert.equal(assumedSuspensionGames("DNR"), 8);
   assert.equal(assumedSuspensionGames("sus"), 8);
+  assert.equal(assumedSuspensionGames("NA"), 8);
   assert.equal(assumedSuspensionGames("Questionable"), 0);
 
   const active = seasonRankingValue({
