@@ -619,16 +619,17 @@ test("mobile My Team roster fits without horizontal scrolling", async () => {
   assert.match(styles, /grid-template-columns:minmax\(0,1fr\) 48px 44px;grid-template-areas:"player slot projection" "matchup matchup status"/);
   assert.match(styles, /grid-template-columns:32px minmax\(0,1fr\)/);
   assert.match(styles, /\.roster-section \.roster-temperature\{display:none\}/);
-  assert.match(styles, /\.roster-section \.roster-matchup-details\{display:grid;width:100%;grid-template-columns:minmax\(118px,.8fr\) minmax\(0,1.2fr\)/);
-  assert.match(styles, /\.roster-section \.roster-weather\{overflow:visible;max-width:none;[^}]*white-space:normal\}/);
+  assert.match(styles, /\.roster-section \.roster-matchup-details\{display:flex;width:100%;align-items:flex-start;flex-direction:column\}/);
+  assert.match(styles, /\.roster-section \.roster-weather\{overflow:visible;width:100%;max-width:none;[^}]*white-space:normal\}/);
   assert.match(styles, /\.sidebar nav,\.sidebar-collapsed \.sidebar nav\{padding-right:0;padding-left:0\}/);
 });
 
-test("desktop My Team dedicates half the roster row to full weather context", async () => {
+test("desktop My Team stacks full weather context without shrinking opponent strength", async () => {
   const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
-  assert.match(styles, /@media\(min-width:701px\)\{\.roster-section table\{table-layout:fixed\}/);
-  assert.match(styles, /\.roster-section th:nth-child\(3\)\{width:50%\}/);
-  assert.match(styles, /\.roster-section \.roster-weather\{max-width:none;margin:0;white-space:normal\}/);
+  assert.match(styles, /@media\(min-width:701px\)\{\.roster-section table\{table-layout:auto\}/);
+  assert.match(styles, /\.roster-section th:nth-child\(3\)\{width:52%\}/);
+  assert.match(styles, /\.roster-section \.roster-matchup-details>.matchup-team\{flex:none\}/);
+  assert.match(styles, /\.roster-section \.roster-weather\{width:100%;max-width:none;margin-top:5px;white-space:normal\}/);
 });
 
 test("pre-kickoff visuals are centralized and removable", async () => {
