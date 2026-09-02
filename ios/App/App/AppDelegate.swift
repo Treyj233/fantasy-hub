@@ -1,5 +1,6 @@
 import UIKit
 import Capacitor
+import AppsFlyerLib
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -7,8 +8,32 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     var window: UIWindow?
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        // Override point for customization after application launch.
+        configureAppsFlyer(launchOptions: launchOptions)
+
         return true
+    }
+
+    private func configureAppsFlyer(launchOptions: [UIApplication.LaunchOptionsKey: Any]?) {
+        guard
+            let devKey = Bundle.main.object(forInfoDictionaryKey: "AppsFlyerDevKey") as? String,
+            !devKey.isEmpty,
+            !devKey.hasPrefix("$("),
+            let appleAppID = Bundle.main.object(forInfoDictionaryKey: "AppsFlyerAppleAppID") as? String,
+            !appleAppID.isEmpty,
+            !appleAppID.hasPrefix("$(")
+        else {
+            assertionFailure("AppsFlyer configuration is missing from Info.plist")
+            return
+        }
+
+        let appsFlyer = AppsFlyerLib.shared()
+        appsFlyer.initialize(devKey: devKey, appId: appleAppID)
+        appsFlyer.handleLaunchOptions(launchOptions)
+
+        appsFlyer.isDebug = false
+        appsFlyer.registerSessionReadyListener {
+            appsFlyer.start()
+        }
     }
 
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {

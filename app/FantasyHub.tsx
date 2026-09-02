@@ -7,7 +7,7 @@ import { estimatedWinProbability, playerLeverage, rootingInterests, whatDoINeed 
 import { classifyFantasyPlay, findConfirmedPlayContext, matchupImpactText } from "./live-play-alerts.mjs";
 import { PRE_KICKOFF_VISUALS_ENABLED } from "./pre-kickoff-visuals";
 import { DEFAULT_PUSH_PREFERENCES, type PushAlertKey, type PushPreferences } from "./push-preferences";
-import { disableNativePushNotifications, enableNativePushNotifications, initializeNativeRuntime, isNativeIosApp, nativeHapticsEnabled, nativeImpact, nativeManageSubscriptions, nativePurchase, nativeRefreshPurchases, nativeRestorePurchases, nativeStoreProducts, setNativeHapticsEnabled } from "./native-runtime";
+import { disableNativePushNotifications, enableNativePushNotifications, initializeNativeRuntime, isNativeIosApp, nativeHapticsEnabled, nativeImpact, nativeLogAppsFlyerEvent, nativeManageSubscriptions, nativePurchase, nativeRefreshPurchases, nativeRestorePurchases, nativeStoreProducts, setNativeHapticsEnabled } from "./native-runtime";
 import { useOverflowAutoScroll } from "./use-overflow-auto-scroll";
 import { useOverlayGuard } from "./use-overlay-guard";
 import { useProductMonitoring } from "./use-product-monitoring";
@@ -1720,6 +1720,18 @@ export default function FantasyHub({
     [accountUser?.email, cachedAccount?.connection?.sleeperUserId],
   );
   const [view, setView] = useState<View>("All Leagues");
+  useEffect(() => {
+    const screenName = view
+      .toLowerCase()
+      .replace(/&/g, "and")
+      .replace(/\//g, "_")
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_|_$/g, "");
+    void nativeLogAppsFlyerEvent("af_screen_view", {
+      screen_name: screenName,
+      screen_title: view,
+    });
+  }, [view]);
   const [draftStylesReady, setDraftStylesReady] = useState(false);
   useEffect(() => {
     if (view === "Trade Lab") void import("./trade-calculator.css");

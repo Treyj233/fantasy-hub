@@ -1,9 +1,35 @@
 import UIKit
 import AuthenticationServices
+import AppsFlyerLib
 import Capacitor
 import ClerkKit
 import StoreKit
 import WebKit
+
+@objc(FantasyHubAnalyticsPlugin)
+class FantasyHubAnalyticsPlugin: CAPPlugin, CAPBridgedPlugin {
+    let identifier = "FantasyHubAnalyticsPlugin"
+    let jsName = "FantasyHubAnalytics"
+    let pluginMethods: [CAPPluginMethod] = [
+        CAPPluginMethod(name: "logEvent", returnType: CAPPluginReturnPromise),
+    ]
+
+    @objc func logEvent(_ call: CAPPluginCall) {
+        guard let name = call.getString("name"), !name.isEmpty else {
+            call.reject("AppsFlyer event name is required")
+            return
+        }
+
+        let values = call.getObject("values") ?? [:]
+        AppsFlyerLib.shared().logEvent(name: name, values: values) { response, error in
+            if let error {
+                call.reject("AppsFlyer could not record the event", nil, error)
+            } else {
+                call.resolve(["recorded": true, "response": response ?? [:]])
+            }
+        }
+    }
+}
 
 @objc(FantasyHubAppleAuthPlugin)
 class FantasyHubAppleAuthPlugin: CAPPlugin, CAPBridgedPlugin {
@@ -385,6 +411,7 @@ class FantasyHubBridgeViewController: CAPBridgeViewController {
     override func capacitorDidLoad() {
         bridge?.registerPluginInstance(FantasyHubStoreKitPlugin())
         bridge?.registerPluginInstance(FantasyHubAppleAuthPlugin())
+        bridge?.registerPluginInstance(FantasyHubAnalyticsPlugin())
         guard let webView = bridge?.webView else { return }
         webView.scrollView.showsVerticalScrollIndicator = false
         webView.scrollView.showsHorizontalScrollIndicator = false

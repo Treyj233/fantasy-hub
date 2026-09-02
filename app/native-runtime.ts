@@ -21,6 +21,27 @@ const AppleAuth = registerPlugin<{
   signOut(): Promise<{ signedOut?: boolean }>;
 }>("FantasyHubAppleAuth");
 
+const NativeAnalytics = registerPlugin<{
+  logEvent(options: {
+    name: string;
+    values?: Record<string, string | number | boolean>;
+  }): Promise<{ recorded: boolean }>;
+}>("FantasyHubAnalytics");
+
+export async function nativeLogAppsFlyerEvent(
+  name: string,
+  values: Record<string, string | number | boolean> = {},
+) {
+  if (!isNativeIosApp()) return false;
+  try {
+    const result = await NativeAnalytics.logEvent({ name, values });
+    return result.recorded;
+  } catch {
+    // Analytics must never interrupt navigation or other user actions.
+    return false;
+  }
+}
+
 export async function nativeAppleCredential() {
   if (!isNativeIosApp()) throw new Error("Native Apple sign-in requires the iOS app");
   return AppleAuth.signIn();

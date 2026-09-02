@@ -2,6 +2,15 @@
   "originHash" : "e3c8a20314f081f24c58a8f7351dbd2c667b38bca87f85105b77686628d3ba6b",
   "pins" : [
     {
+      "identity" : "appsflyerframework-strict",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/AppsFlyerSDK/AppsFlyerFramework-Strict.git",
+      "state" : {
+        "revision" : "e0394bec205388d58ffae88f7648645a9577f729",
+        "version" : "7.0.2"
+      }
+    },
+    {
       "identity" : "capacitor-swift-pm",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/ionic-team/capacitor-swift-pm.git",
