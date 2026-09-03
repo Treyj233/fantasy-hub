@@ -318,18 +318,6 @@ html[data-theme="dark"] .market-gap.negative {
 .weekly-rankings-gate h2 { margin: 6px 0; font-size: 22px; }
 .weekly-rankings-gate p { max-width: 430px; color: var(--muted); font-size: 10px; line-height: 1.6; }
 .weekly-rankings-gate > button { margin-top: 14px; padding: 10px 14px; color: #fff; background: var(--green); border: 0; border-radius: 8px; font-size: 9px; font-weight: 900; }
-.weekly-ranking-method {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  margin-bottom: 14px;
-  overflow: hidden;
-}
-.weekly-ranking-method > div { padding: 12px 14px; border-right: 1px solid var(--line); }
-.weekly-ranking-method > div:last-child { border-right: 0; }
-.weekly-ranking-method span,
-.weekly-ranking-method strong { display: block; }
-.weekly-ranking-method span { color: var(--green); font-size: 11px; font-weight: 950; }
-.weekly-ranking-method strong { margin-top: 3px; font-size: 8px; }
 .weekly-position-grid { display: grid; grid-template-columns: 1fr; gap: 13px; align-items: start; }
 .weekly-position-card { padding: 0; overflow: hidden; }
 .weekly-position-card > header { display: flex; align-items: center; justify-content: space-between; padding: 13px 14px; color: #fff; background: linear-gradient(120deg,var(--deep),var(--green)); }
@@ -366,9 +354,6 @@ html[data-theme="dark"] .weekly-rank-list > button { background: #20242b; }
 @media (max-width: 620px) {
   .ranking-mode-toggle button { padding: 8px; }
   .ranking-mode-toggle button strong { font-size: 8px; }
-  .weekly-ranking-method { grid-template-columns: 1fr 1fr; }
-  .weekly-ranking-method > div:nth-child(2) { border-right: 0; }
-  .weekly-ranking-method > div:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
   .weekly-rank-list {
     max-height: none;
     overflow-y: visible;

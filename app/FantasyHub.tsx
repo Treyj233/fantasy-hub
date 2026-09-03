@@ -3573,7 +3573,7 @@ export default function FantasyHub({
         {view === "Draft HQ" && draftStylesReady && (
           <DraftDashboard
             key={`${leagueId}:${rankingContext?.teams ?? 0}:${rankingContext?.rosterSlots.join(",") ?? ""}:${selectedTeamId}`}
-            players={leagueRankings}
+            players={buildSeasonCompositeRankings(leagueRankings, rankingContext)}
             leagueContext={rankingContext}
             draftSlot={selectedTeamId}
             isPro={entitlement.pro}
@@ -5951,7 +5951,7 @@ function LeagueStories({ leagueId, setView }: { leagueId: string; setView: (view
       <section className="panel matchup-preview"><header><div><span>WEEK {story.preview.week} PREVIEW</span><h3>Next on the schedule</h3></div><button onClick={() => setView("Matchups")}>Open matchup →</button></header>{story.preview.games.map((game) => <article className={game.teams.some((team) => team.isMine) ? "mine" : ""} key={game.matchupId}><span>{game.teams[0]?.teamName}<small>{game.teams[0]?.managerName}</small></span><b>VS</b><span>{game.teams[1]?.teamName}<small>{game.teams[1]?.managerName}</small></span></article>)}</section>
     </div>
     <div className="story-dashboard-grid">
-      <section className="panel power-story"><header><span>POWER RANKINGS</span><h3>Who’s moving?</h3></header>{story.powerRankings.map((team) => <article className={team.isMine ? "mine" : ""} key={team.rosterId}><b>{team.rank}</b><p><strong>{team.teamName}</strong><small>{team.wins}–{team.losses} · {team.points.toFixed(1)} PF</small></p><em className={team.movement > 0 ? "up" : team.movement < 0 ? "down" : "flat"}>{team.movement > 0 ? `↑ ${team.movement}` : team.movement < 0 ? `↓ ${Math.abs(team.movement)}` : "—"}</em></article>)}</section>
+      <section className="panel power-story"><header><span>STANDINGS POWER RANK</span><h3>Who’s moving?</h3></header>{story.powerRankings.map((team) => <article className={team.isMine ? "mine" : ""} key={team.rosterId}><b>{team.rank}</b><p><strong>{team.teamName}</strong><small>{team.wins}–{team.losses} · {team.points.toFixed(1)} PF</small></p><em className={team.movement > 0 ? "up" : team.movement < 0 ? "down" : "flat"}>{team.movement > 0 ? `↑ ${team.movement}` : team.movement < 0 ? `↓ ${Math.abs(team.movement)}` : "—"}</em></article>)}</section>
       <section className="panel league-lore"><header><span>LEAGUE LORE</span><h3>Rivalries & playoff race</h3></header>{story.rivalry ? <article className="rivalry-card"><b>HEAD TO HEAD</b><strong>You vs {story.rivalry.opponentName}</strong><span>{story.rivalry.wins}–{story.rivalry.losses}</span><small>{story.rivalry.meetings ? `${story.rivalry.meetings} observed meeting${story.rivalry.meetings === 1 ? "" : "s"} this season` : "First observed meeting this season"}</small></article> : <p className="story-empty">A rivalry record appears when the current matchup is posted.</p>}<article className="playoff-story"><b>PLAYOFF PICTURE</b><strong>{story.playoff.yourRank ? `You are currently #${story.playoff.yourRank}` : "Standings pending"}</strong><small>{story.playoff.summary} Playoffs begin Week {story.playoff.startsWeek}.</small></article></section>
       <section className="panel manager-moments"><header><span>MANAGER MOMENTS</span><h3>Outcome, not hindsight</h3></header>{story.recap.lineupOutcomes.map((outcome, index) => <article key={outcome.teamName}><b>{index === 0 ? "TOUGHEST BENCH" : "BENCH SPARK"}</b><p><strong>{outcome.teamName}</strong><small>{outcome.topBenchPlayer ? `${outcome.topBenchPlayer} scored ${outcome.topBenchPoints.toFixed(1)} on the bench.` : "No material bench scoring was recorded."}</small></p><em>{outcome.benchPoints.toFixed(1)}</em></article>)}<small className="decision-note">These are observed lineup outcomes. A lower-projected starter being outscored does not make the original decision wrong.</small></section>
       <section className="panel trade-reactions"><header><span>TRADE WIRE</span><h3>Completed deals</h3></header>{story.trades.length ? story.trades.map((trade) => { const text = `Week ${trade.week} trade in ${story.league.name}: ${trade.adds.map((item) => `${item.player} to ${item.team}`).join(", ")}.`; const tradeTeams = trade.teams.slice(0, 2); return <article key={trade.id}><div className="trade-wire-top"><b>WEEK {trade.week}</b><button onClick={() => void shareStory(trade.id, text)}>{shared === trade.id ? "Copied!" : "Share"}</button></div><div className="trade-wire-columns">{tradeTeams.map((team) => { const received = trade.adds.filter((item) => item.team === team); return <section key={`${trade.id}-${team}`}><header><strong>{team}</strong><small>RECEIVED</small></header><div>{received.length ? received.map((item) => <span key={`${trade.id}-${team}-${item.player}`}>{item.player}</span>) : <span className="empty">No player assets recorded</span>}</div></section>; })}</div></article>; }) : <p className="story-empty">No completed trades were observed in the current recap window.</p>}</section>
@@ -7175,19 +7175,20 @@ function LeagueAnalytics({
 }) {
   const [expandedAssetPosition, setExpandedAssetPosition] = useState<string | null>(null);
   const isDynasty = context?.format === "Dynasty";
-  if (!isDynasty) return <RedraftAnalytics players={players} rankings={rankings} context={context} setSelectedPlayer={setSelectedPlayer} />;
+  const compositeRankings = buildSeasonCompositeRankings(rankings, context);
+  if (!isDynasty) return <RedraftAnalytics players={players} rankings={compositeRankings} context={context} setSelectedPlayer={setSelectedPlayer} />;
   const rosterIds = new Set(players.map((player) => player.id));
-  const rankingById = new Map(rankings.map((player) => [player.id, player]));
+  const rankingById = new Map(compositeRankings.map((player) => [player.id, player]));
   const positionRanks = new Map<string, number>();
   const playerPositionRanks = new Map<string, number>();
-  [...rankings]
+  [...compositeRankings]
     .sort((a, b) => a.overallRank - b.overallRank)
     .forEach((player) => {
       const positionRank = (positionRanks.get(player.position) ?? 0) + 1;
       positionRanks.set(player.position, positionRank);
       playerPositionRanks.set(player.id, positionRank);
     });
-  const assets = rankings
+  const assets = compositeRankings
     .filter((player) => rosterIds.has(player.id) && player.age)
     .map((player) => {
       const curve = dynastyCurves[player.position] ?? {
@@ -9086,12 +9087,6 @@ function WeeklyPlayerRankings({
   });
   return (
     <div className="weekly-rankings-view">
-      <section className="weekly-ranking-method panel">
-        <div><span>PROJECTION</span><strong>League projection</strong></div>
-        <div><span>CEILING</span><strong>Ceiling potential</strong></div>
-        <div><span>MATCHUP</span><strong>Opponent strength</strong></div>
-        <div><span>WEATHER</span><strong>Game-day conditions</strong></div>
-      </section>
       <div className="weekly-position-grid">
         {cards.map((card) => {
           const expanded = expandedPositions.has(card.position);
@@ -12086,8 +12081,8 @@ function PlayerPanel({
                     <span>
                       {season.games} games ·{" "}
                       {season.positionRank
-                        ? `Pos. #${season.positionRank}`
-                        : "Rank unavailable"}
+                        ? `${season.season} PPR finish: ${season.position} #${season.positionRank}`
+                        : "PPR finish unavailable"}
                     </span>
                   </div>
                   <div className="season-bar">
