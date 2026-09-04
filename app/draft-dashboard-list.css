@@ -1014,16 +1014,33 @@ html[data-theme="dark"] .draft-setup > header .draft-primary b {
 }
 
 @media (max-width: 700px) {
+  .draft-hq-page {
+    --draft-mobile-header-height: 100px;
+    width: 100%;
+    min-width: 0;
+    overflow-x: clip;
+  }
+
+  html[data-native-platform="ios"] .draft-hq-page {
+    --draft-mobile-header-height: calc(max(54px, env(safe-area-inset-top)) + 100px);
+  }
+
   .draft-settings-backdrop {
+    top: var(--draft-mobile-header-height);
     align-items: end;
-    padding: max(8px, env(safe-area-inset-top)) 8px max(8px, env(safe-area-inset-bottom));
+    padding: 8px 8px max(8px, env(safe-area-inset-bottom));
   }
 
   .draft-settings-dialog {
     width: min(100%, 540px);
-    max-height: calc(100dvh - max(16px, env(safe-area-inset-top)) - max(16px, env(safe-area-inset-bottom)));
+    max-height: calc(100dvh - var(--draft-mobile-header-height) - 8px - max(8px, env(safe-area-inset-bottom)));
     padding: 12px;
     border-radius: 18px;
+  }
+
+  .draft-workspace-sheet.snap-full {
+    top: var(--draft-mobile-header-height);
+    height: auto;
   }
 
   .draft-settings-dialog > header {
