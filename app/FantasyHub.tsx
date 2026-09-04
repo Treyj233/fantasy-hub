@@ -3372,7 +3372,7 @@ export default function FantasyHub({
           </section>
         )}
 
-        {view !== "Manage Leagues" && leagueTeams.length > 1 && (
+        {view !== "Manage Leagues" && view !== "Draft HQ" && leagueTeams.length > 1 && (
           <section
             className={`team-picker-strip ${selectedTeamId ? "selected" : ""}`}
           >

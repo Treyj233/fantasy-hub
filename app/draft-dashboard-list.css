@@ -1064,15 +1064,21 @@ html[data-theme="dark"] .draft-setup > header .draft-primary b {
     display: none;
   }
 
-  .draft-room-active .draft-board-actions {
+  .draft-room-active .draft-settings-gear {
     pointer-events: auto;
-  }
-
-  .draft-room-active .draft-board-actions button {
+    display: grid;
+    width: 38px;
+    height: 38px;
+    min-height: 38px;
+    place-items: center;
+    padding: 0;
+    color: var(--gold-light);
     min-height: 38px;
     background: color-mix(in srgb, var(--deep) 92%, transparent);
     border-color: color-mix(in srgb, var(--gold) 55%, transparent);
+    border-radius: 50%;
     box-shadow: 0 5px 16px rgb(0 0 0 / .3);
+    font-size: 18px;
   }
 
   .draft-room-active .draft-board-scroll {
@@ -1104,8 +1110,27 @@ html[data-theme="dark"] .draft-setup > header .draft-primary b {
     height: auto;
   }
 
+  .draft-workspace-sheet {
+    min-height: 0;
+    will-change: height;
+  }
+
+  .draft-workspace-sheet.is-dragging {
+    transition: none;
+  }
+
+  .draft-workspace-sheet.snap-peek {
+    height: 44px;
+  }
+
+  .draft-workspace-sheet.snap-peek .draft-workspace-tabs,
+  .draft-workspace-sheet.snap-peek .draft-sheet-content {
+    display: none;
+  }
+
   .draft-sheet-handle {
-    min-height: 38px;
+    flex: 0 0 44px;
+    min-height: 44px;
     padding: 8px 12px 5px;
     cursor: ns-resize;
     touch-action: none;
