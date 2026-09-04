@@ -319,8 +319,7 @@ export default function DraftDashboard({ players, leagueContext, draftSlot, isPr
   const recommendation = available
     .filter((player) => canRosterPlayer(settings, userPicks, player.position))
     .map((player) => elitePickRecommendation(player, settings, userPicks, available, overall))
-    .sort((a,b) => b.score - a.score)
-    .slice(0,3);
+    .sort((a,b) => b.score - a.score);
 
   useEffect(() => {
     if (!started) return;

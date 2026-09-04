@@ -991,3 +991,109 @@ html[data-theme="dark"] .draft-setup > header .draft-primary {
 html[data-theme="dark"] .draft-setup > header .draft-primary b {
   color: #07172a !important;
 }
+
+/* Draft HQ fit corrections. */
+@media (min-width: 651px) {
+  .draft-player-pool > header > div:last-child {
+    grid-template-columns: minmax(190px, 1fr) auto;
+    min-width: 0;
+  }
+
+  .draft-position-sort {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+
+  .draft-position-sort button {
+    flex: 0 0 auto;
+  }
+}
+
+.draft-intelligence-list {
+  padding-bottom: 18px;
+}
+
+@media (max-width: 700px) {
+  .draft-settings-backdrop {
+    align-items: end;
+    padding: max(8px, env(safe-area-inset-top)) 8px max(8px, env(safe-area-inset-bottom));
+  }
+
+  .draft-settings-dialog {
+    width: min(100%, 540px);
+    max-height: calc(100dvh - max(16px, env(safe-area-inset-top)) - max(16px, env(safe-area-inset-bottom)));
+    padding: 12px;
+    border-radius: 18px;
+  }
+
+  .draft-settings-dialog > header {
+    top: -12px;
+    margin: -12px -12px 0;
+    padding: 12px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .draft-settings-dialog > header h3 {
+    font-size: 17px;
+  }
+
+  .draft-settings-dialog .draft-setup-actions {
+    gap: 5px;
+  }
+
+  .draft-settings-dialog .draft-setup-actions > button {
+    min-height: 38px;
+    padding: 7px 9px;
+  }
+
+  .draft-settings-dialog .draft-settings-grid {
+    gap: 6px;
+    margin-top: 11px;
+  }
+
+  .draft-settings-dialog .draft-settings-grid label {
+    min-width: 0;
+    padding: 7px;
+  }
+
+  .draft-settings-dialog .draft-settings-grid select {
+    min-height: 40px;
+    padding-left: 9px;
+  }
+
+  .draft-settings-dialog .draft-roster-builder {
+    margin-top: 10px;
+    padding: 10px;
+  }
+
+  .draft-settings-dialog .draft-roster-builder > header {
+    gap: 8px;
+    padding-bottom: 8px;
+  }
+
+  .draft-settings-dialog .draft-roster-builder > div {
+    gap: 5px;
+    margin-top: 8px;
+  }
+
+  .draft-settings-dialog .draft-roster-builder label {
+    min-height: 0;
+    gap: 4px;
+    padding: 6px;
+  }
+
+  .draft-settings-dialog .draft-roster-builder label small {
+    display: none;
+  }
+
+  .draft-settings-dialog .draft-roster-builder select {
+    min-height: 38px !important;
+    padding-left: 9px !important;
+  }
+
+  .draft-settings-dialog .draft-setup > footer,
+  .draft-settings-dialog > footer {
+    margin-top: 8px;
+    padding-top: 8px;
+  }
+}
