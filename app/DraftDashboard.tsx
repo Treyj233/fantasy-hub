@@ -290,7 +290,7 @@ export default function DraftDashboard({ players, leagueContext, draftSlot, isPr
   const [cpuProfiles, setCpuProfiles] = useState<Record<number, CpuProfile>>({});
   const [fallbackPlayers, setFallbackPlayers] = useState<DraftPlayer[]>([]);
   const draftBoardScrollRef = useRef<HTMLDivElement>(null);
-  const sheetDragStart = useRef<{ y: number; snap: "peek" | "half" | "full" } | null>(null);
+  const sheetDragStart = useRef<{ y: number; lastY: number; snap: "peek" | "half" | "full" } | null>(null);
   const sheetWasDragged = useRef(false);
   useEffect(() => {
     let active = true;
@@ -380,12 +380,16 @@ export default function DraftDashboard({ players, leagueContext, draftSlot, isPr
   const queuedPlayers = queue.map((id) => available.find((player) => player.id === id)).filter((player): player is DraftPlayer => Boolean(player));
   const toggleQueue = (player: DraftPlayer) => setQueue((current) => current.includes(player.id) ? current.filter((id) => id !== player.id) : [...current, player.id]);
   const cycleSheet = () => setSheetSnap((current) => current === "peek" ? "half" : current === "half" ? "full" : "peek");
-  const endSheetDrag = (clientY: number) => {
+  const endSheetDrag = (clientY?: number) => {
     const startPoint = sheetDragStart.current;
     if (!startPoint) return;
-    const delta = clientY - startPoint.y;
-    sheetWasDragged.current = Math.abs(delta) > 44;
-    if (sheetWasDragged.current) setSheetSnap(delta < 0 ? "full" : startPoint.snap === "full" ? "half" : "peek");
+    const delta = (clientY ?? startPoint.lastY) - startPoint.y;
+    sheetWasDragged.current = Math.abs(delta) > 28;
+    if (sheetWasDragged.current) {
+      setSheetSnap(delta < 0
+        ? startPoint.snap === "peek" ? "half" : "full"
+        : startPoint.snap === "full" ? "half" : "peek");
+    }
     sheetDragStart.current = null;
   };
   const draftAnalysis = (() => {
@@ -430,7 +434,7 @@ export default function DraftDashboard({ players, leagueContext, draftSlot, isPr
   })();
   const grade = draftAnalysis.score;
 
-  return <div className="page-content draft-hq-page">
+  return <div className={`page-content draft-hq-page ${started ? "draft-room-active" : ""}`}>
     <section className="draft-hq-hero"><div><span>FANTASY HUB DRAFT HQ</span><h2>Build the roster<br/><em>before Sunday.</em></h2><p>Configure the room, run a complete snake mock, and practice every turn against CPU managers with distinct draft identities.</p><nav><b>{settings.teams} TEAMS</b><b>{settings.lineup.toUpperCase()}</b><b>{settings.scoring.toUpperCase()}</b><b>{settings.format.toUpperCase()}</b></nav></div><div className="draft-clock"><small>{complete ? "DRAFT COMPLETE" : userTurn ? "YOU'RE ON THE CLOCK" : started ? `TEAM ${currentTeam} PICKING` : "ROOM READY"}</small><strong>{started ? `${Math.ceil(overall / settings.teams)}.${String(((overall - 1) % settings.teams) + 1).padStart(2,"0")}` : "--"}</strong></div></section>
 
     <section className="draft-hq-stats"><article><span>YOUR SLOT</span><strong>{settings.slot}</strong><small>Snake position</small></article><article><span>ROSTER</span><strong>{userPicks.length}</strong><small>of {rounds} picks</small></article><article><span>BEST NEED</span><strong>{positionNeed(userPicks)}</strong><small>Current build</small></article><article><span>DRAFT GRADE</span><strong>{complete ? `${grade}` : "—"}</strong><small>{complete ? `${draftAnalysis.letter} · Final team score` : "Available after the mock"}</small></article></section>
@@ -452,7 +456,7 @@ export default function DraftDashboard({ players, leagueContext, draftSlot, isPr
       <section className="draft-board panel"><header><div><span>LIVE DRAFT BOARD</span><h3>{complete ? "Mock complete" : userTurn ? "Make your pick" : `Round ${Math.ceil(overall/settings.teams)} in progress`}</h3></div><div className="draft-board-actions"><button onClick={() => setShowSetup(true)}>⚙ Settings</button><button onClick={() => { setStarted(false); setShowSetup(true); }}>Exit</button></div></header><div className="draft-board-scroll" ref={draftBoardScrollRef}><div className="draft-board-grid" style={{"--draft-teams":settings.teams} as CSSProperties}>{Array.from({length:settings.teams * rounds},(_,index)=>{const pick=picks[index];const round=Math.ceil((index+1)/settings.teams);const team=teamForPick(index+1,settings.teams);return <article key={index} data-draft-index={index} style={{gridColumn:team,gridRow:round}} className={`${team===settings.slot?"user-team":""} ${pick?`pos-${pick.position.toLowerCase()}`:""}`}><small>{round}.{String(((index)%settings.teams)+1).padStart(2,"0")}</small>{pick?<><b>{pick.name}</b><span>{pick.position} · {pick.team}</span></>:<em>Team {team}</em>}</article>})}</div></div></section>
     </div>}
 
-    {started && !complete && <section className={`draft-workspace-sheet snap-${sheetSnap}`}><button className="draft-sheet-handle" type="button" aria-label={`Draft drawer ${sheetSnap}; tap to resize`} onPointerDown={(event)=>{sheetWasDragged.current=false;sheetDragStart.current={y:event.clientY,snap:sheetSnap};event.currentTarget.setPointerCapture(event.pointerId);}} onPointerUp={(event)=>endSheetDrag(event.clientY)} onPointerCancel={()=>{sheetDragStart.current=null;}} onClick={()=>{if(!sheetWasDragged.current)cycleSheet();sheetWasDragged.current=false;}}><i/><span>{sheetSnap === "peek" ? "Swipe up to open draft tools" : "Swipe down to see more board"}</span></button><nav className="draft-workspace-tabs" role="tablist" aria-label="Draft workspace">{([{id:"players",label:"Players",count:available.length},{id:"queue",label:"Queue",count:queuedPlayers.length},{id:"roster",label:"Roster",count:userPicks.length},{id:"intelligence",label:"Pick Intel",count:recommendation.length}] as const).map((tab)=><button type="button" key={tab.id} role="tab" aria-selected={workspaceTab===tab.id} className={workspaceTab===tab.id?"active":""} onClick={()=>{setWorkspaceTab(tab.id);if(sheetSnap==="peek")setSheetSnap("half");}}><span>{tab.label}</span><b>{tab.count}</b></button>)}</nav><div className="draft-sheet-content">
+    {started && !complete && <section className={`draft-workspace-sheet snap-${sheetSnap}`}><button className="draft-sheet-handle" type="button" aria-label={`Draft drawer ${sheetSnap}; tap or swipe to resize`} onPointerDown={(event)=>{sheetWasDragged.current=false;sheetDragStart.current={y:event.clientY,lastY:event.clientY,snap:sheetSnap};event.currentTarget.setPointerCapture(event.pointerId);}} onPointerMove={(event)=>{if(sheetDragStart.current)sheetDragStart.current.lastY=event.clientY;}} onPointerUp={(event)=>endSheetDrag(event.clientY)} onPointerCancel={()=>endSheetDrag()} onClick={()=>{if(!sheetWasDragged.current)cycleSheet();sheetWasDragged.current=false;}}><i/><span>{sheetSnap === "peek" ? "Swipe up to open draft tools" : sheetSnap === "full" ? "Swipe down to reveal the board" : "Swipe up for tools · down for board"}</span></button><nav className="draft-workspace-tabs" role="tablist" aria-label="Draft workspace">{([{id:"players",label:"Players",count:available.length},{id:"queue",label:"Queue",count:queuedPlayers.length},{id:"roster",label:"Roster",count:userPicks.length},{id:"intelligence",label:"Pick Intel",count:recommendation.length}] as const).map((tab)=><button type="button" key={tab.id} role="tab" aria-selected={workspaceTab===tab.id} className={workspaceTab===tab.id?"active":""} onClick={()=>{setWorkspaceTab(tab.id);if(sheetSnap==="peek")setSheetSnap("half");}}><span>{tab.label}</span><b>{tab.count}</b></button>)}</nav><div className="draft-sheet-content">
 
     {workspaceTab === "roster" && <section className="draft-roster draft-roster-tab" role="tabpanel"><header><span>YOUR ROSTER</span><b>TEAM {settings.slot} · {userPicks.length}/{rounds}</b></header><div>{userRosterSlots.map((slot)=><article key={slot.id} className={slot.player?"filled":"empty"}><i>{slot.label === "SUPERFLEX" ? "SF" : slot.label === "BENCH" ? "BN" : slot.label}</i><span>{slot.player?<><b>{slot.player.name}</b><small>{slot.player.team} · Pick {slot.player.overall}</small></>:<><b>{slot.label}</b><small>Open roster spot</small></>}</span></article>)}</div></section>}
 

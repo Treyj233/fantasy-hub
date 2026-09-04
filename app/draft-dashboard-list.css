@@ -1025,6 +1025,67 @@ html[data-theme="dark"] .draft-setup > header .draft-primary b {
     --draft-mobile-header-height: calc(max(54px, env(safe-area-inset-top)) + 100px);
   }
 
+  .draft-hq-page.draft-room-active {
+    padding: 0 0 calc(116px + env(safe-area-inset-bottom));
+  }
+
+  .draft-room-active > :is(.draft-hq-hero, .draft-hq-stats, .draft-top-pro-notice) {
+    display: none;
+  }
+
+  .draft-room-active .draft-room-layout,
+  .draft-room-active .draft-board {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .draft-room-active .draft-board {
+    position: relative;
+    min-height: calc(100dvh - var(--draft-mobile-header-height));
+    padding: 0;
+  }
+
+  .draft-room-active .draft-board > header {
+    position: absolute;
+    z-index: 8;
+    top: 8px;
+    right: 8px;
+    width: auto;
+    padding: 0;
+    border: 0;
+    pointer-events: none;
+  }
+
+  .draft-room-active .draft-board > header > div:first-child {
+    display: none;
+  }
+
+  .draft-room-active .draft-board-actions {
+    pointer-events: auto;
+  }
+
+  .draft-room-active .draft-board-actions button {
+    min-height: 38px;
+    background: color-mix(in srgb, var(--deep) 92%, transparent);
+    border-color: color-mix(in srgb, var(--gold) 55%, transparent);
+    box-shadow: 0 5px 16px rgb(0 0 0 / .3);
+  }
+
+  .draft-room-active .draft-board-scroll {
+    width: 100%;
+    max-width: none;
+    height: calc(100dvh - var(--draft-mobile-header-height));
+    max-height: none;
+    overflow: scroll;
+    overscroll-behavior: contain;
+    touch-action: pan-x pan-y;
+    -webkit-overflow-scrolling: touch;
+  }
+
   .draft-settings-backdrop {
     top: var(--draft-mobile-header-height);
     align-items: end;
@@ -1041,6 +1102,15 @@ html[data-theme="dark"] .draft-setup > header .draft-primary b {
   .draft-workspace-sheet.snap-full {
     top: var(--draft-mobile-header-height);
     height: auto;
+  }
+
+  .draft-sheet-handle {
+    min-height: 38px;
+    padding: 8px 12px 5px;
+    cursor: ns-resize;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
   }
 
   .draft-settings-dialog > header {
