@@ -77,6 +77,7 @@ export default async function RootLayout({
     >
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
         {clerkKeys ? <ClerkProvider publishableKey={clerkKeys.publishableKey}>{children}</ClerkProvider> : children}
+        <script src="/auto-scroll-overflow.js" defer />
         <script
           type="module"
           src="https://static.cloudflareinsights.com/beacon.min.js"

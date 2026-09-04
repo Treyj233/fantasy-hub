@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type WheelEvent as ReactWheelEvent } from "react";
 
 type DraftPlayer = { id: string; name: string; position: string; team: string; overallRank?: number; rankingValue?: number; age?: number | null; adpBySite?: Record<string, number | null>; fantasyPoints2025?: number | null; fantasyPpg2025?: number | null; gamesPlayed2025?: number | null; targets2025?: number | null; receptions2025?: number | null; receivingYards2025?: number | null; receivingTouchdowns2025?: number | null; rushingAttempts2025?: number | null; rushingYards2025?: number | null; rushingTouchdowns2025?: number | null; passingAttempts2025?: number | null; passingYards2025?: number | null; passingTouchdowns2025?: number | null; snapAverage?: number | null; statsSourceSeason?: number | null };
 type RosterConfig = { QB: number; RB: number; WR: number; TE: number; FLEX: number; SUPERFLEX: number; BENCH: number };
@@ -292,6 +292,8 @@ export default function DraftDashboard({ players, leagueContext, draftSlot, team
   const [cpuProfiles, setCpuProfiles] = useState<Record<number, CpuProfile>>({});
   const [fallbackPlayers, setFallbackPlayers] = useState<DraftPlayer[]>([]);
   const draftBoardScrollRef = useRef<HTMLDivElement>(null);
+  const boardDragStart = useRef<{ pointerId: number; x: number; y: number; scrollLeft: number; scrollTop: number; axis: "x" | "y" | null } | null>(null);
+  const boardWheelLock = useRef<{ axis: "x" | "y" | null; timer: number | null }>({ axis: null, timer: null });
   const sheetDragStart = useRef<{ y: number; lastY: number; height: number; snap: "peek" | "half" | "full" } | null>(null);
   const sheetWasDragged = useRef(false);
   useEffect(() => {
@@ -387,6 +389,41 @@ export default function DraftDashboard({ players, leagueContext, draftSlot, team
   const queuedPlayers = queue.map((id) => available.find((player) => player.id === id)).filter((player): player is DraftPlayer => Boolean(player));
   const toggleQueue = (player: DraftPlayer) => setQueue((current) => current.includes(player.id) ? current.filter((id) => id !== player.id) : [...current, player.id]);
   const cycleSheet = () => setSheetSnap((current) => current === "peek" ? "half" : current === "half" ? "full" : "peek");
+  const beginBoardDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.pointerType === "mouse" || !window.matchMedia("(max-width: 700px)").matches) return;
+    const board = event.currentTarget;
+    boardDragStart.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY, scrollLeft: board.scrollLeft, scrollTop: board.scrollTop, axis: null };
+    board.setPointerCapture(event.pointerId);
+  };
+  const moveBoardDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const drag = boardDragStart.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    const deltaX = drag.x - event.clientX;
+    const deltaY = drag.y - event.clientY;
+    if (!drag.axis) {
+      if (Math.max(Math.abs(deltaX), Math.abs(deltaY)) < 7) return;
+      drag.axis = Math.abs(deltaX) >= Math.abs(deltaY) ? "x" : "y";
+    }
+    event.preventDefault();
+    if (drag.axis === "x") event.currentTarget.scrollLeft = drag.scrollLeft + deltaX;
+    else event.currentTarget.scrollTop = drag.scrollTop + deltaY;
+  };
+  const endBoardDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (boardDragStart.current?.pointerId !== event.pointerId) return;
+    boardDragStart.current = null;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+  };
+  const lockBoardWheelAxis = (event: ReactWheelEvent<HTMLDivElement>) => {
+    const horizontalDelta = event.deltaX || (event.shiftKey ? event.deltaY : 0);
+    const verticalDelta = event.shiftKey ? 0 : event.deltaY;
+    const lock = boardWheelLock.current;
+    if (!lock.axis) lock.axis = Math.abs(horizontalDelta) > Math.abs(verticalDelta) ? "x" : "y";
+    event.preventDefault();
+    if (lock.axis === "x") event.currentTarget.scrollLeft += horizontalDelta;
+    else event.currentTarget.scrollTop += verticalDelta;
+    if (lock.timer !== null) window.clearTimeout(lock.timer);
+    lock.timer = window.setTimeout(() => { lock.axis = null; lock.timer = null; }, 120);
+  };
   const beginSheetDrag = (clientY: number, handle: HTMLElement) => {
     if (!window.matchMedia("(max-width: 700px)").matches) return false;
     const sheet = handle.closest<HTMLElement>(".draft-workspace-sheet");
@@ -479,7 +516,7 @@ export default function DraftDashboard({ players, leagueContext, draftSlot, team
     </div><section className={`draft-roster-builder ${!isPro ? "gated" : ""}`}><header><div><span>ROSTER SIZE</span><h4>Build your lineup.</h4></div><div><b>{rounds} ROUNDS</b><small>{settings.roster.SUPERFLEX > 0 ? `Includes ${settings.roster.SUPERFLEX} Superflex spot${settings.roster.SUPERFLEX === 1 ? "" : "s"}` : settings.roster.QB > 1 ? `${settings.roster.QB}-QB roster` : "Single-QB roster"}</small></div></header><div>{(["QB","RB","WR","TE","FLEX","SUPERFLEX","BENCH"] as const).map((rosterPosition)=><label key={rosterPosition}><span><b>{rosterPosition === "BENCH" ? "Bench" : rosterPosition === "SUPERFLEX" ? "Superflex" : rosterPosition}</b><small>{rosterPosition === "FLEX" ? "RB / WR / TE" : rosterPosition === "SUPERFLEX" ? "QB / RB / WR / TE" : rosterPosition === "BENCH" ? "Any position" : `${rosterPosition} starters`}</small></span><select disabled={!isPro} value={settings.roster[rosterPosition]} onChange={(event)=>setRosterCount(rosterPosition,Number(event.target.value))}>{Array.from({length:rosterPosition==="QB"?2:rosterPosition==="BENCH"?13:5},(_,index)=>rosterPosition==="QB"?index+1:index).map((value)=><option key={value}>{value}</option>)}</select></label>)}</div></section><footer><small>{players.length ? "Using your league-adjusted rankings and historical player data" : fallbackPlayers.length ? "Using the Fantasy Hub player pool with prior-season production" : "Loading the Fantasy Hub player pool"}</small></footer></section></div>}
 
     {started && <div className="draft-room-layout draft-board-only">
-      <section className="draft-board panel"><header><div><span>LIVE DRAFT BOARD</span><h3>{complete ? "Mock complete" : userTurn ? "Make your pick" : `Round ${Math.ceil(overall/settings.teams)} in progress`}</h3></div><button className="draft-settings-gear" type="button" aria-label="Open draft settings" title="Draft settings" onClick={() => setShowSetup(true)}>⚙</button></header><div className="draft-board-scroll" ref={draftBoardScrollRef}><div className="draft-board-grid" style={{"--draft-teams":settings.teams} as CSSProperties}>{Array.from({length:settings.teams},(_,index)=>{const team=index+1;return <div key={`manager-${team}`} className={`draft-board-team-label ${team===settings.slot?"user-team":""}`} style={{gridColumn:team,gridRow:1}}><small>{team===settings.slot?"YOUR TEAM":"CPU MANAGER"}</small><b>{team===settings.slot?(teamName||"My Team"):(cpuProfiles[team]?.name||`Bot ${team}`)}</b></div>})}{Array.from({length:settings.teams * rounds},(_,index)=>{const pick=picks[index];const round=Math.ceil((index+1)/settings.teams);const team=teamForPick(index+1,settings.teams);return <article key={index} data-draft-index={index} style={{gridColumn:team,gridRow:round+1}} className={`${team===settings.slot?"user-team":""} ${pick?`pos-${pick.position.toLowerCase()}`:""}`}><small>{round}.{String(((index)%settings.teams)+1).padStart(2,"0")}</small>{pick?<><b>{pick.name}</b><span>{pick.position} · {pick.team}</span></>:<em>Team {team}</em>}</article>})}</div></div></section>
+      <section className="draft-board panel"><header><div><span>LIVE DRAFT BOARD</span><h3>{complete ? "Mock complete" : userTurn ? "Make your pick" : `Round ${Math.ceil(overall/settings.teams)} in progress`}</h3></div><button className="draft-settings-gear" type="button" aria-label="Open draft settings" title="Draft settings" onClick={() => setShowSetup(true)}>⚙</button></header><div className="draft-board-scroll" ref={draftBoardScrollRef} onPointerDown={beginBoardDrag} onPointerMove={moveBoardDrag} onPointerUp={endBoardDrag} onPointerCancel={endBoardDrag} onWheel={lockBoardWheelAxis}><div className="draft-board-grid" style={{"--draft-teams":settings.teams} as CSSProperties}>{Array.from({length:settings.teams},(_,index)=>{const team=index+1;return <div key={`manager-${team}`} className={`draft-board-team-label ${team===settings.slot?"user-team":""}`} style={{gridColumn:team,gridRow:1}}><small>{team===settings.slot?"YOUR TEAM":"CPU MANAGER"}</small><b>{team===settings.slot?(teamName||"My Team"):(cpuProfiles[team]?.name||`Bot ${team}`)}</b></div>})}{Array.from({length:settings.teams * rounds},(_,index)=>{const pick=picks[index];const round=Math.ceil((index+1)/settings.teams);const team=teamForPick(index+1,settings.teams);return <article key={index} data-draft-index={index} style={{gridColumn:team,gridRow:round+1}} className={`${team===settings.slot?"user-team":""} ${pick?`pos-${pick.position.toLowerCase()}`:""}`}><small>{round}.{String(((index)%settings.teams)+1).padStart(2,"0")}</small>{pick?<><b>{pick.name}</b><span>{pick.position} · {pick.team}</span></>:<em>Team {team}</em>}</article>})}</div></div></section>
     </div>}
 
     {started && !complete && <section className={`draft-workspace-sheet snap-${sheetSnap} ${sheetDragHeight !== null ? "is-dragging" : ""}`} style={sheetDragHeight === null ? undefined : {height:`${sheetDragHeight}px`}}><button className="draft-sheet-handle" type="button" aria-label={`Draft drawer ${sheetSnap}; tap or drag to resize`} onPointerDown={(event)=>{if(event.pointerType==="touch")return;if(beginSheetDrag(event.clientY,event.currentTarget))event.currentTarget.setPointerCapture(event.pointerId);}} onPointerMove={(event)=>{if(event.pointerType==="touch"||!sheetDragStart.current)return;event.preventDefault();moveSheetDrag(event.clientY);}} onPointerUp={(event)=>{if(event.pointerType!=="touch")endSheetDrag(event.clientY);}} onPointerCancel={()=>endSheetDrag()} onLostPointerCapture={()=>endSheetDrag()} onTouchStart={(event)=>{event.stopPropagation();const touch=event.touches[0];if(touch)beginSheetDrag(touch.clientY,event.currentTarget);}} onTouchMove={(event)=>{const touch=event.touches[0];if(!touch||!sheetDragStart.current)return;event.preventDefault();event.stopPropagation();moveSheetDrag(touch.clientY);}} onTouchEnd={(event)=>{event.preventDefault();event.stopPropagation();endSheetDrag();}} onTouchCancel={(event)=>{event.preventDefault();event.stopPropagation();endSheetDrag();}} onClick={()=>{if(!sheetWasDragged.current)cycleSheet();sheetWasDragged.current=false;}}><i/><span>{sheetSnap === "peek" ? "Drag up to open draft tools" : sheetSnap === "full" ? "Drag down to reveal the board" : "Drag up for tools · down for board"}</span></button><nav className="draft-workspace-tabs" role="tablist" aria-label="Draft workspace">{([{id:"players",label:"Players",count:available.length},{id:"queue",label:"Queue",count:queuedPlayers.length},{id:"roster",label:"Roster",count:userPicks.length},{id:"intelligence",label:"Pick Intel",count:recommendation.length}] as const).map((tab)=><button type="button" key={tab.id} role="tab" aria-selected={workspaceTab===tab.id} className={workspaceTab===tab.id?"active":""} onClick={()=>{setWorkspaceTab(tab.id);if(sheetSnap==="peek")setSheetSnap("half");}}><span>{tab.label}</span><b>{tab.count}</b></button>)}</nav><div className="draft-sheet-content">

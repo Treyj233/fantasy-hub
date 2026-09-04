@@ -741,7 +741,7 @@ html[data-theme="dark"] .draft-hq-page :is(.draft-settings-grid select, .draft-r
     overflow-x: auto;
     overflow-y: auto;
     overscroll-behavior-x: contain;
-    touch-action: pan-x pan-y;
+    touch-action: none;
     scrollbar-width: thin;
   }
 
@@ -1078,10 +1078,6 @@ html[data-theme="dark"] .draft-setup > header .draft-primary b {
     overflow: hidden;
   }
 
-  body.draft-room-scroll-locked .top-actions {
-    margin-right: 42px;
-  }
-
   .draft-hq-page {
     --draft-mobile-header-height: 100px;
     width: 100%;
@@ -1166,7 +1162,7 @@ html[data-theme="dark"] .draft-setup > header .draft-primary b {
     overflow: scroll;
     overscroll-behavior: contain;
     scroll-padding-bottom: calc(56dvh + max(12px, env(safe-area-inset-bottom)));
-    touch-action: pan-x pan-y;
+    touch-action: none;
     -webkit-overflow-scrolling: touch;
   }
 
@@ -1311,5 +1307,14 @@ html[data-native-platform="ios"] .draft-workspace-sheet.snap-peek {
   .draft-settings-dialog > footer {
     margin-top: 8px;
     padding-top: 8px;
+  }
+
+  html[data-native-platform="ios"] .draft-room-active .draft-player-main,
+  html[data-native-platform="ios"] .draft-room-active .draft-player-pool.mobile-stats-open .draft-player-main {
+    grid-template-columns: 28px minmax(0, 1fr);
+  }
+
+  html[data-native-platform="ios"] .draft-room-active .draft-player-market {
+    display: none;
   }
 }
