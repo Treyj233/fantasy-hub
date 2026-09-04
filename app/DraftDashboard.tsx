@@ -21,6 +21,7 @@ const cpuArchetypes: Omit<CpuProfile, "weights" | "risk">[] = [
   { name: "Hero RB", summary: "Anchors one early RB, then builds receivers", position: "RB", strategy: "hero-rb" },
   { name: "Market Reader", summary: "Lets blended market value lead the room", position: "BALANCED", strategy: "balanced" },
 ];
+const cpuManagerNames = ["Sunday Shark", "Roster Rocket", "Gridiron Guru", "Draft Bandit", "Waiver Wizard", "Sleeper Scout", "Red Zone Ray", "Stat Machine", "Upside Hunter", "Clock Manager", "Pocket Professor", "Bye Week Boss", "Film Room", "Fourth Down", "End Zone Edge", "Touchdown Tech"];
 const adpBlends: { label: string; weights: AdpWeights }[] = [
   { label: "Underdog-led", weights: { underdog: .8, sleeper: .1, espn: .1 } },
   { label: "ESPN-led", weights: { underdog: .1, sleeper: .2, espn: .7 } },
@@ -100,7 +101,7 @@ const createCpuProfiles = (teams: number, userSlot: number) => {
     const team = index + 1;
     const archetype = archetypes[index];
     const blend = blends[index];
-    return [team, { ...archetype, name: `${archetype.name} · ${blend.label}`, weights: blend.weights, risk: .7 + Math.random() * .7 } satisfies CpuProfile];
+    return [team, { ...archetype, name: cpuManagerNames[index % cpuManagerNames.length], summary: `${archetype.summary} · ${blend.label}`, weights: blend.weights, risk: .7 + Math.random() * .7 } satisfies CpuProfile];
   }).filter(([team]) => team !== userSlot)) as Record<number, CpuProfile>;
 };
 const siteAdp = (player: DraftPlayer, source: keyof AdpWeights, settings: DraftSettings) => {
@@ -273,7 +274,7 @@ const cpuScore = (player: DraftPlayer, profile: CpuProfile, teamPicks: Pick[], o
   return score + (Math.random() - .5) * volatility * profile.risk;
 };
 
-export default function DraftDashboard({ players, leagueContext, draftSlot, isPro, isElite, onUpgrade }: { players: DraftPlayer[]; leagueContext: LeagueDraftContext | null; draftSlot?: string; isPro: boolean; isElite: boolean; onUpgrade: () => void }) {
+export default function DraftDashboard({ players, leagueContext, draftSlot, teamName, isPro, isElite, onUpgrade }: { players: DraftPlayer[]; leagueContext: LeagueDraftContext | null; draftSlot?: string; teamName?: string; isPro: boolean; isElite: boolean; onUpgrade: () => void }) {
   const [settings, setSettings] = useState(() => {
     const initialSettings = settingsForLeague(leagueContext, draftSlot);
     return isPro ? initialSettings : { ...initialSettings, roster: { ...initialSettings.roster, BENCH: 4 } };
@@ -317,6 +318,11 @@ export default function DraftDashboard({ players, leagueContext, draftSlot, isPr
   const complete = started && (picks.length >= settings.teams * rounds || !available.length);
   const userPicks = picks.filter((pick) => pick.user);
   const userRosterSlots = rosterSlots(settings, userPicks);
+  useEffect(() => {
+    if (!started || complete) return;
+    document.body.classList.add("draft-room-scroll-locked");
+    return () => document.body.classList.remove("draft-room-scroll-locked");
+  }, [complete, started]);
   const recommendation = available
     .filter((player) => canRosterPlayer(settings, userPicks, player.position))
     .map((player) => elitePickRecommendation(player, settings, userPicks, available, overall))
@@ -381,6 +387,24 @@ export default function DraftDashboard({ players, leagueContext, draftSlot, isPr
   const queuedPlayers = queue.map((id) => available.find((player) => player.id === id)).filter((player): player is DraftPlayer => Boolean(player));
   const toggleQueue = (player: DraftPlayer) => setQueue((current) => current.includes(player.id) ? current.filter((id) => id !== player.id) : [...current, player.id]);
   const cycleSheet = () => setSheetSnap((current) => current === "peek" ? "half" : current === "half" ? "full" : "peek");
+  const beginSheetDrag = (clientY: number, handle: HTMLElement) => {
+    if (!window.matchMedia("(max-width: 700px)").matches) return false;
+    const sheet = handle.closest<HTMLElement>(".draft-workspace-sheet");
+    if (!sheet) return false;
+    const height = sheet.getBoundingClientRect().height;
+    sheetWasDragged.current = false;
+    sheetDragStart.current = { y: clientY, lastY: clientY, height, snap: sheetSnap };
+    setSheetDragHeight(height);
+    return true;
+  };
+  const moveSheetDrag = (clientY: number) => {
+    const drag = sheetDragStart.current;
+    if (!drag) return;
+    drag.lastY = clientY;
+    const headerBottom = document.querySelector<HTMLElement>(".mobile-header-stack")?.getBoundingClientRect().bottom ?? 100;
+    const maximum = Math.max(220, window.innerHeight - headerBottom);
+    setSheetDragHeight(Math.max(44, Math.min(maximum, drag.height + drag.y - clientY)));
+  };
   const endSheetDrag = (clientY?: number) => {
     const startPoint = sheetDragStart.current;
     if (!startPoint) return;
@@ -455,12 +479,12 @@ export default function DraftDashboard({ players, leagueContext, draftSlot, isPr
     </div><section className={`draft-roster-builder ${!isPro ? "gated" : ""}`}><header><div><span>ROSTER SIZE</span><h4>Build your lineup.</h4></div><div><b>{rounds} ROUNDS</b><small>{settings.roster.SUPERFLEX > 0 ? `Includes ${settings.roster.SUPERFLEX} Superflex spot${settings.roster.SUPERFLEX === 1 ? "" : "s"}` : settings.roster.QB > 1 ? `${settings.roster.QB}-QB roster` : "Single-QB roster"}</small></div></header><div>{(["QB","RB","WR","TE","FLEX","SUPERFLEX","BENCH"] as const).map((rosterPosition)=><label key={rosterPosition}><span><b>{rosterPosition === "BENCH" ? "Bench" : rosterPosition === "SUPERFLEX" ? "Superflex" : rosterPosition}</b><small>{rosterPosition === "FLEX" ? "RB / WR / TE" : rosterPosition === "SUPERFLEX" ? "QB / RB / WR / TE" : rosterPosition === "BENCH" ? "Any position" : `${rosterPosition} starters`}</small></span><select disabled={!isPro} value={settings.roster[rosterPosition]} onChange={(event)=>setRosterCount(rosterPosition,Number(event.target.value))}>{Array.from({length:rosterPosition==="QB"?2:rosterPosition==="BENCH"?13:5},(_,index)=>rosterPosition==="QB"?index+1:index).map((value)=><option key={value}>{value}</option>)}</select></label>)}</div></section><footer><small>{players.length ? "Using your league-adjusted rankings and historical player data" : fallbackPlayers.length ? "Using the Fantasy Hub player pool with prior-season production" : "Loading the Fantasy Hub player pool"}</small></footer></section></div>}
 
     {started && <div className="draft-room-layout draft-board-only">
-      <section className="draft-board panel"><header><div><span>LIVE DRAFT BOARD</span><h3>{complete ? "Mock complete" : userTurn ? "Make your pick" : `Round ${Math.ceil(overall/settings.teams)} in progress`}</h3></div><button className="draft-settings-gear" type="button" aria-label="Open draft settings" title="Draft settings" onClick={() => setShowSetup(true)}>⚙</button></header><div className="draft-board-scroll" ref={draftBoardScrollRef}><div className="draft-board-grid" style={{"--draft-teams":settings.teams} as CSSProperties}>{Array.from({length:settings.teams * rounds},(_,index)=>{const pick=picks[index];const round=Math.ceil((index+1)/settings.teams);const team=teamForPick(index+1,settings.teams);return <article key={index} data-draft-index={index} style={{gridColumn:team,gridRow:round}} className={`${team===settings.slot?"user-team":""} ${pick?`pos-${pick.position.toLowerCase()}`:""}`}><small>{round}.{String(((index)%settings.teams)+1).padStart(2,"0")}</small>{pick?<><b>{pick.name}</b><span>{pick.position} · {pick.team}</span></>:<em>Team {team}</em>}</article>})}</div></div></section>
+      <section className="draft-board panel"><header><div><span>LIVE DRAFT BOARD</span><h3>{complete ? "Mock complete" : userTurn ? "Make your pick" : `Round ${Math.ceil(overall/settings.teams)} in progress`}</h3></div><button className="draft-settings-gear" type="button" aria-label="Open draft settings" title="Draft settings" onClick={() => setShowSetup(true)}>⚙</button></header><div className="draft-board-scroll" ref={draftBoardScrollRef}><div className="draft-board-grid" style={{"--draft-teams":settings.teams} as CSSProperties}>{Array.from({length:settings.teams},(_,index)=>{const team=index+1;return <div key={`manager-${team}`} className={`draft-board-team-label ${team===settings.slot?"user-team":""}`} style={{gridColumn:team,gridRow:1}}><small>{team===settings.slot?"YOUR TEAM":"CPU MANAGER"}</small><b>{team===settings.slot?(teamName||"My Team"):(cpuProfiles[team]?.name||`Bot ${team}`)}</b></div>})}{Array.from({length:settings.teams * rounds},(_,index)=>{const pick=picks[index];const round=Math.ceil((index+1)/settings.teams);const team=teamForPick(index+1,settings.teams);return <article key={index} data-draft-index={index} style={{gridColumn:team,gridRow:round+1}} className={`${team===settings.slot?"user-team":""} ${pick?`pos-${pick.position.toLowerCase()}`:""}`}><small>{round}.{String(((index)%settings.teams)+1).padStart(2,"0")}</small>{pick?<><b>{pick.name}</b><span>{pick.position} · {pick.team}</span></>:<em>Team {team}</em>}</article>})}</div></div></section>
     </div>}
 
-    {started && !complete && <section className={`draft-workspace-sheet snap-${sheetSnap} ${sheetDragHeight !== null ? "is-dragging" : ""}`} style={sheetDragHeight === null ? undefined : {height:`${sheetDragHeight}px`}}><button className="draft-sheet-handle" type="button" aria-label={`Draft drawer ${sheetSnap}; tap or drag to resize`} onPointerDown={(event)=>{if(!window.matchMedia("(max-width: 700px)").matches)return;const sheet=event.currentTarget.closest<HTMLElement>(".draft-workspace-sheet");if(!sheet)return;sheetWasDragged.current=false;sheetDragStart.current={y:event.clientY,lastY:event.clientY,height:sheet.getBoundingClientRect().height,snap:sheetSnap};setSheetDragHeight(sheet.getBoundingClientRect().height);event.currentTarget.setPointerCapture(event.pointerId);}} onPointerMove={(event)=>{const drag=sheetDragStart.current;if(!drag)return;event.preventDefault();drag.lastY=event.clientY;const headerBottom=document.querySelector<HTMLElement>(".mobile-header-stack")?.getBoundingClientRect().bottom??100;const maximum=Math.max(220,window.innerHeight-headerBottom);setSheetDragHeight(Math.max(44,Math.min(maximum,drag.height+drag.y-event.clientY)));}} onPointerUp={(event)=>endSheetDrag(event.clientY)} onPointerCancel={()=>endSheetDrag()} onLostPointerCapture={()=>endSheetDrag()} onClick={()=>{if(!sheetWasDragged.current)cycleSheet();sheetWasDragged.current=false;}}><i/><span>{sheetSnap === "peek" ? "Drag up to open draft tools" : sheetSnap === "full" ? "Drag down to reveal the board" : "Drag up for tools · down for board"}</span></button><nav className="draft-workspace-tabs" role="tablist" aria-label="Draft workspace">{([{id:"players",label:"Players",count:available.length},{id:"queue",label:"Queue",count:queuedPlayers.length},{id:"roster",label:"Roster",count:userPicks.length},{id:"intelligence",label:"Pick Intel",count:recommendation.length}] as const).map((tab)=><button type="button" key={tab.id} role="tab" aria-selected={workspaceTab===tab.id} className={workspaceTab===tab.id?"active":""} onClick={()=>{setWorkspaceTab(tab.id);if(sheetSnap==="peek")setSheetSnap("half");}}><span>{tab.label}</span><b>{tab.count}</b></button>)}</nav><div className="draft-sheet-content">
+    {started && !complete && <section className={`draft-workspace-sheet snap-${sheetSnap} ${sheetDragHeight !== null ? "is-dragging" : ""}`} style={sheetDragHeight === null ? undefined : {height:`${sheetDragHeight}px`}}><button className="draft-sheet-handle" type="button" aria-label={`Draft drawer ${sheetSnap}; tap or drag to resize`} onPointerDown={(event)=>{if(event.pointerType==="touch")return;if(beginSheetDrag(event.clientY,event.currentTarget))event.currentTarget.setPointerCapture(event.pointerId);}} onPointerMove={(event)=>{if(event.pointerType==="touch"||!sheetDragStart.current)return;event.preventDefault();moveSheetDrag(event.clientY);}} onPointerUp={(event)=>{if(event.pointerType!=="touch")endSheetDrag(event.clientY);}} onPointerCancel={()=>endSheetDrag()} onLostPointerCapture={()=>endSheetDrag()} onTouchStart={(event)=>{event.stopPropagation();const touch=event.touches[0];if(touch)beginSheetDrag(touch.clientY,event.currentTarget);}} onTouchMove={(event)=>{const touch=event.touches[0];if(!touch||!sheetDragStart.current)return;event.preventDefault();event.stopPropagation();moveSheetDrag(touch.clientY);}} onTouchEnd={(event)=>{event.preventDefault();event.stopPropagation();endSheetDrag();}} onTouchCancel={(event)=>{event.preventDefault();event.stopPropagation();endSheetDrag();}} onClick={()=>{if(!sheetWasDragged.current)cycleSheet();sheetWasDragged.current=false;}}><i/><span>{sheetSnap === "peek" ? "Drag up to open draft tools" : sheetSnap === "full" ? "Drag down to reveal the board" : "Drag up for tools · down for board"}</span></button><nav className="draft-workspace-tabs" role="tablist" aria-label="Draft workspace">{([{id:"players",label:"Players",count:available.length},{id:"queue",label:"Queue",count:queuedPlayers.length},{id:"roster",label:"Roster",count:userPicks.length},{id:"intelligence",label:"Pick Intel",count:recommendation.length}] as const).map((tab)=><button type="button" key={tab.id} role="tab" aria-selected={workspaceTab===tab.id} className={workspaceTab===tab.id?"active":""} onClick={()=>{setWorkspaceTab(tab.id);if(sheetSnap==="peek")setSheetSnap("half");}}><span>{tab.label}</span><b>{tab.count}</b></button>)}</nav><div className="draft-sheet-content">
 
-    {workspaceTab === "roster" && <section className="draft-roster draft-roster-tab" role="tabpanel"><header><span>YOUR ROSTER</span><b>TEAM {settings.slot} · {userPicks.length}/{rounds}</b></header><div>{userRosterSlots.map((slot)=><article key={slot.id} className={slot.player?"filled":"empty"}><i>{slot.label === "SUPERFLEX" ? "SF" : slot.label === "BENCH" ? "BN" : slot.label}</i><span>{slot.player?<><b>{slot.player.name}</b><small>{slot.player.team} · Pick {slot.player.overall}</small></>:<><b>{slot.label}</b><small>Open roster spot</small></>}</span></article>)}</div></section>}
+    {workspaceTab === "roster" && <section className="draft-roster draft-roster-tab" role="tabpanel"><header><span>YOUR ROSTER</span><b>TEAM {settings.slot} · {userPicks.length}/{rounds}</b></header><div>{userRosterSlots.map((slot)=>{const positionLabel=slot.player?.position??slot.label;return <article key={slot.id} className={slot.player?"filled":"empty"}><i className={`roster-position-label pos-${positionLabel.toLowerCase()}`}>{slot.label === "SUPERFLEX" ? "SF" : slot.label === "BENCH" ? "BN" : slot.label}</i><span>{slot.player?<><b>{slot.player.name}</b><small>{slot.player.team} · Pick {slot.player.overall}</small></>:<><b>{slot.label}</b><small>Open roster spot</small></>}</span></article>})}</div></section>}
 
     {workspaceTab === "queue" && <section className="draft-queue" role="tabpanel"><header><div><span>YOUR QUEUE</span><h3>Players you do not want to lose.</h3></div><small>{queuedPlayers.length} queued</small></header>{queuedPlayers.length?<div>{queuedPlayers.map((player,index)=><article key={player.id}><b>{index+1}</b><span><strong>{player.name}</strong><small>{player.position} · {player.team}</small></span><button type="button" disabled={!userTurn} onClick={()=>draft(player)}>Draft</button><button type="button" aria-label={`Remove ${player.name} from queue`} onClick={()=>toggleQueue(player)}>×</button></article>)}</div>:<p>Add players from the Players tab. They will stay ordered here until drafted or removed.</p>}</section>}
 

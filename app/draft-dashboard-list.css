@@ -73,6 +73,59 @@
   scroll-behavior: auto;
 }
 
+.draft-board-team-label {
+  position: sticky;
+  z-index: 5;
+  top: 0;
+  min-width: 0;
+  padding: 7px 6px;
+  overflow: hidden;
+  color: #dbe9f4;
+  background: linear-gradient(145deg, color-mix(in srgb, var(--deep) 92%, #111827), color-mix(in srgb, var(--green) 78%, var(--deep)));
+  border: 1px solid color-mix(in srgb, var(--green) 45%, #ffffff20);
+  border-radius: 8px;
+  box-shadow: 0 5px 12px rgb(0 0 0 / .2);
+  text-align: center;
+}
+
+.draft-board-team-label small,
+.draft-board-team-label b {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.draft-board-team-label small {
+  color: #a9c1d1;
+  font-size: 6px;
+  font-weight: 900;
+  letter-spacing: .08em;
+}
+
+.draft-board-team-label b {
+  margin-top: 3px;
+  font-size: 8px;
+}
+
+.draft-board-team-label.user-team {
+  color: var(--deep);
+  background: linear-gradient(135deg, var(--gold-light), var(--gold));
+  border-color: #fff1a8;
+}
+
+.draft-board-team-label.user-team small {
+  color: color-mix(in srgb, var(--deep) 72%, transparent);
+}
+
+.draft-roster .roster-position-label.pos-qb { color: #49397f; background: #e7ddff; }
+.draft-roster .roster-position-label.pos-rb { color: #14613d; background: #d9f4df; }
+.draft-roster .roster-position-label.pos-wr { color: #8b421f; background: #ffe0bd; }
+.draft-roster .roster-position-label.pos-te { color: #276171; background: #d8f1f6; }
+.draft-roster .roster-position-label.pos-flex { color: #075985; background: #d8efff; }
+.draft-roster .roster-position-label.pos-superflex { color: #6b3c92; background: #f0ddff; }
+.draft-roster .roster-position-label.pos-bench { color: #4b5563; background: #e5e7eb; }
+
 /* Draft HQ follows the active Fantasy Hub league palette. */
 .draft-hq-page {
   position: relative;
@@ -1014,6 +1067,21 @@ html[data-theme="dark"] .draft-setup > header .draft-primary b {
 }
 
 @media (max-width: 700px) {
+  body.draft-room-scroll-locked {
+    height: 100dvh;
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+
+  body.draft-room-scroll-locked .app-main {
+    height: 100dvh;
+    overflow: hidden;
+  }
+
+  body.draft-room-scroll-locked .top-actions {
+    margin-right: 42px;
+  }
+
   .draft-hq-page {
     --draft-mobile-header-height: 100px;
     width: 100%;
@@ -1046,7 +1114,12 @@ html[data-theme="dark"] .draft-setup > header .draft-primary b {
   .draft-room-active .draft-board {
     position: relative;
     min-height: calc(100dvh - var(--draft-mobile-header-height));
-    padding: 0;
+    padding: 0 6px;
+    background:
+      linear-gradient(90deg, color-mix(in srgb, var(--deep) 88%, var(--green)) 0 6px, transparent 6px calc(100% - 6px), color-mix(in srgb, var(--deep) 88%, var(--green)) calc(100% - 6px));
+    border-right: 1px solid color-mix(in srgb, var(--gold) 55%, transparent);
+    border-left: 1px solid color-mix(in srgb, var(--gold) 55%, transparent);
+    box-shadow: inset 8px 0 12px rgb(0 0 0 / .2), inset -8px 0 12px rgb(0 0 0 / .2);
   }
 
   .draft-room-active .draft-board > header {
@@ -1065,6 +1138,10 @@ html[data-theme="dark"] .draft-setup > header .draft-primary b {
   }
 
   .draft-room-active .draft-settings-gear {
+    position: fixed;
+    z-index: 70;
+    top: 7px;
+    right: max(8px, env(safe-area-inset-right));
     pointer-events: auto;
     display: grid;
     width: 38px;
@@ -1079,6 +1156,10 @@ html[data-theme="dark"] .draft-setup > header .draft-primary b {
     border-radius: 50%;
     box-shadow: 0 5px 16px rgb(0 0 0 / .3);
     font-size: 18px;
+  }
+
+  html[data-native-platform="ios"] .draft-room-active .draft-settings-gear {
+    top: calc(max(54px, env(safe-area-inset-top)) + 7px);
   }
 
   .draft-room-active .draft-board-scroll {
@@ -1129,11 +1210,14 @@ html[data-theme="dark"] .draft-setup > header .draft-primary b {
   }
 
   .draft-sheet-handle {
+    position: relative;
+    z-index: 3;
     flex: 0 0 44px;
     min-height: 44px;
     padding: 8px 12px 5px;
     cursor: ns-resize;
     touch-action: none;
+    overscroll-behavior: none;
     user-select: none;
     -webkit-user-select: none;
   }

@@ -3576,6 +3576,7 @@ export default function FantasyHub({
             players={buildSeasonCompositeRankings(leagueRankings, rankingContext)}
             leagueContext={rankingContext}
             draftSlot={selectedTeamId}
+            teamName={selectedLeagueTeam?.teamName}
             isPro={entitlement.pro}
             isElite={entitlement.elite}
             onUpgrade={() => setView("Fantasy Hub Pro")}
