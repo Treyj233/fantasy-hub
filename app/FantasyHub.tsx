@@ -9069,7 +9069,10 @@ function WeeklyPlayerRankings({
       player.position === config.position &&
       player.opponent !== "BYE" &&
       weeklyProjectionValue(player) !== null);
-    const ranges = new Map(positionPlayers.map((player) => [player.id, matchupAdjustedRange(player)]));
+    const ranges = new Map(positionPlayers.map((player) => {
+      const projection = weeklyProjectionValue(player) ?? 0;
+      return [player.id, matchupAdjustedRange({ ...player, projection })];
+    }));
     const maxProjection = Math.max(1, ...positionPlayers.map((player) => weeklyProjectionValue(player) ?? 0));
     const maxCeiling = Math.max(1, ...positionPlayers.map((player) => ranges.get(player.id)?.ceiling ?? player.ceiling));
     const ranked = positionPlayers
@@ -9562,6 +9565,17 @@ function StartSit({
       <div className="start-sit-decisions">
         {decisions.map((decision, decisionIndex) => {
           const options = [decision.starter, ...decision.candidates];
+          const optionRanges = new Map(
+            options.map((player) => [player.id, matchupAdjustedRange(player)]),
+          );
+          const outcomeScaleMax = Math.max(
+            1,
+            ...options.map(
+              (player) => optionRanges.get(player.id)?.ceiling ?? player.projection,
+            ),
+          );
+          const meterPosition = (value: number) =>
+            `${Math.max(0, Math.min(100, (value / outcomeScaleMax) * 100))}%`;
           const recommendedPlayer = [...options].sort(
             (a, b) => scorePlayer(b) - scorePlayer(a),
           )[0];
@@ -9580,7 +9594,7 @@ function StartSit({
               {options.map((player) => {
                 const modelChoice = recommendedPlayer.id === player.id;
                 const currentlyStarting = player.id === decision.starter.id;
-                const adjustedRange = matchupAdjustedRange(player);
+                const adjustedRange = optionRanges.get(player.id) ?? matchupAdjustedRange(player);
                 return <button
               key={player.id}
               className={`compare-card ${activeChoice === player.name ? "selected" : ""}`}
@@ -9603,11 +9617,11 @@ function StartSit({
               <div className="range-bar">
                 <i
                   style={{
-                    left: `${adjustedRange.floor * 2.3}%`,
-                    width: `${(adjustedRange.ceiling - adjustedRange.floor) * 2.3}%`,
+                    left: meterPosition(adjustedRange.floor),
+                    width: `${Math.max(0, ((adjustedRange.ceiling - adjustedRange.floor) / outcomeScaleMax) * 100)}%`,
                   }}
                 />
-                <b style={{ left: `${player.projection * 2.3}%` }} />
+                <b style={{ left: meterPosition(player.projection) }} />
               </div>
               <div className="range-labels">
                 <span>
