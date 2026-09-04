@@ -517,6 +517,8 @@ type AccountPreferences = {
   hiddenLeagueIdsJson: string;
   ownedTeamThemesJson: string;
   ownedBadgeThemesJson: string;
+  activeLeagueId?: string | null;
+  lastActiveAt?: string | null;
   onboardingCompletedAt: string | null;
 };
 type SleeperConnection = {
@@ -599,6 +601,7 @@ type CachedAccountBootstrap = {
   entitlement?: AccountEntitlement;
   leagues?: ManagedLeague[];
   connectedLeagues?: ConnectedLeague[];
+  activeLeagueSnapshot?: Record<string, unknown> | null;
 };
 function cachedAccountBootstrap(email?: string): CachedAccountBootstrap | null {
   if (typeof window === "undefined" || !email) return null;
@@ -2228,6 +2231,7 @@ export default function FantasyHub({
           entitlement?: AccountEntitlement;
           leagues?: ManagedLeague[];
           connectedLeagues?: ConnectedLeague[];
+          activeLeagueSnapshot?: Record<string, unknown> | null;
           };
         })();
         if (!active) return;
@@ -2253,7 +2257,11 @@ export default function FantasyHub({
         });
         if (bootstrappedLeagues.length) {
           setAvailableLeagues(bootstrappedLeagues);
-          const selected = bootstrappedLeagues.find((league) => league.id === cachedLeagueId) ?? bootstrappedLeagues[0];
+          const accountLeagueId = data.preferences?.activeLeagueId ?? cachedLeagueId;
+          const selected = bootstrappedLeagues.find((league) => league.id === accountLeagueId) ?? bootstrappedLeagues[0];
+          if (data.activeLeagueSnapshot && selected.id === accountLeagueId) {
+            cacheActiveLeagueBootstrap(selected.id, JSON.stringify(data.activeLeagueSnapshot));
+          }
           setLeagueId(selected.id);
           setLeagueName(selected.name);
           void importLeague(selected.id, data.connection?.sleeperUserId, selected.rosterId);
@@ -2339,7 +2347,7 @@ export default function FantasyHub({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accountUser]);
 
-  async function saveAccountPreferences(overrides: Partial<{ colorMode: Theme; teamTheme: string; badgeTheme: BadgeTheme; leagueOrder: string[]; hiddenLeagueIds: string[] }>, completeOnboarding = false) {
+  async function saveAccountPreferences(overrides: Partial<{ colorMode: Theme; teamTheme: string; badgeTheme: BadgeTheme; leagueOrder: string[]; hiddenLeagueIds: string[]; activeLeagueId: string }>, completeOnboarding = false) {
     const save = async () => {
       const response = await fetch("/api/account/preferences", {
         method: "POST",
@@ -2562,6 +2570,7 @@ export default function FantasyHub({
       };
       cacheActiveLeagueBootstrap(requestedLeagueId, JSON.stringify(data));
       safeLocalStorageSet("fantasy-hub-active-league", requestedLeagueId);
+      if (accountUser) void saveAccountPreferences({ activeLeagueId: requestedLeagueId });
       if (requestNumber !== importRequest.current) return;
       const season = data.league.season ?? String(new Date().getFullYear());
       const currentWeek = Math.max(1, data.league.currentWeek ?? 1);
@@ -2619,6 +2628,9 @@ export default function FantasyHub({
         readCachedScheduleData(season),
         readCachedMatchupStrengths(season, currentWeek),
       );
+      if (data.cache?.status === "stale" && !forceRefresh) {
+        void importLeague(requestedLeagueId, ownerIdOverride, rosterIdOverride, true, true);
+      }
       let weather: WeatherData | null = null;
       let schedule: NflScheduleData | null = null;
       let matchupStrengths: MatchupStrengthData | null = null;

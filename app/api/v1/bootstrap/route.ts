@@ -1,6 +1,6 @@
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { getDb } from "../../../../db";
-import { managedLeagues, sleeperConnections, userPreferences } from "../../../../db/schema";
+import { leagueDataSnapshots, managedLeagues, sleeperConnections, userPreferences } from "../../../../db/schema";
 import { getChatGPTUser, LOCAL_PREVIEW_USER_ID } from "../../../chatgpt-auth";
 import { apiError, apiJson } from "../_shared/http";
 import { checkLocalRateLimit, clientKey } from "../_shared/rate-limit";
@@ -21,6 +21,8 @@ export async function GET(request: Request) {
       hiddenLeagueIdsJson: "[]",
       ownedTeamThemesJson: "[\"LAC\"]",
       ownedBadgeThemesJson: "[\"arcade\"]",
+      activeLeagueId: null,
+      lastActiveAt: null,
       onboardingCompletedAt: "local-preview",
     },
     leagues: [],
@@ -39,6 +41,11 @@ export async function GET(request: Request) {
     entitlementFor(user.userId, user.email),
   ]);
   const effectivePreferences = preferences ? normalizeThemePreferences(preferences, entitlement) : null;
+  const [activeSnapshot] = preferences?.activeLeagueId
+    ? await db.select().from(leagueDataSnapshots).where(
+        and(eq(leagueDataSnapshots.userId, user.userId), eq(leagueDataSnapshots.leagueKey, preferences.activeLeagueId)),
+      ).limit(1)
+    : [];
   const connectedLeagues = leagues.flatMap((record) => {
     if (record.status !== "live" || record.identifierType !== "league_id") return [];
     let meta: { teams?: number; format?: string; scoring?: string; starterCount?: number } = {};
@@ -62,6 +69,15 @@ export async function GET(request: Request) {
     preferences: effectivePreferences,
     leagues,
     connectedLeagues,
+    activeLeagueSnapshot: activeSnapshot ? (() => {
+      try {
+        return {
+          ...(JSON.parse(activeSnapshot.payloadJson) as Record<string, unknown>),
+          cache: { status: "saved", refreshedAt: activeSnapshot.refreshedAt },
+        };
+      }
+      catch { return null; }
+    })() : null,
     entitlement,
     serverTime: new Date().toISOString(),
   });

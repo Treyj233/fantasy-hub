@@ -9,6 +9,8 @@ type Alert = { key: string; preference: PushAlertKey; category: ApplePushCategor
 type LeaguePayload = { league?: { currentWeek?: number }; teams?: { id?: string; matchupId?: number | null; teamName?: string; roster?: { id: string; name: string; team: string; role: string; projection?: number }[] }[] };
 type Matchup = { roster_id?: number; matchup_id?: number | null; points?: number; custom_points?: number | null; players_points?: Record<string, number> };
 type AlertState = { playerPoints?: Record<string, number>; initialized?: boolean };
+const ACTIVE_ACCOUNT_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
+const BACKGROUND_REFRESH_INTERVAL_MS = 30 * 60 * 1000;
 
 async function secret() {
   let env: Record<string, unknown> = process.env as Record<string, unknown>;
@@ -26,6 +28,38 @@ function authorized(request: Request, expected: string) {
 
 const normalizeTeam = (team?: string) => ({ JAC: "JAX", WSH: "WAS", LA: "LAR" })[team ?? ""] ?? team ?? "";
 const score = (row?: Matchup) => Number((row?.custom_points ?? row?.points ?? 0).toFixed(2));
+
+async function refreshActiveLeagueSnapshots(request: Request, cronSecret: string) {
+  const db = await getDb();
+  const [preferences, snapshots] = await Promise.all([
+    db.select({ userId: userPreferences.userId, activeLeagueId: userPreferences.activeLeagueId, lastActiveAt: userPreferences.lastActiveAt }).from(userPreferences),
+    db.select({ userId: leagueDataSnapshots.userId, leagueKey: leagueDataSnapshots.leagueKey, refreshedAt: leagueDataSnapshots.refreshedAt }).from(leagueDataSnapshots),
+  ]);
+  const refreshedAt = new Map(snapshots.map((snapshot) => [`${snapshot.userId}:${snapshot.leagueKey}`, new Date(snapshot.refreshedAt).getTime()]));
+  const due = preferences.filter((preference) => {
+    if (!preference.activeLeagueId || !preference.lastActiveAt) return false;
+    if (Date.now() - new Date(preference.lastActiveAt).getTime() > ACTIVE_ACCOUNT_WINDOW_MS) return false;
+    return Date.now() - (refreshedAt.get(`${preference.userId}:${preference.activeLeagueId}`) ?? 0) >= BACKGROUND_REFRESH_INTERVAL_MS;
+  });
+  let refreshed = 0;
+  let failed = 0;
+  for (let index = 0; index < due.length; index += 3) {
+    const batch = due.slice(index, index + 3);
+    const results = await Promise.all(batch.map(async (preference) => {
+      const url = new URL("/api/league", request.url);
+      url.searchParams.set("id", preference.activeLeagueId!);
+      url.searchParams.set("refresh", "1");
+      const response = await fetch(url, {
+        headers: { authorization: `Bearer ${cronSecret}`, "x-fantasy-hub-sync-user": preference.userId },
+      });
+      await response.arrayBuffer();
+      return response.ok;
+    }));
+    refreshed += results.filter(Boolean).length;
+    failed += results.filter((result) => !result).length;
+  }
+  return { due: due.length, refreshed, failed };
+}
 
 async function deliver(userId: string, devices: (typeof pushDevices.$inferSelect)[], preferencesJson: string | undefined, alert: Alert) {
   const preferences = parsePushPreferences(preferencesJson);
@@ -63,12 +97,14 @@ async function evaluateSleeperLeague(record: typeof managedLeagues.$inferSelect)
 }
 
 export async function POST(request: Request) {
-  if (!authorized(request, await secret())) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  const cronSecret = await secret();
+  if (!authorized(request, cronSecret)) return Response.json({ error: "Unauthorized" }, { status: 401 });
   const startedAt = Date.now();
   const db = await getDb();
+  const backgroundRefresh = await refreshActiveLeagueSnapshots(request, cronSecret).catch(() => ({ due: 0, refreshed: 0, failed: 1 }));
   const devices = await db.select().from(pushDevices).where(eq(pushDevices.enabled, true));
   const userIds = [...new Set(devices.map((device) => device.userId))];
-  if (!userIds.length) return Response.json({ ok: true, users: 0, sent: 0, failed: 0 });
+  if (!userIds.length) return Response.json({ ok: true, users: 0, sent: 0, failed: 0, backgroundRefresh });
   const [preferences, leagues, snapshots] = await Promise.all([
     db.select().from(userPreferences).where(inArray(userPreferences.userId, userIds)),
     db.select().from(managedLeagues).where(and(inArray(managedLeagues.userId, userIds), eq(managedLeagues.status, "live"))),
@@ -135,5 +171,5 @@ export async function POST(request: Request) {
     }
   }
   console.log(JSON.stringify({ event: "push_evaluator_complete", users: userIds.length, sent, failed, skipped, durationMs: Date.now() - startedAt }));
-  return Response.json({ ok: true, users: userIds.length, sent, failed, skipped, durationMs: Date.now() - startedAt });
+  return Response.json({ ok: true, users: userIds.length, sent, failed, skipped, backgroundRefresh, durationMs: Date.now() - startedAt });
 }

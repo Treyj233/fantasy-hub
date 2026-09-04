@@ -28,21 +28,37 @@ const isCurrentFantasyPlayer = (player: SourcePlayer) => {
   return Boolean(player.team) && !/(retired|inactive|deceased)/.test(status);
 };
 
+async function backgroundSyncUserId(request: Request) {
+  const supplied = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ?? "";
+  if (!supplied) return null;
+  let env: Record<string, unknown> = process.env as Record<string, unknown>;
+  try { env = (await import("cloudflare:workers")).env as unknown as Record<string, unknown>; } catch { /* local */ }
+  const expected = String(env.PUSH_CRON_SECRET ?? "");
+  if (!expected || supplied.length !== expected.length) return null;
+  let mismatch = 0;
+  for (let index = 0; index < supplied.length; index += 1) mismatch |= supplied.charCodeAt(index) ^ expected.charCodeAt(index);
+  if (mismatch !== 0) return null;
+  return request.headers.get("x-fantasy-hub-sync-user")?.trim() || null;
+}
+
 export async function GET(request: Request) {
   const user = await getChatGPTUser();
-  if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
+  const userId = user?.userId ?? await backgroundSyncUserId(request);
+  if (!userId) return Response.json({ error: "Sign in required" }, { status: 401 });
   const url = new URL(request.url);
   const id = url.searchParams.get("id")?.trim();
   const forceRefresh = url.searchParams.get("refresh") === "1";
   if (!id) return Response.json({ error: "Invalid league ID" }, { status: 400 });
   const db = await getDb();
   if (!forceRefresh) {
-    const [snapshot] = await db.select().from(leagueDataSnapshots).where(and(eq(leagueDataSnapshots.userId, user.userId), eq(leagueDataSnapshots.leagueKey, id))).limit(1);
-    if (snapshot && Date.now() - new Date(snapshot.refreshedAt).getTime() < LEAGUE_SNAPSHOT_TTL_MS) {
+    const [snapshot] = await db.select().from(leagueDataSnapshots).where(and(eq(leagueDataSnapshots.userId, userId), eq(leagueDataSnapshots.leagueKey, id))).limit(1);
+    if (snapshot) {
       try {
         const cached = JSON.parse(snapshot.payloadJson) as { payloadVersion?: number };
-        if (cached.payloadVersion === LEAGUE_PAYLOAD_VERSION)
-          return Response.json({ ...cached, cache: { status: "fresh", refreshedAt: snapshot.refreshedAt } });
+        if (cached.payloadVersion === LEAGUE_PAYLOAD_VERSION) {
+          const fresh = Date.now() - new Date(snapshot.refreshedAt).getTime() < LEAGUE_SNAPSHOT_TTL_MS;
+          return Response.json({ ...cached, cache: { status: fresh ? "fresh" : "stale", refreshedAt: snapshot.refreshedAt, revalidateRecommended: !fresh } });
+        }
       } catch { /* Refresh malformed or outdated snapshots. */ }
     }
   }
@@ -51,9 +67,9 @@ export async function GET(request: Request) {
     if (!leagueId || !/^\d{4,24}$/.test(leagueId))
       return Response.json({ error: "Invalid ESPN league ID" }, { status: 400 });
     try {
-      const result = { ...(await normalizeEspnLeague(await fetchEspnLeagueForUser(user.userId, leagueId, Number(season)))), payloadVersion: LEAGUE_PAYLOAD_VERSION };
+      const result = { ...(await normalizeEspnLeague(await fetchEspnLeagueForUser(userId, leagueId, Number(season)))), payloadVersion: LEAGUE_PAYLOAD_VERSION };
       const refreshedAt = new Date().toISOString();
-      const snapshot = { id: crypto.randomUUID(), userId: user.userId, leagueKey: id, payloadJson: JSON.stringify(result), refreshedAt };
+      const snapshot = { id: crypto.randomUUID(), userId, leagueKey: id, payloadJson: JSON.stringify(result), refreshedAt };
       await db.insert(leagueDataSnapshots).values(snapshot).onConflictDoUpdate({ target: [leagueDataSnapshots.userId, leagueDataSnapshots.leagueKey], set: { payloadJson: snapshot.payloadJson, refreshedAt } });
       return Response.json({ ...result, cache: { status: "refreshed", refreshedAt } });
     } catch (error) {
@@ -335,7 +351,7 @@ export async function GET(request: Request) {
     const managers = users.flatMap((user, index) => user.user_id ? [{ id: user.user_id, name: user.display_name ?? `Manager ${index + 1}`, teamName: user.metadata?.team_name ?? `${user.display_name ?? `Manager ${index + 1}`}'s Team`, style: "Neutral" as const }] : []);
     const result = { payloadVersion: LEAGUE_PAYLOAD_VERSION, league: { name: league.name ?? "Imported League", platform: "Sleeper", status: league.status ?? "unknown", teams: league.total_rosters, season: league.season, currentWeek: Math.max(0, league.leg ?? 0), projectionWeek, managers: users.length }, teams, managers, rankingContext: { format, scoring: receptionLabel, teams: league.total_rosters ?? rosters.length, rosterSlots, positionDemand, tePremium: tePremiumValue, passTouchdown: scoring.pass_td ?? 4, interception: scoring.pass_int ?? -2, bonusRuleCount, scoringRuleCount: Object.values(scoring).filter((value) => value !== 0).length }, rankings: rankingPool, waiverPlayers, waiverTrending };
     const refreshedAt = new Date().toISOString();
-    const snapshot = { id: crypto.randomUUID(), userId: user.userId, leagueKey: id, payloadJson: JSON.stringify(result), refreshedAt };
+    const snapshot = { id: crypto.randomUUID(), userId, leagueKey: id, payloadJson: JSON.stringify(result), refreshedAt };
     await db.insert(leagueDataSnapshots).values(snapshot).onConflictDoUpdate({ target: [leagueDataSnapshots.userId, leagueDataSnapshots.leagueKey], set: { payloadJson: snapshot.payloadJson, refreshedAt } });
     return Response.json({ ...result, cache: { status: "refreshed", refreshedAt } });
   } catch {

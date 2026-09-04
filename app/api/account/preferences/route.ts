@@ -11,10 +11,11 @@ const badgeThemes = new Set([...proBadgeThemeIds,...premiumBadgeThemeIds]);
 export async function POST(request: Request) {
   const user = await getChatGPTUser();
   if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
-  const payload = await request.json() as { colorMode?: string; teamTheme?: string; badgeTheme?: string; leagueOrder?: string[]; hiddenLeagueIds?: string[]; acquireTeamTheme?: string; acquireBadgeTheme?: string; completeOnboarding?: boolean };
+  const payload = await request.json() as { colorMode?: string; teamTheme?: string; badgeTheme?: string; leagueOrder?: string[]; hiddenLeagueIds?: string[]; activeLeagueId?: string; acquireTeamTheme?: string; acquireBadgeTheme?: string; completeOnboarding?: boolean };
   if (payload.colorMode && !["light", "dark"].includes(payload.colorMode)) return Response.json({ error: "Invalid color mode" }, { status: 400 });
   if (payload.teamTheme && !teamIds.has(payload.teamTheme)) return Response.json({ error: "Invalid team theme" }, { status: 400 });
   if (payload.badgeTheme && !badgeThemes.has(payload.badgeTheme)) return Response.json({ error: "Invalid badge theme" }, { status: 400 });
+  if (payload.activeLeagueId && !/^(?:\d{6,24}|espn:\d{4}:\d{4,24})$/.test(payload.activeLeagueId)) return Response.json({ error: "Invalid active league" }, { status: 400 });
   const db = await getDb();
   const [[current], entitlement] = await Promise.all([
     db.select().from(userPreferences).where(eq(userPreferences.userId, user.userId)).limit(1),
@@ -61,6 +62,8 @@ export async function POST(request: Request) {
     hiddenLeagueIdsJson: payload.hiddenLeagueIds ? JSON.stringify(payload.hiddenLeagueIds.slice(0, 100)) : current?.hiddenLeagueIdsJson ?? "[]",
     ownedTeamThemesJson: JSON.stringify([...new Set(ownedTeamThemes)]),
     ownedBadgeThemesJson: JSON.stringify([...new Set(ownedBadgeThemes)]),
+    activeLeagueId: payload.activeLeagueId ?? current?.activeLeagueId ?? null,
+    lastActiveAt: payload.activeLeagueId ? now : current?.lastActiveAt ?? now,
     onboardingCompletedAt: payload.completeOnboarding ? current?.onboardingCompletedAt ?? now : current?.onboardingCompletedAt ?? null,
     updatedAt: now,
   };
