@@ -429,6 +429,18 @@ test("Start Sit aggressiveness remains sticky during vertical scrolling", async 
   assert.match(styles, /html\[data-native-platform="ios"\] \.start-sit-page>\.aggression-panel\{top:calc\(100px \+ max\(54px,env\(safe-area-inset-top\)\)\)\}/);
 });
 
+test("Start Sit supports a custom comparison of up to four roster players", async () => {
+  const dashboard = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
+  const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  assert.match(dashboard, /CUSTOM COMPARISON/);
+  assert.match(dashboard, /customPlayerIds\.length < 4/);
+  assert.match(dashboard, /Custom comparison player/);
+  assert.match(dashboard, /FANTASY HUB CUSTOM VERDICT/);
+  assert.match(dashboard, /No automatic close calls found/);
+  assert.match(styles, /\.custom-start-sit-grid\{display:grid;grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/);
+  assert.match(styles, /scroll-snap-type:x mandatory/);
+});
+
 test("Full Action Queue previews additional horizontal cards", async () => {
   const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
   const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");

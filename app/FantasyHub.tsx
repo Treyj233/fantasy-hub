@@ -9401,6 +9401,18 @@ function StartSit({
   );
   const decisions = useMemo(() => startSitDecisions(startSitPlayers), [startSitPlayers]);
   const [selectedBySlot, setSelectedBySlot] = useState<Record<string, string>>({});
+  const customCandidates = useMemo(
+    () =>
+      startSitPlayers
+        .filter(
+          (player) =>
+            ["QB", "RB", "WR", "TE"].includes(player.position) &&
+            player.projection > 0,
+        )
+        .sort((a, b) => b.projection - a.projection),
+    [startSitPlayers],
+  );
+  const [customPlayerIds, setCustomPlayerIds] = useState<string[]>(["", ""]);
   const yourTeam = teams.find((team) => team.id === selectedTeamId);
   const opponentTeam =
     yourTeam?.matchupId != null
@@ -9437,6 +9449,12 @@ function StartSit({
   const scorePlayer = (player: Player) => {
     return aggressionScore(player, aggressiveness);
   };
+  const customPlayers = customPlayerIds
+    .map((id) => customCandidates.find((player) => player.id === id))
+    .filter((player): player is Player => Boolean(player));
+  const customRecommendation = [...customPlayers].sort(
+    (a, b) => scorePlayer(b) - scorePlayer(a),
+  )[0];
   const rememberedStartSit = useMemo(() => decisions.map((decision) => {
     const options = [decision.starter, ...decision.candidates];
     const recommended = [...options].sort((a, b) => {
@@ -9448,24 +9466,6 @@ function StartSit({
     return { id: `start-sit:${week}:${decision.starter.id}`, leagueId, week, category: "start_sit", recommendation: recommended.name, alternatives: options.map((player) => { const range = matchupAdjustedRange(player); return { id: player.id, name: player.name, position: player.position, projection: player.projection, floor: range.floor, ceiling: range.ceiling }; }), information: { aggressiveness, recommendedAggression, teamProjection, opponentProjection, projectionSource: projectionPlatform, scoring: context?.scoring ?? null }, confidence };
   }), [aggressiveness, context?.scoring, decisions, leagueId, opponentProjection, projectionPlatform, recommendedAggression, teamProjection, week]);
   useEffect(() => { if (isPro) rememberedStartSit.forEach((decision) => rememberDecision(decision)); }, [isPro, rememberedStartSit]);
-  if (!decisions.length)
-    return (
-      <div className="page-content">
-        <SectionIntro
-          kicker="WEEKLY DECISIONS"
-          title="Your current lineup has no close calls"
-          text="Fantasy Hub checked every starter against position-eligible bench alternatives with credible playing-time projections. No bench player is currently close enough to warrant a start/sit recommendation."
-        />
-        <section className="panel decision-empty">
-          <strong>No realistic lineup swap identified</strong>
-          <p>
-            Players projected below 2.0 points, unavailable players, and bench
-            players who are not eligible for a starter’s lineup slot are
-            excluded.
-          </p>
-        </section>
-      </div>
-    );
   return (
     <div className="page-content start-sit-page">
       <SectionIntro
@@ -9575,8 +9575,95 @@ function StartSit({
         </div>
         {!isPro && <button className="inline-pro-unlock" onClick={onUpgrade}>PRO · Unlock floor-to-ceiling strategy</button>}
       </section>
+      <section className="custom-start-sit panel">
+        <header>
+          <div>
+            <span>CUSTOM COMPARISON</span>
+            <h2>Choose up to four players</h2>
+            <p>Build your own side-by-side decision using the same projection, floor, ceiling, matchup, and risk model.</p>
+          </div>
+          <small>{customPlayers.length}/4 selected</small>
+        </header>
+        <div className="custom-start-sit-selectors">
+          {customPlayerIds.map((playerId, index) => (
+            <label key={`custom-player-${index}`}>
+              <span>PLAYER {index + 1}</span>
+              <select
+                aria-label={`Custom comparison player ${index + 1}`}
+                value={playerId}
+                onChange={(event) => {
+                  const nextId = event.target.value;
+                  setCustomPlayerIds((current) =>
+                    current.map((id, playerIndex) =>
+                      playerIndex === index ? nextId : id,
+                    ),
+                  );
+                }}
+              >
+                <option value="">Select a player</option>
+                {customCandidates.map((player) => {
+                  const selectedElsewhere = customPlayerIds.some(
+                    (id, playerIndex) => playerIndex !== index && id === player.id,
+                  );
+                  return (
+                    <option key={player.id} value={player.id} disabled={selectedElsewhere}>
+                      {player.name} · {player.position} · {player.team} · {player.projection.toFixed(1)} pts
+                    </option>
+                  );
+                })}
+              </select>
+            </label>
+          ))}
+          {customPlayerIds.length < 4 && (
+            <button
+              type="button"
+              className="custom-start-sit-add"
+              onClick={() => setCustomPlayerIds((current) => [...current, ""])}
+            >
+              + Add player
+            </button>
+          )}
+        </div>
+        {customPlayers.length > 0 ? (
+          <>
+            <div className="custom-start-sit-grid">
+              {customPlayers.map((player) => {
+                const adjustedRange = matchupAdjustedRange(player);
+                const modelChoice = customPlayers.length > 1 && customRecommendation?.id === player.id;
+                return (
+                  <article className={`compare-card ${modelChoice ? "selected" : ""}`} key={player.id}>
+                    <div className="choice-top">
+                      <span className={`pos pos-${player.position.toLowerCase()}`}>{player.position}</span>
+                      {modelChoice && <b>MODEL PICK</b>}
+                      <button type="button" aria-label={`Remove ${player.name}`} onClick={() => setCustomPlayerIds((current) => current.map((id) => id === player.id ? "" : id))}>×</button>
+                    </div>
+                    <MatchupBadge player={player} />
+                    <button type="button" className="custom-player-name" onClick={() => openPlayer(player)}>{player.name}</button>
+                    <div className="range-bar"><i style={{ left: 0, width: "100%" }} /><b aria-label={`Median projection ${player.projection}`} title={`Median projection: ${player.projection}`} style={{ left: "50%", transform: "translateX(-50%)" }} /></div>
+                    <div className="range-labels">
+                      <span>Floor <b>{adjustedRange.floor}</b></span>
+                      <span>Projection <b>{player.projection}</b></span>
+                      <span>Ceiling <b>{adjustedRange.ceiling}</b></span>
+                    </div>
+                    <strong className="custom-risk-score">{scorePlayer(player).toFixed(1)} <small>risk-adjusted</small></strong>
+                  </article>
+                );
+              })}
+            </div>
+            {customPlayers.length > 1 && customRecommendation && (
+              <section className="insight-box custom-start-sit-verdict">
+                <span>FANTASY HUB CUSTOM VERDICT</span>
+                <h3>Start {customRecommendation.name}</h3>
+                <p>At {aggressiveness}% aggressiveness, {customRecommendation.name} has the strongest risk-adjusted profile among your selected players.</p>
+              </section>
+            )}
+          </>
+        ) : (
+          <p className="custom-start-sit-empty">Select players above to create a custom comparison.</p>
+        )}
+      </section>
       <div className="start-sit-decisions">
-        {decisions.map((decision, decisionIndex) => {
+        {decisions.length ? decisions.map((decision, decisionIndex) => {
           const options = [decision.starter, ...decision.candidates];
           const optionRanges = new Map(
             options.map((player) => [player.id, matchupAdjustedRange(player)]),
@@ -9668,7 +9755,7 @@ function StartSit({
               </p>
             </section>
           </section>;
-        })}
+        }) : <section className="panel decision-empty"><strong>No automatic close calls found</strong><p>Your lineup has no close starter-versus-bench decisions, but you can still compare any players with the custom tool above.</p></section>}
       </div>
     </div>
   );
