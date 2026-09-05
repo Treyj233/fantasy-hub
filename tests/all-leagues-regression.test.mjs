@@ -438,7 +438,8 @@ test("Start Sit supports a custom comparison of up to four roster players", asyn
   assert.match(dashboard, /FANTASY HUB CUSTOM VERDICT/);
   assert.match(dashboard, /No automatic close calls found/);
   assert.match(styles, /\.custom-start-sit-grid\{display:grid;grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/);
-  assert.match(styles, /scroll-snap-type:x mandatory/);
+  assert.match(styles, /\.custom-start-sit-selectors,\.custom-start-sit-grid\{grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
+  assert.match(styles, /\.custom-start-sit-grid \.compare-card\{padding:7px 6px;border-radius:9px\}/);
 });
 
 test("Full Action Queue previews additional horizontal cards", async () => {
