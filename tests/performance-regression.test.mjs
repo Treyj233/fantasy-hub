@@ -18,6 +18,7 @@ test("portfolio scans preserve saved results while weather requests use a bounde
   assert.match(source, /PORTFOLIO_CACHE_VERSION = 2/);
   assert.match(source, /ACCOUNT_BOOTSTRAP_TTL_MS = 6 \* 60 \* 60 \* 1000/);
   assert.match(source, /LEAGUE_DISCOVERY_TTL_MS = 24 \* 60 \* 60 \* 1000/);
+  assert.match(source, /MISSION_HUB_SCAN_TTL_MS = 15 \* 60 \* 1000/);
   assert.match(source, /Date\.now\(\) - cachedAccount\.savedAt < ACCOUNT_BOOTSTRAP_TTL_MS/);
   assert.match(source, /fantasy-hub-portfolio-scans:/);
   assert.match(source, /weatherRequestCache/);
@@ -25,6 +26,7 @@ test("portfolio scans preserve saved results while weather requests use a bounde
   assert.match(source, /cachedScansRef/);
   assert.match(source, /Showing saved results/);
   assert.match(source, /const isBackgroundRevalidation = refreshKey === 0 && cacheMatches/);
+  assert.match(source, /if \(refreshKey === 0 && cachedScanIsFresh\)/);
   assert.match(source, /refreshKey > 0 \|\| isBackgroundRevalidation/);
   assert.match(source, /if \(savedScan\) return \{ \.\.\.savedScan, league \}/);
 });

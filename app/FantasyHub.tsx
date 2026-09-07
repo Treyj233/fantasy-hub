@@ -98,6 +98,7 @@ const ProjectionPlatformContext = createContext("League platform");
 const PORTFOLIO_CACHE_VERSION = 2;
 const ACCOUNT_BOOTSTRAP_TTL_MS = 6 * 60 * 60 * 1000;
 const LEAGUE_DISCOVERY_TTL_MS = 24 * 60 * 60 * 1000;
+const MISSION_HUB_SCAN_TTL_MS = 15 * 60 * 1000;
 const weatherRequestCache = new Map<
   string,
   { expiresAt: number; request: Promise<WeatherData | null> }
@@ -5118,13 +5119,24 @@ function AllLeagues({
 
   useEffect(() => {
     if (!leagues.length) return;
-    if (refreshKey === 0 && lastAutomaticScan.current === leagueScanSignature) return;
-    lastAutomaticScan.current = leagueScanSignature;
     const leagueIds = new Set(leagues.map((league) => league.id));
     const cachedAtScanStart = cachedScansRef.current;
     const cacheMatches =
       cachedAtScanStart.length === leagues.length &&
       cachedAtScanStart.every((scan) => leagueIds.has(scan.league.id));
+    const cachedScanIsFresh =
+      cacheMatches &&
+      cachedScansSavedAt > 0 &&
+      Date.now() - cachedScansSavedAt < MISSION_HUB_SCAN_TTL_MS;
+    // Navigating away from Mission Hub unmounts this view. Reuse a complete,
+    // recent account snapshot when it mounts again instead of force-resyncing
+    // every league on each return. The explicit refresh control bypasses this.
+    if (refreshKey === 0 && cachedScanIsFresh) {
+      lastAutomaticScan.current = leagueScanSignature;
+      return;
+    }
+    if (refreshKey === 0 && lastAutomaticScan.current === leagueScanSignature) return;
+    lastAutomaticScan.current = leagueScanSignature;
     const isBackgroundRevalidation = refreshKey === 0 && cacheMatches;
     // A complete portfolio snapshot is rendered immediately, then refreshed
     // without putting the Mission Hub back into its initial loading state.
