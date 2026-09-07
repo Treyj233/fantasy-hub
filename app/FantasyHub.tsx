@@ -5720,7 +5720,7 @@ function AllLeagues({
           </details>
         </>
       )}
-      {scanIsActive ? (
+      {scanIsActive && (
         <section className={`all-leagues-loading panel ${scans.length ? "background-refresh" : ""}`} aria-live="polite">
           <strong>{scans.length ? "Your saved Mission Hub is ready" : "Scanning your league portfolio…"}</strong>
           <p>{scans.length ? "Refreshing league changes quietly in the background." : "Checking settings, starters, injuries, waivers, schedule, and weather."}</p>
@@ -5736,7 +5736,8 @@ function AllLeagues({
           </div>
           <small>{scans.length ? `Showing saved results · ${visibleScanCount} refreshed` : `${visibleScanCount} of ${leagues.length} leagues scanned`}</small>
         </section>
-      ) : (
+      )}
+      {scans.length > 0 && (
         <section className="league-scan-list">
           {scans.map((scan) => (
             <details

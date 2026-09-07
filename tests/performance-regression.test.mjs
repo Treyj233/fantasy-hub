@@ -27,6 +27,8 @@ test("portfolio scans preserve saved results while weather requests use a bounde
   assert.match(source, /Showing saved results/);
   assert.match(source, /const isBackgroundRevalidation = refreshKey === 0 && cacheMatches/);
   assert.match(source, /if \(refreshKey === 0 && cachedScanIsFresh\)/);
+  assert.match(source, /\{scanIsActive && \(/);
+  assert.match(source, /\{scans\.length > 0 && \(\s*<section className="league-scan-list">/);
   assert.match(source, /refreshKey > 0 \|\| isBackgroundRevalidation/);
   assert.match(source, /if \(savedScan\) return \{ \.\.\.savedScan, league \}/);
 });
