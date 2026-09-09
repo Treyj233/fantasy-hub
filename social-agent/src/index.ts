@@ -707,8 +707,8 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
     try {
       const result = await this.env.AI.run("@cf/meta/llama-3.3-70b-instruct-fp8-fast", {
         messages: [
-          { role: "system", content: "You are the independent final source auditor for a fantasy-football news account. Compare the proposed post directly with the supplied source evidence. Approve only after positively verifying factual fidelity, player identity, time/season context, and a concrete causal fantasy explanation. Reject unsupported inferences, overstated certainty, wrong players or events, practice/preseason conclusions presented as regular-season facts, surname-only references, vague headlines, and generic fantasy commentary. WHY IT MATTERS must say who is affected, what specifically changes, and the supported role, workload, availability, lineup, or format mechanism causing it. Return JSON only." },
-          { role: "user", content: `Original source evidence: ${story.summary}\nStructured facts: ${JSON.stringify(facts)}\nResolved subject: ${context?.player ?? "weather report"}\nAllowed affected-player names: ${JSON.stringify(context ? [...new Set([...context.affectedPlayers, ...context.backups])] : [])}\nProposed X post: ${draft}\nAudit every factual claim against the original evidence. Approve only if the headline clearly states the actual development and WHY IT MATTERS gives a specific, supported causal fantasy consequence rather than “changes value,” “creates opportunity,” or similar filler. Return a short verification note when approved; otherwise name each exact conflict or missing mechanism.` },
+          { role: "system", content: "You are the independent final source auditor for a fantasy-football news account. The proposed X post is a compact version of an approved in-app editorial brief. Verify the reported event, player identity, timing, and season context against the supplied evidence. Treat clearly labeled fantasy analysis as analysis: it may draw a cautious football-to-fantasy conclusion from the verified event and resolved roster context even when the source did not state that conclusion verbatim. Reject contradictions, invented facts, unsupported certainty, wrong players or events, practice/preseason conclusions presented as regular-season facts, surname-only references, vague headlines, and generic fantasy commentary. Do not reject solely because concise wording differs from the source. Return JSON only." },
+          { role: "user", content: `Original source evidence: ${story.summary}\nStructured facts: ${JSON.stringify(facts)}\nResolved subject: ${context?.player ?? "weather report"}\nAllowed affected-player names: ${JSON.stringify(context ? [...new Set([...context.affectedPlayers, ...context.backups])] : [])}\nProposed X post: ${draft}\nAudit the factual news claim against the original evidence. Then confirm that WHY IT MATTERS is a reasonable, cautious fantasy consequence tied to a named mechanism such as availability, workload, role, targets, touches, lineup use, or format value. It need not be quoted by the source. Approve concise paraphrases that preserve meaning. Return a short verification note when approved; otherwise name each exact factual conflict, overstatement, or missing mechanism.` },
         ],
         response_format: {
           type: "json_schema",
@@ -923,17 +923,25 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
           WHERE semantic_key = ${storySemanticKey} AND published_at >= ${duplicateCutoff} AND status IN ('draft', 'posted', 'feed_only')
           ORDER BY published_at DESC LIMIT 1`];
         const preparedStory = await this.enrichStory(story, context);
-        const draft = composeFantasyPost(preparedStory, context);
+        // Build the reader-first News & Notes brief first, then condense those
+        // same verified fields for X. This keeps both surfaces factually aligned
+        // while allowing X to use a shorter, platform-friendly presentation.
+        const seedDraft = composeFantasyPost(preparedStory, context);
         const facts = extractStoryFacts(preparedStory, context);
+        const seedValidation = validateStoryDraft(preparedStory, context, seedDraft, facts);
+        const feedEligible = seedValidation.approvedForX && facts.confidence !== "low";
+        const relatedPlayers = context?.relatedPlayers ?? (story.category === "weather" ? await findTeamFantasyPlayers(story.sourceContext ?? []) : []);
+        const editorial = feedEligible
+          ? await this.createFeedEditorial(preparedStory, context, seedDraft)
+          : this.fallbackFeedEditorial(preparedStory, seedDraft);
+        const xStory = feedEligible
+          ? { ...preparedStory, title: editorial.headline, fantasyImpact: editorial.whyItMatters }
+          : preparedStory;
+        const draft = composeFantasyPost(xStory, context);
         const deterministicValidation = validateStoryDraft(preparedStory, context, draft, facts);
         const validation = Date.parse(preparedStory.publishedAt) >= now.getTime() - POST_FRESHNESS_MINUTES * 60_000
           ? await this.critiqueForPublishing(preparedStory, context, draft, facts, deterministicValidation)
           : deterministicValidation;
-        const feedEligible = deterministicValidation.approvedForX && facts.confidence !== "low";
-        const relatedPlayers = context?.relatedPlayers ?? (story.category === "weather" ? await findTeamFantasyPlayers(story.sourceContext ?? []) : []);
-        const editorial = feedEligible
-          ? await this.createFeedEditorial(preparedStory, context, draft)
-          : this.fallbackFeedEditorial(preparedStory, draft);
         const storyStatus = validation.approvedForX ? "draft" : feedEligible ? "feed_only" : "suppressed";
         const previousFacts = semanticDuplicate.length ? parseJson<StoryFacts | null>(semanticDuplicate[0].facts_json, null) : null;
         const materialUpdate = isMaterialStoryUpdate(previousFacts, facts, preparedStory);

@@ -135,8 +135,11 @@ test("social agent is live, sourced, deduplicated, and rate limited", async () =
   assert.match(worker, /nextTrigger: the single specific future report/);
   assert.match(worker, /headline: a complete, standalone factual sentence under 94 characters/);
   assert.match(worker, /whyItMatters: one complete causal sentence under 108 characters/);
-  assert.match(worker, /Reject unsupported inferences, overstated certainty/);
-  assert.match(worker, /Audit every factual claim against the original evidence/);
+  assert.match(worker, /Reject contradictions, invented facts, unsupported certainty/);
+  assert.match(worker, /Build the reader-first News & Notes brief first, then condense those/);
+  assert.match(worker, /title: editorial\.headline, fantasyImpact: editorial\.whyItMatters/);
+  assert.match(worker, /It need not be quoted by the source/);
+  assert.match(worker, /Audit the factual news claim against the original evidence/);
   assert.doesNotMatch(content, /Monitor the depth chart and projections before making your next move/);
   assert.doesNotMatch(content, /Compare this report|routes, targets and snaps|before moving projections/);
   assert.match(worker, /const originalUrl = curated && reference && originalReporter/);
