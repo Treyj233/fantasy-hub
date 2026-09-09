@@ -127,6 +127,13 @@
       "when": 1788553216030,
       "tag": "0017_spotty_doctor_octopus",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "6",
+      "when": 1788977284690,
+      "tag": "0018_optimal_baron_strucker",
+      "breakpoints": true
     }
   ]
 }

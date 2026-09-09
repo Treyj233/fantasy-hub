@@ -11,11 +11,13 @@ test("weekly player rankings are Pro-gated, week-aware, and position limited", a
   const adpEnd = source.indexOf("function WaiverWire(", end);
   const adp = source.slice(end, adpEnd);
 
-  assert.match(rankings, /useState<"season" \| "weekly">\("season"\)/);
+  assert.match(rankings, /rankingMode: "season" \| "weekly"/);
   assert.match(rankings, /className="page-content player-rankings-page"/);
   assert.doesNotMatch(rankings, /aria-label="Sort player rankings"/);
   assert.doesNotMatch(rankings, /const \[sortBy, setSortBy\]/);
-  assert.match(rankings, /PRO · WEEK \{Math\.max\(1, week\)\}/);
+  assert.match(rankings, /LIVE · WEEK \{Math\.max\(1, week\)\}/);
+  assert.match(rankings, /weekly-ranking-toggle/);
+  assert.match(styles, /\.ranking-mode-toggle \.weekly-ranking-toggle/);
   assert.match(rankings, /Weekly Player Rankings are a Pro experience/);
   assert.match(rankings, /\{ position: "QB", limit: 24/);
   assert.match(rankings, /\{ position: "RB", limit: 24/);

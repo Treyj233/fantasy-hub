@@ -1,0 +1,1 @@
+ALTER TABLE `user_preferences` ADD `week_one_welcome_seen_season` text;

@@ -24,6 +24,7 @@ export async function GET(request: Request) {
       activeLeagueId: null,
       lastActiveAt: null,
       onboardingCompletedAt: "local-preview",
+      weekOneWelcomeSeenSeason: String(new Date().getUTCFullYear()),
     },
     leagues: [],
     connectedLeagues: [],

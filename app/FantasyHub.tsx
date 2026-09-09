@@ -521,6 +521,7 @@ type AccountPreferences = {
   activeLeagueId?: string | null;
   lastActiveAt?: string | null;
   onboardingCompletedAt: string | null;
+  weekOneWelcomeSeenSeason?: string | null;
 };
 type SleeperConnection = {
   sleeperUserId: string;
@@ -1724,6 +1725,7 @@ export default function FantasyHub({
     [accountUser?.email, cachedAccount?.connection?.sleeperUserId],
   );
   const [view, setView] = useState<View>("All Leagues");
+  const [playerRankingMode, setPlayerRankingMode] = useState<"season" | "weekly">("season");
   useEffect(() => {
     const screenName = view
       .toLowerCase()
@@ -1807,6 +1809,8 @@ export default function FantasyHub({
   const [onboardingTourOpen, setOnboardingTourOpen] = useState(false);
   const [onboardingTourStep, setOnboardingTourStep] = useState(0);
   const [onboardingTourEligible, setOnboardingTourEligible] = useState(() => typeof window !== "undefined" && (isNativeIosApp() || window.matchMedia("(max-width: 700px)").matches));
+  const [weekOneWelcomeOpen, setWeekOneWelcomeOpen] = useState(false);
+  const [weekOneWelcomeSeenSeason, setWeekOneWelcomeSeenSeason] = useState<string | null>(cachedAccount?.preferences?.weekOneWelcomeSeenSeason ?? null);
   const [theme, setTheme] = useState<Theme>(() => {
     if (typeof window === "undefined") return "light";
     const savedTheme = cachedAccount?.preferences?.colorMode ?? window.localStorage.getItem("fantasy-hub-theme");
@@ -1856,6 +1860,7 @@ export default function FantasyHub({
   const preferenceSaveQueue = useRef<Promise<void>>(Promise.resolve());
   const leagueDragOccurred = useRef(false);
   const onboardingTourCheckedMode = useRef<"connection" | "product" | null>(null);
+  const weekOneWelcomeCheckedSeason = useRef<string | null>(null);
 
   useEffect(() => initializeNativeRuntime(), []);
 
@@ -2302,6 +2307,7 @@ export default function FantasyHub({
             setHiddenLeagueIds([]);
           }
           setNeedsOnboarding(!data.preferences.onboardingCompletedAt);
+          setWeekOneWelcomeSeenSeason(data.preferences.weekOneWelcomeSeenSeason ?? null);
         } else {
           setTheme("light");
           safeLocalStorageSet("fantasy-hub-theme", "light");
@@ -2329,6 +2335,7 @@ export default function FantasyHub({
               setOwnedBadgeThemes(parseOwnedThemes(reconciled.preferences.ownedBadgeThemesJson, "arcade"));
               safeLocalStorageSet("fantasy-hub-team-theme", reconciledTeamTheme);
               safeLocalStorageSet("fantasy-hub-badge-theme", reconciledBadgeTheme);
+              setWeekOneWelcomeSeenSeason(reconciled.preferences.weekOneWelcomeSeenSeason ?? null);
             }
           }).catch(() => {
             // The initial server entitlement remains the safe fallback.
@@ -2348,7 +2355,7 @@ export default function FantasyHub({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accountUser]);
 
-  async function saveAccountPreferences(overrides: Partial<{ colorMode: Theme; teamTheme: string; badgeTheme: BadgeTheme; leagueOrder: string[]; hiddenLeagueIds: string[]; activeLeagueId: string }>, completeOnboarding = false) {
+  async function saveAccountPreferences(overrides: Partial<{ colorMode: Theme; teamTheme: string; badgeTheme: BadgeTheme; leagueOrder: string[]; hiddenLeagueIds: string[]; activeLeagueId: string; weekOneWelcomeSeenSeason: string }>, completeOnboarding = false) {
     const save = async () => {
       const response = await fetch("/api/account/preferences", {
         method: "POST",
@@ -2908,6 +2915,45 @@ export default function FantasyHub({
     leagueStatus === "pre_draft" || leagueWeek < 1
       ? 1
       : Math.min(18, leagueWeek);
+  useEffect(() => {
+    if (
+      !accountUser ||
+      accountLoading ||
+      onboardingTourOpen ||
+      importState !== "success" ||
+      !leagueId ||
+      leagueWeek !== 1 ||
+      weekOneWelcomeSeenSeason === leagueSeason ||
+      weekOneWelcomeCheckedSeason.current === leagueSeason
+    ) return;
+    const localKey = `fantasy-hub-week-one-welcome:${leagueSeason}:${accountUser.email.trim().toLowerCase()}`;
+    if (window.localStorage.getItem(localKey) === "seen") {
+      weekOneWelcomeCheckedSeason.current = leagueSeason;
+      return;
+    }
+    weekOneWelcomeCheckedSeason.current = leagueSeason;
+    const timer = window.setTimeout(() => {
+      setWeekOneWelcomeOpen(true);
+      void nativeLogAppsFlyerEvent("week_one_welcome_view", { season: leagueSeason, week: 1 });
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [accountLoading, accountUser, importState, leagueId, leagueSeason, leagueWeek, onboardingTourOpen, weekOneWelcomeSeenSeason]);
+
+  function closeWeekOneWelcome(action: "rankings" | "pro" | "dismiss") {
+    setWeekOneWelcomeOpen(false);
+    setWeekOneWelcomeSeenSeason(leagueSeason);
+    if (accountUser) {
+      safeLocalStorageSet(`fantasy-hub-week-one-welcome:${leagueSeason}:${accountUser.email.trim().toLowerCase()}`, "seen");
+      void saveAccountPreferences({ weekOneWelcomeSeenSeason: leagueSeason });
+    }
+    void nativeLogAppsFlyerEvent("week_one_welcome_action", { action, season: leagueSeason, week: 1 });
+    if (action === "rankings") {
+      setPlayerRankingMode("weekly");
+      setView("Player Rankings");
+    } else if (action === "pro") {
+      setView("Fantasy Hub Pro");
+    }
+  }
   const rosterEmptyState = (
     <EmptyRoster
       leagueSelected={Boolean(leagueId)}
@@ -3563,6 +3609,8 @@ export default function FantasyHub({
             context={rankingContext}
             isPro={entitlement.pro}
             week={defaultGameWeek}
+            rankingMode={playerRankingMode}
+            setRankingMode={setPlayerRankingMode}
             onUpgrade={() => setView("Fantasy Hub Pro")}
             setSelectedPlayer={setSelectedPlayer}
           />
@@ -3719,6 +3767,15 @@ export default function FantasyHub({
         />
       )}
 
+      {weekOneWelcomeOpen && (
+        <WeekOneWelcome
+          isPro={entitlement.pro}
+          onRankings={() => closeWeekOneWelcome("rankings")}
+          onPro={() => closeWeekOneWelcome("pro")}
+          onDismiss={() => closeWeekOneWelcome("dismiss")}
+        />
+      )}
+
       {selectedPlayer && (
         <PlayerPanel
           key={selectedPlayer.id}
@@ -3730,6 +3787,39 @@ export default function FantasyHub({
     </main>
     </PlayerOpenContext.Provider>
     </ProjectionPlatformContext.Provider>
+  );
+}
+
+function WeekOneWelcome({ isPro, onRankings, onPro, onDismiss }: { isPro: boolean; onRankings: () => void; onPro: () => void; onDismiss: () => void }) {
+  useOverlayGuard();
+  useEffect(() => {
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onDismiss();
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [onDismiss]);
+  return createPortal(
+    <div className="week-one-welcome-backdrop" role="presentation">
+      <section className="week-one-welcome" role="dialog" aria-modal="true" aria-labelledby="week-one-welcome-title">
+        <button className="week-one-welcome-close close" type="button" aria-label="Close Week 1 welcome" onClick={onDismiss}>×</button>
+        <span className="week-one-welcome-kicker">WEEK 1 · GAME ON</span>
+        <div className="week-one-welcome-mark" aria-hidden="true"><FHLogo /></div>
+        <h2 id="week-one-welcome-title">The season is here.</h2>
+        <p>Your Week 1 rankings are ready—built from projection, ceiling, matchup strength, and game-day conditions.</p>
+        <button className="week-one-welcome-primary" type="button" onClick={onRankings}>
+          <span>OPEN WEEK 1</span>
+          <strong>View Player Rankings</strong>
+        </button>
+        {!isPro && (
+          <button className="week-one-welcome-secondary" type="button" onClick={onPro}>
+            Explore Fantasy Hub Pro
+          </button>
+        )}
+        <button className="week-one-welcome-later" type="button" onClick={onDismiss}>Not now</button>
+      </section>
+    </div>,
+    document.body,
   );
 }
 
@@ -8895,6 +8985,8 @@ function PlayerRanks({
   context,
   isPro,
   week,
+  rankingMode,
+  setRankingMode,
   onUpgrade,
   setSelectedPlayer,
 }: {
@@ -8903,10 +8995,11 @@ function PlayerRanks({
   context: RankingContext | null;
   isPro: boolean;
   week: number;
+  rankingMode: "season" | "weekly";
+  setRankingMode: (mode: "season" | "weekly") => void;
   onUpgrade: () => void;
   setSelectedPlayer: (player: Player) => void;
 }) {
-  const [rankingMode, setRankingMode] = useState<"season" | "weekly">("season");
   const [position, setPosition] = useState("ALL");
   const [query, setQuery] = useState("");
   const rosterNames = new Set(
@@ -8988,8 +9081,8 @@ function PlayerRanks({
         <button className={rankingMode === "season" ? "active" : ""} aria-pressed={rankingMode === "season"} onClick={() => setRankingMode("season")}>
           <span>SEASON</span><strong>Season-long tiers</strong>
         </button>
-        <button className={rankingMode === "weekly" ? "active" : ""} aria-pressed={rankingMode === "weekly"} onClick={() => setRankingMode("weekly")}>
-          <span>PRO · WEEK {Math.max(1, week)}</span><strong>Current weekly ranks</strong>
+        <button className={`weekly-ranking-toggle ${rankingMode === "weekly" ? "active" : ""}`} aria-pressed={rankingMode === "weekly"} onClick={() => setRankingMode("weekly")}>
+          <span>LIVE · WEEK {Math.max(1, week)}</span><strong>Open weekly rankings</strong><em>UPDATED</em>
         </button>
       </section>
       {rankingMode === "weekly" ? (

@@ -47,6 +47,7 @@ export async function persistAppleEntitlement(
       ownedBadgeThemesJson: JSON.stringify([...new Set(ownedBadgeThemes)]),
       pushPreferencesJson: current?.pushPreferencesJson ?? "{}",
       onboardingCompletedAt: current?.onboardingCompletedAt ?? null,
+      weekOneWelcomeSeenSeason: current?.weekOneWelcomeSeenSeason ?? null,
       updatedAt: now.toISOString(),
     };
     await db.insert(userPreferences).values(preferences).onConflictDoUpdate({
