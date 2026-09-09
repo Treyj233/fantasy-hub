@@ -5059,6 +5059,62 @@ function leagueIssueIcon(category: string, title = "") {
   return icons[category] ?? "⚑";
 }
 
+const FLEX_LINEUP_SLOTS = new Set([
+  "FLEX",
+  "WR_RB_FLEX",
+  "REC_FLEX",
+  "SUPER_FLEX",
+  "QB_FLEX",
+]);
+
+function flexTimingSwapCandidates(
+  starters: Player[],
+  games: WeatherGame[],
+  now = Date.now(),
+) {
+  const kickoffFor = (player: Player) => {
+    const game = games.find((item) =>
+      item.teams.includes(normalizeNflTeam(player.team)),
+    );
+    const kickoff = game ? Date.parse(game.date) : Number.NaN;
+    return Number.isFinite(kickoff) ? kickoff : null;
+  };
+  const candidates = starters.flatMap((earlyPlayer) => {
+    if (!FLEX_LINEUP_SLOTS.has(earlyPlayer.role)) return [];
+    const earlyKickoff = kickoffFor(earlyPlayer);
+    if (earlyKickoff == null || earlyKickoff <= now) return [];
+    const laterPlayer = starters
+      .filter((player) => {
+        if (player.id === earlyPlayer.id || player.position !== earlyPlayer.position)
+          return false;
+        if (FLEX_LINEUP_SLOTS.has(player.role)) return false;
+        const laterKickoff = kickoffFor(player);
+        return laterKickoff != null && laterKickoff - earlyKickoff >= 60 * 60_000;
+      })
+      .sort(
+        (left, right) =>
+          (kickoffFor(right) ?? 0) - (kickoffFor(left) ?? 0),
+      )[0];
+    const laterKickoff = laterPlayer ? kickoffFor(laterPlayer) : null;
+    return laterPlayer && laterKickoff != null
+      ? [{ earlyPlayer, laterPlayer, earlyKickoff, laterKickoff }]
+      : [];
+  });
+  return candidates.sort(
+    (left, right) =>
+      right.laterKickoff - right.earlyKickoff -
+      (left.laterKickoff - left.earlyKickoff),
+  );
+}
+
+function lineupKickoffLabel(kickoff: number) {
+  return new Intl.DateTimeFormat(undefined, {
+    weekday: "short",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date(kickoff));
+}
+
 function AllLeagues({
   leagues,
   cachedScans,
@@ -5322,6 +5378,17 @@ function AllLeagues({
               `Fantasy Hub projects a ${edge.toFixed(1)}-point improvement in ${formatRosterSlot(starter.role)}.`,
             ),
           );
+          const flexTimingSwap = flexTimingSwapCandidates(
+            starters,
+            weather?.games ?? [],
+          )[0];
+          if (flexTimingSwap)
+            addIssue(
+              "warning",
+              "Lineup",
+              `Move ${flexTimingSwap.earlyPlayer.name} out of ${formatRosterSlot(flexTimingSwap.earlyPlayer.role)}`,
+              `${flexTimingSwap.earlyPlayer.name} kicks off ${lineupKickoffLabel(flexTimingSwap.earlyKickoff)}. Swap ${flexTimingSwap.earlyPlayer.name} into ${formatRosterSlot(flexTimingSwap.laterPlayer.role)} and move ${flexTimingSwap.laterPlayer.name}, who kicks off ${lineupKickoffLabel(flexTimingSwap.laterKickoff)}, into ${formatRosterSlot(flexTimingSwap.earlyPlayer.role)} to preserve late-week lineup flexibility.`,
+            );
           const playingTeams = new Set(
             weather?.games.flatMap((game) => game.teams) ?? [],
           );
@@ -10184,7 +10251,10 @@ function fantasyTradeProfile(
   const marketGrade = typeof marketAdp === "number"
     ? ratingFromPercentile(100 * (1 - (Math.min(300, marketAdp) - 1) / 299))
     : null;
-  const marketWeight = marketGrade == null ? 0 : games < 4 ? 0.34 : games < 8 ? 0.26 : 0.18;
+  // Trade value should remain anchored to what managers are actually paying.
+  // Production and role can move a player off ADP, but should not erase a
+  // persistent market signal after only a partial season sample.
+  const marketWeight = marketGrade == null ? 0 : games < 4 ? 0.46 : games < 8 ? 0.36 : 0.25;
   const marketAdjustedTalent = clampTradeRating(
     trueTalent * (1 - marketWeight) + (marketGrade ?? trueTalent) * marketWeight,
   );
@@ -10300,14 +10370,29 @@ function tradePackageValueAdjustment(
   const topExpanded = Math.max(...expanded.map((asset) => asset.value));
   const extraPieces = expanded.length - consolidated.length;
   const concentration = topConsolidated / Math.max(1, consolidatedTotal);
-  const studFactor = Math.max(0, (topConsolidated - 55) / 44);
+  const studFactor = Math.max(0, (topConsolidated - 65) / 34);
   const qualityEdge = Math.max(0, (topConsolidated - topExpanded) / 44);
+  const topConsolidatedPlayer = Math.max(
+    0,
+    ...consolidated
+      .filter((asset) => asset.position !== "PICK")
+      .map((asset) => asset.value),
+  );
+  const starTierPremium = topConsolidatedPlayer >= 95
+    ? 16
+    : topConsolidatedPlayer >= 90
+      ? 11
+      : topConsolidatedPlayer >= 85
+        ? 7
+        : topConsolidatedPlayer >= 78
+          ? 3
+          : 0;
   const rosterDepth = context?.rosterSlots.length ?? 18;
-  const depthMultiplier = rosterDepth <= 18 ? 1.15 : rosterDepth >= 28 ? 0.8 : 1;
-  const adjustment = Math.min(24, Math.max(2, Math.round(
-    extraPieces * (2.5 + studFactor * 5) *
-      (0.75 + concentration * 0.5) * depthMultiplier +
-      qualityEdge * 5,
+  const depthMultiplier = rosterDepth <= 18 ? 1.25 : rosterDepth >= 28 ? 0.85 : 1;
+  const extraRosterSlotCost = extraPieces * (4.5 + studFactor * 7);
+  const adjustment = Math.min(45, Math.max(3, Math.round(
+    (extraRosterSlotCost + starTierPremium + qualityEdge * 9) *
+      (0.85 + concentration * 0.35) * depthMultiplier,
   )));
   return consolidatedSide === "send"
     ? { send: adjustment, receive: 0 }
@@ -10329,9 +10414,26 @@ function tradeAsset(
         ? profile.currentOverall * 0.6 + profile.dynastyOverall * 0.4
         : profile.currentOverall;
   const scarcityAdjustment = tradePositionAdjustment(player, ranking, context);
+  const marketRank = Math.min(
+    ranking?.overallRank ?? 999,
+    ranking?.compositeAdp ?? 999,
+  );
+  const leagueSize = context?.teams ?? 12;
+  const starPowerAdjustment = marketRank <= leagueSize
+    ? 8
+    : marketRank <= leagueSize * 2
+      ? 5
+      : marketRank <= leagueSize * 3
+        ? 2
+        : 0;
   const value = Math.max(
     8,
-    Math.min(99, Math.round((formatOverall - 55) * 2.25 + scarcityAdjustment)),
+    Math.min(
+      99,
+      Math.round(
+        (formatOverall - 55) * 2.25 + scarcityAdjustment + starPowerAdjustment,
+      ),
+    ),
   );
   return {
     id: player.id,

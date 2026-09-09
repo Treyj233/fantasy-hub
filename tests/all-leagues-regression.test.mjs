@@ -395,8 +395,11 @@ test("Trade Lab applies a visible consolidation adjustment to uneven packages", 
 
   assert.match(source, /function tradePackageValueAdjustment\(/);
   assert.match(source, /send\.length === receive\.length\) return empty/);
-  assert.match(source, /const studFactor = Math\.max\(0, \(topConsolidated - 55\) \/ 44\)/);
-  assert.match(source, /const depthMultiplier = rosterDepth <= 18 \? 1\.15 : rosterDepth >= 28 \? 0\.8 : 1/);
+  assert.match(source, /const studFactor = Math\.max\(0, \(topConsolidated - 65\) \/ 34\)/);
+  assert.match(source, /const starTierPremium = topConsolidatedPlayer >= 95/);
+  assert.match(source, /const extraRosterSlotCost = extraPieces \* \(4\.5 \+ studFactor \* 7\)/);
+  assert.match(source, /const depthMultiplier = rosterDepth <= 18 \? 1\.25 : rosterDepth >= 28 \? 0\.85 : 1/);
+  assert.match(source, /Math\.min\(45, Math\.max\(3/);
   assert.match(source, /calculatorAdjustedSendValue = calculatorSendValue \+ calculatorValueAdjustment\.send/);
   assert.match(source, /calculatorAdjustedReceiveValue = calculatorReceiveValue \+ calculatorValueAdjustment\.receive/);
   assert.match(source, /adjustment > 0 && <div className="deal-adjustment">/);

@@ -47,10 +47,12 @@ test("Trade Lab shares the season composite and applies dynasty cliffs plus leag
   assert.match(trade, /position === "RB"[\s\S]*?age === 26\) return -4;[\s\S]*?return -10 - \(age - 27\) \* 6/);
   assert.match(trade, /position === "WR"[\s\S]*?age === 29\) return -4;[\s\S]*?return -9 - \(age - 30\) \* 4\.5/);
   assert.match(composite, /context\?\.format === "Dynasty"[\s\S]*?player\.adpBySite\?\.\[sleeperAdpKey\], weight: 1/);
-  assert.match(trade, /games < 4 \? 0\.34 : games < 8 \? 0\.26 : 0\.18/);
+  assert.match(trade, /games < 4 \? 0\.46 : games < 8 \? 0\.36 : 0\.25/);
   assert.match(trade, /marketAdjustedTalent \* 0\.4 \+ futureOverall \* 0\.56 \+ availabilityGrade \* 0\.04/);
   assert.match(trade, /function tradePositionAdjustment/);
   assert.match(trade, /player\.position === "QB" && demand >= 1\.4/);
   assert.match(trade, /context\?\.tePremium \?\? 0/);
   assert.match(trade, /tradeAsset\(player, rankingById, context\)/);
+  assert.match(trade, /const starPowerAdjustment = marketRank <= leagueSize/);
+  assert.match(trade, /ranking\?\.compositeAdp \?\? 999/);
 });
