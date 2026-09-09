@@ -22,6 +22,8 @@ export type StoryFacts = {
 export type ValidationResult = {
   approvedForX: boolean;
   reasons: string[];
+  aiAudited?: boolean;
+  auditNotes?: string[];
 };
 
 const diagnosisPattern = /torn ACL|ACL tear|torn Achilles|Achilles tear|groin injury|hamstring injury|ankle injury|knee injury|calf injury|quad injury|shoulder injury|foot injury|toe injury|back injury|hip injury|concussion|turf toe|tweaked (?:his|her|their) (?:hamstring|ankle|knee|groin|calf|quad|shoulder|foot|toe|back|hip)/i;
@@ -109,6 +111,12 @@ export function validateStoryDraft(story: Story, context: PlayerContext | null, 
   if (context && headline.toLowerCase().split(context.player.toLowerCase()).length - 1 > 1) reasons.push("Headline repeats the subject name");
   if (story.category === "injury" && facts.diagnosis && !draft.toLowerCase().includes(facts.diagnosis.toLowerCase().replace(/^(?:tweaked)\s+(?:his|her|their)\s+/, ""))) reasons.push("Draft omits the reported injury detail");
   if (!/(?:WHY IT MATTERS|FANTASY IMPACT):/i.test(draft)) reasons.push("Fantasy impact is missing");
+  const impact = draft.match(/(?:WHY IT MATTERS|FANTASY IMPACT):\s*([^\n]+)/i)?.[1]?.trim() ?? "";
+  const concreteMechanism = /\b(?:active|inactive|availability|lineup|start|sit|touch(?:es)?|carr(?:y|ies)|target(?:s)?|snap(?:s)?|route(?:s)?|role|workload|backfield|depth chart|goal[- ]line|redraft|dynasty|superflex|2qb|waiver|faab|replacement|passing|rushing|receiving|draft price)\b/i;
+  if (impact && (!concreteMechanism.test(impact)
+    || /\b(?:changes?|affects?|impacts?) (?:his |her |their |the )?(?:fantasy )?(?:value|outlook)|creates? (?:a |an )?(?:fantasy )?opportunity|has fantasy implications|matters for fantasy\b/i.test(impact))) {
+    reasons.push("Fantasy impact does not identify a concrete role, workload, availability, or lineup mechanism");
+  }
   if (/adjust projections|monitor the depth chart|compare (?:this report )?(?:with )?(?:routes|targets|snaps)|routes, targets and snaps|\bhold on\b|\bawait (?:clarity|resolution|usage|an? update)\b/i.test(draft)) reasons.push("Fantasy impact uses vague boilerplate");
   if (isPracticeSetting(`${story.title} ${story.summary}`)
     && /(?:WHY IT MATTERS|FANTASY IMPACT):[\s\S]*\b(?:draft|add|waiver|buy|sell|boosts? (?:his )?(?:value|appeal))\b/i.test(draft)) reasons.push("A single practice report cannot trigger an acquisition or value change");

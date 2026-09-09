@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { estimatedWinProbability, gameLeverage, playerLeverage, rootingInterests, statLineEquivalent, whatDoINeed } from "../app/game-day-model.mjs";
+import { estimatedWinProbability, gameLeverage, isProjectedWin, playerLeverage, rootingInterests, statLineEquivalent, whatDoINeed } from "../app/game-day-model.mjs";
 
 test("player and game leverage rise with close multi-league exposure", () => {
   const exposures = [{ side: "you", margin: 2, remainingProjection: 18, state: "live" }, { side: "you", margin: -7, remainingProjection: 18, state: "pre" }];
@@ -20,6 +20,12 @@ test("win probability handles pregame, live, final, and missing projections", ()
   assert.ok(estimatedWinProbability({ yourPoints: 80, opponentPoints: 70, yourRemaining: 30, opponentRemaining: 10, status: "live" }) > 50);
   assert.equal(estimatedWinProbability({ yourPoints: 101, opponentPoints: 99, status: "final" }), 100);
   assert.equal(estimatedWinProbability({ yourPoints: 0, opponentPoints: 0, projectionsAvailable: false }), null);
+});
+
+test("projected record compares final projections directly and treats ties as wins", () => {
+  assert.equal(isProjectedWin({ yourPoints: 12, yourRemaining: 98, opponentPoints: 20, opponentRemaining: 89 }), true);
+  assert.equal(isProjectedWin({ yourPoints: 12, yourRemaining: 97, opponentPoints: 20, opponentRemaining: 89 }), true);
+  assert.equal(isProjectedWin({ yourPoints: 12, yourRemaining: 96.9, opponentPoints: 20, opponentRemaining: 89 }), false);
 });
 
 test("rooting interests explain conflicting ownership and points needed", () => {

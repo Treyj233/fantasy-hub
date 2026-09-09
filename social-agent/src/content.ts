@@ -9,6 +9,8 @@ export type Story = {
   publishedAt: string;
   category: StoryCategory;
   fantasyImpact?: string;
+  actionNow?: string;
+  nextTrigger?: string;
   reporter?: string;
   curator?: string;
   parentId?: string;
@@ -249,7 +251,10 @@ export function isPotentialTradeStory(text: string) {
 }
 
 const firstSentence = (value: string) => {
-  const protectedAbbreviations = value.replace(/\b(vs|mr|mrs|ms|dr|st)\./gi, "$1<period>");
+  const protectedAbbreviations = value
+    .replace(/\b(?:[A-Z]\.){2,}/g, (initials) => initials.replace(/\./g, "<period>"))
+    .replace(/\b(vs|mr|mrs|ms|dr|st|jr|sr)\./gi, "$1<period>")
+    .replace(/\bno\.(?=\s*\d)/gi, (abbreviation) => abbreviation.replace(".", "<period>"));
   return (protectedAbbreviations.split(/(?<=[.!?])\s+|\s+[•|]\s+/)[0] || protectedAbbreviations)
     .replace(/<period>/g, ".");
 };

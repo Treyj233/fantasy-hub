@@ -83,8 +83,8 @@ test("social agent is live, sourced, deduplicated, and rate limited", async () =
   assert.match(worker, /Live or media-dependent source cannot be summarized reliably/);
   assert.match(worker, /status IN \('draft', 'posted', 'feed_only'\)/);
   assert.match(worker, /const storyStatus = validation\.approvedForX \? "draft" : feedEligible \? "feed_only" : "suppressed"/);
-  assert.match(worker, /Approve by default/);
-  assert.match(worker, /Do not reject merely for tone or stylistic preference/);
+  assert.doesNotMatch(worker, /Approve by default/);
+  assert.doesNotMatch(worker, /Do not reject merely for tone or stylistic preference/);
   assert.match(worker, /WHERE status = 'draft' AND published_at >=/);
   assert.match(worker, /FEED_SUPPRESSION_MIGRATION/);
   assert.match(worker, /AND error IS NULL/);
@@ -103,6 +103,10 @@ test("social agent is live, sourced, deduplicated, and rate limited", async () =
   assert.match(worker, /parentIsPractice && category === "performance" \? "news"/);
   assert.match(worker, /story_evidence/);
   assert.match(worker, /critiqueForPublishing/);
+  assert.match(worker, /independent final source auditor/);
+  assert.match(worker, /AI source audit could not be completed/);
+  assert.match(worker, /requireCurrentAiPublishingAudit/);
+  assert.match(intelligence, /concrete role, workload, availability, or lineup mechanism/);
   assert.match(worker, /related_players_json/);
   assert.match(worker, /hydratedStories = await Promise\.all/);
   assert.match(worker, /filterRedundantFeedStories\(hydratedStories\)\.map\(feedStory\)/);
@@ -130,9 +134,9 @@ test("social agent is live, sourced, deduplicated, and rate limited", async () =
   assert.match(worker, /actionNow: the clearest justified action today/);
   assert.match(worker, /nextTrigger: the single specific future report/);
   assert.match(worker, /headline: a complete, standalone factual sentence under 94 characters/);
-  assert.match(worker, /whyItMatters: a clear complete thought under 108 characters/);
-  assert.match(worker, /reader-comprehension failure/);
-  assert.match(worker, /specific factual, player-safety, or reader-comprehension failure/);
+  assert.match(worker, /whyItMatters: one complete causal sentence under 108 characters/);
+  assert.match(worker, /Reject unsupported inferences, overstated certainty/);
+  assert.match(worker, /Audit every factual claim against the original evidence/);
   assert.doesNotMatch(content, /Monitor the depth chart and projections before making your next move/);
   assert.doesNotMatch(content, /Compare this report|routes, targets and snaps|before moving projections/);
   assert.match(worker, /const originalUrl = curated && reference && originalReporter/);
@@ -162,6 +166,56 @@ test("X drafts preserve a complete headline before fitting fantasy impact", asyn
   assert.match(post, /will miss Week 1 with a high ankle sprain\./);
   assert.match(post, /WHY IT MATTERS: [^\n]+[.!?]/);
   assert.doesNotMatch(post, /…|\.\.\./);
+});
+
+test("X feed keeps the headline and why-it-matters presentation with enriched context", async () => {
+  const { composeFantasyPost } = await import("../social-agent/src/content.ts");
+  const post = composeFantasyPost({
+    id: "recommended-feed-template",
+    title: "TreVeyon Henderson remained absent from Monday's practice.",
+    summary: "TreVeyon Henderson did not practice because of an ankle injury.",
+    url: "https://example.com/recommended-feed-template",
+    source: "@Patriots",
+    reporter: "@Patriots",
+    publishedAt: "2026-09-07T16:00:00.000Z",
+    category: "injury",
+    fantasyImpact: "Rhamondre Stevenson could handle a larger Week 1 workload.",
+    actionNow: "Hold Henderson until his game status is known.",
+    nextTrigger: "Tuesday's final injury designation.",
+  }, { player: "TreVeyon Henderson", position: "RB", team: "NE", backups: [], affectedPlayers: ["Rhamondre Stevenson"] });
+  assert.ok(post.length <= 280);
+  assert.match(post, /^🚨 INJURY PULSE\n\n/);
+  assert.match(post, /WHY IT MATTERS: Rhamondre Stevenson could handle a larger Week 1 workload\./);
+  assert.match(post, /Reported by @Patriots$/);
+  assert.doesNotMatch(post, /FANTASY IMPACT|NEXT CHECK|SOURCE:/);
+});
+
+test("headline extraction preserves player suffixes and numbered quarterback roles", async () => {
+  const { composeFantasyPost } = await import("../social-agent/src/content.ts");
+  const jrPost = composeFantasyPost({
+    id: "jr-headline",
+    title: "Marvin Harrison Jr. returned to full practice Monday. He is ready for Week 1.",
+    summary: "Marvin Harrison Jr. returned to full practice Monday.",
+    url: "https://example.com/jr-headline",
+    source: "@Cardinals",
+    publishedAt: "2026-09-07T16:00:00.000Z",
+    category: "injury",
+    fantasyImpact: "His return restores his Week 1 lineup viability.",
+  }, { player: "Marvin Harrison Jr.", position: "WR", team: "ARI", backups: [], affectedPlayers: [] });
+  const qbPost = composeFantasyPost({
+    id: "numbered-qb-headline",
+    title: "Kyle Trask was named QB No. 2 on Tampa Bay's depth chart. The role is official.",
+    summary: "Kyle Trask was named QB No. 2.",
+    url: "https://example.com/numbered-qb-headline",
+    source: "@Buccaneers",
+    publishedAt: "2026-09-07T16:00:00.000Z",
+    category: "depth-chart",
+    fantasyImpact: "Kyle Trask now holds the primary backup role.",
+  }, { player: "Kyle Trask", position: "QB", team: "TB", backups: [], affectedPlayers: [] });
+  assert.match(jrPost, /Marvin Harrison Jr\. returned to full practice Monday\./);
+  assert.doesNotMatch(jrPost, /Marvin Harrison Jr\.\n\n/);
+  assert.match(qbPost, /Kyle Trask was named QB No\. 2 on Tampa Bay's depth chart\./);
+  assert.doesNotMatch(qbPost, /named QB No\.\n\n/);
 });
 
 test("X impact fitting never turns a cut-off phrase into a sentence", async () => {

@@ -34,6 +34,7 @@ const DRAFT_FORMAT_VERSION = "x-editorial-v45-why-it-matters-full-names";
 const MANUAL_REPOST_KEY = "manual-repost-v42-complete-copy";
 const FEED_SUPPRESSION_MIGRATION = "feed-only-v43-soft-editorial-gate";
 const WHY_IT_MATTERS_VALIDATION_REPAIR = "why-it-matters-validation-v46";
+const AI_PUBLISHING_AUDIT_VERSION = "source-audit-v47";
 const RETRACTED_STORY_IDS = ["2090186160634986677", "2090197243202609473", "2090202303143747828", "2090517793737158739:2", "2090871356099379667"];
 
 type StoredStory = {
@@ -287,6 +288,17 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
     this.sql`INSERT OR REPLACE INTO agent_meta (key, value) VALUES (${FEED_SUPPRESSION_MIGRATION}, 'complete')`;
   }
 
+  private requireCurrentAiPublishingAudit() {
+    this.sql`CREATE TABLE IF NOT EXISTS agent_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)`;
+    const [completed] = [...this.sql<{ value: string }>`SELECT value FROM agent_meta WHERE key = ${AI_PUBLISHING_AUDIT_VERSION} LIMIT 1`];
+    if (completed?.value === "complete") return;
+    this.sql`UPDATE stories
+      SET status = 'feed_only', error = 'Requires the current source-to-draft AI audit before X publishing'
+      WHERE status = 'draft'
+        AND (validation_json IS NULL OR validation_json NOT LIKE '%"aiAudited":true%')`;
+    this.sql`INSERT OR REPLACE INTO agent_meta (key, value) VALUES (${AI_PUBLISHING_AUDIT_VERSION}, 'complete')`;
+  }
+
   private repairWhyItMattersValidation() {
     this.sql`CREATE TABLE IF NOT EXISTS agent_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)`;
     const [completed] = [...this.sql<{ value: string }>`SELECT value FROM agent_meta WHERE key = ${WHY_IT_MATTERS_VALIDATION_REPAIR} LIMIT 1`];
@@ -538,7 +550,7 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
           },
           {
             role: "user",
-            content: `Player: ${context.player} (${context.position}, ${context.team})\nCategory: ${story.category}\nPublished: ${story.publishedAt}\nSeason phase: ${seasonPhase(story.publishedAt)}\nSetting: ${isPracticeSetting(`${story.title} ${story.summary}`) ? "practice/camp" : "not identified as practice"}\nPotentially affected players you may name: ${candidates.length ? candidates.join(", ") : "none supplied"}\nSource material: ${story.title} ${story.summary}\n\nBuild a reader-first editorial brief, then write one X post package.\n- whatChanged: one plain-language sentence stating the new fact, not that an update exists.\n- fantasyMeaning: explain the football-to-fantasy connection. Name the role, availability, workload, target competition, lineup status, or value mechanism only when supported.\n- actionNow: the clearest justified action today: start, sit, add, stash, trade, hold, or make no move.\n- nextTrigger: the single specific future report, status, or usage signal that would change actionNow.\n- headline: a complete, standalone factual sentence under 94 characters${isCurated ? " that paraphrases the source" : ""}. Use the player's full name, concrete development, and essential timing/context. Never identify a player by surname alone. Never write “updated,” “has an update,” “situation develops,” or a teaser.\n- whyItMatters: a clear complete thought under 108 characters explaining the fantasy consequence and its cause. Focus on what the development changes about availability, role, workload, competition, lineup viability, or value. Do not turn this field into a recommendation or “next move.” Use full names for every player; never use a surname alone.\n\nThese limits are firm because the label and source credit must fit inside X's 280-character limit. Injury meaning must reflect timing, severity, and season phase. A single practice stat line cannot establish a value change; explain only the role evidence it provides. Playing most or all of a preseason game can indicate evaluation or a reserve role. Do not connect a quarterback report to a pass catcher unless the evidence establishes the effect. A preseason scoring play can improve watchlist appeal, but repeat first-team or scoring-area usage is still needed to confirm the role. Only name supplied players. Avoid jargon, vague pronouns, canned metric lists, recommendations, calls to action, and phrases such as “adjust projections,” “monitor the depth chart,” or “compare routes, targets and snaps.” Do not use ellipses, dangling clauses, or sentence fragments.`,
+            content: `Player: ${context.player} (${context.position}, ${context.team})\nCategory: ${story.category}\nPublished: ${story.publishedAt}\nSeason phase: ${seasonPhase(story.publishedAt)}\nSetting: ${isPracticeSetting(`${story.title} ${story.summary}`) ? "practice/camp" : "not identified as practice"}\nPotentially affected players you may name: ${candidates.length ? candidates.join(", ") : "none supplied"}\nSource material: ${story.title} ${story.summary}\n\nBuild a reader-first editorial brief, then write one X post package.\n- whatChanged: one plain-language sentence stating the new fact, not that an update exists.\n- fantasyMeaning: explain the football-to-fantasy connection. Name the role, availability, workload, target competition, lineup status, or value mechanism only when supported.\n- actionNow: the clearest justified action today: start, sit, add, stash, trade, hold, or make no move.\n- nextTrigger: the single specific future report, status, or usage signal that would change actionNow.\n- headline: a complete, standalone factual sentence under 94 characters${isCurated ? " that paraphrases the source" : ""}. Use the player's full name, concrete development, and essential timing/context. Never identify a player by surname alone. Never write “updated,” “has an update,” “situation develops,” or a teaser.\n- whyItMatters: one complete causal sentence under 108 characters. Name the affected player and state the direction of change plus the exact fantasy mechanism—availability, lineup viability, touches, targets, snaps, role competition, replacement workload, or format-specific value. Explain what changes and why. Never write generic claims such as “changes his fantasy value,” “creates an opportunity,” “has fantasy implications,” or “matters for fantasy.” Do not turn this field into a recommendation or next move. Use full names for every player; never use a surname alone.\n\nThese limits are firm because the label and source credit must fit inside X's 280-character limit. Injury meaning must reflect timing, severity, and season phase. A single practice stat line cannot establish a value change; explain only the role evidence it provides. Playing most or all of a preseason game can indicate evaluation or a reserve role. Do not connect a quarterback report to a pass catcher unless the evidence establishes the effect. A preseason scoring play can improve watchlist appeal, but repeat first-team or scoring-area usage is still needed to confirm the role. Only name supplied players. Avoid jargon, vague pronouns, canned metric lists, recommendations, calls to action, and phrases such as “adjust projections,” “monitor the depth chart,” or “compare routes, targets and snaps.” Do not use ellipses, dangling clauses, or sentence fragments.`,
           },
         ],
         response_format: {
@@ -567,12 +579,15 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
         || typeof parsed.headline !== "string" || typeof parsed.whyItMatters !== "string") return story;
       const headline = parsed.headline.replace(/\s+/g, " ").trim();
       const whyItMatters = parsed.whyItMatters.replace(/\s+/g, " ").trim();
+      const actionNow = parsed.actionNow.replace(/\s+/g, " ").trim();
+      const nextTrigger = parsed.nextTrigger.replace(/\s+/g, " ").trim();
       const danglingThought = /\b(?:and|but|or|because|after|before|with|without|if|when|while|that|who|to|for|from|as|the|a|an)[.!?]?$/i;
       const vagueHeadline = /\b(?:has|gets|receives|shares?) (?:a |an )?(?:new )?update\b|\bsituation (?:develops?|changes?)\b/i;
       const vagueImpact = /\b(?:keep an eye on|worth watching|monitor (?:the )?situation|wait and see|could have fantasy implications)\b/i;
       if (!headline || headline.length > 94 || danglingThought.test(headline) || vagueHeadline.test(headline)
-        || !whyItMatters || whyItMatters.length > 108 || danglingThought.test(whyItMatters) || vagueImpact.test(whyItMatters)) return story;
-      return { ...story, title: headline, fantasyImpact: whyItMatters };
+        || !whyItMatters || whyItMatters.length > 108 || danglingThought.test(whyItMatters) || vagueImpact.test(whyItMatters)
+        || !actionNow || !nextTrigger || danglingThought.test(nextTrigger)) return story;
+      return { ...story, title: headline, fantasyImpact: whyItMatters, actionNow, nextTrigger };
     } catch (error) {
       console.warn(JSON.stringify({ event: "story_enrichment_fallback", storyId: story.id, error: error instanceof Error ? error.message : "Unknown enrichment error" }));
       return story;
@@ -692,8 +707,8 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
     try {
       const result = await this.env.AI.run("@cf/meta/llama-3.3-70b-instruct-fp8-fast", {
         messages: [
-          { role: "system", content: "You are the final safety and clarity editor for a fantasy-football news account. The deterministic checks already approved relevance and length. Approve by default. Reject for a material factual or player-safety failure, or when the wording is so vague that a reader cannot identify the development or why it matters for fantasy. Material failures include inventing or overstating a central fact, identifying the wrong event or player, naming an unlisted beneficiary, converting preseason/practice evidence into a regular-season conclusion, using a teaser instead of the reported fact, explaining no understandable fantasy consequence, or identifying a player by surname alone. Do not reject merely for tone or stylistic preference. Return JSON only." },
-          { role: "user", content: `Source evidence: ${story.summary}\nStructured facts: ${JSON.stringify(facts)}\nAllowed affected-player names: ${JSON.stringify(context ? [...new Set([...context.affectedPlayers, ...context.backups])] : [])}\nDraft: ${draft}\nApprove unless you can identify a specific factual, player-safety, or reader-comprehension failure. Confirm that the headline states what changed, every player is identified by full name, and WHY IT MATTERS explains the concrete fantasy consequence and its cause without becoming a next-move recommendation. Reasons must name the concrete conflict or missing meaning, not an editorial preference.` },
+          { role: "system", content: "You are the independent final source auditor for a fantasy-football news account. Compare the proposed post directly with the supplied source evidence. Approve only after positively verifying factual fidelity, player identity, time/season context, and a concrete causal fantasy explanation. Reject unsupported inferences, overstated certainty, wrong players or events, practice/preseason conclusions presented as regular-season facts, surname-only references, vague headlines, and generic fantasy commentary. WHY IT MATTERS must say who is affected, what specifically changes, and the supported role, workload, availability, lineup, or format mechanism causing it. Return JSON only." },
+          { role: "user", content: `Original source evidence: ${story.summary}\nStructured facts: ${JSON.stringify(facts)}\nResolved subject: ${context?.player ?? "weather report"}\nAllowed affected-player names: ${JSON.stringify(context ? [...new Set([...context.affectedPlayers, ...context.backups])] : [])}\nProposed X post: ${draft}\nAudit every factual claim against the original evidence. Approve only if the headline clearly states the actual development and WHY IT MATTERS gives a specific, supported causal fantasy consequence rather than “changes value,” “creates opportunity,” or similar filler. Return a short verification note when approved; otherwise name each exact conflict or missing mechanism.` },
         ],
         response_format: {
           type: "json_schema",
@@ -708,13 +723,15 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
         temperature: 0,
       });
       const parsed = parseAiResponse<{ approved?: unknown; reasons?: unknown }>(result);
-      if (!parsed) return validation;
-      if (typeof parsed.approved !== "boolean" || !Array.isArray(parsed.reasons)) return validation;
+      if (!parsed) return { approvedForX: false, reasons: ["AI source audit returned no usable result"], aiAudited: false };
+      if (typeof parsed.approved !== "boolean" || !Array.isArray(parsed.reasons)) return { approvedForX: false, reasons: ["AI source audit returned an invalid result"], aiAudited: false };
       const reasons = parsed.reasons.filter((reason): reason is string => typeof reason === "string").slice(0, 4);
-      return parsed.approved ? validation : { approvedForX: false, reasons: reasons.length ? reasons : ["AI critic rejected the publishing draft"] };
+      return parsed.approved
+        ? { ...validation, aiAudited: true, auditNotes: reasons.length ? reasons : ["Source fidelity and fantasy mechanism verified"] }
+        : { approvedForX: false, reasons: reasons.length ? reasons : ["AI source audit rejected the publishing draft"], aiAudited: true, auditNotes: reasons };
     } catch (error) {
       console.warn(JSON.stringify({ event: "publishing_critic_fallback", storyId: story.id, error: error instanceof Error ? error.message : "Unknown critic error" }));
-      return validation;
+      return { approvedForX: false, reasons: ["AI source audit could not be completed"], aiAudited: false };
     }
   }
 
@@ -867,6 +884,7 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
       this.migrateDraftFormat();
       this.migrateFeedOnlyStories();
       this.repairWhyItMattersValidation();
+      this.requireCurrentAiPublishingAudit();
       // Remove drafts created by the retired RSS source. X-origin stories use an @handle.
       this.sql`DELETE FROM stories WHERE source NOT LIKE '@%' AND source != 'weather'`;
       this.sql`UPDATE stories

@@ -39,6 +39,11 @@ export function estimatedWinProbability({ yourPoints, opponentPoints, yourRemain
   return Math.round(Math.max(1, Math.min(99, probability)) / 5) * 5;
 }
 
+/** Compares projected final scores directly. Exact ties count as wins. */
+export function isProjectedWin({ yourPoints, opponentPoints, yourRemaining = 0, opponentRemaining = 0 }) {
+  return yourPoints + yourRemaining >= opponentPoints + opponentRemaining;
+}
+
 export function rootingInterests(exposures) {
   const byPlayer = new Map();
   for (const exposure of exposures) byPlayer.set(exposure.playerId, [...(byPlayer.get(exposure.playerId) ?? []), exposure]);

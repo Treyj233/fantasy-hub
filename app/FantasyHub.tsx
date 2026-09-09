@@ -3,7 +3,7 @@
 import { Fragment, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type MouseEvent } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
-import { estimatedWinProbability, playerLeverage, rootingInterests, whatDoINeed } from "./game-day-model.mjs";
+import { estimatedWinProbability, isProjectedWin, playerLeverage, rootingInterests, whatDoINeed } from "./game-day-model.mjs";
 import { classifyFantasyPlay, findConfirmedPlayContext, matchupImpactText } from "./live-play-alerts.mjs";
 import { PRE_KICKOFF_VISUALS_ENABLED } from "./pre-kickoff-visuals";
 import { DEFAULT_PUSH_PREFERENCES, type PushAlertKey, type PushPreferences } from "./push-preferences";
@@ -5676,14 +5676,15 @@ function AllLeagues({
               <br />
               <em>Every league covered.</em>
             </h2>
-            <button className="personalize-hub" onClick={onPersonalize}>
+            <button className="personalize-hub" onClick={onPersonalize} aria-label="Personalize your Fantasy Hub with team colors, themes, and icon packs">
               <i className="personalize-artwork" aria-hidden="true">
                 <span />
                 <span />
                 <span />
               </i>
-              <span><strong>Personalize Your Hub</strong><small>Themes &amp; icon packs</small></span>
+              <span><strong>Make Your Hub Yours</strong><small>Team colors, themes &amp; icons</small></span>
               {!isPro && <b>PRO</b>}
+              <em aria-hidden="true">→</em>
             </button>
           </div>
         </div>
@@ -6376,7 +6377,12 @@ function AllLeagueScoreboard({
     (a, b) => dramaScore(matchupByLeague.get(b.id)) - dramaScore(matchupByLeague.get(a.id)),
   );
   const hiddenScoreCount = Math.max(0, orderedLeagues.length - 2);
-  const projectedWins = gameDay.matchups.filter((item) => (item.winProbability ?? 0) >= 50).length;
+  const projectedWins = gameDay.matchups.filter((item) => isProjectedWin({
+    yourPoints: item.mine.points,
+    opponentPoints: item.opponent.points,
+    yourRemaining: item.mineRemaining,
+    opponentRemaining: item.opponentRemaining,
+  })).length;
   const closest = [...gameDay.matchups].sort((a, b) => Math.abs((a.winProbability ?? 50) - 50) - Math.abs((b.winProbability ?? 50) - 50))[0];
   const statusPulseItems = [
     gameDay.matchups.some((item) => item.status === "live")
@@ -6486,7 +6492,7 @@ function AllLeagueScoreboard({
       <section className="game-day-command panel">
         <header><div><span>GAME DAY COMMAND CENTER</span><h3>What matters across your portfolio</h3></div></header>
         <div className="game-day-metrics">
-          <article><span>PROJECTED RECORD</span><strong>{gameDay.matchups.filter((item) => (item.winProbability ?? 0) >= 50).length}–{gameDay.matchups.filter((item) => (item.winProbability ?? 100) < 50).length}</strong><small>Based on estimated win probability</small></article>
+          <article><span>PROJECTED RECORD</span><strong>{projectedWins}–{Math.max(0, gameDay.matchups.length - projectedWins)}</strong><small>Based on projected final scores</small></article>
           <article><span>CLOSE MATCHUPS</span><strong>{gameDay.matchups.filter((item) => Math.abs(item.mine.points + item.mineRemaining - item.opponent.points - item.opponentRemaining) <= 12).length}</strong><small>Projected margin within 12</small></article>
           <article><span>PLAYERS ACTIVE</span><strong>{gameDay.activePlayers}</strong><small>{gameDay.remainingPlayers} remaining · {gameDay.completedPlayers} completed</small></article>
           <article><span>HIGHEST LEVERAGE</span><strong>{gameDay.leveragePlayers[0]?.name ?? "Waiting for lineups"}</strong><small>{gameDay.leveragePlayers[0] ? `${gameDay.leveragePlayers[0].level} · ${gameDay.leveragePlayers[0].score}/100 attention score` : "No direct exposure yet"}</small></article>
