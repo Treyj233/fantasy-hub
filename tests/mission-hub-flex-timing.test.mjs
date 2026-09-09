@@ -13,7 +13,9 @@ test("Mission Hub warns when an earlier player occupies FLEX over a later same-p
   assert.match(source, /player\.position !== earlyPlayer\.position/);
   assert.match(source, /laterKickoff - earlyKickoff >= 60 \* 60_000/);
   assert.match(source, /earlyKickoff <= now/);
-  assert.match(source, /Move \$\{flexTimingSwap\.earlyPlayer\.name\} out of/);
+  assert.match(source, /Swap lineup slots: \$\{flexTimingSwap\.earlyPlayer\.name\} ↔ \$\{flexTimingSwap\.laterPlayer\.name\}/);
+  assert.match(source, /Keep both players in your starting lineup/);
+  assert.match(source, /do not bench either player/);
   assert.match(source, /preserve late-week lineup flexibility/);
 });
 

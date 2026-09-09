@@ -5386,8 +5386,8 @@ function AllLeagues({
             addIssue(
               "warning",
               "Lineup",
-              `Move ${flexTimingSwap.earlyPlayer.name} out of ${formatRosterSlot(flexTimingSwap.earlyPlayer.role)}`,
-              `${flexTimingSwap.earlyPlayer.name} kicks off ${lineupKickoffLabel(flexTimingSwap.earlyKickoff)}. Swap ${flexTimingSwap.earlyPlayer.name} into ${formatRosterSlot(flexTimingSwap.laterPlayer.role)} and move ${flexTimingSwap.laterPlayer.name}, who kicks off ${lineupKickoffLabel(flexTimingSwap.laterKickoff)}, into ${formatRosterSlot(flexTimingSwap.earlyPlayer.role)} to preserve late-week lineup flexibility.`,
+              `Swap lineup slots: ${flexTimingSwap.earlyPlayer.name} ↔ ${flexTimingSwap.laterPlayer.name}`,
+              `Keep both players in your starting lineup. Put ${flexTimingSwap.earlyPlayer.name}, who kicks off ${lineupKickoffLabel(flexTimingSwap.earlyKickoff)}, in the ${formatRosterSlot(flexTimingSwap.laterPlayer.role)} slot. Put ${flexTimingSwap.laterPlayer.name}, who kicks off ${lineupKickoffLabel(flexTimingSwap.laterKickoff)}, in the ${formatRosterSlot(flexTimingSwap.earlyPlayer.role)} slot. This is only a slot swap to preserve late-week lineup flexibility; do not bench either player.`,
             );
           const playingTeams = new Set(
             weather?.games.flatMap((game) => game.teams) ?? [],
