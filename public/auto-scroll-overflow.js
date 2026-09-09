@@ -65,15 +65,15 @@
         if (!state) continue;
         const distance = Math.max(0, element.scrollWidth - element.clientWidth);
         if (distance < 3) continue;
-        const pause = 1100;
+        const pause = 900;
+        const endPause = 700;
         const travel = Math.max(1500, Math.min(6000, distance * 24));
-        const cycle = pause * 2 + travel * 2;
+        const cycle = pause + travel + endPause;
         const phase = (now - state.startedAt) % cycle;
         let position = 0;
         if (phase < pause) position = 0;
         else if (phase < pause + travel) position = distance * ((phase - pause) / travel);
-        else if (phase < pause * 2 + travel) position = distance;
-        else position = distance * (1 - ((phase - pause * 2 - travel) / travel));
+        else position = distance;
         element.scrollLeft = position;
       }
     }

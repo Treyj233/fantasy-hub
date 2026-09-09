@@ -4,6 +4,7 @@ import test from "node:test";
 
 test("clipped single-line dashboard text auto-scrolls without affecting fitting text", async () => {
   const source = await readFile(new URL("../app/use-overflow-auto-scroll.ts", import.meta.url), "utf8");
+  const fallback = await readFile(new URL("../public/auto-scroll-overflow.js", import.meta.url), "utf8");
   const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
   assert.match(source, /element\.scrollWidth - element\.clientWidth/);
   assert.match(source, /overflow > 3/);
@@ -13,4 +14,8 @@ test("clipped single-line dashboard text auto-scrolls without affecting fitting 
   assert.match(styles, /@keyframes overflow-text-pan/);
   assert.match(styles, /prefers-reduced-motion:reduce/);
   assert.match(styles, /animation-play-state:paused/);
+  assert.match(styles, /animation:overflow-text-pan[^}]*linear/);
+  assert.match(styles, /88%,100%\{text-indent:var\(--overflow-pan,0\)\}/);
+  assert.match(fallback, /const cycle = pause \+ travel \+ endPause/);
+  assert.doesNotMatch(fallback, /distance \* \(1 -/);
 });

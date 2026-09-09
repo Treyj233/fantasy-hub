@@ -1147,9 +1147,9 @@ html[data-theme="dark"] .team-position-room{background:#20242c;border-color:#404
 
 /* Single-line labels that are truly clipped pan gently while the dashboard is
    idle. JS supplies the exact overflow distance, so short labels remain still. */
-.overflow-auto-scroll{overflow:hidden;text-overflow:clip!important;animation:overflow-text-pan var(--overflow-duration,9s) ease-in-out var(--overflow-delay,0s) infinite}
+.overflow-auto-scroll{overflow:hidden;text-overflow:clip!important;animation:overflow-text-pan var(--overflow-duration,9s) linear var(--overflow-delay,0s) infinite}
 .overflow-auto-scroll:hover,.overflow-auto-scroll:focus,.overflow-auto-scroll:focus-visible{animation-play-state:paused}
-@keyframes overflow-text-pan{0%,18%{text-indent:0}72%,90%{text-indent:var(--overflow-pan,0)}100%{text-indent:0}}
+@keyframes overflow-text-pan{0%,16%{text-indent:0}88%,100%{text-indent:var(--overflow-pan,0)}}
 @media(prefers-reduced-motion:reduce){.overflow-auto-scroll{animation:none!important;text-overflow:ellipsis!important}}
 
 /* Team Rankings power board: uses the same layered, theme-responsive sports
