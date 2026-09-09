@@ -630,8 +630,6 @@ html[data-native-platform="ios"] .auth-landing{box-sizing:border-box;height:100s
 .mission-title-row .personalize-hub:before{position:absolute;z-index:0;inset:2px;border:1px solid rgb(69 43 0/.18);border-radius:12px;content:"";pointer-events:none}
 .mission-title-row .personalize-hub>span strong{font-family:var(--font-geist-sans),Arial,sans-serif;font-size:14px;font-style:normal;font-weight:950;letter-spacing:-.025em;line-height:1.08;text-transform:none}
 .mission-title-row .personalize-hub>span small{margin-top:5px;font-family:var(--font-geist-sans),Arial,sans-serif;font-size:8px;font-style:normal;font-weight:900;letter-spacing:.075em}
-.mission-title-row .personalize-hub>em{position:relative;z-index:1;display:grid;width:27px;height:27px;flex:0 0 27px;place-items:center;color:#fff;background:#10251b;border:1px solid rgb(255 255 255/.3);border-radius:50%;font-family:Arial,sans-serif;font-size:17px;font-style:normal;font-weight:900;box-shadow:0 5px 12px rgb(0 0 0/.3);transition:transform .18s ease}
-.mission-title-row .personalize-hub:hover>em,.mission-title-row .personalize-hub:focus-visible>em{transform:translateX(3px)}
 .mission-title-row .personalize-hub:focus-visible{outline:3px solid #fff;outline-offset:4px}
 @media(prefers-reduced-motion:reduce){.mission-title-row .personalize-hub{animation:none}.mission-title-row .personalize-hub:after{display:none}}
 @media(max-width:700px){.mission-title-row .personalize-hub{box-sizing:border-box;width:100%;min-height:58px;align-self:stretch}.mission-title-row .personalize-hub>span{flex:1}.mission-title-row .personalize-hub>span strong{font-size:13px}}

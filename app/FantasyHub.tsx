@@ -5682,9 +5682,8 @@ function AllLeagues({
                 <span />
                 <span />
               </i>
-              <span><strong>Make Your Hub Yours</strong><small>Team colors, themes &amp; icons</small></span>
+              <span><strong>Customize Your Hub</strong><small>Team colors, themes &amp; icons</small></span>
               {!isPro && <b>PRO</b>}
-              <em aria-hidden="true">→</em>
             </button>
           </div>
         </div>

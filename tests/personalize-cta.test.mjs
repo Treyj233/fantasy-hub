@@ -8,7 +8,8 @@ test("Mission Hub personalization is presented as a primary conversion action", 
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
   ]);
 
-  assert.match(source, /Make Your Hub Yours/);
+  assert.match(source, /Customize Your Hub/);
+  assert.doesNotMatch(source, /<em aria-hidden="true">→<\/em>/);
   assert.match(source, /Team colors, themes &amp; icons/);
   assert.match(source, /aria-label="Personalize your Fantasy Hub/);
   assert.match(styles, /@keyframes personalize-hub-pulse/);
