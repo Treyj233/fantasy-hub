@@ -9171,7 +9171,8 @@ function WeeklyPlayerRankings({
         const range = ranges.get(player.id) ?? matchupAdjustedRange(player);
         const projectionScore = (projection / maxProjection) * 100;
         const ceilingScore = (range.ceiling / maxCeiling) * 100;
-        const weeklyScore = projectionScore * .7 + ceilingScore * .3;
+        const matchupScore = player.matchupStrength?.score ?? 50;
+        const weeklyScore = projectionScore * .65 + ceilingScore * .3 + matchupScore * .05;
         return { ...player, weeklyProjection: projection, weeklyCeiling: range.ceiling, weeklyScore };
       })
       .sort((a, b) => b.weeklyScore - a.weeklyScore || b.weeklyProjection - a.weeklyProjection)
