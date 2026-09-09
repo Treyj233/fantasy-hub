@@ -2922,7 +2922,7 @@ export default function FantasyHub({
       onboardingTourOpen ||
       importState !== "success" ||
       !leagueId ||
-      leagueWeek !== 1 ||
+      defaultGameWeek !== 1 ||
       weekOneWelcomeSeenSeason === leagueSeason ||
       weekOneWelcomeCheckedSeason.current === leagueSeason
     ) return;
@@ -2937,7 +2937,7 @@ export default function FantasyHub({
       void nativeLogAppsFlyerEvent("week_one_welcome_view", { season: leagueSeason, week: 1 });
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [accountLoading, accountUser, importState, leagueId, leagueSeason, leagueWeek, onboardingTourOpen, weekOneWelcomeSeenSeason]);
+  }, [accountLoading, accountUser, defaultGameWeek, importState, leagueId, leagueSeason, onboardingTourOpen, weekOneWelcomeSeenSeason]);
 
   function closeWeekOneWelcome(action: "rankings" | "pro" | "dismiss") {
     setWeekOneWelcomeOpen(false);
