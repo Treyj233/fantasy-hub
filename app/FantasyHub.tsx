@@ -5107,14 +5107,6 @@ function flexTimingSwapCandidates(
   );
 }
 
-function lineupKickoffLabel(kickoff: number) {
-  return new Intl.DateTimeFormat(undefined, {
-    weekday: "short",
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(new Date(kickoff));
-}
-
 function AllLeagues({
   leagues,
   cachedScans,
@@ -5387,7 +5379,7 @@ function AllLeagues({
               "warning",
               "Lineup",
               `Preserve roster flexibility: swap your ${formatRosterSlot(flexTimingSwap.earlyPlayer.role)} position`,
-              `Keep both players in your starting lineup. Move ${flexTimingSwap.earlyPlayer.name}, who kicks off ${lineupKickoffLabel(flexTimingSwap.earlyKickoff)}, from ${formatRosterSlot(flexTimingSwap.earlyPlayer.role)} to ${flexTimingSwap.laterPlayer.name}'s ${formatRosterSlot(flexTimingSwap.laterPlayer.role)} position. Move ${flexTimingSwap.laterPlayer.name}, who kicks off ${lineupKickoffLabel(flexTimingSwap.laterKickoff)}, into ${formatRosterSlot(flexTimingSwap.earlyPlayer.role)}. Keeping the later-playing player in the ${formatRosterSlot(flexTimingSwap.earlyPlayer.role)} position preserves more roster flexibility if news breaks before kickoff; do not bench either player.`,
+              `Swap ${flexTimingSwap.earlyPlayer.name} in your ${formatRosterSlot(flexTimingSwap.earlyPlayer.role)} position with ${flexTimingSwap.laterPlayer.name} to preserve roster flexibility.`,
             );
           const playingTeams = new Set(
             weather?.games.flatMap((game) => game.teams) ?? [],

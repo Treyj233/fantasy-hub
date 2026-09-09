@@ -14,10 +14,8 @@ test("Mission Hub warns when an earlier player occupies FLEX over a later same-p
   assert.match(source, /laterKickoff - earlyKickoff >= 60 \* 60_000/);
   assert.match(source, /earlyKickoff <= now/);
   assert.match(source, /Preserve roster flexibility: swap your \$\{formatRosterSlot\(flexTimingSwap\.earlyPlayer\.role\)\} position/);
-  assert.match(source, /Keep both players in your starting lineup/);
-  assert.match(source, /later-playing player in the \$\{formatRosterSlot\(flexTimingSwap\.earlyPlayer\.role\)\} position preserves more roster flexibility/);
-  assert.match(source, /do not bench either player/);
-  assert.match(source, /preserves more roster flexibility/);
+  assert.match(source, /Swap \$\{flexTimingSwap\.earlyPlayer\.name\} in your \$\{formatRosterSlot\(flexTimingSwap\.earlyPlayer\.role\)\} position with \$\{flexTimingSwap\.laterPlayer\.name\} to preserve roster flexibility/);
+  assert.doesNotMatch(source, /Keep both players in your starting lineup/);
 });
 
 test("Mission Hub flex timing uses real schedule dates and supports every flex slot", async () => {
@@ -29,5 +27,4 @@ test("Mission Hub flex timing uses real schedule dates and supports every flex s
   for (const slot of ["FLEX", "WR_RB_FLEX", "REC_FLEX", "SUPER_FLEX", "QB_FLEX"])
     assert.match(source, new RegExp(`"${slot}"`));
   assert.match(source, /Date\.parse\(game\.date\)/);
-  assert.match(source, /weekday: "short"/);
 });
