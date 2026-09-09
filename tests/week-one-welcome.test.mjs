@@ -22,4 +22,6 @@ test("Week 1 welcome is account-aware and opens weekly rankings", async () => {
   assert.match(dashboard, /week_one_welcome_view/);
   assert.match(dashboard, /week_one_welcome_action/);
   assert.match(styles, /\.week-one-welcome-backdrop/);
+  assert.match(styles, /max-height:calc\(100dvh - 20px - env\(safe-area-inset-top\) - env\(safe-area-inset-bottom\)\)/);
+  assert.match(styles, /overflow-y:auto/);
 });
