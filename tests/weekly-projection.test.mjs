@@ -27,3 +27,14 @@ test("Start Sit normalizes every player to the platform-first weekly projection"
   assert.match(component, /const openPlayer = useContext\(PlayerOpenContext\)/);
   assert.match(component, /rememberDecision\([\s\S]*?openPlayer\(player\)/);
 });
+
+test("Start Sit fixes free accounts at balanced aggression", async () => {
+  const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
+  const start = source.indexOf("function StartSit(");
+  const end = source.indexOf("type WaiverAddDropPlan", start);
+  const component = source.slice(start, end);
+
+  assert.match(component, /const aggressiveness = isPro \? proAggressiveness : 50/);
+  assert.match(component, /value=\{aggressiveness\}[\s\S]*?disabled=\{!isPro\}/);
+  assert.match(component, /Free accounts use a fixed balanced model/);
+});

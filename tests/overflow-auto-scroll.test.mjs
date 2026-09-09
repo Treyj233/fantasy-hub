@@ -11,11 +11,11 @@ test("clipped single-line dashboard text auto-scrolls without affecting fitting 
   assert.match(source, /prefers-reduced-motion: reduce/);
   assert.match(source, /MutationObserver/);
   assert.match(source, /ResizeObserver/);
-  assert.match(styles, /@keyframes overflow-text-pan/);
   assert.match(styles, /prefers-reduced-motion:reduce/);
-  assert.match(styles, /animation-play-state:paused/);
-  assert.match(styles, /animation:overflow-text-pan[^}]*linear/);
-  assert.match(styles, /88%,100%\{text-indent:var\(--overflow-pan,0\)\}/);
-  assert.match(fallback, /const cycle = pause \+ travel \+ endPause/);
-  assert.doesNotMatch(fallback, /distance \* \(1 -/);
+  assert.match(styles, /\.fh-marquee-track/);
+  assert.match(fallback, /track\.append\(first, second\)/);
+  assert.match(fallback, /second\.setAttribute\("aria-hidden", "true"\)/);
+  assert.match(fallback, /const loopDistance = state\.first\.getBoundingClientRect\(\)\.width/);
+  assert.match(fallback, /translate3d/);
+  assert.doesNotMatch(fallback, /element\.scrollLeft = position/);
 });

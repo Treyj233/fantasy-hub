@@ -7,8 +7,11 @@ body { margin:0; color:var(--ink); background:var(--cream); font-family:var(--fo
 @media(max-width:700px){html,body{min-height:100%;background-color:#f4f7f5}html[data-theme="dark"],html[data-theme="dark"] body{background-color:#181b22}body{overscroll-behavior-y:none}}
 button,input,select { font:inherit; }
 button { cursor:pointer; }
-.fh-auto-scroll-text { text-overflow:clip!important; scrollbar-width:none; }
+.fh-auto-scroll-text { overflow:hidden!important; text-overflow:clip!important; scrollbar-width:none; }
 .fh-auto-scroll-text::-webkit-scrollbar { display:none; }
+.fh-marquee-track{display:inline-flex;width:max-content;max-width:none;will-change:transform}
+.fh-marquee-copy{display:block;flex:none;white-space:nowrap}
+.fh-marquee-copy+ .fh-marquee-copy{padding-left:2em}
 .app-shell { min-height:100vh; display:grid; grid-template-columns:248px minmax(0,1fr); }
 .sidebar { position:sticky; top:0; height:100vh; padding:24px 18px 20px; display:flex; flex-direction:column; color:#edf7ef; background:radial-gradient(circle at 10% 0,#1d6544 0,transparent 27%),linear-gradient(175deg,#0d3c29,#071f16 72%); border-right:1px solid #325844; }
 .brand { display:flex; align-items:center; gap:12px; padding:0 8px 24px; }
@@ -986,6 +989,7 @@ html[data-native-platform="ios"] .legal-page{padding-top:max(64px,calc(env(safe-
   .portfolio-score-bug>div>p strong{font-size:11px}.portfolio-score-bug>div>p small{font-size:9px}
   .portfolio-score-bug>div>b{grid-column:1;font-size:20px}.portfolio-score-bug>div>i{right:4px;top:4px}
   .portfolio-score-scroll{max-height:180px}
+  .need-expanded-content>article:nth-of-type(n+7){display:none}
   .need-collapse-toggle{grid-template-columns:minmax(0,1fr) auto 27px;padding:10px}
   .need-collapse-toggle>em{display:grid}.need-collapse-toggle>strong{font-size:11px;text-align:right}
   .score-game-actions{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:8px}
@@ -1147,10 +1151,8 @@ html[data-theme="dark"] .team-position-room{background:#20242c;border-color:#404
 
 /* Single-line labels that are truly clipped pan gently while the dashboard is
    idle. JS supplies the exact overflow distance, so short labels remain still. */
-.overflow-auto-scroll{overflow:hidden;text-overflow:clip!important;animation:overflow-text-pan var(--overflow-duration,9s) linear var(--overflow-delay,0s) infinite}
-.overflow-auto-scroll:hover,.overflow-auto-scroll:focus,.overflow-auto-scroll:focus-visible{animation-play-state:paused}
-@keyframes overflow-text-pan{0%,16%{text-indent:0}88%,100%{text-indent:var(--overflow-pan,0)}}
-@media(prefers-reduced-motion:reduce){.overflow-auto-scroll{animation:none!important;text-overflow:ellipsis!important}}
+.overflow-auto-scroll{overflow:hidden;text-overflow:clip!important}
+@media(prefers-reduced-motion:reduce){.overflow-auto-scroll{text-overflow:ellipsis!important}.fh-marquee-track{transform:none!important}}
 
 /* Team Rankings power board: uses the same layered, theme-responsive sports
    dashboard language as the rest of Fantasy Hub. */

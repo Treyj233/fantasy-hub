@@ -12,6 +12,8 @@
   });
 
   const stopTracking = (element) => {
+    const state = tracked.get(element);
+    if (state?.track?.parentElement === element) element.textContent = state.originalText;
     tracked.delete(element);
     visible.delete(element);
     intersectionObserver.unobserve(element);
@@ -21,17 +23,43 @@
 
   const inspect = (element) => {
     if (!(element instanceof HTMLElement) || !element.isConnected) return;
+    const current = tracked.get(element);
+    if (current && !current.track.isConnected) {
+      tracked.delete(element);
+      visible.delete(element);
+      intersectionObserver.unobserve(element);
+      element.classList.remove("fh-auto-scroll-text");
+    }
+    if (reduceMotion.matches) {
+      if (tracked.has(element)) stopTracking(element);
+      return;
+    }
     const style = window.getComputedStyle(element);
-    const isEllipsis = style.textOverflow === "ellipsis" || element.classList.contains("fh-auto-scroll-text");
+    const isEllipsis = style.textOverflow === "ellipsis" || element.classList.contains("fh-auto-scroll-text") || element.classList.contains("overflow-auto-scroll");
     const overflow = element.scrollWidth - element.clientWidth;
     if (!isEllipsis || overflow < 3) {
       if (tracked.has(element)) stopTracking(element);
       return;
     }
     if (!tracked.has(element)) {
-      tracked.set(element, { startedAt: performance.now() });
+      if (element.childElementCount > 0) return;
+      const originalText = (element.textContent || "").trim();
+      if (!originalText) return;
+      const track = document.createElement("span");
+      track.className = "fh-marquee-track";
+      const first = document.createElement("span");
+      first.className = "fh-marquee-copy";
+      first.textContent = originalText;
+      const second = document.createElement("span");
+      second.className = "fh-marquee-copy";
+      second.textContent = originalText;
+      second.setAttribute("aria-hidden", "true");
+      track.append(first, second);
+      element.textContent = "";
+      element.append(track);
+      tracked.set(element, { startedAt: performance.now(), track, first, originalText });
       element.classList.add("fh-auto-scroll-text");
-      if (!element.hasAttribute("title")) element.title = (element.textContent || "").trim();
+      if (!element.hasAttribute("title")) element.title = originalText;
       intersectionObserver.observe(element);
     }
   };
@@ -63,18 +91,12 @@
       for (const element of visible) {
         const state = tracked.get(element);
         if (!state) continue;
-        const distance = Math.max(0, element.scrollWidth - element.clientWidth);
-        if (distance < 3) continue;
-        const pause = 900;
-        const endPause = 700;
-        const travel = Math.max(1500, Math.min(6000, distance * 24));
-        const cycle = pause + travel + endPause;
-        const phase = (now - state.startedAt) % cycle;
-        let position = 0;
-        if (phase < pause) position = 0;
-        else if (phase < pause + travel) position = distance * ((phase - pause) / travel);
-        else position = distance;
-        element.scrollLeft = position;
+        if (!state.track.isConnected) continue;
+        const loopDistance = state.first.getBoundingClientRect().width + parseFloat(getComputedStyle(state.track.children[1]).paddingLeft || "0");
+        if (loopDistance < 3) continue;
+        const duration = Math.max(4000, loopDistance * 32);
+        const progress = ((now - state.startedAt) % duration) / duration;
+        state.track.style.transform = `translate3d(${-loopDistance * progress}px,0,0)`;
       }
     }
     window.requestAnimationFrame(animate);

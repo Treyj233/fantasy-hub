@@ -24,20 +24,8 @@ export function useOverflowAutoScroll() {
         const eligible = !media.matches && overflow > 3;
         element.classList.toggle("overflow-auto-scroll", eligible);
         if (!eligible) {
-          element.style.removeProperty("--overflow-pan");
-          element.style.removeProperty("--overflow-duration");
-          element.style.removeProperty("--overflow-delay");
           return;
         }
-        element.style.setProperty("--overflow-pan", `${-(overflow + 10)}px`);
-        element.style.setProperty(
-          "--overflow-duration",
-          `${Math.max(7, Math.min(18, 6 + overflow / 14)).toFixed(1)}s`,
-        );
-        element.style.setProperty(
-          "--overflow-delay",
-          `${(element.textContent?.length ?? 0) % 4}s`,
-        );
         if (!element.title) element.title = element.textContent?.trim() ?? "";
       });
     };

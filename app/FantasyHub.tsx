@@ -6667,7 +6667,7 @@ function AllLeagueScoreboard({
               {consequence?.status !== "final" && need && <section className={`what-needed ${expandedNeeds.has(league.id) ? "expanded" : "collapsed"}`}>
                 <button className="need-collapse-toggle" type="button" aria-expanded={expandedNeeds.has(league.id)} onClick={() => setExpandedNeeds((current) => { const next = new Set(current); if (next.has(league.id)) next.delete(league.id); else next.add(league.id); return next; })}><span><i /> LIVE WIN PATH</span><strong>{need.teamNeed ? `${need.teamNeed.toFixed(1)} PTS NEEDED` : "PROJECTED LEAD"}</strong><em aria-hidden="true">⌄</em></button>
                 {expandedNeeds.has(league.id) && <div className="need-expanded-content"><p>{need.message}</p>
-                {need.targets.slice(0, 6).map((target) => <article key={target.id}><PlayerHeadshot id={target.id} position={target.position} /><div><div className="need-player-row"><button className="inline-player-link" onClick={() => openPlayer(playerShell(target))}>{target.name}</button><b>{target.progress}%</b></div><small>Needs about <b>{target.pointsNeeded.toFixed(1)} more points</b> · {target.statLine}</small><span className="need-progress"><i style={{ width: `${target.progress}%` }} /></span><em>{target.points.toFixed(1)} scored toward a {target.targetTotal.toFixed(1)} point target</em></div></article>)}</div>}
+                {need.targets.slice(0, 10).map((target) => <article key={target.id}><PlayerHeadshot id={target.id} position={target.position} /><div><div className="need-player-row"><button className="inline-player-link" onClick={() => openPlayer(playerShell(target))}>{target.name}</button><b>{target.progress}%</b></div><small>Needs about <b>{target.pointsNeeded.toFixed(1)} more points</b> · {target.statLine}</small><span className="need-progress"><i style={{ width: `${target.progress}%` }} /></span><em>{target.points.toFixed(1)} scored toward a {target.targetTotal.toFixed(1)} point target</em></div></article>)}</div>}
               </section>}
               {consequence?.status === "final" && <div className="postgame-review"><b>{consequence.mine.points > consequence.opponent.points ? "WIN" : consequence.mine.points < consequence.opponent.points ? "LOSS" : "TIE"}</b><p><strong>Postgame review</strong><small>{Math.abs(consequence.mine.points - consequence.opponent.points) <= 5 ? "A close final margin decided this matchup." : "The final scoring margin was decisive."} Results describe what happened, not whether the original lineup decision was sound.</small></p></div>}
               </div>
@@ -9614,7 +9614,8 @@ function StartSit({
     opponentProjection == null
       ? 50
       : Math.max(10, Math.min(90, Math.round(50 + matchupGap * 2.5)));
-  const [aggressiveness, setAggressiveness] = useState(recommendedAggression);
+  const [proAggressiveness, setProAggressiveness] = useState(recommendedAggression);
+  const aggressiveness = isPro ? proAggressiveness : 50;
   const posture =
     aggressiveness < 35
       ? "Play it safe"
@@ -9703,17 +9704,19 @@ function StartSit({
           </label>
         </div>
         <div className="risk-recommendation">
-          <span>RECOMMENDED APPROACH</span>
+          <span>{isPro ? "RECOMMENDED APPROACH" : "FREE APPROACH"}</span>
           <strong>
-            {recommendedAggression}% ·{" "}
-            {recommendedAggression < 35
+            {isPro ? recommendedAggression : 50}% ·{" "}
+            {isPro && recommendedAggression < 35
               ? "Play it safe"
-              : recommendedAggression > 65
+              : isPro && recommendedAggression > 65
                 ? "Shoot for upside"
                 : "Balanced"}
           </strong>
           <p>
-            {opponentProjection == null
+            {!isPro
+              ? "Free accounts use a fixed balanced model. Upgrade to Pro to adapt floor and ceiling weighting to your matchup and preferred risk level."
+              : opponentProjection == null
               ? "The league has not posted a weekly opponent yet, so Fantasy Hub defaults to a balanced posture without inventing a matchup total."
               : matchupGap > 3
                 ? `You project ${matchupGap.toFixed(1)} points behind. Accept more variance to improve your upset path.`
@@ -9721,7 +9724,7 @@ function StartSit({
                   ? `You project ${Math.abs(matchupGap).toFixed(1)} points ahead. Protect the favorite outcome with dependable volume.`
                   : "The matchup is close enough to favor balanced median outcomes."}
           </p>
-          {isPro ? <button onClick={() => setAggressiveness(recommendedAggression)}>Use recommended</button> : <button onClick={onUpgrade}>Unlock matchup strategy</button>}
+          {isPro ? <button onClick={() => setProAggressiveness(recommendedAggression)}>Use recommended</button> : <button onClick={onUpgrade}>Unlock matchup strategy</button>}
         </div>
       </section>
       <section className={`aggression-panel panel ${isPro ? "" : "pro-control-locked"}`}>
@@ -9738,7 +9741,7 @@ function StartSit({
           step="1"
           value={aggressiveness}
           disabled={!isPro}
-          onChange={(event) => setAggressiveness(Number(event.target.value))}
+          onChange={(event) => setProAggressiveness(Number(event.target.value))}
           style={{
             background: `linear-gradient(90deg, var(--green) 0%, var(--gold) ${aggressiveness}%, #dfe7df ${aggressiveness}%, #dfe7df 100%)`,
           }}
