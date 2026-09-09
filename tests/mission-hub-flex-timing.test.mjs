@@ -13,10 +13,11 @@ test("Mission Hub warns when an earlier player occupies FLEX over a later same-p
   assert.match(source, /player\.position !== earlyPlayer\.position/);
   assert.match(source, /laterKickoff - earlyKickoff >= 60 \* 60_000/);
   assert.match(source, /earlyKickoff <= now/);
-  assert.match(source, /Swap lineup slots: \$\{flexTimingSwap\.earlyPlayer\.name\} ↔ \$\{flexTimingSwap\.laterPlayer\.name\}/);
+  assert.match(source, /Preserve roster flexibility: swap your \$\{formatRosterSlot\(flexTimingSwap\.earlyPlayer\.role\)\} position/);
   assert.match(source, /Keep both players in your starting lineup/);
+  assert.match(source, /later-playing player in the \$\{formatRosterSlot\(flexTimingSwap\.earlyPlayer\.role\)\} position preserves more roster flexibility/);
   assert.match(source, /do not bench either player/);
-  assert.match(source, /preserve late-week lineup flexibility/);
+  assert.match(source, /preserves more roster flexibility/);
 });
 
 test("Mission Hub flex timing uses real schedule dates and supports every flex slot", async () => {

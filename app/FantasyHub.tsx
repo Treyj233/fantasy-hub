@@ -5386,8 +5386,8 @@ function AllLeagues({
             addIssue(
               "warning",
               "Lineup",
-              `Swap lineup slots: ${flexTimingSwap.earlyPlayer.name} ↔ ${flexTimingSwap.laterPlayer.name}`,
-              `Keep both players in your starting lineup. Put ${flexTimingSwap.earlyPlayer.name}, who kicks off ${lineupKickoffLabel(flexTimingSwap.earlyKickoff)}, in the ${formatRosterSlot(flexTimingSwap.laterPlayer.role)} slot. Put ${flexTimingSwap.laterPlayer.name}, who kicks off ${lineupKickoffLabel(flexTimingSwap.laterKickoff)}, in the ${formatRosterSlot(flexTimingSwap.earlyPlayer.role)} slot. This is only a slot swap to preserve late-week lineup flexibility; do not bench either player.`,
+              `Preserve roster flexibility: swap your ${formatRosterSlot(flexTimingSwap.earlyPlayer.role)} position`,
+              `Keep both players in your starting lineup. Move ${flexTimingSwap.earlyPlayer.name}, who kicks off ${lineupKickoffLabel(flexTimingSwap.earlyKickoff)}, from ${formatRosterSlot(flexTimingSwap.earlyPlayer.role)} to ${flexTimingSwap.laterPlayer.name}'s ${formatRosterSlot(flexTimingSwap.laterPlayer.role)} position. Move ${flexTimingSwap.laterPlayer.name}, who kicks off ${lineupKickoffLabel(flexTimingSwap.laterKickoff)}, into ${formatRosterSlot(flexTimingSwap.earlyPlayer.role)}. Keeping the later-playing player in the ${formatRosterSlot(flexTimingSwap.earlyPlayer.role)} position preserves more roster flexibility if news breaks before kickoff; do not bench either player.`,
             );
           const playingTeams = new Set(
             weather?.games.flatMap((game) => game.teams) ?? [],
