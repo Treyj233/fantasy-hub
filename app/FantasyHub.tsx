@@ -2915,6 +2915,10 @@ export default function FantasyHub({
     leagueStatus === "pre_draft" || leagueWeek < 1
       ? 1
       : Math.min(18, leagueWeek);
+  const weekOneWelcomeDay = (() => {
+    const today = new Date();
+    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+  })();
   useEffect(() => {
     if (
       !accountUser ||
@@ -2923,28 +2927,28 @@ export default function FantasyHub({
       importState !== "success" ||
       !leagueId ||
       defaultGameWeek !== 1 ||
-      weekOneWelcomeSeenSeason === leagueSeason ||
-      weekOneWelcomeCheckedSeason.current === leagueSeason
+      weekOneWelcomeSeenSeason === weekOneWelcomeDay ||
+      weekOneWelcomeCheckedSeason.current === weekOneWelcomeDay
     ) return;
-    const localKey = `fantasy-hub-week-one-welcome:${leagueSeason}:${accountUser.email.trim().toLowerCase()}`;
+    const localKey = `fantasy-hub-week-one-welcome:${leagueSeason}:${weekOneWelcomeDay}:${accountUser.email.trim().toLowerCase()}`;
     if (window.localStorage.getItem(localKey) === "seen") {
-      weekOneWelcomeCheckedSeason.current = leagueSeason;
+      weekOneWelcomeCheckedSeason.current = weekOneWelcomeDay;
       return;
     }
-    weekOneWelcomeCheckedSeason.current = leagueSeason;
+    weekOneWelcomeCheckedSeason.current = weekOneWelcomeDay;
     const timer = window.setTimeout(() => {
       setWeekOneWelcomeOpen(true);
       void nativeLogAppsFlyerEvent("week_one_welcome_view", { season: leagueSeason, week: 1 });
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [accountLoading, accountUser, defaultGameWeek, importState, leagueId, leagueSeason, onboardingTourOpen, weekOneWelcomeSeenSeason]);
+  }, [accountLoading, accountUser, defaultGameWeek, importState, leagueId, leagueSeason, onboardingTourOpen, weekOneWelcomeDay, weekOneWelcomeSeenSeason]);
 
   function closeWeekOneWelcome(action: "rankings" | "pro" | "dismiss") {
     setWeekOneWelcomeOpen(false);
-    setWeekOneWelcomeSeenSeason(leagueSeason);
+    setWeekOneWelcomeSeenSeason(weekOneWelcomeDay);
     if (accountUser) {
-      safeLocalStorageSet(`fantasy-hub-week-one-welcome:${leagueSeason}:${accountUser.email.trim().toLowerCase()}`, "seen");
-      void saveAccountPreferences({ weekOneWelcomeSeenSeason: leagueSeason });
+      safeLocalStorageSet(`fantasy-hub-week-one-welcome:${leagueSeason}:${weekOneWelcomeDay}:${accountUser.email.trim().toLowerCase()}`, "seen");
+      void saveAccountPreferences({ weekOneWelcomeSeenSeason: weekOneWelcomeDay });
     }
     void nativeLogAppsFlyerEvent("week_one_welcome_action", { action, season: leagueSeason, week: 1 });
     if (action === "rankings") {

@@ -16,7 +16,7 @@ export async function POST(request: Request) {
   if (payload.teamTheme && !teamIds.has(payload.teamTheme)) return Response.json({ error: "Invalid team theme" }, { status: 400 });
   if (payload.badgeTheme && !badgeThemes.has(payload.badgeTheme)) return Response.json({ error: "Invalid badge theme" }, { status: 400 });
   if (payload.activeLeagueId && !/^(?:\d{6,24}|espn:\d{4}:\d{4,24})$/.test(payload.activeLeagueId)) return Response.json({ error: "Invalid active league" }, { status: 400 });
-  if (payload.weekOneWelcomeSeenSeason && !/^\d{4}$/.test(payload.weekOneWelcomeSeenSeason)) return Response.json({ error: "Invalid season" }, { status: 400 });
+  if (payload.weekOneWelcomeSeenSeason && !/^\d{4}-\d{2}-\d{2}$/.test(payload.weekOneWelcomeSeenSeason)) return Response.json({ error: "Invalid Week 1 welcome date" }, { status: 400 });
   const db = await getDb();
   const [[current], entitlement] = await Promise.all([
     db.select().from(userPreferences).where(eq(userPreferences.userId, user.userId)).limit(1),

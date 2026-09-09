@@ -15,7 +15,8 @@ test("Week 1 welcome is account-aware and opens weekly rankings", async () => {
   assert.match(migration, /ADD `week_one_welcome_seen_season` text/);
   assert.match(preferences, /weekOneWelcomeSeenSeason/);
   assert.match(dashboard, /defaultGameWeek !== 1/);
-  assert.match(dashboard, /weekOneWelcomeSeenSeason === leagueSeason/);
+  assert.match(dashboard, /weekOneWelcomeSeenSeason === weekOneWelcomeDay/);
+  assert.match(dashboard, /fantasy-hub-week-one-welcome:\$\{leagueSeason\}:\$\{weekOneWelcomeDay\}/);
   assert.match(dashboard, /setPlayerRankingMode\("weekly"\)/);
   assert.match(dashboard, /View Player Rankings/);
   assert.match(dashboard, /\{!isPro && \(/);

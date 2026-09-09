@@ -20,7 +20,7 @@ export async function GET() {
       ownedTeamThemesJson: "[\"LAC\"]",
       ownedBadgeThemesJson: "[\"arcade\"]",
       onboardingCompletedAt: "local-preview",
-      weekOneWelcomeSeenSeason: String(new Date().getUTCFullYear()),
+      weekOneWelcomeSeenSeason: new Date().toISOString().slice(0, 10),
     },
     entitlement: { plan: "elite", status: "active", pro: true, elite: true, currentPeriodEnd: null, provider: "manual", owner: true },
     leagues: [],
