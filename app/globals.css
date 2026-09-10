@@ -2038,8 +2038,9 @@ html[data-theme="dark"] .player-verdict,html[data-theme="dark"] .player-range-co
 .head-to-head-player>p .inline-player-link{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .head-to-head-player>p small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .head-to-head-player>.head-to-head-matchup{grid-column:1/-1;grid-row:2;min-width:0}
-.head-to-head-player .head-to-head-matchup>.matchup-team{width:85%;max-width:190px;min-width:0;grid-template-columns:auto minmax(0,1fr);flex-shrink:0}
-.head-to-head-player>.player-temperature{grid-column:2/-1;grid-row:3;min-width:0}
+.head-to-head-player>.head-to-head-matchup{grid-column:1/-1;width:100%;max-width:340px;justify-self:center;flex-direction:column;align-items:stretch}
+.head-to-head-player .head-to-head-matchup>.matchup-team{width:100%;max-width:none;min-width:0;box-sizing:border-box;grid-template-columns:auto minmax(0,1fr);flex-shrink:0}
+.head-to-head-player>.player-temperature{grid-column:1/-1;grid-row:3;min-width:0;width:100%;max-width:340px;justify-self:center}
 .head-to-head-player .player-temperature{min-height:37px}
 .head-to-head-player .temperature-label>strong{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .head-to-head-player .temperature-label.awaiting-first-play{gap:2px}
