@@ -2234,4 +2234,17 @@ html[data-theme="dark"] .command-action-queue span em{color:#ff9c88}
 .week-one-welcome-secondary{margin-top:10px;padding:10px 15px;color:#fff;background:#ffffff12;border:1px solid #ffffff42;border-radius:9px;font-size:10px;font-weight:900}
 .week-one-welcome-later{margin-top:14px;padding:5px;color:#b9c5cf;background:transparent;border:0;font-size:9px;font-weight:850}
 .week-one-welcome :is(button):hover{transform:translateY(-1px)}
+/* Cold performers retain their rank and stats, with a temperature-matched surface. */
+.on-fire-grid > button:has(.temperature-indicator:is(.cold, .ice)) {
+  background: linear-gradient(145deg, color-mix(in srgb, #319bea 16%, var(--chalk)), var(--chalk));
+  border-color: color-mix(in srgb, #319bea 40%, var(--line));
+}
+.on-fire-grid > button:has(.temperature-indicator:is(.cold, .ice)):hover {
+  border-color: #319bea;
+  box-shadow: 0 10px 24px rgb(32 115 190 / .16);
+}
+html[data-theme="dark"] .on-fire-grid > button:has(.temperature-indicator:is(.cold, .ice)) {
+  background: linear-gradient(145deg, #183750, #22262e);
+  border-color: #315d80;
+}
 @media(max-width:620px){.week-one-welcome-backdrop{align-items:center;padding:calc(10px + env(safe-area-inset-top)) 10px calc(10px + env(safe-area-inset-bottom))}.week-one-welcome{max-height:calc(100dvh - 20px - env(safe-area-inset-top) - env(safe-area-inset-bottom));padding:28px 20px calc(23px + env(safe-area-inset-bottom));border-radius:20px}.week-one-welcome h2{font-size:29px}.week-one-welcome>p{font-size:12px}.week-one-welcome-mark{width:62px;height:62px;margin-block:12px 9px}}

@@ -6181,6 +6181,15 @@ function AllLeagueScoreboard({
     () => `fantasy-hub:scoreboard:${week}:${leagues.map((league) => league.id).sort().join(",")}`,
     [leagues, week],
   );
+  const [hotPerformerLimit, setHotPerformerLimit] = useState(5);
+  useEffect(() => {
+    const mobileViewport = window.matchMedia("(max-width: 700px)");
+    const ios = isNativeIosApp() || /iPhone|iPad|iPod/i.test(navigator.userAgent);
+    const updateLimit = () => setHotPerformerLimit(ios && mobileViewport.matches ? 6 : 5);
+    updateLimit();
+    mobileViewport.addEventListener("change", updateLimit);
+    return () => mobileViewport.removeEventListener("change", updateLimit);
+  }, []);
   const initialPortfolioSnapshot = useMemo(() => {
     if (typeof window === "undefined") return null;
     try {
@@ -6408,7 +6417,7 @@ function AllLeagueScoreboard({
       .filter((item) => item.player.points > 0)
       .map((item) => ({ ...item, temperature: playerTemperature(item.player, item.status), performanceScore: item.player.points + Math.max(0, item.player.points - (item.player.projection ?? item.player.points)) * .8 }))
       .sort((a, b) => b.performanceScore - a.performanceScore)
-      .slice(0, 5);
+      .slice(0, hotPerformerLimit);
     const activePlayers = matchups.flatMap((item) => [...item.mineStarters, ...item.opponentStarters]).filter(isPlayerGameInProgress).length;
     const completedPlayers = matchups.reduce(
       (count, matchup) =>
@@ -6421,7 +6430,7 @@ function AllLeagueScoreboard({
     );
     const totalStarters = matchups.reduce((sum, item) => sum + item.mineStarters.length + item.opponentStarters.length, 0);
     return { matchups, interests, leveragePlayers, onFire, activePlayers, completedPlayers, remainingPlayers: Math.max(0, totalStarters - activePlayers - completedPlayers) };
-  }, [leagues, scores]);
+  }, [leagues, scores, hotPerformerLimit]);
   const hasObservedScoring = gameDay.matchups.some((item) => item.status === "live" || item.status === "final" || item.mine.points > 0 || item.opponent.points > 0);
   const usePreKickoffVisuals = PRE_KICKOFF_VISUALS_ENABLED && !hasObservedScoring;
   const preKickoffOnFire = usePreKickoffVisuals
@@ -6430,7 +6439,7 @@ function AllLeagueScoreboard({
         .filter((item, index, items) => items.findIndex((candidate) => candidate.player.id === item.player.id) === index)
         .filter((item) => (item.player.projection ?? 0) > 0)
         .sort((a, b) => (b.player.projection ?? 0) - (a.player.projection ?? 0))
-        .slice(0, 5)
+        .slice(0, hotPerformerLimit)
         .map((item, index) => {
           const projectedPoints = item.player.projection ?? 0;
           return {
