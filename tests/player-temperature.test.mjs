@@ -28,5 +28,20 @@ test("pregame and early live statuses remain unchanged", () => {
 });
 
 test("finished players without a projection do not show a pregame status", () => {
-  assert.equal(temperature({ ...player, projection: null }, "Final").label, "No projection");
+  assert.equal(temperature({ ...player, projection: null }, "Final").label, "Final");
+});
+
+test("every finished heat level shows Final without changing its visual state", () => {
+  for (const [points, state] of [[26, "fire"], [19, "hot"], [15, "steady"], [5, "cold"], [0, "ice"]]) {
+    const finished = { ...player, points, touchdowns: 0, receptions: 0 };
+    for (const status of ["Live", "Final"]) {
+      const result = temperature(finished, status);
+      assert.equal(result.label, "Final");
+      assert.equal(result.state, state);
+    }
+  }
+});
+
+test("active players still show their heat label", () => {
+  assert.equal(temperature({ ...player, gameProgress: .75 }, "Live").label, "On fire");
 });

@@ -708,7 +708,7 @@ function playerTemperature(player: ScoreboardPlayer, matchupStatus: string) {
   const isFinal = player.gameProgress === 1 || matchupStatus.toLowerCase() === "final";
   const isLive = matchupStatus.toLowerCase() === "live";
   const projection = player.projection ?? 0;
-  if ((!isLive && !isFinal) || projection <= 0) return { value: 50, label: isLive || isFinal ? "No projection" : "Waiting for kickoff", state: "steady" };
+  if ((!isLive && !isFinal) || projection <= 0) return { value: 50, label: isFinal ? "Final" : isLive ? "No projection" : "Waiting for kickoff", state: "steady" };
   const hasActivity = player.points > 0 || player.yards > 0 || player.touchdowns > 0 || player.receptions > 0 || player.targets > 0;
   if (!hasActivity && !isFinal) return { value: 50, label: "Awaiting first play", state: "steady" };
   // Final is a game status, not a heat rating. Keep evaluating the ending
@@ -722,11 +722,11 @@ function playerTemperature(player: ScoreboardPlayer, matchupStatus: string) {
   // Retain the existing sensitivity below expectation for cold indicators.
   const paceSensitivity = ratio >= 1 ? 76 : 32;
   const value = Math.round(Math.max(3, Math.min(97, 50 + (ratio - 1) * paceSensitivity + productionBoost)));
-  if (value >= 88) return { value, label: "On fire", state: "fire" };
-  if (value >= 68) return { value, label: "Heating up", state: "hot" };
-  if (value <= 22) return { value, label: "Freezing cold", state: "ice" };
-  if (value <= 38) return { value, label: "Cooling off", state: "cold" };
-  return { value, label: "Steady", state: "steady" };
+  if (value >= 88) return { value, label: isFinal ? "Final" : "On fire", state: "fire" };
+  if (value >= 68) return { value, label: isFinal ? "Final" : "Heating up", state: "hot" };
+  if (value <= 22) return { value, label: isFinal ? "Final" : "Freezing cold", state: "ice" };
+  if (value <= 38) return { value, label: isFinal ? "Final" : "Cooling off", state: "cold" };
+  return { value, label: isFinal ? "Final" : "Steady", state: "steady" };
 }
 
 function isPlayerGameInProgress(player: Pick<ScoreboardPlayer, "gameProgress">) {
