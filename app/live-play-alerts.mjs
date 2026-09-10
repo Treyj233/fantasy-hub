@@ -90,6 +90,10 @@ function playCompatibilityScore(player, play, confirmation) {
   }
   if (!offenseMatch || !playerMatch) return -1;
 
+  const receptions = Number(confirmation?.receptionDelta ?? 0);
+  const playText = `${play?.type ?? ""} ${text}`;
+  if (receptions > 0 && (receptions !== 1 || !/caught|reception|pass.*complete|complete.*pass/i.test(playText) || /incomplete|no play/i.test(playText))) return -1;
+
   let score = 50;
   if (kind === "turnover") {
     if (!play?.isTurnover) return -1;
@@ -111,6 +115,7 @@ function playCompatibilityScore(player, play, confirmation) {
 
   const confirmedYards = Number(confirmation?.yardDelta ?? 0);
   const playYards = Number(play?.yardage ?? 0);
+  if (kind === "offense" && confirmedYards !== playYards) return -1;
   if (confirmedYards > 0 && playYards > 0) {
     const difference = Math.abs(confirmedYards - playYards);
     score += difference === 0 ? 25 : difference <= 3 ? 12 : difference <= 10 ? 3 : -10;

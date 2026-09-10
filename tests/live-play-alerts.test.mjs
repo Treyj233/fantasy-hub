@@ -4,6 +4,16 @@ import { classifyFantasyPlay, playerPlayToken, findPlayContext, findConfirmedPla
 
 const baseline = { points: 4, yards: 30, touchdowns: 0, receptions: 2, offensiveTurnovers: 0, defensiveTurnovers: 0, returnTouchdowns: 0, fieldGoals: 0 };
 
+test("Price's four-yard reception cannot use an older two-yard run", () => {
+  const confirmation = classifyFantasyPlay(baseline, { ...baseline, points: 5.4, yards: 34, receptions: 3 });
+  const player = { name: "Jadarian Price", nflTeam: "SEA", position: "RB" };
+  const run = { id: "old-run", text: "J.Price runs outside for 2 yards.", type: "Rush", yardage: 2, offenseTeam: "SEA", period: 1, clock: "0:49" };
+  assert.equal(findConfirmedPlayContext(player, [run], confirmation), null);
+  assert.equal(findConfirmedPlayContext(player, [{ ...run, yardage: 4 }], confirmation), null);
+  const catchPlay = { ...run, id: "catch", text: "J.Price caught a pass for 4 yards.", type: "Pass Reception", yardage: 4 };
+  assert.equal(findConfirmedPlayContext(player, [run, catchPlay], confirmation)?.id, "catch");
+});
+
 test("Sunday Pulse includes every play worth one or more league-scored points", () => {
   assert.equal(classifyFantasyPlay(baseline, { ...baseline, points: 4.99, yards: 40 }).qualifies, false);
   const play = classifyFantasyPlay(baseline, { ...baseline, points: 5, yards: 40, receptions: 3 });
