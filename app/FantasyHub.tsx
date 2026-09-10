@@ -4,7 +4,7 @@ import { Fragment, createContext, useCallback, useContext, useEffect, useMemo, u
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { estimatedWinProbability, isProjectedWin, playerLeverage, rootingInterests, whatDoINeed } from "./game-day-model.mjs";
-import { classifyFantasyPlay, findConfirmedPlayContext, isSundayPulseEventActive, matchupImpactText, SUNDAY_PULSE_EVENT_TTL_MS } from "./live-play-alerts.mjs";
+import { classifyFantasyPlay, findConfirmedPlayContext, isSundayPulseEventActive, SUNDAY_PULSE_EVENT_TTL_MS } from "./live-play-alerts.mjs";
 import { PRE_KICKOFF_VISUALS_ENABLED } from "./pre-kickoff-visuals";
 import { DEFAULT_PUSH_PREFERENCES, type PushAlertKey, type PushPreferences } from "./push-preferences";
 import { disableNativePushNotifications, enableNativePushNotifications, initializeNativeRuntime, isNativeIosApp, nativeHapticsEnabled, nativeImpact, nativeLogAppsFlyerEvent, nativeManageSubscriptions, nativePurchase, nativeRefreshPurchases, nativeRestorePurchases, nativeStoreProducts, setNativeHapticsEnabled } from "./native-runtime";
@@ -6197,7 +6197,6 @@ function AllLeagueScoreboard({
   const [gameplayPulseItems, setGameplayPulseItems] = useState<LivePlayContext[]>([]);
   const previousOdds = useRef<Record<string, number>>({});
   const previousPulseSnapshot = useRef<Record<string, { points: number; yards: number; touchdowns: number; receptions: number; offensiveTurnovers: number; defensiveTurnovers: number; returnTouchdowns: number; fieldGoals: number }>>({});
-  const previousPulseOdds = useRef<Record<string, number | null>>({});
   const savedWinPathPayloads = useRef<Record<string, string>>({});
   const matchupJumpTimers = useRef<number[]>([]);
   useEffect(() => () => {
@@ -6216,7 +6215,6 @@ function AllLeagueScoreboard({
     let active = true;
     let hydrationTimer: number | undefined;
     previousPulseSnapshot.current = {};
-    previousPulseOdds.current = {};
     let hasCachedScores = Boolean(initialPortfolioSnapshot?.scores);
     if (initialPortfolioSnapshot?.scores) {
       hydrationTimer = window.setTimeout(() => {
@@ -6263,8 +6261,7 @@ function AllLeagueScoreboard({
       setGameplayPulseItems(livePlays);
       const hadPulseBaseline = Object.keys(previousPulseSnapshot.current).length > 0;
       const nextSnapshot: typeof previousPulseSnapshot.current = {};
-      const nextOdds: typeof previousPulseOdds.current = {};
-      const scoringEvents: { id: string; text: string; impact: "helps" | "hurts"; at: string; delta: number }[] = [];
+      const scoringEvents: { dedupeKey: string; description: string; leagueName: string; impact: "helps" | "hurts"; at: string; delta: number }[] = [];
       results.forEach(([leagueId, data]) => {
         const league = leagues.find((item) => item.id === leagueId);
         const matchup = data?.matchups.find((item) => item.teams.some((team) => team.isMine));
@@ -6278,7 +6275,6 @@ function AllLeagueScoreboard({
         const status = matchup.status === "Final" ? "final" : matchup.status === "Scheduled" ? "pre" : "live";
         const projectionsAvailable = [...mineStarters, ...opponentStarters].some((player) => player.projection != null);
         const currentOdds = estimatedWinProbability({ yourPoints: mine.points, opponentPoints: opponent.points, yourRemaining: mineRemaining, opponentRemaining, status, projectionsAvailable });
-        nextOdds[leagueId] = currentOdds;
         if (status === "live") {
           const need = whatDoINeed({ yourPoints: mine.points, opponentPoints: opponent.points, opponentRemaining, players: mineStarters, scoring: data.league.scoring ?? {} });
           if (need.targets.length) {
@@ -6300,18 +6296,25 @@ function AllLeagueScoreboard({
           const classified = classifyFantasyPlay(previous, nextSnapshot[key]);
           if (!classified.qualifies) return;
           const impact = team.isMine ? "helps" as const : "hurts" as const;
-          const previousOdds = previousPulseOdds.current[leagueId];
-          const matchupImpact = matchupImpactText({ isMine: team.isMine, yourPoints: mine.points, opponentPoints: opponent.points, previousOdds, currentOdds });
           const pointsLabel = classified.fantasyPoints === 0 ? "" : ` (${classified.fantasyPoints > 0 ? "+" : ""}${classified.fantasyPoints.toFixed(1)} pts)`;
           const playContext = findConfirmedPlayContext(player, livePlays, classified);
           const playDescription = playContext?.text ?? `${player.name}: ${classified.description}`;
           const gameClock = playContext && playContext.period ? ` Q${playContext.period}${playContext.clock ? ` ${playContext.clock}` : ""}.` : "";
-          scoringEvents.push({ id: `${key}:${player.points}:${playContext?.id ?? Date.now()}`, impact, delta: Math.max(Math.abs(pointDelta), classified.kind === "turnover" ? 3 : 0), at: new Date().toISOString(), text: `${impact === "helps" ? "📈" : "📉"} ${playDescription}${pointsLabel} in ${league.name}.${gameClock} ${matchupImpact}` });
+          scoringEvents.push({ dedupeKey: `${player.id}:${playContext?.id ?? `${classified.kind}:${player.yards}:${player.touchdowns}:${player.receptions}:${player.offensiveTurnovers}:${player.defensiveTurnovers}`}`, description: `${playDescription}${pointsLabel}${gameClock}`, leagueName: league.name, impact, delta: Math.max(Math.abs(pointDelta), classified.kind === "turnover" ? 3 : 0), at: new Date().toISOString() });
         }));
       });
       previousPulseSnapshot.current = nextSnapshot;
-      previousPulseOdds.current = nextOdds;
-      if (scoringEvents.length) setPulseEvents((current) => [...scoringEvents.sort((a, b) => b.delta - a.delta), ...current].filter((event) => isSundayPulseEventActive(event.at)).slice(0, 12));
+      const groupedScoringEvents = new Map<string, typeof scoringEvents>();
+      scoringEvents.forEach((event) => groupedScoringEvents.set(event.dedupeKey, [...(groupedScoringEvents.get(event.dedupeKey) ?? []), event]));
+      const condensedScoringEvents = [...groupedScoringEvents.values()].map((events) => {
+        const helps = events.filter((event) => event.impact === "helps").map((event) => event.leagueName);
+        const hurts = events.filter((event) => event.impact === "hurts").map((event) => event.leagueName);
+        const names = (items: string[]) => [...new Set(items)].join(", ");
+        const scope = helps.length && hurts.length ? `Helps in ${names(helps)}; hurts in ${names(hurts)}.` : helps.length ? `Helps in ${names(helps)}.` : `Hurts in ${names(hurts)}.`;
+        const first = events[0];
+        return { id: `${first.dedupeKey}:${first.at}`, impact: helps.length ? "helps" as const : "hurts" as const, delta: Math.max(...events.map((event) => event.delta)), at: first.at, text: `${helps.length && !hurts.length ? "📈" : hurts.length && !helps.length ? "📉" : "⚖️"} ${first.description} ${scope}` };
+      });
+      if (condensedScoringEvents.length) setPulseEvents((current) => [...condensedScoringEvents.sort((a, b) => b.delta - a.delta), ...current].filter((event) => isSundayPulseEventActive(event.at)).slice(0, 12));
       else if (!hadPulseBaseline) setPulseEvents([]);
       const nextScores = Object.fromEntries(results);
       const nextUpdatedAt = new Date().toISOString();
