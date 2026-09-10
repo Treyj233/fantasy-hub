@@ -5787,16 +5787,15 @@ function AllLeagues({
       </div>
     );
   return (
-    <div className="page-content all-leagues-page">
+    <div className="page-content all-leagues-page mission-home">
       <section className="all-leagues-hero">
         <div>
           <span>MISSION HUB</span>
           <div className="mission-title-row">
             <h2>
-              One checklist.
-              <br />
-              <em>Every league covered.</em>
+              {loading ? "Your league briefing." : urgentCount ? "Let’s get your week ready." : "Your week, under control."}
             </h2>
+            <p className="mission-briefing">{loading ? "Checking your connected leagues for the latest updates." : urgentCount ? `${urgentCount} urgent ${urgentCount === 1 ? "decision needs" : "decisions need"} attention across your portfolio.` : issueCount ? `${readyCount} leagues ready. ${issueCount} items to review or monitor.` : "Your connected lineups are clear. Explore your portfolio below."}</p>
             <button className="personalize-hub" onClick={onPersonalize} aria-label="Personalize your Fantasy Hub with team colors, themes, and icon packs">
               <i className="personalize-artwork" aria-hidden="true">
                 <span />
@@ -5843,37 +5842,34 @@ function AllLeagues({
         <>
           <section className="portfolio-section portfolio-inbox priority-inbox panel" data-tour="priority-inbox">
             <div className="portfolio-heading">
-              <div><span>PRIORITIZED INBOX</span><h3>The decisions that matter most</h3></div>
+              <div><span>YOUR BRIEFING</span><h3>{topActions.length ? "Your next move" : "You’re all set"}</h3></div>
               <b>{topActions.length ? `${topActions.length} TOP ACTIONS` : "ALL CLEAR"}</b>
             </div>
             <div className="portfolio-top-three portfolio-action-list">
               {topActions.map(({ scan, issue, priority }, index) => (
-                <article className={`${issue.severity} priority-${priority.toLowerCase().replaceAll(" ", "-")}`} key={`top-action-${issue.id}`}>
+                <Fragment key={`top-action-${issue.id}`}>
+                  {index === 1 && <h3 className="mission-next-up">Next up</h3>}
+                <article className={`${index === 0 ? "mission-featured-action" : "mission-next-action"} ${issue.severity} priority-${priority.toLowerCase().replaceAll(" ", "-")}`} key={`top-action-${issue.id}`}>
                   <b className="action-rank">{index + 1}</b>
                   <i title={issue.category} aria-hidden="true">
                     {leagueIssueIcon(issue.category, issue.title)}
                   </i>
-                  <p><span>{priority} · {scan.league.name} · {issue.category}</span><strong>{issue.title}</strong></p>
+                  <p><span>{priority} · {scan.league.name} · {issue.category}</span><strong>{issue.title}</strong>{index === 0 && <small className="mission-action-detail">{issue.detail}</small>}</p>
                   <div className="portfolio-action-buttons">
-                    <button onClick={() => void onOpen(scan.league, actionView(issue.category))}>Review in Hub</button>
+                    <button onClick={() => void onOpen(scan.league, actionView(issue.category))}>Review {issue.category === "Waivers" ? "waivers" : issue.category === "Trade" ? "trade options" : "lineup"} →</button>
                     <a className="platform-link" href={platformLeagueUrl(scan.league)} onClick={(event) => openPlatformLeagueOnMobile(event, scan.league)} target="_blank" rel="noopener noreferrer" aria-label={`Open league in ${scan.league.provider === "espn" ? "ESPN" : "Sleeper"} (opens in a new tab)`}><PlatformLogo provider={scan.league.provider === "espn" ? "ESPN" : "Sleeper"} /><span>{scan.league.provider === "espn" ? "Open ESPN" : "Open Sleeper"}</span><b aria-hidden="true">↗</b></a>
                   </div>
                 </article>
+                </Fragment>
               ))}
               {!topActions.length && <div className="portfolio-clear"><i>✓</i><p><strong>No action required right now</strong><small>Every connected lineup passed the current availability, projection, bye, weather, and waiver scan.</small></p></div>}
             </div>
           </section>
-          <details className="mission-deep-dive">
-            <summary><span><b>Explore the full portfolio</b><small>Action queue, matchup board, roster exposure, waivers, and weekly recap</small></span><i aria-hidden="true">⌄</i></summary>
+          <div className="mission-portfolio-sections">
             <div className="mission-deep-dive-content">
-          <section className="portfolio-section action-queue panel">
-            <div className="portfolio-heading"><div><span>FULL ACTION QUEUE</span><h3>Everything else, organized by deadline</h3></div><b>{remainingActions.length} QUEUED</b></div>
-            {remainingActions.length > 0 && <div className="action-queue-scroll-preview" aria-hidden="true"><span>Swipe for more</span><i>→</i></div>}
-            <div className="action-queue-groups">{(["Act now", "Before kickoff", "Tonight", "This week", "Monitor"] as QueuePriority[]).map((priority) => { const actions = remainingActions.filter((item) => item.priority === priority); if (!actions.length) return null; const priorityClass = `action-priority-${priority.toLowerCase().replaceAll(" ", "-")}`; return <section className={priorityClass} key={priority}><header><span>{priority}</span><b>{actions.length}</b></header>{actions.map(({ scan, issue, key, members }) => members.length === 1 ? <button key={key} onClick={() => void onOpen(scan.league, actionView(issue.category))}><i aria-hidden="true">{leagueIssueIcon(issue.category, issue.title)}</i><p><strong>{issue.title}</strong><small>{scan.league.name} · {issue.category}</small></p><em>Review →</em></button> : <article className="consolidated-queue-item" key={key}><header><i aria-hidden="true">{leagueIssueIcon(issue.category, issue.title)}</i><div><strong>{issue.title}</strong><small>{issue.category} · {members.length} leagues</small></div></header><div>{members.map((member) => <button key={member.scan.league.id} onClick={() => void onOpen(member.scan.league, actionView(member.issue.category))}><span>{member.scan.league.name}</span><em>Review →</em></button>)}</div></article>)}</section>; })}<section className="no-action-group"><header><span>No action</span><b>{healthyLeagues.length}</b></header>{healthyLeagues.length ? healthyLeagues.map((scan) => <button key={`healthy-${scan.league.id}`} onClick={() => void onOpen(scan.league)}><i>✓</i><p><strong>{scan.league.name} is healthy</strong><small>{scan.teamName} · lineup and availability checks are clear</small></p><em>Open →</em></button>) : <p>Every league with data has at least one item to monitor.</p>}</section></div>
-          </section>
           <section className="portfolio-grid">
             <article className="portfolio-section panel">
-              <div className="portfolio-heading"><div><span>WEEKLY READINESS</span><h3>Lineup preparation across your portfolio</h3></div></div>
+              <div className="portfolio-heading"><div><span>YOUR LEAGUES</span><h3>Every league, one home</h3></div></div>
               <div className="health-list">
                 {scans.map((scan) => <button key={`health-${scan.league.id}`} onClick={() => void onOpen(scan.league, scan.preDraft ? "Player Ranks" : undefined)}><span><strong>{scan.league.name}</strong><small>{scan.preDraft ? "Draft preparation" : scan.teamName}</small></span>{scan.preDraft ? <em className="draft-prep-label">PRE-DRAFT</em> : <><i><em style={{ width: `${scan.health}%` }} /></i><b>{scan.health}</b></>}</button>)}
               </div>
@@ -5887,7 +5883,7 @@ function AllLeagues({
           </section>
           <section className="portfolio-grid">
             <article className="portfolio-section panel">
-              <div className="portfolio-heading"><div><span>PORTFOLIO EXPOSURE</span><h3>Concentration and correlated risk</h3></div><b>{playerExposure.length} repeated</b></div>
+              <div className="portfolio-heading"><div><span>ACROSS YOUR ROSTERS</span><h3>Shared players and exposure</h3></div><b>{playerExposure.length} repeated</b></div>
               <div className="exposure-list">
                 {playerExposure.slice(0, 6).map(({ player, leagues: playerLeagues }) => <div key={`exposure-${player.id}-${player.name}`}><i>{player.position}</i><p><button className="inline-player-link" onClick={() => openPlayer(player)}>{player.name}</button><small>{player.team} · {player.status} · {playerLeagues.map((scan) => scan.league.name).join(", ")}</small></p><b>{playerLeagues.length}/{scans.length}</b></div>)}
                 {!playerExposure.length && <p className="portfolio-note">No player appears on more than one connected roster.</p>}
@@ -5900,12 +5896,17 @@ function AllLeagues({
               </div>
             </article>
           </section>
+          <section className="portfolio-section action-queue panel">
+            <div className="portfolio-heading"><div><span>FULL ACTION QUEUE</span><h3>Everything else, organized by deadline</h3></div><b>{remainingActions.length} QUEUED</b></div>
+            {remainingActions.length > 0 && <div className="action-queue-scroll-preview" aria-hidden="true"><span>Swipe for more</span><i>→</i></div>}
+            <div className="action-queue-groups">{(["Act now", "Before kickoff", "Tonight", "This week", "Monitor"] as QueuePriority[]).map((priority) => { const actions = remainingActions.filter((item) => item.priority === priority); if (!actions.length) return null; const priorityClass = `action-priority-${priority.toLowerCase().replaceAll(" ", "-")}`; return <section className={priorityClass} key={priority}><header><span>{priority}</span><b>{actions.length}</b></header>{actions.map(({ scan, issue, key, members }) => members.length === 1 ? <button key={key} onClick={() => void onOpen(scan.league, actionView(issue.category))}><i aria-hidden="true">{leagueIssueIcon(issue.category, issue.title)}</i><p><strong>{issue.title}</strong><small>{scan.league.name} · {issue.category}</small></p><em>Review →</em></button> : <article className="consolidated-queue-item" key={key}><header><i aria-hidden="true">{leagueIssueIcon(issue.category, issue.title)}</i><div><strong>{issue.title}</strong><small>{issue.category} · {members.length} leagues</small></div></header><div>{members.map((member) => <button key={member.scan.league.id} onClick={() => void onOpen(member.scan.league, actionView(member.issue.category))}><span>{member.scan.league.name}</span><em>Review →</em></button>)}</div></article>)}</section>; })}<section className="no-action-group"><header><span>No action</span><b>{healthyLeagues.length}</b></header>{healthyLeagues.length ? healthyLeagues.map((scan) => <button key={`healthy-${scan.league.id}`} onClick={() => void onOpen(scan.league)}><i>✓</i><p><strong>{scan.league.name} is healthy</strong><small>{scan.teamName} · lineup and availability checks are clear</small></p><em>Open →</em></button>) : <p>Every league with data has at least one item to monitor.</p>}</section></div>
+          </section>
           <section className="portfolio-recap panel">
             <div className="portfolio-heading"><div><span>WEEKLY CLUBHOUSE</span><h3>Your portfolio superlatives</h3></div></div>
             <div><article><i>🏆</i><span><small>BEST PREPARED</small><strong>{healthiest?.league.name}</strong><em>{healthiest?.health}/100 weekly readiness</em></span></article><article><i>🚀</i><span><small>BIGGEST LINEUP</small><strong>{biggestProjection?.teamName}</strong><em>{biggestProjection ? `${biggestProjection.league.name} · ${biggestProjection.projection.toFixed(1)} projected points` : "Projection unavailable"}</em></span></article><article><i>🎯</i><span><small>PORTFOLIO ANCHOR</small><strong>{playerExposure[0]?.player.name ?? "No repeat player"}</strong><em>{playerExposure[0] ? `Rostered in ${playerExposure[0].leagues.length} leagues` : "Diversified rosters"}</em></span></article></div>
           </section>
             </div>
-          </details>
+          </div>
         </>
       )}
       {scanIsActive && (
