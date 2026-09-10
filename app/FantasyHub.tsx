@@ -6194,6 +6194,11 @@ function AllLeagueScoreboard({
   const [updatedAt, setUpdatedAt] = useState(() => initialPortfolioSnapshot?.updatedAt ?? "");
   const [expandedNeeds, setExpandedNeeds] = useState<Set<string>>(new Set());
   const [scoresExpanded, setScoresExpanded] = useState(false);
+  const [commandDetail, setCommandDetail] = useState<number | null>(null);
+  const commandDialog = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    if (commandDetail !== null) commandDialog.current?.showModal();
+  }, [commandDetail]);
   const [swingFeed, setSwingFeed] = useState<{ id: string; league: string; text: string; previous: number; current: number; at: string }[]>([]);
   const [pulseEvents, setPulseEvents] = useState<{ id: string; text: string; impact: "helps" | "hurts"; at: string }[]>([]);
   const previousOdds = useRef<Record<string, number>>({});
@@ -6604,7 +6609,22 @@ function AllLeagueScoreboard({
           <article><span>PLAYERS ACTIVE</span><strong>{gameDay.activePlayers}</strong><small>{gameDay.remainingPlayers} remaining · {gameDay.completedPlayers} completed</small></article>
           <article><span>HIGHEST LEVERAGE</span><strong>{gameDay.leveragePlayers[0]?.name ?? "Waiting for lineups"}</strong></article>
         </div>
+        <div className="command-detail-actions">
+          {["Projected record", "Close matchups", "Players active", "Highest leverage"].map((label, index) => <button type="button" key={label} aria-haspopup="dialog" onClick={() => setCommandDetail(index)}>Explore {label.toLowerCase()} →</button>)}
+        </div>
       </section>
+      <dialog ref={commandDialog} className="command-detail-dialog" onClose={() => setCommandDetail(null)} onClick={(event) => { if (event.target === event.currentTarget) commandDialog.current?.close(); }} aria-labelledby="command-detail-title">
+        <div className="command-detail-body">
+          <header><h3 id="command-detail-title">{["Projected record", "Close matchups", "Players active", "Highest leverage"][commandDetail ?? 0]}</h3><button type="button" aria-label="Close details" onClick={() => commandDialog.current?.close()}>×</button></header>
+          {(commandDetail === 0 || commandDetail === 1) && <>
+            <p>Projected finish combines current points with remaining starter projections.{commandDetail === 1 ? " These matchups have a projected margin within 12 points." : " Projections are estimates, not final results."}</p>
+            {gameDay.matchups.filter((item) => commandDetail === 0 || Math.abs(item.mine.points + item.mineRemaining - item.opponent.points - item.opponentRemaining) <= 12).map((item) => <article key={item.league.id}><strong>{item.league.name}</strong><p>{item.mine.teamName}: {item.mine.points.toFixed(1)} now + {item.mineRemaining.toFixed(1)} remaining = {(item.mine.points + item.mineRemaining).toFixed(1)}</p><p>{item.opponent.teamName}: {item.opponent.points.toFixed(1)} now + {item.opponentRemaining.toFixed(1)} remaining = {(item.opponent.points + item.opponentRemaining).toFixed(1)}</p></article>)}
+            {!gameDay.matchups.some((item) => commandDetail === 0 || Math.abs(item.mine.points + item.mineRemaining - item.opponent.points - item.opponentRemaining) <= 12) && <p>No matching matchups available.</p>}
+          </>}
+          {commandDetail === 2 && <><p>This summary counts starter appearances across your leagues, including opponents. Active means points recorded and below projection (or no projection). Completed means the matchup is final or the player has reached projection; it does not necessarily mean their NFL game has ended.</p>{gameDay.matchups.map((item) => <article key={item.league.id}><strong>{item.league.name}</strong>{[item.mine, item.opponent].map((team) => <section key={team.rosterId}><h4>{team.teamName}{team.isMine ? " · You" : " · Opponent"}</h4>{team.topPlayers.filter((player) => player.isStarter).map((player) => <p key={player.id}>{player.name} · {player.points.toFixed(1)} pts / {player.projection?.toFixed(1) ?? "—"} projected · {item.status === "final" || (player.projection != null && player.points >= player.projection) ? "Completed" : player.points > 0 ? "Active" : "Remaining"}</p>)}</section>)}</article>)}{!gameDay.matchups.length && <p>No starter data available.</p>}</>}
+          {commandDetail === 3 && <>{gameDay.leveragePlayers[0] ? <><h4>{gameDay.leveragePlayers[0].name}</h4><p>{gameDay.leveragePlayers[0].explanation}</p><p>Priority reflects connected matchups, score margins, remaining projections and matchup status.</p>{gameDay.leveragePlayers[0].exposures.map((exposure, index) => <article key={`${exposure.leagueId}:${index}`}><strong>{exposure.leagueName}</strong><p>{exposure.side === "you" ? "In your lineup" : "In your opponent’s lineup"} · {exposure.state}</p><p>Your current margin: {exposure.margin.toFixed(1)} pts · Player’s remaining projection: {exposure.remainingProjection.toFixed(1)} pts</p></article>)}</> : <p>No player exposure available yet.</p>}</>}
+        </div>
+      </dialog>
       {featured && <section className="sunday-spotlight panel">
         <div className="spotlight-kicker"><span>{featured.status === "live" ? "● LIVE" : featured.status === "final" ? "FINAL" : "UP NEXT"}</span><small>MOST IMPORTANT MATCHUP</small><b title={featured.league.name}>{featured.league.name}</b></div>
         <div className="spotlight-team"><small>YOU</small><strong>{featured.mine.teamName}</strong><b>{featured.mine.points.toFixed(2)}</b></div>
