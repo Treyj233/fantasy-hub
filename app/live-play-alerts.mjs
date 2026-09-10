@@ -19,7 +19,7 @@ export function classifyFantasyPlay(previous, current) {
   const yardDelta = counterDelta(current, previous, "yards");
 
   const confirmation = { fantasyPoints, defensiveTurnovers, offensiveTurnovers, returnTouchdowns, fieldGoals, touchdownDelta, receptionDelta, yardDelta };
-  if (fantasyPoints <= 1) return { ...confirmation, qualifies: false, kind: "routine", description: "" };
+  if (fantasyPoints < 1) return { ...confirmation, qualifies: false, kind: "routine", description: "" };
   if (defensiveTurnovers > 0)
     return { ...confirmation, qualifies: true, kind: "turnover", description: defensiveTurnovers > 1 ? `${defensiveTurnovers} takeaways` : "a defensive takeaway" };
   if (offensiveTurnovers > 0)

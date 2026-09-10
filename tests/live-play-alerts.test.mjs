@@ -4,9 +4,9 @@ import { classifyFantasyPlay, playerPlayToken, findPlayContext, findConfirmedPla
 
 const baseline = { points: 4, yards: 30, touchdowns: 0, receptions: 2, offensiveTurnovers: 0, defensiveTurnovers: 0, returnTouchdowns: 0, fieldGoals: 0 };
 
-test("Sunday Pulse includes every play worth more than one league-scored point", () => {
-  assert.equal(classifyFantasyPlay(baseline, { ...baseline, points: 5, yards: 40 }).qualifies, false);
-  const play = classifyFantasyPlay(baseline, { ...baseline, points: 5.01, yards: 40, receptions: 3 });
+test("Sunday Pulse includes every play worth one or more league-scored points", () => {
+  assert.equal(classifyFantasyPlay(baseline, { ...baseline, points: 4.99, yards: 40 }).qualifies, false);
+  const play = classifyFantasyPlay(baseline, { ...baseline, points: 5, yards: 40, receptions: 3 });
   assert.equal(play.qualifies, true);
   assert.equal(play.kind, "offense");
 });

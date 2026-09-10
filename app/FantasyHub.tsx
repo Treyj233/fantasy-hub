@@ -781,6 +781,13 @@ type LivePlayContext = {
   offenseTeam: string;
   defenseTeam: string;
 };
+
+function isMeaningfulSundayGameplay(play: LivePlayContext) {
+  const detail = `${play.type} ${play.text}`.toLowerCase();
+  if (/penalt|timeout|two.minute warning|end of (quarter|half|game)|no play|administrative/.test(detail)) return false;
+  if (play.scoringPlay || play.isTurnover) return true;
+  return play.yardage >= 10 && /pass|rush|run|reception|catch/.test(detail);
+}
 type NflImpactPlayer = {
   id: string;
   name: string;
@@ -6500,7 +6507,7 @@ function AllLeagueScoreboard({
     featured && featured.status !== "final" ? `${featured.mineRemaining.toFixed(1)} projected points remain for ${featured.mine.teamName}` : "Final scores collapse into postgame reviews",
   ];
   const liveGameplayItems = gameplayPulseItems
-    .filter((play) => play.text.trim())
+    .filter((play) => play.text.trim() && isMeaningfulSundayGameplay(play))
     .slice(0, 4)
     .map((play) => `${play.offenseTeam || "NFL"} · Q${play.period}${play.clock ? ` ${play.clock}` : ""} · ${play.text}`);
   const pulseItems = liveGameplayItems.length
