@@ -2029,7 +2029,7 @@ html[data-theme="dark"] .player-verdict,html[data-theme="dark"] .player-range-co
 /* Matchup rows use identical footprints on both sides so slot-for-slot opponents
    stay level even when one player has longer context. */
 .head-to-head-grid{align-items:start}
-.head-to-head-team>header{min-height:112px;box-sizing:border-box}
+.head-to-head-team>header{height:112px;box-sizing:border-box;overflow:hidden}
 .head-to-head-player{grid-template-columns:31px minmax(0,1fr) 58px;grid-template-rows:minmax(31px,auto) auto auto;min-height:118px;align-items:start}
 .head-to-head-player>.player-headshot{grid-column:1;grid-row:1/4;align-self:center}
 .head-to-head-player>p{grid-column:2;grid-row:1;min-width:0}
@@ -2042,7 +2042,7 @@ html[data-theme="dark"] .player-verdict,html[data-theme="dark"] .player-range-co
 .head-to-head-player>.head-to-head-player-score{display:grid;grid-column:3;grid-row:1;align-self:start;justify-items:end;gap:2px;min-width:52px;padding:0;color:var(--green);font-variant-numeric:tabular-nums;line-height:1}
 .head-to-head-player-score>strong{font-size:22px;letter-spacing:-.04em}
 .head-to-head-player-score>small{color:var(--muted);font-size:9px!important;font-weight:950;letter-spacing:.08em}
-@media(max-width:950px){.head-to-head-team>header{min-height:105px}.head-to-head-player{grid-template-columns:27px minmax(0,1fr) 46px;min-height:112px}.head-to-head-player>.player-headshot{width:27px;height:27px}.head-to-head-player>.head-to-head-player-score{min-width:42px}.head-to-head-player-score>strong{font-size:18px}}
+@media(max-width:950px){.head-to-head-team>header{height:105px}.head-to-head-player{grid-template-columns:27px minmax(0,1fr) 46px;min-height:112px}.head-to-head-player>.player-headshot{width:27px;height:27px}.head-to-head-player>.head-to-head-player-score{min-width:42px}.head-to-head-player-score>strong{font-size:18px}}
 
 /* News & Notes turns social-agent copy into an editorial game-day wire. */
 .news-notes-page{display:grid;gap:10px;width:100%;max-width:1500px}.team-picker-strip+.news-notes-page{margin-top:12px}.news-notes-page>.section-intro{border-left:5px solid var(--gold)}
