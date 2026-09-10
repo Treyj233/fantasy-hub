@@ -2236,11 +2236,10 @@ html[data-theme="dark"] .command-action-queue span em{color:#ff9c88}
 .week-one-welcome :is(button):hover{transform:translateY(-1px)}
 .scoreboard-section-nav{display:none}
 @media(max-width:700px){
-  .page-content.portfolio-scoreboard-page{padding-right:calc(48px + env(safe-area-inset-right))}
   .scoreboard-section-nav,.scoreboard-section-nav *{-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none}
   .scoreboard-section-nav>button,.scoreboard-section-nav>button:is(:hover,:active,:focus,:focus-visible){appearance:none;-webkit-appearance:none;border:0;border-radius:0;outline:none;box-shadow:none;background:transparent}
   .scoreboard-section-nav{position:fixed;z-index:90;top:var(--section-nav-top,166px);right:max(0px,env(safe-area-inset-right));display:flex;flex-direction:column;width:44px;max-height:calc(100dvh - var(--section-nav-top,166px) - max(90px,calc(env(safe-area-inset-bottom) + 70px)));touch-action:none;user-select:none;-webkit-user-select:none}
-  .scoreboard-section-nav>button{position:relative;display:grid;align-items:center;justify-items:end;flex:0 1 32px;min-height:18px;width:44px;padding:0 5px 0 0;border:0;background:transparent;color:var(--ink);touch-action:none;outline:none;box-shadow:none;-webkit-tap-highlight-color:transparent}
+  .scoreboard-section-nav>button{position:relative;display:grid;align-items:center;justify-items:end;flex:0 1 32px;min-height:18px;width:44px;padding:0 1px 0 0;border:0;background:transparent;color:var(--ink);touch-action:none;outline:none;box-shadow:none;-webkit-tap-highlight-color:transparent}
   .scoreboard-section-nav>button>i{width:6px;height:6px;border-radius:50%;background:var(--muted);box-shadow:0 0 0 2px var(--chalk);opacity:.65;pointer-events:none}
   .scoreboard-section-nav>button[aria-current]>i,.scoreboard-section-nav>button.previewing>i{width:9px;height:9px;background:var(--gold);opacity:1}
   .section-nav-label{display:none;position:absolute;right:42px;padding:8px 12px;border:1px solid var(--line);border-radius:8px;background:var(--chalk);color:var(--ink);box-shadow:0 4px 18px #0003;font-size:12px;font-weight:800;white-space:nowrap;pointer-events:none}
