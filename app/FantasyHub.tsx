@@ -722,6 +722,10 @@ function playerTemperature(player: ScoreboardPlayer, matchupStatus: string) {
   if (value <= 38) return { value, label: "Cooling off", state: "cold" };
   return { value, label: "Steady", state: "steady" };
 }
+
+function isPlayerGameInProgress(player: Pick<ScoreboardPlayer, "gameProgress">) {
+  return typeof player.gameProgress === "number" && player.gameProgress > 0 && player.gameProgress < 1;
+}
 type ScoreboardTeam = {
   rosterId: string;
   managerName: string;
@@ -6190,6 +6194,7 @@ function AllLeagueScoreboard({
   const [scoresExpanded, setScoresExpanded] = useState(false);
   const [swingFeed, setSwingFeed] = useState<{ id: string; league: string; text: string; previous: number; current: number; at: string }[]>([]);
   const [pulseEvents, setPulseEvents] = useState<{ id: string; text: string; impact: "helps" | "hurts"; at: string }[]>([]);
+  const [gameplayPulseItems, setGameplayPulseItems] = useState<LivePlayContext[]>([]);
   const previousOdds = useRef<Record<string, number>>({});
   const previousPulseSnapshot = useRef<Record<string, { points: number; yards: number; touchdowns: number; receptions: number; offensiveTurnovers: number; defensiveTurnovers: number; returnTouchdowns: number; fieldGoals: number }>>({});
   const previousPulseOdds = useRef<Record<string, number | null>>({});
@@ -6255,6 +6260,7 @@ function AllLeagueScoreboard({
           .catch(() => [] as LivePlayContext[]),
       ]);
       if (!active) return;
+      setGameplayPulseItems(livePlays);
       const hadPulseBaseline = Object.keys(previousPulseSnapshot.current).length > 0;
       const nextSnapshot: typeof previousPulseSnapshot.current = {};
       const nextOdds: typeof previousPulseOdds.current = {};
@@ -6440,13 +6446,14 @@ function AllLeagueScoreboard({
     if (item.status === "final") return [];
     const need = whatDoINeed({ yourPoints: item.mine.points, opponentPoints: item.opponent.points, opponentRemaining: item.opponentRemaining, players: item.mineStarters, scoring: item.data.league.scoring ?? {} });
     const activeTargets = need.targets.filter((target) => target.projection == null || target.projection > target.points);
-    return (activeTargets.length ? activeTargets : need.targets).map((target, targetIndex) => ({
+    const prioritizedTargets = [...(activeTargets.length ? activeTargets : need.targets)].sort((a, b) => Number(isPlayerGameInProgress(b)) - Number(isPlayerGameInProgress(a)) || b.pointsNeeded - a.pointsNeeded);
+    return prioritizedTargets.map((target, targetIndex) => ({
       league: item.league,
       target,
       need,
       winProbability: item.winProbability,
       status: item.status,
-      importance: (item.status === "live" ? 35 : 10) + (100 - Math.abs((item.winProbability ?? 50) - 50)) + Math.min(35, target.pointsNeeded * 1.5) - targetIndex * 3,
+      importance: (isPlayerGameInProgress(target) ? 200 : 0) + (item.status === "live" ? 35 : 10) + (100 - Math.abs((item.winProbability ?? 50) - 50)) + Math.min(35, target.pointsNeeded * 1.5) - targetIndex * 3,
     }));
   }).sort((a, b) => b.importance - a.importance);
   const selectedWinPaths: typeof winPathCandidates = [];
@@ -6489,7 +6496,13 @@ function AllLeagueScoreboard({
     gameDay.leveragePlayers[0] ? `${gameDay.leveragePlayers[0].name} is your highest-leverage player` : "Leverage alerts appear at kickoff",
     featured && featured.status !== "final" ? `${featured.mineRemaining.toFixed(1)} projected points remain for ${featured.mine.teamName}` : "Final scores collapse into postgame reviews",
   ];
-  const pulseItems = pulseEvents.length ? pulseEvents.slice(0, 6).map((event) => event.text) : statusPulseItems;
+  const liveGameplayItems = gameplayPulseItems
+    .filter((play) => play.text.trim())
+    .slice(0, 4)
+    .map((play) => `${play.offenseTeam || "NFL"} · Q${play.period}${play.clock ? ` ${play.clock}` : ""} · ${play.text}`);
+  const pulseItems = liveGameplayItems.length
+    ? [...pulseEvents.slice(0, 2).map((event) => event.text), ...liveGameplayItems].slice(0, 6)
+    : pulseEvents.length ? pulseEvents.slice(0, 6).map((event) => event.text) : statusPulseItems;
   useEffect(() => {
     const original = document.title;
     document.title = gameDay.matchups.length
@@ -6685,7 +6698,7 @@ function AllLeagueScoreboard({
               {consequence?.status !== "final" && need && <section className={`what-needed ${expandedNeeds.has(league.id) ? "expanded" : "collapsed"}`}>
                 <button className="need-collapse-toggle" type="button" aria-expanded={expandedNeeds.has(league.id)} onClick={() => setExpandedNeeds((current) => { const next = new Set(current); if (next.has(league.id)) next.delete(league.id); else next.add(league.id); return next; })}><span><i /> LIVE WIN PATH</span><strong>{need.teamNeed ? `${need.teamNeed.toFixed(1)} PTS NEEDED` : "PROJECTED LEAD"}</strong><em aria-hidden="true">⌄</em></button>
                 {expandedNeeds.has(league.id) && <div className="need-expanded-content"><p>{need.message}</p>
-                {need.targets.slice(0, 10).map((target) => <article key={target.id}><PlayerHeadshot id={target.id} position={target.position} /><div><div className="need-player-row"><button className="inline-player-link" onClick={() => openPlayer(playerShell(target))}>{target.name}</button><b>{target.progress}%</b></div><small>Needs about <b>{target.pointsNeeded.toFixed(1)} more points</b> · {target.statLine}</small><span className="need-progress"><i style={{ width: `${target.progress}%` }} /></span><em>{target.points.toFixed(1)} scored toward a {target.targetTotal.toFixed(1)} point target</em></div></article>)}</div>}
+                {[...need.targets].sort((a, b) => Number(isPlayerGameInProgress(b)) - Number(isPlayerGameInProgress(a)) || b.pointsNeeded - a.pointsNeeded).slice(0, 10).map((target) => <article key={target.id}><PlayerHeadshot id={target.id} position={target.position} /><div><div className="need-player-row"><button className="inline-player-link" onClick={() => openPlayer(playerShell(target))}>{target.name}</button><b>{target.progress}%</b></div><small>Needs about <b>{target.pointsNeeded.toFixed(1)} more points</b> · {target.statLine}</small><span className="need-progress"><i style={{ width: `${target.progress}%` }} /></span><em>{target.points.toFixed(1)} scored toward a {target.targetTotal.toFixed(1)} point target</em></div></article>)}</div>}
               </section>}
               {consequence?.status === "final" && <div className="postgame-review"><b>{consequence.mine.points > consequence.opponent.points ? "WIN" : consequence.mine.points < consequence.opponent.points ? "LOSS" : "TIE"}</b><p><strong>Postgame review</strong><small>{Math.abs(consequence.mine.points - consequence.opponent.points) <= 5 ? "A close final margin decided this matchup." : "The final scoring margin was decisive."} Results describe what happened, not whether the original lineup decision was sound.</small></p></div>}
               </div>

@@ -64,8 +64,8 @@ async function getWeeklySnapshot(
   const ttlSeconds = kind === "stats" ? 30 : 900;
   const ttlMs = kind === "stats" ? weeklyStatsTtlMs : weeklyProjectionsTtlMs;
   const url = kind === "stats"
-    ? `https://api.sleeper.com/stats/nfl/regular/${season}/${week}`
-    : `https://api.sleeper.com/projections/nfl/${season}/${week}?season_type=regular`;
+    ? `https://api.sleeper.app/v1/stats/nfl/regular/${season}/${week}`
+    : `https://api.sleeper.app/v1/projections/nfl/regular/${season}/${week}?season_type=regular`;
   const request = (async () => {
     const response = await fetchCachedUpstream(url, ttlSeconds);
     if (!response.ok) throw new Error(`Sleeper weekly ${kind} unavailable`);
