@@ -715,7 +715,10 @@ function playerTemperature(player: ScoreboardPlayer, matchupStatus: string) {
   const expectedPoints = Math.max(.5, projection * gameProgress);
   const ratio = player.points / expectedPoints;
   const productionBoost = Math.min(12, player.touchdowns * 5 + Math.floor(player.receptions / 4) * 2);
-  const value = Math.round(Math.max(3, Math.min(97, 50 + (ratio - 1) * 32 + productionBoost)));
+  // Reward strong positive pace: 1.5x expected production reaches fire.
+  // Retain the existing sensitivity below expectation for cold indicators.
+  const paceSensitivity = ratio >= 1 ? 76 : 32;
+  const value = Math.round(Math.max(3, Math.min(97, 50 + (ratio - 1) * paceSensitivity + productionBoost)));
   if (value >= 88) return { value, label: "On fire", state: "fire" };
   if (value >= 68) return { value, label: "Heating up", state: "hot" };
   if (value <= 22) return { value, label: "Freezing cold", state: "ice" };
