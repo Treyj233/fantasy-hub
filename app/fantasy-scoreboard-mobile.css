@@ -1,0 +1,195 @@
+/* Isolated mobile presentation layer. Remove this import to restore the previous UI.
+ * No data, module visibility, dialog behavior, or desktop styles are changed.
+ */
+@media (max-width: 700px) {
+  .portfolio-scoreboard-page {
+    gap: 20px;
+  }
+
+  .portfolio-scoreboard-page :is(.game-day-command, .portfolio-win-path, .on-fire-board, .rooting-interests, .sunday-swing) {
+    padding: 18px 0 0;
+    margin: 0;
+    background: transparent;
+    border: 0;
+    border-top: 1px solid var(--line);
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .portfolio-scoreboard-page :is(.game-day-command, .portfolio-win-path, .on-fire-board, .rooting-interests, .sunday-swing) > header {
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+    padding: 0;
+    background: transparent;
+    border: 0;
+  }
+
+  .portfolio-scoreboard-page :is(.game-day-command, .portfolio-win-path, .on-fire-board, .rooting-interests, .sunday-swing) > header h3 {
+    font-size: 17px;
+    line-height: 1.3;
+  }
+
+  .portfolio-scoreboard-page .game-day-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0;
+  }
+
+  .portfolio-scoreboard-page .game-day-metrics > button {
+    padding: 12px;
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    min-height: 92px;
+  }
+
+  .portfolio-scoreboard-page .game-day-metrics > button:nth-child(odd) {
+    padding-left: 0;
+    border-right: 1px solid var(--line);
+  }
+
+  .portfolio-scoreboard-page .game-day-metrics > button:nth-child(n + 3) {
+    border-top: 1px solid var(--line);
+  }
+
+  .portfolio-scoreboard-page .game-day-metrics strong {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    line-height: 1.2;
+  }
+
+  .portfolio-scoreboard-page .game-day-metrics > button:active {
+    background: color-mix(in srgb, var(--gold) 10%, transparent);
+  }
+
+  .portfolio-scoreboard-page .primary-win-path {
+    padding: 14px;
+    border-radius: 10px;
+    box-shadow: none;
+  }
+
+  .portfolio-scoreboard-page .league-win-paths {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+    margin-top: 8px;
+  }
+
+  .portfolio-scoreboard-page .league-win-paths > article,
+  .portfolio-scoreboard-page .rooting-interests article,
+  .portfolio-scoreboard-page .sunday-swing article {
+    margin: 0;
+    padding: 12px 0;
+    background: transparent;
+    border: 0;
+    border-bottom: 1px solid var(--line);
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .portfolio-scoreboard-page .league-win-paths p :is(strong, small) {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .portfolio-scoreboard-page .on-fire-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+    overflow: visible;
+    padding: 0;
+    scroll-snap-type: none;
+  }
+
+  .portfolio-scoreboard-page .on-fire-grid > button {
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr) 66px;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 0;
+    background: transparent;
+    border: 0;
+    border-bottom: 1px solid var(--line);
+    border-radius: 0;
+    box-shadow: none;
+    transform: none;
+  }
+
+  .portfolio-scoreboard-page .on-fire-grid > button > em {
+    position: static;
+    grid-column: 1;
+    grid-row: 1;
+    align-self: start;
+    justify-self: start;
+    z-index: 1;
+    font-size: 10px;
+  }
+
+  .portfolio-scoreboard-page .fire-player-visual {
+    grid-column: 1;
+    grid-row: 1;
+    width: 44px;
+    margin: 0;
+  }
+
+  .portfolio-scoreboard-page .on-fire-grid > button > p {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .portfolio-scoreboard-page .on-fire-grid > button > p > strong {
+    font-size: 13px;
+    white-space: normal;
+  }
+
+  .portfolio-scoreboard-page .fire-score {
+    grid-template-columns: minmax(0, 1fr);
+    grid-column: 3;
+    grid-row: 1;
+    min-width: 0;
+    width: auto;
+    padding: 0;
+    text-align: right;
+    background: transparent;
+    border: 0;
+  }
+
+  .portfolio-scoreboard-page .fire-score > em {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .portfolio-scoreboard-page .game-day-insights {
+    gap: 20px;
+  }
+
+  .portfolio-scoreboard-page .rooting-interests article > em {
+    padding: 0;
+    background: transparent;
+    color: var(--muted);
+    border-radius: 0;
+  }
+
+  .portfolio-scoreboard-page .portfolio-scoreboard-grid {
+    gap: 20px;
+  }
+
+  .portfolio-scoreboard-page .portfolio-score-game {
+    border-radius: 10px;
+    box-shadow: none;
+    border: 1px solid var(--line);
+  }
+
+  .portfolio-scoreboard-page .portfolio-score-game .what-needed article {
+    background: transparent;
+    border: 0;
+    border-bottom: 1px solid var(--line);
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .portfolio-scoreboard-page .on-fire-grid > button:focus-visible {
+    outline: 2px solid var(--gold);
+    outline-offset: 2px;
+  }
+}
