@@ -1,6 +1,13 @@
 const counterDelta = (current, previous, key) =>
   Math.max(0, Number(current?.[key] ?? 0) - Number(previous?.[key] ?? 0));
 
+export const SUNDAY_PULSE_EVENT_TTL_MS = 2 * 60 * 1000;
+
+export function isSundayPulseEventActive(eventAt, now = Date.now()) {
+  const occurredAt = new Date(eventAt).getTime();
+  return Number.isFinite(occurredAt) && now - occurredAt < SUNDAY_PULSE_EVENT_TTL_MS;
+}
+
 export function classifyFantasyPlay(previous, current) {
   const fantasyPoints = Number((Number(current?.points ?? 0) - Number(previous?.points ?? 0)).toFixed(2));
   const defensiveTurnovers = counterDelta(current, previous, "defensiveTurnovers");
@@ -12,11 +19,11 @@ export function classifyFantasyPlay(previous, current) {
   const yardDelta = counterDelta(current, previous, "yards");
 
   const confirmation = { fantasyPoints, defensiveTurnovers, offensiveTurnovers, returnTouchdowns, fieldGoals, touchdownDelta, receptionDelta, yardDelta };
+  if (fantasyPoints <= 1) return { ...confirmation, qualifies: false, kind: "routine", description: "" };
   if (defensiveTurnovers > 0)
     return { ...confirmation, qualifies: true, kind: "turnover", description: defensiveTurnovers > 1 ? `${defensiveTurnovers} takeaways` : "a defensive takeaway" };
   if (offensiveTurnovers > 0)
     return { ...confirmation, qualifies: true, kind: "turnover", description: offensiveTurnovers > 1 ? `${offensiveTurnovers} turnovers` : "a turnover" };
-  if (fantasyPoints < 3) return { ...confirmation, qualifies: false, kind: "routine", description: "" };
   if (returnTouchdowns > 0)
     return { ...confirmation, qualifies: true, kind: "special-teams", description: returnTouchdowns > 1 ? `${returnTouchdowns} return touchdowns` : "a return touchdown" };
   if (fieldGoals > 0)

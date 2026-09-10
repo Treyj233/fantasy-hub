@@ -1,21 +1,28 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { classifyFantasyPlay, playerPlayToken, findPlayContext, findConfirmedPlayContext, matchupImpactText } from "../app/live-play-alerts.mjs";
+import { classifyFantasyPlay, playerPlayToken, findPlayContext, findConfirmedPlayContext, isSundayPulseEventActive, matchupImpactText, SUNDAY_PULSE_EVENT_TTL_MS } from "../app/live-play-alerts.mjs";
 
 const baseline = { points: 4, yards: 30, touchdowns: 0, receptions: 2, offensiveTurnovers: 0, defensiveTurnovers: 0, returnTouchdowns: 0, fieldGoals: 0 };
 
-test("Sunday Pulse requires a three-point league-scored play", () => {
-  assert.equal(classifyFantasyPlay(baseline, { ...baseline, points: 6.9, yards: 55 }).qualifies, false);
-  const play = classifyFantasyPlay(baseline, { ...baseline, points: 7, yards: 60, receptions: 3 });
+test("Sunday Pulse includes every play worth more than one league-scored point", () => {
+  assert.equal(classifyFantasyPlay(baseline, { ...baseline, points: 5, yards: 40 }).qualifies, false);
+  const play = classifyFantasyPlay(baseline, { ...baseline, points: 5.01, yards: 40, receptions: 3 });
   assert.equal(play.qualifies, true);
   assert.equal(play.kind, "offense");
 });
 
-test("turnovers qualify regardless of fantasy point delta", () => {
+test("turnovers qualify when they gain more than one fantasy point", () => {
+  assert.equal(classifyFantasyPlay(baseline, { ...baseline, defensiveTurnovers: 1 }).qualifies, false);
   const takeaway = classifyFantasyPlay(baseline, { ...baseline, points: 6, defensiveTurnovers: 1 });
   assert.equal(takeaway.qualifies, true);
   assert.equal(takeaway.kind, "turnover");
   assert.match(takeaway.description, /takeaway/);
+});
+
+test("Sunday Pulse events expire after two minutes", () => {
+  const now = Date.parse("2026-09-10T00:00:00.000Z");
+  assert.equal(isSundayPulseEventActive(new Date(now - SUNDAY_PULSE_EVENT_TTL_MS + 1).toISOString(), now), true);
+  assert.equal(isSundayPulseEventActive(new Date(now - SUNDAY_PULSE_EVENT_TTL_MS).toISOString(), now), false);
 });
 
 test("kicker and return scoring are labeled as special teams", () => {

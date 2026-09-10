@@ -4,7 +4,7 @@ import { Fragment, createContext, useCallback, useContext, useEffect, useMemo, u
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { estimatedWinProbability, isProjectedWin, playerLeverage, rootingInterests, whatDoINeed } from "./game-day-model.mjs";
-import { classifyFantasyPlay, findConfirmedPlayContext, matchupImpactText } from "./live-play-alerts.mjs";
+import { classifyFantasyPlay, findConfirmedPlayContext, isSundayPulseEventActive, matchupImpactText, SUNDAY_PULSE_EVENT_TTL_MS } from "./live-play-alerts.mjs";
 import { PRE_KICKOFF_VISUALS_ENABLED } from "./pre-kickoff-visuals";
 import { DEFAULT_PUSH_PREFERENCES, type PushAlertKey, type PushPreferences } from "./push-preferences";
 import { disableNativePushNotifications, enableNativePushNotifications, initializeNativeRuntime, isNativeIosApp, nativeHapticsEnabled, nativeImpact, nativeLogAppsFlyerEvent, nativeManageSubscriptions, nativePurchase, nativeRefreshPurchases, nativeRestorePurchases, nativeStoreProducts, setNativeHapticsEnabled } from "./native-runtime";
@@ -6195,6 +6195,14 @@ function AllLeagueScoreboard({
     matchupJumpTimers.current.forEach((timer) => window.clearTimeout(timer));
   }, []);
   useEffect(() => {
+    if (!pulseEvents.length) return;
+    const nextExpiry = Math.min(...pulseEvents.map((event) => new Date(event.at).getTime() + SUNDAY_PULSE_EVENT_TTL_MS));
+    const timer = window.setTimeout(() => {
+      setPulseEvents((current) => current.filter((event) => isSundayPulseEventActive(event.at)));
+    }, Math.max(0, nextExpiry - Date.now()) + 1);
+    return () => window.clearTimeout(timer);
+  }, [pulseEvents]);
+  useEffect(() => {
     if (!leagues.length) return;
     let active = true;
     let hydrationTimer: number | undefined;
@@ -6293,7 +6301,7 @@ function AllLeagueScoreboard({
       });
       previousPulseSnapshot.current = nextSnapshot;
       previousPulseOdds.current = nextOdds;
-      if (scoringEvents.length) setPulseEvents((current) => [...scoringEvents.sort((a, b) => b.delta - a.delta), ...current].slice(0, 12));
+      if (scoringEvents.length) setPulseEvents((current) => [...scoringEvents.sort((a, b) => b.delta - a.delta), ...current].filter((event) => isSundayPulseEventActive(event.at)).slice(0, 12));
       else if (!hadPulseBaseline) setPulseEvents([]);
       const nextScores = Object.fromEntries(results);
       const nextUpdatedAt = new Date().toISOString();
