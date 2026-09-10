@@ -94,8 +94,10 @@
         if (!state.track.isConnected) continue;
         const loopDistance = state.first.getBoundingClientRect().width + parseFloat(getComputedStyle(state.track.children[1]).paddingLeft || "0");
         if (loopDistance < 3) continue;
-        const duration = Math.max(4000, loopDistance * 32);
-        const progress = ((now - state.startedAt) % duration) / duration;
+        const scrollDuration = Math.max(4000, loopDistance * 32);
+        const cycleDuration = 5000 + scrollDuration;
+        const elapsed = (now - state.startedAt) % cycleDuration;
+        const progress = elapsed < 5000 ? 0 : (elapsed - 5000) / scrollDuration;
         state.track.style.transform = `translate3d(${-loopDistance * progress}px,0,0)`;
       }
     }

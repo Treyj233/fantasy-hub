@@ -6560,7 +6560,7 @@ function AllLeagueScoreboard({
       </button>
       <section className="sunday-pulse" aria-label="Sunday Pulse">
         <b><i /> SUNDAY PULSE</b>
-        <div><span>{pulseItems.join("  •  ")}</span><span aria-hidden="true">{pulseItems.join("  •  ")}</span></div>
+        <div><div className="sunday-pulse-track" key={pulseItems.join("  •  ")}><span>{pulseItems.join("  •  ")}</span><span aria-hidden="true">{pulseItems.join("  •  ")}</span></div></div>
         <button type="button" onClick={enterTvMode}>Full screen</button>
       </section>
       <section className="portfolio-score-rail" aria-label="Quick access to fantasy matchup scores">
@@ -6653,8 +6653,12 @@ function AllLeagueScoreboard({
                 <b>{league.name}</b>
               </header>
               {mine && opponent ? (
-                <div className={`score-bug portfolio-score-bug ${winTone}`}>
-                  <aside className="scorebug-probability" aria-label={winProbability == null ? "Estimated win probability unavailable" : `Estimated win probability ${winProbability}%`}>
+                <>
+                  <div className="portfolio-matchup-score" aria-label={`Actual matchup score: ${mine.teamName} ${mine.points.toFixed(2)}, ${opponent.teamName} ${opponent.points.toFixed(2)}`}>
+                    <strong><b>{mine.teamName}</b> {mine.points.toFixed(2)} <i>–</i> {opponent.points.toFixed(2)} <b>{opponent.teamName}</b></strong>
+                  </div>
+                  <div className={`score-bug portfolio-score-bug ${winTone}`}>
+                    <aside className="scorebug-probability" aria-label={winProbability == null ? "Estimated win probability unavailable" : `Estimated win probability ${winProbability}%`}>
                     <div>
                       <small>WIN PROBABILITY</small>
                       <strong>{winProbability == null ? "—" : `${winProbability}%`}</strong>
@@ -6672,7 +6676,8 @@ function AllLeagueScoreboard({
                       <ScoreWithProjection team={team} />
                     </div>
                   ))}
-                </div>
+                  </div>
+                </>
               ) : (
                 <p className="portfolio-score-pending">{data ? `Your Week ${week} matchup has not been posted.` : loading ? "Loading your matchup…" : "This league’s scoreboard is unavailable."}</p>
               )}

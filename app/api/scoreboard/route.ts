@@ -5,13 +5,13 @@ import { getChatGPTUser } from "../../chatgpt-auth";
 import { fetchEspnLeagueForUser, normalizeEspnScoreboard } from "../espn";
 import { fetchCachedUpstream } from "../upstream-cache";
 import { getSleeperPlayerDirectory, getSleeperWeeklyProjections, getSleeperWeeklyStats } from "../sleeper-shared-data";
-import { liveTeamPoints, sleeperFantasyPoints } from "../../sleeper-live-scoring.mjs";
+import { sleeperFantasyPoints } from "../../sleeper-live-scoring.mjs";
 import { getNflGames, type NflDataGame } from "../../highlightly-nfl";
 
 type MatchupRow = { roster_id?: number; matchup_id?: number | null; points?: number; custom_points?: number | null; players?: string[]; starters?: string[]; players_points?: Record<string, number> };
 const SLEEPER_SCOREBOARD_TTL_SECONDS = {
   leagueConfiguration: 6 * 60 * 60,
-  matchupReconciliation: 15 * 60,
+  matchupReconciliation: 20,
   rosterOwners: 60 * 60,
   leagueUsers: 60 * 60,
 } as const;
@@ -110,9 +110,8 @@ export async function GET(request: Request) {
   if (!connection) return Response.json({ error: "Connect a Sleeper account first" }, { status: 409 });
 
   // League configuration, rosters, and managers change far less frequently than
-  // live scoring. Keep those inputs warm at the edge while the matchup payload
-  // retains a periodic reconciliation TTL. Between reconciliations, live points
-  // are calculated from the shared 30-second weekly player-stat snapshot.
+  // live scoring. Keep those inputs warm at the edge while official matchup
+  // scores refresh frequently enough to remain the source of truth in-game.
   const leagueResponse = await fetchCachedUpstream(
     `https://api.sleeper.app/v1/league/${leagueId}`,
     SLEEPER_SCOREBOARD_TTL_SECONDS.leagueConfiguration,
@@ -181,9 +180,10 @@ export async function GET(request: Request) {
       return { id: playerId, name: player?.name ?? "Unknown player", position, lineupSlot: isStarter ? (starterSlots[starterIndex] ?? position) : "BN", lineupOrder: isStarter ? starterIndex : starterSlots.length + (rosterOrder.get(playerId) ?? 999), nflTeam, gameProgress: nflProgressByTeam.get(nflTeam), points, projection: projectionsByPlayer.get(playerId) ?? null, isStarter, yards: Math.round((stats.pass_yd ?? 0) + (stats.rush_yd ?? 0) + (stats.rec_yd ?? 0)), touchdowns: (stats.pass_td ?? 0) + (stats.rush_td ?? 0) + (stats.rec_td ?? 0), receptions: stats.rec ?? 0, targets: stats.rec_tgt ?? 0, offensiveTurnovers: (stats.pass_int ?? 0) + (stats.fum_lost ?? 0), defensiveTurnovers: (stats.def_int ?? 0) + (stats.def_fum_rec ?? stats.fum_rec ?? 0), returnTouchdowns: (stats.kick_ret_td ?? 0) + (stats.punt_ret_td ?? 0) + (stats.st_td ?? 0), fieldGoals: stats.fgm ?? 0, passingYards: stats.pass_yd ?? 0, passingTouchdowns: stats.pass_td ?? 0, interceptions: stats.pass_int ?? 0, rushingAttempts: stats.rush_att ?? 0, rushingYards: stats.rush_yd ?? 0, rushingTouchdowns: stats.rush_td ?? 0, receivingYards: stats.rec_yd ?? 0, receivingTouchdowns: stats.rec_td ?? 0, fieldGoalAttempts: stats.fga ?? 0, extraPoints: stats.xpm ?? 0, sacks: stats.sack ?? 0, pointsAllowed: typeof stats.pts_allow === "number" ? stats.pts_allow : undefined, defensiveTouchdowns: stats.def_td ?? 0 };
     }).sort((a, b) => a.lineupOrder - b.lineupOrder);
     const officialPoints = Number((row.custom_points ?? row.points ?? 0).toFixed(2));
-    const points = useCalculatedLiveScoring
-      ? liveTeamPoints(topPlayers, row.custom_points)
-      : officialPoints;
+    // The league's matchup score is authoritative. Individual player stat feeds
+    // can lag or omit scoring settings, so never reconstruct the score shown on
+    // a fantasy matchup card from those stats.
+    const points = officialPoints;
     return { rosterId: String(row.roster_id ?? ""), ownerId: roster?.owner_id ?? null, managerName: manager?.display_name ?? `Roster ${row.roster_id ?? ""}`, teamName: manager?.metadata?.team_name ?? `${manager?.display_name ?? `Roster ${row.roster_id ?? ""}`}'s Team`, points, officialPoints, isMine: roster?.owner_id === connection.sleeperUserId, topPlayers };
   };
   const grouped = new Map<number, MatchupRow[]>();
@@ -201,5 +201,5 @@ export async function GET(request: Request) {
     league.leg ?? week,
     nflGameInProgress,
   );
-  return Response.json({ league: { id: leagueId, name: league.name ?? "League", season, currentWeek: league.leg ?? week, provider: "Sleeper", projectionSource: "Sleeper Projections", scoring: league.scoring_settings ?? {} }, week, updatedAt: new Date().toISOString(), scoringSource: useCalculatedLiveScoring ? "calculated_live" : "sleeper_official", sharedStatsRefreshedAt: statsSnapshot?.refreshedAt ?? null, playerDirectoryRefreshedAt: playerDirectory.refreshedAt, reconciliationIntervalSeconds: 900, matchups });
+  return Response.json({ league: { id: leagueId, name: league.name ?? "League", season, currentWeek: league.leg ?? week, provider: "Sleeper", projectionSource: "Sleeper Projections", scoring: league.scoring_settings ?? {} }, week, updatedAt: new Date().toISOString(), scoringSource: "sleeper_official", sharedStatsRefreshedAt: statsSnapshot?.refreshedAt ?? null, playerDirectoryRefreshedAt: playerDirectory.refreshedAt, reconciliationIntervalSeconds: SLEEPER_SCOREBOARD_TTL_SECONDS.matchupReconciliation, matchups });
 }

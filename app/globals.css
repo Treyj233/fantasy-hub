@@ -1,6 +1,7 @@
 @import "tailwindcss";
 
 .fire-player-visual>.temperature-indicator.fire,.fire-player-visual>.temperature-indicator.hot{filter:drop-shadow(0 2px 3px #8b2d1166);animation:fire-flicker 1.1s ease-in-out infinite}.fire-player-visual>.temperature-indicator.ice,.fire-player-visual>.temperature-indicator.cold{filter:drop-shadow(0 2px 3px #168bd066);animation:ice-pulse 1.3s ease-in-out infinite}.fire-player-visual>.temperature-indicator.steady{color:#7e8984;font-size:18px;line-height:14px;filter:none;animation:none}
+.sunday-pulse>div>.sunday-pulse-track{display:flex;width:max-content;min-width:max-content;will-change:transform;animation:sunday-pulse-loop 32s linear infinite}.sunday-pulse>div>.sunday-pulse-track>span{animation:none}@keyframes sunday-pulse-loop{to{transform:translateX(-50%)}}
 
 :root { --ink:#10291e; --green:#0c3b28; --green-2:#14573a; --lime:#bce55c; --gold:#d9b866; --cream:#f4f4ec; --muted:#63766a; --line:#dfe7df; --white:#fff; }
 * { box-sizing:border-box; }
@@ -487,6 +488,7 @@ html[data-theme="dark"] .all-leagues-page :is(.health-list .draft-prep-label,.po
 
 /* Portfolio scoreboard defaults to one owned matchup per connected league. */
 .portfolio-scoreboard-page{display:grid;gap:13px}.portfolio-scoreboard-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.portfolio-score-game{display:flex;min-height:0;flex-direction:column}.portfolio-score-game .score-game-actions{margin-top:auto}.portfolio-score-pending{min-height:92px;margin:0;padding:28px 18px;color:var(--muted);background:var(--chalk);font-size:11px;text-align:center}.scoreboard-back{margin-top:11px;padding:7px 10px;color:var(--gold-light);background:rgb(255 255 255 / .08);border:1px solid rgb(255 255 255 / .2);border-radius:8px;font-size:12px;font-weight:900}.scoreboard-back:hover{background:rgb(255 255 255 / .14)}html[data-theme="dark"] .portfolio-score-pending{background:var(--chalk)}
+.portfolio-matchup-score{padding:10px 12px;color:#fff;background:linear-gradient(100deg,var(--green),#14573a);border-top:1px solid #ffffff22;border-bottom:1px solid #ffffff22}.portfolio-matchup-score>strong{display:flex;align-items:baseline;justify-content:center;gap:7px;font-size:21px;line-height:1.1;text-align:center}.portfolio-matchup-score>strong>b{overflow:hidden;max-width:31%;color:#d7e7dc;font-size:10px;font-weight:800;text-overflow:ellipsis;white-space:nowrap}.portfolio-matchup-score>strong>i{color:var(--gold-light);font-style:normal}@media(max-width:650px){.portfolio-matchup-score{padding:8px 10px}.portfolio-matchup-score>strong{gap:5px;font-size:19px}.portfolio-matchup-score>strong>b{max-width:28%;font-size:9px}}
 @media(max-width:900px){.portfolio-scoreboard-grid{grid-template-columns:1fr}}@media(max-width:700px){.portfolio-scoreboard-head{display:block}.portfolio-scoreboard-head label,.portfolio-scoreboard-head .live-refresh{display:block;margin-top:12px}}
 
 /* Sunday command-center enhancements. */

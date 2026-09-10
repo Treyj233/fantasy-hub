@@ -16,6 +16,8 @@ test("clipped single-line dashboard text auto-scrolls without affecting fitting 
   assert.match(fallback, /track\.append\(first, second\)/);
   assert.match(fallback, /second\.setAttribute\("aria-hidden", "true"\)/);
   assert.match(fallback, /const loopDistance = state\.first\.getBoundingClientRect\(\)\.width/);
+  assert.match(fallback, /const cycleDuration = 5000 \+ scrollDuration/);
+  assert.match(fallback, /elapsed < 5000 \? 0/);
   assert.match(fallback, /translate3d/);
   assert.doesNotMatch(fallback, /element\.scrollLeft = position/);
 });
