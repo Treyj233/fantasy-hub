@@ -782,12 +782,6 @@ type LivePlayContext = {
   defenseTeam: string;
 };
 
-function isMeaningfulSundayGameplay(play: LivePlayContext) {
-  const detail = `${play.type} ${play.text}`.toLowerCase();
-  if (/penalt|timeout|two.minute warning|end of (quarter|half|game)|no play|administrative/.test(detail)) return false;
-  if (play.scoringPlay || play.isTurnover) return true;
-  return play.yardage >= 10 && /pass|rush|run|reception|catch/.test(detail);
-}
 type NflImpactPlayer = {
   id: string;
   name: string;
@@ -6201,7 +6195,6 @@ function AllLeagueScoreboard({
   const [scoresExpanded, setScoresExpanded] = useState(false);
   const [swingFeed, setSwingFeed] = useState<{ id: string; league: string; text: string; previous: number; current: number; at: string }[]>([]);
   const [pulseEvents, setPulseEvents] = useState<{ id: string; text: string; impact: "helps" | "hurts"; at: string }[]>([]);
-  const [gameplayPulseItems, setGameplayPulseItems] = useState<LivePlayContext[]>([]);
   const previousOdds = useRef<Record<string, number>>({});
   const previousPulseSnapshot = useRef<Record<string, { points: number; yards: number; touchdowns: number; receptions: number; offensiveTurnovers: number; defensiveTurnovers: number; returnTouchdowns: number; fieldGoals: number }>>({});
   const savedWinPathPayloads = useRef<Record<string, string>>({});
@@ -6265,7 +6258,6 @@ function AllLeagueScoreboard({
           .catch(() => [] as LivePlayContext[]),
       ]);
       if (!active) return;
-      setGameplayPulseItems(livePlays);
       const hadPulseBaseline = Object.keys(previousPulseSnapshot.current).length > 0;
       const nextSnapshot: typeof previousPulseSnapshot.current = {};
       const scoringEvents: { dedupeKey: string; description: string; leagueName: string; impact: "helps" | "hurts"; at: string; delta: number }[] = [];
@@ -6506,13 +6498,7 @@ function AllLeagueScoreboard({
     gameDay.leveragePlayers[0] ? `${gameDay.leveragePlayers[0].name} is your highest-leverage player` : "Leverage alerts appear at kickoff",
     featured && featured.status !== "final" ? `${featured.mineRemaining.toFixed(1)} projected points remain for ${featured.mine.teamName}` : "Final scores collapse into postgame reviews",
   ];
-  const liveGameplayItems = gameplayPulseItems
-    .filter((play) => play.text.trim() && isMeaningfulSundayGameplay(play))
-    .slice(0, 4)
-    .map((play) => `${play.offenseTeam || "NFL"} · Q${play.period}${play.clock ? ` ${play.clock}` : ""} · ${play.text}`);
-  const pulseItems = liveGameplayItems.length
-    ? [...pulseEvents.slice(0, 2).map((event) => event.text), ...liveGameplayItems].slice(0, 6)
-    : pulseEvents.length ? pulseEvents.slice(0, 6).map((event) => event.text) : statusPulseItems;
+  const pulseItems = pulseEvents.length ? pulseEvents.slice(0, 6).map((event) => event.text) : statusPulseItems;
   useEffect(() => {
     const original = document.title;
     document.title = gameDay.matchups.length
