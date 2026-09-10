@@ -2905,8 +2905,9 @@ export default function FantasyHub({
   const selectedConnectedLeague = availableLeagues.find(
     (league) => league.id === leagueId,
   );
-  const visibleLeagues = availableLeagues.filter(
-    (league) => !hiddenLeagueIds.includes(league.id),
+  const visibleLeagues = useMemo(
+    () => availableLeagues.filter((league) => !hiddenLeagueIds.includes(league.id)),
+    [availableLeagues, hiddenLeagueIds],
   );
   const visibleNav = nav;
   const activeRivalryWeek = entitlement.elite && rivalryWeek?.leagueId === leagueId && leaguePlatform.toLowerCase() === "sleeper" ? rivalryWeek : null;
