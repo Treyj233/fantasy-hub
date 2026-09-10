@@ -705,6 +705,9 @@ function liveStatSummary(player: ScoreboardPlayer, matchupStatus: string) {
 }
 
 function playerTemperature(player: ScoreboardPlayer, matchupStatus: string) {
+  if (player.gameProgress === 1 || matchupStatus.toLowerCase() === "final") {
+    return { value: 50, label: "Final", state: "steady" };
+  }
   const isLive = matchupStatus.toLowerCase() === "live";
   const projection = player.projection ?? 0;
   if (!isLive || projection <= 0) return { value: 50, label: isLive ? "No projection" : "Waiting for kickoff", state: "steady" };
