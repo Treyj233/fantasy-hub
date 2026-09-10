@@ -6269,7 +6269,7 @@ function AllLeagueScoreboard({
       if (!active) return;
       const hadPulseBaseline = Object.keys(previousPulseSnapshot.current).length > 0;
       const nextSnapshot: typeof previousPulseSnapshot.current = {};
-      const scoringEvents: { dedupeKey: string; description: string; leagueName: string; impact: "helps" | "hurts"; at: string; delta: number }[] = [];
+      const scoringEvents: { dedupeKey: string; description: string; confirmedPlay?: string; leagueName: string; impact: "helps" | "hurts"; at: string; delta: number }[] = [];
       results.forEach(([leagueId, data]) => {
         const league = leagues.find((item) => item.id === leagueId);
         const matchup = data?.matchups.find((item) => item.teams.some((team) => team.isMine));
@@ -6308,7 +6308,8 @@ function AllLeagueScoreboard({
           const playContext = findConfirmedPlayContext(player, livePlays, classified);
           const playDescription = playContext?.text ?? `${player.name}: ${classified.description}`;
           const gameClock = playContext && playContext.period ? ` Q${playContext.period}${playContext.clock ? ` ${playContext.clock}` : ""}.` : "";
-          scoringEvents.push({ dedupeKey: `${player.id}:${playContext?.id ?? `${classified.kind}:${player.yards}:${player.touchdowns}:${player.receptions}:${player.offensiveTurnovers}:${player.defensiveTurnovers}`}`, description: `${playDescription}${pointsLabel}${gameClock}`, leagueName: league.name, impact, delta: Math.max(Math.abs(pointDelta), classified.kind === "turnover" ? 3 : 0), at: new Date().toISOString() });
+          const confirmedPlay = playContext ? `${player.name}: ${playContext.text}${gameClock}` : undefined;
+          scoringEvents.push({ confirmedPlay, dedupeKey: `${player.id}:${playContext?.id ?? `${classified.kind}:${player.yards}:${player.touchdowns}:${player.receptions}:${player.offensiveTurnovers}:${player.defensiveTurnovers}`}`, description: `${playDescription}${pointsLabel}${gameClock}`, leagueName: league.name, impact, delta: Math.max(Math.abs(pointDelta), classified.kind === "turnover" ? 3 : 0), at: new Date().toISOString() });
         }));
       });
       previousPulseSnapshot.current = nextSnapshot;
@@ -6322,8 +6323,12 @@ function AllLeagueScoreboard({
         const first = events[0];
         return { id: `${first.dedupeKey}:${first.at}`, impact: helps.length ? "helps" as const : "hurts" as const, delta: Math.max(...events.map((event) => event.delta)), at: first.at, text: `${helps.length && !hurts.length ? "📈" : hurts.length && !helps.length ? "📉" : "⚖️"} ${first.description} ${scope}` };
       });
-      const bigPlays = condensedScoringEvents.filter((event) => event.delta > 6);
-      if (bigPlays.length) setSwingFeed((current) => [...bigPlays, ...current].slice(0, 10));
+      const bigPlays = [...groupedScoringEvents.values()].flatMap((events) => {
+        const play = events.find((event) => event.delta > 6 && event.confirmedPlay);
+        if (!play) return [];
+        return [{ id: play.dedupeKey, text: play.confirmedPlay!, delta: play.delta, at: play.at }];
+      });
+      if (bigPlays.length) setSwingFeed((current) => [...bigPlays, ...current.filter((event) => !bigPlays.some((play) => play.id === event.id))].slice(0, 10));
       if (condensedScoringEvents.length) setPulseEvents((current) => [...condensedScoringEvents.sort((a, b) => b.delta - a.delta), ...current].filter((event) => isSundayPulseEventActive(event.at)).slice(0, 12));
       else if (!hadPulseBaseline) setPulseEvents([]);
       const nextScores = Object.fromEntries(results);
