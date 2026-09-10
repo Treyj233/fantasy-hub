@@ -2029,6 +2029,7 @@ html[data-theme="dark"] .player-verdict,html[data-theme="dark"] .player-range-co
 /* Matchup rows use identical footprints on both sides so slot-for-slot opponents
    stay level even when one player has longer context. */
 .league-card[data-no-auto-scroll] strong,.league-card[data-no-auto-scroll] small{white-space:normal;overflow-wrap:anywhere;text-overflow:clip}
+@media(min-width:701px){.portfolio-score-scroll:has(.what-needed.expanded){max-height:none;overflow-y:visible;scrollbar-gutter:auto}}
 .head-to-head-grid{align-items:start}
 .head-to-head-team>header{height:112px;box-sizing:border-box;overflow:hidden}
 .head-to-head-player{grid-template-columns:31px minmax(0,1fr) 58px;grid-template-rows:minmax(31px,auto) auto auto;min-height:118px;align-items:start}
