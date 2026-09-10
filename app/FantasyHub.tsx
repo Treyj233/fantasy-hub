@@ -6202,9 +6202,8 @@ function AllLeagueScoreboard({
   useEffect(() => {
     if (commandDetail !== null) commandDialog.current?.showModal();
   }, [commandDetail]);
-  const [swingFeed, setSwingFeed] = useState<{ id: string; league: string; text: string; previous: number; current: number; at: string }[]>([]);
+  const [swingFeed, setSwingFeed] = useState<{ id: string; text: string; delta: number; at: string }[]>([]);
   const [pulseEvents, setPulseEvents] = useState<{ id: string; text: string; impact: "helps" | "hurts"; at: string }[]>([]);
-  const previousOdds = useRef<Record<string, number>>({});
   const previousPulseSnapshot = useRef<Record<string, { points: number; yards: number; touchdowns: number; receptions: number; offensiveTurnovers: number; defensiveTurnovers: number; returnTouchdowns: number; fieldGoals: number }>>({});
   const savedWinPathPayloads = useRef<Record<string, string>>({});
   const matchupJumpTimers = useRef<number[]>([]);
@@ -6224,6 +6223,7 @@ function AllLeagueScoreboard({
     let active = true;
     let hydrationTimer: number | undefined;
     previousPulseSnapshot.current = {};
+    setSwingFeed([]);
     let hasCachedScores = Boolean(initialPortfolioSnapshot?.scores);
     if (initialPortfolioSnapshot?.scores) {
       hydrationTimer = window.setTimeout(() => {
@@ -6322,6 +6322,8 @@ function AllLeagueScoreboard({
         const first = events[0];
         return { id: `${first.dedupeKey}:${first.at}`, impact: helps.length ? "helps" as const : "hurts" as const, delta: Math.max(...events.map((event) => event.delta)), at: first.at, text: `${helps.length && !hurts.length ? "📈" : hurts.length && !helps.length ? "📉" : "⚖️"} ${first.description} ${scope}` };
       });
+      const bigPlays = condensedScoringEvents.filter((event) => event.delta > 6);
+      if (bigPlays.length) setSwingFeed((current) => [...bigPlays, ...current].slice(0, 10));
       if (condensedScoringEvents.length) setPulseEvents((current) => [...condensedScoringEvents.sort((a, b) => b.delta - a.delta), ...current].filter((event) => isSundayPulseEventActive(event.at)).slice(0, 12));
       else if (!hadPulseBaseline) setPulseEvents([]);
       const nextScores = Object.fromEntries(results);
@@ -6413,16 +6415,6 @@ function AllLeagueScoreboard({
     const totalStarters = matchups.reduce((sum, item) => sum + item.mineStarters.length + item.opponentStarters.length, 0);
     return { matchups, interests, leveragePlayers, onFire, activePlayers, completedPlayers, remainingPlayers: Math.max(0, totalStarters - activePlayers - completedPlayers) };
   }, [leagues, scores]);
-  useEffect(() => {
-    const changes = gameDay.matchups.flatMap((item) => {
-      if (item.winProbability == null) return [];
-      const previous = previousOdds.current[item.league.id];
-      previousOdds.current[item.league.id] = item.winProbability;
-      if (previous == null || Math.abs(item.winProbability - previous) < 5) return [];
-      return [{ id: `${item.league.id}-${updatedAt}`, league: item.league.name, text: item.winProbability > previous ? "Your estimated win probability improved after the latest scoring refresh." : "Your estimated win probability declined after the latest scoring refresh.", previous, current: item.winProbability, at: updatedAt }];
-    });
-    if (changes.length) setSwingFeed((current) => [...changes, ...current].slice(0, 12));
-  }, [gameDay.matchups, updatedAt]);
   const hasObservedScoring = gameDay.matchups.some((item) => item.status === "live" || item.status === "final" || item.mine.points > 0 || item.opponent.points > 0);
   const usePreKickoffVisuals = PRE_KICKOFF_VISUALS_ENABLED && !hasObservedScoring;
   const preKickoffOnFire = usePreKickoffVisuals
@@ -6663,7 +6655,7 @@ function AllLeagueScoreboard({
       </section>
       <div className="game-day-insights">
         <section className="panel rooting-interests"><header><div><span>ROOTING INTERESTS</span><h3>Who to cheer—and who to stop</h3></div><b>📣 GAME-DAY PULSE</b></header><div className="insight-scroll-window">{gameDay.interests.length ? gameDay.interests.map((interest) => <article className={`rooting-${interest.sentiment}`} key={interest.playerId}><div className="rooting-visual"><NflTeamLogo team={interest.nflTeam} /><PlayerHeadshot id={interest.playerId} position={interest.position} /><i aria-hidden="true">{interest.sentiment === "cheer" ? "📣" : interest.sentiment === "fade" ? "🛑" : "⚖️"}</i></div><p><span>{interest.sentiment === "cheer" ? "ROOT FOR" : interest.sentiment === "fade" ? "ROOT AGAINST" : "MIXED ROOTING INTEREST"}</span><strong>{interest.playerName}</strong><small>{interest.text}</small><span className="rooting-leagues">{interest.affectedLeagues.map((league) => <b className={league.impact} key={`${interest.playerId}-${league.id}`}>{league.impact === "helps" ? "↑" : "↓"} {league.name}</b>)}</span></p><em><small>{interest.level} impact</small></em></article>) : <p className="game-day-empty">Rooting interests appear when weekly lineups and projections are available.</p>}</div></section>
-        <section className="panel sunday-swing" data-visual-source="observed"><header><div><span>SUNDAY SWING</span><h3>Observed this session</h3></div>{swingFeed.length > 0 && <b>LIVE MOVEMENT</b>}</header><div className="insight-scroll-window">{swingFeed.length ? swingFeed.map((item) => <article key={item.id}><b className={item.current >= item.previous ? "positive" : "negative"}>{item.current >= item.previous ? "↑" : "↓"} {Math.abs(item.current - item.previous)} pts</b><p><strong>{item.league}</strong><small>{item.text}</small></p><time>{item.at ? new Date(item.at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "Now"}</time></article>) : <p className="game-day-empty">Waiting for live scoring. Win-probability swings of 5% or more will appear here once pro football games begin.</p>}</div></section>
+        <section className="panel sunday-swing" data-visual-source="observed"><header><div><span>SUNDAY SWINGS</span><h3>Big plays this session</h3></div></header><div className="insight-scroll-window sunday-big-plays">{swingFeed.length ? swingFeed.map((item) => <article key={item.id}><b>+{item.delta.toFixed(1)} pts</b><p><small>{item.text}</small></p><time>{new Date(item.at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</time></article>) : <p className="game-day-empty">Plays worth more than 6 fantasy points will appear here as scoring updates arrive. They stay until newer big plays replace them.</p>}</div></section>
       </div>
       <div className="portfolio-scoreboard-grid" id="league-matchups">
         {orderedLeagues.map((league) => {
