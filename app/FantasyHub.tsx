@@ -6602,7 +6602,7 @@ function AllLeagueScoreboard({
           <article><span>PROJECTED RECORD</span><strong>{projectedWins}–{Math.max(0, gameDay.matchups.length - projectedWins)}</strong><small>Based on projected final scores</small></article>
           <article><span>CLOSE MATCHUPS</span><strong>{gameDay.matchups.filter((item) => Math.abs(item.mine.points + item.mineRemaining - item.opponent.points - item.opponentRemaining) <= 12).length}</strong><small>Projected margin within 12</small></article>
           <article><span>PLAYERS ACTIVE</span><strong>{gameDay.activePlayers}</strong><small>{gameDay.remainingPlayers} remaining · {gameDay.completedPlayers} completed</small></article>
-          <article><span>HIGHEST LEVERAGE</span><strong>{gameDay.leveragePlayers[0]?.name ?? "Waiting for lineups"}</strong><small>{gameDay.leveragePlayers[0] ? `${gameDay.leveragePlayers[0].level} · ${gameDay.leveragePlayers[0].score}/100 attention score` : "No direct exposure yet"}</small></article>
+          <article><span>HIGHEST LEVERAGE</span><strong>{gameDay.leveragePlayers[0]?.name ?? "Waiting for lineups"}</strong></article>
         </div>
       </section>
       {featured && <section className="sunday-spotlight panel">
