@@ -3028,11 +3028,11 @@ export default function FantasyHub({
             <small>Make every week count.</small>
           </div>
         </div>
-        <div className="league-card">
+        <div className="league-card" key={leagueId} data-no-auto-scroll>
           <span>ACTIVE LEAGUE</span>
-          <strong>{leagueName}</strong>
+          <strong>{selectedConnectedLeague?.name ?? leagueName}</strong>
           <small>
-            {selectedLeagueTeam ? `${selectedLeagueTeam.teamName} · ` : ""}
+            {selectedLeagueTeam ? `Team: ${selectedLeagueTeam.teamName} · ` : ""}
             {rankingContext?.scoring ?? "Scoring pending"} · {periodLabel}
           </small>
         </div>

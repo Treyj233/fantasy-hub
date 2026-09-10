@@ -23,6 +23,7 @@
 
   const inspect = (element) => {
     if (!(element instanceof HTMLElement) || !element.isConnected) return;
+    if (element.closest("[data-no-auto-scroll]")) return;
     const current = tracked.get(element);
     if (current && !current.track.isConnected) {
       tracked.delete(element);
