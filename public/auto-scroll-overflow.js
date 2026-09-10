@@ -23,7 +23,7 @@
 
   const inspect = (element) => {
     if (!(element instanceof HTMLElement) || !element.isConnected) return;
-    if (element.closest("[data-no-auto-scroll]")) return;
+    if (element.closest("[data-no-auto-scroll], .fh-marquee-track")) return;
     const current = tracked.get(element);
     if (current && !current.track.isConnected) {
       tracked.delete(element);
@@ -37,7 +37,12 @@
     }
     const style = window.getComputedStyle(element);
     const isEllipsis = style.textOverflow === "ellipsis" || element.classList.contains("fh-auto-scroll-text") || element.classList.contains("overflow-auto-scroll");
-    const overflow = element.scrollWidth - element.clientWidth;
+    // A translated track changes its parent's scrollWidth as it moves. Measure
+    // the original copy instead so live-update scans cannot tear down/restart
+    // a valid marquee midway through its animation.
+    const state = tracked.get(element);
+    const textWidth = state ? state.first.getBoundingClientRect().width : element.scrollWidth;
+    const overflow = textWidth - element.clientWidth;
     if (!isEllipsis || overflow < 3) {
       if (tracked.has(element)) stopTracking(element);
       return;
