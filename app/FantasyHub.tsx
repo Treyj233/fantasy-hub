@@ -6406,14 +6406,13 @@ function AllLeagueScoreboard({
       .map((item) => ({ ...item, temperature: playerTemperature(item.player, item.status), performanceScore: item.player.points + Math.max(0, item.player.points - (item.player.projection ?? item.player.points)) * .8 }))
       .sort((a, b) => b.performanceScore - a.performanceScore)
       .slice(0, 5);
-    const activePlayers = matchups.flatMap((item) => [...item.mineStarters, ...item.opponentStarters]).filter((player) => player.points > 0 && (player.projection == null || player.points < player.projection)).length;
+    const activePlayers = matchups.flatMap((item) => [...item.mineStarters, ...item.opponentStarters]).filter(isPlayerGameInProgress).length;
     const completedPlayers = matchups.reduce(
       (count, matchup) =>
         count +
         [...matchup.mineStarters, ...matchup.opponentStarters].filter(
           (player) =>
-            matchup.status === "final" ||
-            (player.projection != null && player.points >= player.projection),
+            player.gameProgress === 1,
         ).length,
       0,
     );
@@ -6618,7 +6617,7 @@ function AllLeagueScoreboard({
             {gameDay.matchups.filter((item) => commandDetail === 0 || Math.abs(item.mine.points + item.mineRemaining - item.opponent.points - item.opponentRemaining) <= 12).map((item) => <article key={item.league.id}><strong>{item.league.name}</strong>{[item.mine, item.opponent].map((team, index) => <div className="command-stat-row" key={team.rosterId}><span>{team.teamName}<small>{team.points.toFixed(1)} now · {(index === 0 ? item.mineRemaining : item.opponentRemaining).toFixed(1)} left</small></span><b>{(team.points + (index === 0 ? item.mineRemaining : item.opponentRemaining)).toFixed(1)}<small>PROJ</small></b></div>)}</article>)}
             {!gameDay.matchups.some((item) => commandDetail === 0 || Math.abs(item.mine.points + item.mineRemaining - item.opponent.points - item.opponentRemaining) <= 12) && <p>No matching matchups available.</p>}
           </>}
-          {commandDetail === 2 && <><p>Starters across both lineups. “Completed” means projection reached or matchup final.</p>{gameDay.matchups.map((item) => <article key={item.league.id}><strong>{item.league.name}</strong>{[item.mine, item.opponent].map((team) => <section key={team.rosterId}><h4>{team.teamName}{team.isMine ? " · You" : " · Opponent"}</h4>{team.topPlayers.filter((player) => player.isStarter).map((player) => <p className="command-stat-row" key={player.id}><span>{player.name}<small>{player.points.toFixed(1)} pts · {player.projection?.toFixed(1) ?? "—"} proj</small></span><b>{item.status === "final" || (player.projection != null && player.points >= player.projection) ? "Completed" : player.points > 0 ? "Active" : "Remaining"}</b></p>)}</section>)}</article>)}{!gameDay.matchups.length && <p>No starter data available.</p>}</>}
+          {commandDetail === 2 && <><p>Starters across both lineups. Status follows each player’s NFL game.</p>{gameDay.matchups.map((item) => <article key={item.league.id}><strong>{item.league.name}</strong>{[item.mine, item.opponent].map((team) => <section key={team.rosterId}><h4>{team.teamName}{team.isMine ? " · You" : " · Opponent"}</h4>{team.topPlayers.filter((player) => player.isStarter).map((player) => <p className="command-stat-row" key={player.id}><span>{player.name}<small>{player.points.toFixed(1)} pts · {player.projection?.toFixed(1) ?? "—"} proj</small></span><b>{player.gameProgress === 1 ? "Completed" : isPlayerGameInProgress(player) ? "Active" : player.gameProgress == null ? "Status unavailable" : "Remaining"}</b></p>)}</section>)}</article>)}{!gameDay.matchups.length && <p>No starter data available.</p>}</>}
           {commandDetail === 3 && <>{gameDay.leveragePlayers[0] ? <><h4>{gameDay.leveragePlayers[0].name}</h4><p className="command-detail-note">Matchups affected by this player.</p>{gameDay.leveragePlayers[0].exposures.map((exposure, index) => <article key={`${exposure.leagueId}:${index}`}><strong>{exposure.leagueName}</strong><p>{exposure.side === "you" ? "In your lineup" : "In your opponent’s lineup"} · {exposure.state}</p><p>Margin: {exposure.margin.toFixed(1)} pts · Projected left: {exposure.remainingProjection.toFixed(1)} pts</p></article>)}</> : <p>No player exposure available yet.</p>}</>}
         </div>
       </dialog>
