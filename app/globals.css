@@ -2235,6 +2235,11 @@ html[data-theme="dark"] .command-action-queue span em{color:#ff9c88}
 .week-one-welcome-later{margin-top:14px;padding:5px;color:#b9c5cf;background:transparent;border:0;font-size:9px;font-weight:850}
 .week-one-welcome :is(button):hover{transform:translateY(-1px)}
 .scoreboard-section-nav{display:none}
+.all-leagues-page .mission-league-name{display:block!important;width:100%;min-width:0;overflow:hidden;white-space:nowrap;font:inherit!important;color:inherit!important;letter-spacing:inherit!important}
+.all-leagues-page .mission-league-name-track{display:inline-flex!important;width:max-content;max-width:none;will-change:transform;font:inherit!important;color:inherit!important;letter-spacing:inherit!important}
+.all-leagues-page .mission-league-name-track>span{display:block!important;flex:none;font:inherit!important;color:inherit!important;letter-spacing:inherit!important;white-space:nowrap}
+.all-leagues-page .mission-league-name-track>span+span{padding-left:24px}
+.all-leagues-page .mission-league-name:not([data-scrolling="true"]) .mission-league-name-track>span+span{display:none!important}
 .action-queue-groups .consolidated-queue-item{padding:12px 0;border-bottom:1px solid var(--line)}
 .action-queue-groups .consolidated-queue-item>header{display:flex;align-items:center;gap:10px;padding:0 10px 8px}
 .action-queue-groups .consolidated-queue-item>header>div{min-width:0}
