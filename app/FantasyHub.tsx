@@ -11475,7 +11475,10 @@ function HeadToHeadMatchup({
             <span className="temperature-label"><b>❄ ICE</b><strong>{temperature.label}</strong><b>FIRE 🔥</b></span>
             <span className="temperature-track"><i style={{ left: `${temperature.value}%` }} /></span>
           </span>
-          <b>{player.points.toFixed(2)}</b>
+          <b className="head-to-head-player-score">
+            <strong>{player.points.toFixed(2)}</strong>
+            <small>PTS</small>
+          </b>
         </article>
         );
       });

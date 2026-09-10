@@ -57,25 +57,31 @@ export function playerPlayToken(name) {
   return normalized(`${parts[0][0]}.${parts.at(-1)}`);
 }
 
+function playerPlayTokens(name) {
+  const fullName = normalized(name);
+  const abbreviatedName = playerPlayToken(name);
+  return [...new Set([fullName, abbreviatedName].filter(Boolean))];
+}
+
 export function findPlayContext(player, plays, kind) {
-  const token = playerPlayToken(player?.name);
+  const tokens = playerPlayTokens(player?.name);
   const team = String(player?.nflTeam ?? "").toUpperCase();
   return plays.find((play) => {
     const offenseMatch = Boolean(team && play.offenseTeam === team);
     const defenseMatch = Boolean(team && play.defenseTeam === team);
     if (player?.position === "DEF" && kind === "turnover") return Boolean(play.isTurnover && defenseMatch);
-    return Boolean(token && offenseMatch && normalized(play.text).includes(token));
+    return Boolean(tokens.length && offenseMatch && tokens.some((token) => normalized(play.text).includes(token)));
   }) ?? null;
 }
 
 function playCompatibilityScore(player, play, confirmation) {
-  const token = playerPlayToken(player?.name);
+  const tokens = playerPlayTokens(player?.name);
   const team = String(player?.nflTeam ?? "").toUpperCase();
   const text = String(play?.text ?? "");
   const normalizedText = normalized(text);
   const offenseMatch = Boolean(team && play?.offenseTeam === team);
   const defenseMatch = Boolean(team && play?.defenseTeam === team);
-  const playerMatch = Boolean(token && normalizedText.includes(token));
+  const playerMatch = tokens.some((token) => normalizedText.includes(token));
   const kind = confirmation?.kind ?? "routine";
 
   if (player?.position === "DEF") {

@@ -2026,6 +2026,22 @@ html[data-theme="dark"] .player-verdict,html[data-theme="dark"] .player-range-co
 @media(max-width:950px){.head-to-head-team>header>.score-with-projection{right:10px;top:17px;gap:4px}.head-to-head-team>header>.score-with-projection>b{font-size:20px}.head-to-head-team>header>.score-with-projection>small{font-size:9px!important}}
 @media(max-width:650px){.league-scoreboard-page .score-bug>div>.score-with-projection{grid-column:1;justify-self:center}.portfolio-score-bug>div{grid-template-columns:minmax(0,1fr) auto}.portfolio-score-bug>div>p{grid-column:1;grid-row:1}.portfolio-score-bug>div>.score-with-projection{grid-column:2;grid-row:1;justify-self:end}.portfolio-score-rail button>p>.score-with-projection{flex-direction:column;align-items:flex-end;gap:2px}.score-with-projection{gap:4px}.score-bug>div>.score-with-projection>b{font-size:20px}.score-with-projection>small{font-size:9px!important}}
 
+/* Matchup rows use identical footprints on both sides so slot-for-slot opponents
+   stay level even when one player has longer context. */
+.head-to-head-grid{align-items:start}
+.head-to-head-team>header{min-height:112px;box-sizing:border-box}
+.head-to-head-player{grid-template-columns:31px minmax(0,1fr) 58px;grid-template-rows:minmax(31px,auto) auto auto;min-height:118px;align-items:start}
+.head-to-head-player>.player-headshot{grid-column:1;grid-row:1/4;align-self:center}
+.head-to-head-player>p{grid-column:2;grid-row:1;min-width:0}
+.head-to-head-player>p .inline-player-link{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.head-to-head-player>p small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.head-to-head-player>.head-to-head-matchup{grid-column:2;grid-row:2;min-width:0}
+.head-to-head-player>.player-temperature{grid-column:2;grid-row:3;min-width:0}
+.head-to-head-player>.head-to-head-player-score{display:grid;grid-column:3;grid-row:1/4;align-self:center;justify-items:end;gap:2px;min-width:52px;padding:8px 0 8px 6px;color:var(--green);font-variant-numeric:tabular-nums;line-height:1}
+.head-to-head-player-score>strong{font-size:23px;letter-spacing:-.04em}
+.head-to-head-player-score>small{color:var(--muted);font-size:9px!important;font-weight:950;letter-spacing:.08em}
+@media(max-width:950px){.head-to-head-team>header{min-height:105px}.head-to-head-player{grid-template-columns:27px minmax(0,1fr) 46px;min-height:112px}.head-to-head-player>.player-headshot{width:27px;height:27px}.head-to-head-player>.head-to-head-player-score{min-width:42px}.head-to-head-player-score>strong{font-size:18px}}
+
 /* News & Notes turns social-agent copy into an editorial game-day wire. */
 .news-notes-page{display:grid;gap:10px;width:100%;max-width:1500px}.team-picker-strip+.news-notes-page{margin-top:12px}.news-notes-page>.section-intro{border-left:5px solid var(--gold)}
 .news-notes-console{display:flex;align-items:center;justify-content:space-between;padding:12px 15px;color:#fff;background:linear-gradient(115deg,#031f49,#062f68 72%,#0d478f);border:1px solid rgb(255 194 14 / .32);border-radius:13px;box-shadow:0 12px 28px rgb(0 31 71 / .18)}.news-notes-console>div{display:flex;align-items:center;gap:10px}.news-notes-console>div>div{display:grid;gap:2px}.news-notes-console b{font-size:12px;letter-spacing:.14em}.news-notes-console small{color:#c9d8ef;font-size:11px}.news-notes-console button,.news-empty button{min-width:78px;padding:8px 12px;color:#001f47;background:var(--gold);border:0;border-radius:8px;font-size:11px;font-weight:950;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;transition:background .18s ease,color .18s ease,transform .18s ease}.news-notes-console button.updated{color:#fff;background:#15976f;transform:translateY(-1px)}.news-notes-console button:disabled{opacity:.75;cursor:wait}.news-live-dot{width:9px;height:9px;background:#28d89d;border:2px solid rgb(255 255 255 / .7);border-radius:50%;box-shadow:0 0 0 5px rgb(40 216 157 / .14);animation:news-live-pulse 1.8s ease-out infinite}

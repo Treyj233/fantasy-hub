@@ -46,6 +46,13 @@ test("live context matches abbreviated player names and the exact offense", () =
   assert.equal(findPlayContext({ name: "Ja'Marr Chase", nflTeam: "CIN", position: "WR" }, plays, "offense")?.id, "1");
 });
 
+test("live context also matches Highlightly full player names", () => {
+  const plays = [
+    { id: "jsn", text: "Jaxon Smith-Njigba caught a pass for 7 yards.", offenseTeam: "SEA", defenseTeam: "SF" },
+  ];
+  assert.equal(findPlayContext({ name: "Jaxon Smith-Njigba", nflTeam: "SEA", position: "WR" }, plays, "offense")?.id, "jsn");
+});
+
 test("live context maps defensive takeaways by exact team", () => {
   const play = { id: "pick", text: "Pass intercepted and returned 24 yards.", offenseTeam: "PIT", defenseTeam: "CIN", isTurnover: true };
   assert.equal(findPlayContext({ name: "Cincinnati Bengals", nflTeam: "CIN", position: "DEF" }, [play], "turnover")?.id, "pick");
