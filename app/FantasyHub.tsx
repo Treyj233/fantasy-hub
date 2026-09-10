@@ -705,15 +705,15 @@ function liveStatSummary(player: ScoreboardPlayer, matchupStatus: string) {
 }
 
 function playerTemperature(player: ScoreboardPlayer, matchupStatus: string) {
-  if (player.gameProgress === 1 || matchupStatus.toLowerCase() === "final") {
-    return { value: 50, label: "Final", state: "steady" };
-  }
+  const isFinal = player.gameProgress === 1 || matchupStatus.toLowerCase() === "final";
   const isLive = matchupStatus.toLowerCase() === "live";
   const projection = player.projection ?? 0;
-  if (!isLive || projection <= 0) return { value: 50, label: isLive ? "No projection" : "Waiting for kickoff", state: "steady" };
+  if ((!isLive && !isFinal) || projection <= 0) return { value: 50, label: isLive || isFinal ? "No projection" : "Waiting for kickoff", state: "steady" };
   const hasActivity = player.points > 0 || player.yards > 0 || player.touchdowns > 0 || player.receptions > 0 || player.targets > 0;
-  if (!hasActivity) return { value: 50, label: "Awaiting first play", state: "steady" };
-  const gameProgress = Math.max(0, Math.min(1, player.gameProgress ?? 0));
+  if (!hasActivity && !isFinal) return { value: 50, label: "Awaiting first play", state: "steady" };
+  // Final is a game status, not a heat rating. Keep evaluating the ending
+  // performance so completed players retain heat, including after a reload.
+  const gameProgress = isFinal ? 1 : Math.max(0, Math.min(1, player.gameProgress ?? 0));
   if (gameProgress < .2) return { value: 50, label: "Early involvement", state: "steady" };
   const expectedPoints = Math.max(.5, projection * gameProgress);
   const ratio = player.points / expectedPoints;
