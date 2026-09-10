@@ -95,9 +95,13 @@
         const loopDistance = state.first.getBoundingClientRect().width + parseFloat(getComputedStyle(state.track.children[1]).paddingLeft || "0");
         if (loopDistance < 3) continue;
         const scrollDuration = Math.max(4000, loopDistance * 32);
-        const cycleDuration = 5000 + scrollDuration;
-        const elapsed = (now - state.startedAt) % cycleDuration;
-        const progress = elapsed < 5000 ? 0 : (elapsed - 5000) / scrollDuration;
+        const age = now - state.startedAt;
+        const firstCycleDuration = 5000 + scrollDuration;
+        const pauseDuration = age < firstCycleDuration ? 5000 : 20000;
+        const elapsed = age < firstCycleDuration
+          ? age
+          : (age - firstCycleDuration) % (20000 + scrollDuration);
+        const progress = elapsed < pauseDuration ? 0 : (elapsed - pauseDuration) / scrollDuration;
         state.track.style.transform = `translate3d(${-loopDistance * progress}px,0,0)`;
       }
     }
