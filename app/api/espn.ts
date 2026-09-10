@@ -7,7 +7,7 @@ type EspnPlayer = {
   injured?: boolean;
   injuryStatus?: string;
   ownership?: { percentOwned?: number; averageDraftPosition?: number };
-  stats?: { scoringPeriodId?: number; statSourceId?: number; appliedTotal?: number }[];
+  stats?: { scoringPeriodId?: number; statSourceId?: number; appliedTotal?: number; stats?: Record<string, number> }[];
 };
 type EspnRosterEntry = { lineupSlotId?: number; playerPoolEntry?: { player?: EspnPlayer } };
 type EspnTeam = { id?: number; abbrev?: string; name?: string; location?: string; nickname?: string; primaryOwner?: string; owners?: string[]; roster?: { entries?: EspnRosterEntry[] }; record?: { overall?: { wins?: number; losses?: number; ties?: number } } };
@@ -66,6 +66,12 @@ function projection(player: EspnPlayer, week: number) {
 
 function actualPoints(player: EspnPlayer, week: number) {
   return Number((player.stats?.find((row) => row.statSourceId === 0 && row.scoringPeriodId === week)?.appliedTotal ?? 0).toFixed(2));
+}
+
+function actualStat(player: EspnPlayer, week: number, statId: number) {
+  const rows = player.stats?.filter((row) => row.statSourceId === 0) ?? [];
+  const row = rows.find((item) => item.scoringPeriodId === week) ?? rows[0];
+  return Number(row?.stats?.[String(statId)] ?? 0);
 }
 
 function endpoint(season: number, leagueId: string) {
@@ -205,7 +211,10 @@ export function normalizeEspnScoreboard(payload: EspnPayload, ownedRosterId: str
       if (!player) return [];
       const role = slotById[entry.lineupSlotId ?? 20] ?? "Bench";
       const isStarter = !["Bench", "IR"].includes(role);
-      return [{ id: `espn-player:${player.id ?? 0}`, name: player.fullName ?? "ESPN Player", position: positionById[player.defaultPositionId ?? 0] ?? "FLEX", lineupSlot: isStarter ? role : "BN", lineupOrder: isStarter ? index : 100 + index, nflTeam: nflTeamById[player.proTeamId ?? 0] ?? "FA", points: actualPoints(player, week), projection: projection(player, week), isStarter, yards: 0, touchdowns: 0, receptions: 0, targets: 0, offensiveTurnovers: 0, defensiveTurnovers: 0, returnTouchdowns: 0, fieldGoals: 0 }];
+      const passYards = actualStat(player, week, 3);
+      const rushYards = actualStat(player, week, 24);
+      const receivingYards = actualStat(player, week, 42);
+      return [{ id: `espn-player:${player.id ?? 0}`, name: player.fullName ?? "ESPN Player", position: positionById[player.defaultPositionId ?? 0] ?? "FLEX", lineupSlot: isStarter ? role : "BN", lineupOrder: isStarter ? index : 100 + index, nflTeam: nflTeamById[player.proTeamId ?? 0] ?? "FA", points: actualPoints(player, week), projection: projection(player, week), isStarter, yards: passYards + rushYards + receivingYards, touchdowns: actualStat(player, week, 4) + actualStat(player, week, 25) + actualStat(player, week, 43), receptions: actualStat(player, week, 53), targets: actualStat(player, week, 58), offensiveTurnovers: actualStat(player, week, 20) + actualStat(player, week, 72), defensiveTurnovers: 0, returnTouchdowns: 0, fieldGoals: actualStat(player, week, 77), passingYards: passYards, passingTouchdowns: actualStat(player, week, 4), interceptions: actualStat(player, week, 20), rushingAttempts: actualStat(player, week, 23), rushingYards: rushYards, rushingTouchdowns: actualStat(player, week, 25), receivingYards, receivingTouchdowns: actualStat(player, week, 43), fieldGoalAttempts: actualStat(player, week, 78), extraPoints: actualStat(player, week, 86) }];
     }).sort((a, b) => a.lineupOrder - b.lineupOrder);
     return { rosterId: String(team?.id ?? ""), ownerId: ownerId || null, managerName: owner?.displayName ?? (`${owner?.firstName ?? ""} ${owner?.lastName ?? ""}`.trim() || "ESPN Manager"), teamName: team ? teamName(team) : "ESPN Team", points: Number((side?.totalPoints ?? topPlayers.filter((player) => player.isStarter).reduce((sum, player) => sum + player.points, 0)).toFixed(2)), isMine: String(team?.id ?? "") === ownedRosterId, topPlayers };
   };
