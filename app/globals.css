@@ -2037,6 +2037,8 @@ html[data-theme="dark"] .player-verdict,html[data-theme="dark"] .player-range-co
 .head-to-head-player>p small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .head-to-head-player>.head-to-head-matchup{grid-column:2/-1;grid-row:2;min-width:0}
 .head-to-head-player>.player-temperature{grid-column:2/-1;grid-row:3;min-width:0}
+.head-to-head-player .player-temperature{min-height:37px}
+.head-to-head-player .temperature-label>strong{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .head-to-head-player>.head-to-head-player-score{display:grid;grid-column:3;grid-row:1;align-self:start;justify-items:end;gap:2px;min-width:52px;padding:0;color:var(--green);font-variant-numeric:tabular-nums;line-height:1}
 .head-to-head-player-score>strong{font-size:22px;letter-spacing:-.04em}
 .head-to-head-player-score>small{color:var(--muted);font-size:9px!important;font-weight:950;letter-spacing:.08em}
