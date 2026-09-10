@@ -6,7 +6,7 @@ import { fetchEspnLeagueForUser, normalizeEspnScoreboard } from "../espn";
 import { fetchCachedUpstream } from "../upstream-cache";
 import { getSleeperPlayerDirectory, getSleeperWeeklyProjections, getSleeperWeeklyStats } from "../sleeper-shared-data";
 import { liveTeamPoints, sleeperFantasyPoints } from "../../sleeper-live-scoring.mjs";
-import { getNflGames } from "../../highlightly-nfl";
+import { getNflGames, type NflDataGame } from "../../highlightly-nfl";
 
 type MatchupRow = { roster_id?: number; matchup_id?: number | null; points?: number; custom_points?: number | null; players?: string[]; starters?: string[]; players_points?: Record<string, number> };
 const SLEEPER_SCOREBOARD_TTL_SECONDS = {
@@ -16,14 +16,43 @@ const SLEEPER_SCOREBOARD_TTL_SECONDS = {
   leagueUsers: 60 * 60,
 } as const;
 
-async function nflWeekHasGameInProgress(season: string, week: number) {
-  try {
-    const games = await getNflGames({ season: Number(season), week, cacheSeconds: 20 });
-    return games.some((game) => game.state === "in");
-  } catch {
-    // A missing live scoreboard must never create a false LIVE indicator.
-    return false;
-  }
+function nflGameProgress(game: NflDataGame) {
+  if (game.state === "post") return 1;
+  if (game.state !== "in") return 0;
+  const clock = String(game.clock ?? "");
+  const [minutes, seconds] = clock.split(":").map(Number);
+  const remainingSeconds = Number.isFinite(minutes) && Number.isFinite(seconds)
+    ? minutes * 60 + seconds
+    : Number(clock);
+  const remaining = Number.isFinite(remainingSeconds)
+    ? Math.max(0, Math.min(900, remainingSeconds))
+    : 900;
+  return Math.max(0, Math.min(1, ((Math.max(1, game.period) - 1) * 900 + (900 - remaining)) / 3600));
+}
+
+function gameProgressByTeam(games: NflDataGame[]) {
+  return new Map(
+    games.flatMap((game) => [
+      [game.away.abbreviation, nflGameProgress(game)] as const,
+      [game.home.abbreviation, nflGameProgress(game)] as const,
+    ]),
+  );
+}
+
+function withNflGameProgress<T extends { teams: { topPlayers: { nflTeam?: string; gameProgress?: number }[] }[] }>(
+  matchups: T[],
+  progressByTeam: Map<string, number>,
+) {
+  return matchups.map((matchup) => ({
+    ...matchup,
+    teams: matchup.teams.map((team) => ({
+      ...team,
+      topPlayers: team.topPlayers.map((player) => ({
+        ...player,
+        gameProgress: progressByTeam.get(player.nflTeam ?? ""),
+      })),
+    })),
+  }));
 }
 
 function withCurrentNflStatus<T extends { status: string }>(
@@ -55,16 +84,20 @@ export async function GET(request: Request) {
     if (!record?.rosterId) return Response.json({ error: "Select your ESPN team in Manage Leagues" }, { status: 409 });
     try {
       const scoreboard = normalizeEspnScoreboard(await fetchEspnLeagueForUser(user.userId, sourceLeagueId, Number(season)), record.rosterId, requestedWeek);
-      const nflGameInProgress = await nflWeekHasGameInProgress(season, scoreboard.week);
+      const nflGames = await getNflGames({ season: Number(season), week: scoreboard.week, cacheSeconds: 20 }).catch(() => []);
+      const nflGameInProgress = nflGames.some((game) => game.state === "in");
       return Response.json({
         ...scoreboard,
-        matchups: withCurrentNflStatus(
-          requestedScope === "mine"
-            ? scoreboard.matchups.filter((matchup) => matchup.teams.some((team) => team.isMine))
-            : scoreboard.matchups,
-          scoreboard.week,
-          scoreboard.league.currentWeek,
-          nflGameInProgress,
+        matchups: withNflGameProgress(
+          withCurrentNflStatus(
+            requestedScope === "mine"
+              ? scoreboard.matchups.filter((matchup) => matchup.teams.some((team) => team.isMine))
+              : scoreboard.matchups,
+            scoreboard.week,
+            scoreboard.league.currentWeek,
+            nflGameInProgress,
+          ),
+          gameProgressByTeam(nflGames),
         ),
       });
     } catch (error) {
@@ -88,7 +121,7 @@ export async function GET(request: Request) {
   const league = await leagueResponse.json() as { name?: string; season?: string; leg?: number; total_rosters?: number; roster_positions?: string[]; scoring_settings?: Record<string, number> };
   const week = Number.isInteger(requestedWeek) && requestedWeek >= 1 && requestedWeek <= 18 ? requestedWeek : Math.max(1, league.leg ?? 1);
   const season = league.season ?? String(new Date().getUTCFullYear());
-  const [matchupsResponse, rostersResponse, usersResponse, playerDirectory, statsSnapshot, projectionsSnapshot, nflGameInProgress] = await Promise.all([
+  const [matchupsResponse, rostersResponse, usersResponse, playerDirectory, statsSnapshot, projectionsSnapshot, nflGames] = await Promise.all([
     fetchCachedUpstream(
       `https://api.sleeper.app/v1/league/${leagueId}/matchups/${week}`,
       SLEEPER_SCOREBOARD_TTL_SECONDS.matchupReconciliation,
@@ -104,7 +137,7 @@ export async function GET(request: Request) {
     getSleeperPlayerDirectory(),
     getSleeperWeeklyStats(season, week).catch(() => null),
     getSleeperWeeklyProjections(season, week).catch(() => null),
-    nflWeekHasGameInProgress(season, week),
+    getNflGames({ season: Number(season), week, cacheSeconds: 20 }).catch(() => []),
   ]);
   if (!matchupsResponse.ok || !rostersResponse.ok || !usersResponse.ok) return Response.json({ error: "Weekly scores unavailable" }, { status: 502 });
   const matchupRows = await matchupsResponse.json() as MatchupRow[];
@@ -112,6 +145,8 @@ export async function GET(request: Request) {
   const users = await usersResponse.json() as { user_id?: string; display_name?: string; metadata?: { team_name?: string } }[];
   const players = playerDirectory.value;
   const statsByPlayer = statsSnapshot?.value ?? new Map<string, Record<string, number>>();
+  const nflGameInProgress = nflGames.some((game) => game.state === "in");
+  const nflProgressByTeam = gameProgressByTeam(nflGames);
   const useCalculatedLiveScoring = nflGameInProgress && statsByPlayer.size > 0;
   const projectionsByPlayer = new Map([...(projectionsSnapshot?.value ?? new Map<string, Record<string, number>>()).entries()].flatMap(([playerId, stats]) => {
     const position = players.get(playerId)?.position ?? "";
@@ -142,7 +177,8 @@ export async function GET(request: Request) {
       const points = useCalculatedLiveScoring
         ? sleeperFantasyPoints(stats, league.scoring_settings ?? {}, position)
         : Number((scoring[playerId] ?? 0).toFixed(2));
-      return { id: playerId, name: player?.name ?? "Unknown player", position, lineupSlot: isStarter ? (starterSlots[starterIndex] ?? position) : "BN", lineupOrder: isStarter ? starterIndex : starterSlots.length + (rosterOrder.get(playerId) ?? 999), nflTeam: player?.team ?? "FA", points, projection: projectionsByPlayer.get(playerId) ?? null, isStarter, yards: Math.round((stats.pass_yd ?? 0) + (stats.rush_yd ?? 0) + (stats.rec_yd ?? 0)), touchdowns: (stats.pass_td ?? 0) + (stats.rush_td ?? 0) + (stats.rec_td ?? 0), receptions: stats.rec ?? 0, targets: stats.rec_tgt ?? 0, offensiveTurnovers: (stats.pass_int ?? 0) + (stats.fum_lost ?? 0), defensiveTurnovers: (stats.def_int ?? 0) + (stats.def_fum_rec ?? stats.fum_rec ?? 0), returnTouchdowns: (stats.kick_ret_td ?? 0) + (stats.punt_ret_td ?? 0) + (stats.st_td ?? 0), fieldGoals: stats.fgm ?? 0, passingYards: stats.pass_yd ?? 0, passingTouchdowns: stats.pass_td ?? 0, interceptions: stats.pass_int ?? 0, rushingAttempts: stats.rush_att ?? 0, rushingYards: stats.rush_yd ?? 0, rushingTouchdowns: stats.rush_td ?? 0, receivingYards: stats.rec_yd ?? 0, receivingTouchdowns: stats.rec_td ?? 0, fieldGoalAttempts: stats.fga ?? 0, extraPoints: stats.xpm ?? 0, sacks: stats.sack ?? 0, pointsAllowed: typeof stats.pts_allow === "number" ? stats.pts_allow : undefined, defensiveTouchdowns: stats.def_td ?? 0 };
+      const nflTeam = player?.team ?? "FA";
+      return { id: playerId, name: player?.name ?? "Unknown player", position, lineupSlot: isStarter ? (starterSlots[starterIndex] ?? position) : "BN", lineupOrder: isStarter ? starterIndex : starterSlots.length + (rosterOrder.get(playerId) ?? 999), nflTeam, gameProgress: nflProgressByTeam.get(nflTeam), points, projection: projectionsByPlayer.get(playerId) ?? null, isStarter, yards: Math.round((stats.pass_yd ?? 0) + (stats.rush_yd ?? 0) + (stats.rec_yd ?? 0)), touchdowns: (stats.pass_td ?? 0) + (stats.rush_td ?? 0) + (stats.rec_td ?? 0), receptions: stats.rec ?? 0, targets: stats.rec_tgt ?? 0, offensiveTurnovers: (stats.pass_int ?? 0) + (stats.fum_lost ?? 0), defensiveTurnovers: (stats.def_int ?? 0) + (stats.def_fum_rec ?? stats.fum_rec ?? 0), returnTouchdowns: (stats.kick_ret_td ?? 0) + (stats.punt_ret_td ?? 0) + (stats.st_td ?? 0), fieldGoals: stats.fgm ?? 0, passingYards: stats.pass_yd ?? 0, passingTouchdowns: stats.pass_td ?? 0, interceptions: stats.pass_int ?? 0, rushingAttempts: stats.rush_att ?? 0, rushingYards: stats.rush_yd ?? 0, rushingTouchdowns: stats.rush_td ?? 0, receivingYards: stats.rec_yd ?? 0, receivingTouchdowns: stats.rec_td ?? 0, fieldGoalAttempts: stats.fga ?? 0, extraPoints: stats.xpm ?? 0, sacks: stats.sack ?? 0, pointsAllowed: typeof stats.pts_allow === "number" ? stats.pts_allow : undefined, defensiveTouchdowns: stats.def_td ?? 0 };
     }).sort((a, b) => a.lineupOrder - b.lineupOrder);
     const officialPoints = Number((row.custom_points ?? row.points ?? 0).toFixed(2));
     const points = useCalculatedLiveScoring

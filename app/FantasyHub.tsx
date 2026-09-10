@@ -623,6 +623,7 @@ type ScoreboardPlayer = {
   nflTeam: string;
   points: number;
   projection: number | null;
+  gameProgress?: number;
   isStarter: boolean;
   lineupSlot: string;
   lineupOrder: number;
@@ -709,9 +710,12 @@ function playerTemperature(player: ScoreboardPlayer, matchupStatus: string) {
   if (!isLive || projection <= 0) return { value: 50, label: isLive ? "No projection" : "Waiting for kickoff", state: "steady" };
   const hasActivity = player.points > 0 || player.yards > 0 || player.touchdowns > 0 || player.receptions > 0 || player.targets > 0;
   if (!hasActivity) return { value: 50, label: "Awaiting first play", state: "steady" };
-  const ratio = player.points / projection;
+  const gameProgress = Math.max(0, Math.min(1, player.gameProgress ?? 0));
+  if (gameProgress < .2) return { value: 50, label: "Early involvement", state: "steady" };
+  const expectedPoints = Math.max(.5, projection * gameProgress);
+  const ratio = player.points / expectedPoints;
   const productionBoost = Math.min(12, player.touchdowns * 5 + Math.floor(player.receptions / 4) * 2);
-  const value = Math.round(Math.max(3, Math.min(97, 18 + ratio * 62 + productionBoost)));
+  const value = Math.round(Math.max(3, Math.min(97, 50 + (ratio - 1) * 32 + productionBoost)));
   if (value >= 88) return { value, label: "On fire", state: "fire" };
   if (value >= 68) return { value, label: "Heating up", state: "hot" };
   if (value <= 22) return { value, label: "Freezing cold", state: "ice" };
@@ -6616,8 +6620,9 @@ function AllLeagueScoreboard({
         {displayedOnFire.length ? <div className="on-fire-grid">{displayedOnFire.map((item, index) => {
           const helps = item.leagues.filter((league) => league.side === "helps").length;
           const hurts = item.leagues.length - helps;
+          const temperatureIndicator = item.temperature.state === "fire" || item.temperature.state === "hot" ? "🔥" : item.temperature.state === "ice" || item.temperature.state === "cold" ? "❄️" : "●";
           return <button type="button" key={item.player.id} onClick={() => openPlayer(playerShell(item.player))}>
-            <em>#{index + 1}</em><div className="fire-player-visual"><NflTeamLogo team={item.player.nflTeam} /><PlayerHeadshot id={item.player.id} position={item.player.position} /><i aria-hidden="true">🔥</i></div>
+            <em>#{index + 1}</em><div className="fire-player-visual"><NflTeamLogo team={item.player.nflTeam} /><PlayerHeadshot id={item.player.id} position={item.player.position} /><i className={`temperature-indicator ${item.temperature.state}`} aria-hidden="true">{temperatureIndicator}</i></div>
             <p><span>{item.temperature.label}</span><strong>{item.player.name}</strong><small>{item.status === "Projected" ? `${item.player.nflTeam} · ${item.player.position} · Live stats available after kickoff` : `${item.player.nflTeam} · ${item.player.position} · ${item.player.yards} YDS${item.player.touchdowns ? ` · ${item.player.touchdowns} TD` : ""}${item.player.targets ? ` · ${item.player.receptions}/${item.player.targets} REC` : ""}`}</small><span className="fire-leagues">{item.leagues.slice(0, 3).map((league) => <b className={league.side} key={`${item.player.id}-${league.id}`}>{league.side === "helps" ? "↑" : "↓"} {league.name}</b>)}</span></p>
             <div className="fire-score"><strong>{item.player.points.toFixed(1)}</strong><small>{item.status === "Projected" ? "PROJ PTS" : "PTS"}</small><span><i style={{ width: `${item.temperature.value}%` }} /></span><em>{helps ? `Helps in ${helps === 1 ? "one" : helps} league${helps === 1 ? "" : "s"}` : ""}{helps && hurts ? " · " : ""}{hurts ? `Hurts in ${hurts === 1 ? "one" : hurts} league${hurts === 1 ? "" : "s"}` : ""}</em></div>
           </button>;
