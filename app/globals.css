@@ -2235,6 +2235,15 @@ html[data-theme="dark"] .command-action-queue span em{color:#ff9c88}
 .week-one-welcome-later{margin-top:14px;padding:5px;color:#b9c5cf;background:transparent;border:0;font-size:9px;font-weight:850}
 .week-one-welcome :is(button):hover{transform:translateY(-1px)}
 .scoreboard-section-nav{display:none}
+.action-queue-groups .consolidated-queue-item{padding:12px 0;border-bottom:1px solid var(--line)}
+.action-queue-groups .consolidated-queue-item>header{display:flex;align-items:center;gap:10px;padding:0 10px 8px}
+.action-queue-groups .consolidated-queue-item>header>div{min-width:0}
+.action-queue-groups .consolidated-queue-item strong{display:block;font-size:13px;white-space:normal;overflow-wrap:anywhere}
+.action-queue-groups .consolidated-queue-item small{display:block;margin-top:4px;color:var(--muted);font-size:11px}
+.action-queue-groups .consolidated-queue-item>div>button{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;min-height:44px;padding:8px 10px;border:0;border-radius:6px;background:transparent;color:var(--ink);text-align:left}
+.action-queue-groups .consolidated-queue-item>div>button>span{min-width:0;white-space:normal;overflow-wrap:anywhere;font-size:12px}
+.action-queue-groups .consolidated-queue-item>div>button>em{flex-shrink:0;font-size:11px;font-style:normal;color:var(--muted)}
+.action-queue-groups .consolidated-queue-item>div>button:hover{background:color-mix(in srgb,var(--gold) 10%,transparent)}
 @media(max-width:700px){
   .scoreboard-section-nav,.scoreboard-section-nav *{-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none}
   .scoreboard-section-nav>button,.scoreboard-section-nav>button:is(:hover,:active,:focus,:focus-visible){appearance:none;-webkit-appearance:none;border:0;border-radius:0;outline:none;box-shadow:none;background:transparent}

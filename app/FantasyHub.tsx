@@ -5704,7 +5704,21 @@ function AllLeagues({
     .sort((a, b) => b.score - a.score)
     .filter((item, index, items) => index === items.findIndex((candidate) => candidate.scan.league.id === item.scan.league.id && candidate.priority === item.priority && candidate.issue.category === item.issue.category));
   const topActions = prioritizedInbox.slice(0, 3);
-  const remainingActions = prioritizedInbox.slice(3);
+  const remainingActions = Array.from(prioritizedInbox.slice(3).reduce((groups, item) => {
+    // Only merge player-specific issues. Generic roster/connection tasks remain
+    // league-specific, and distinct recommendations retain their own entries.
+    const playerNames = item.scan.roster
+      .filter((player) => item.issue.title.includes(player.name))
+      .map((player) => player.name.toLowerCase()).sort();
+    const key = playerNames.length
+      ? JSON.stringify([item.issue.category, item.issue.title.trim().toLowerCase(), playerNames])
+      : `${item.scan.league.id}:${item.issue.id}`;
+    const existing = groups.get(key);
+    if (existing) {
+      if (!existing.members.some((member) => member.scan.league.id === item.scan.league.id)) existing.members.push(item);
+    } else groups.set(key, { ...item, key, members: [item] });
+    return groups;
+  }, new Map<string, (typeof prioritizedInbox)[number] & { key: string; members: typeof prioritizedInbox }>()).values());
   const healthyLeagues = scans.filter((scan) => !scan.issues.length && !scan.preDraft);
   const playerExposure = Array.from(
     scans.reduce<
@@ -5855,7 +5869,7 @@ function AllLeagues({
           <section className="portfolio-section action-queue panel">
             <div className="portfolio-heading"><div><span>FULL ACTION QUEUE</span><h3>Everything else, organized by deadline</h3></div><b>{remainingActions.length} QUEUED</b></div>
             {remainingActions.length > 0 && <div className="action-queue-scroll-preview" aria-hidden="true"><span>Swipe for more</span><i>→</i></div>}
-            <div className="action-queue-groups">{(["Act now", "Before kickoff", "Tonight", "This week", "Monitor"] as QueuePriority[]).map((priority) => { const actions = remainingActions.filter((item) => item.priority === priority); if (!actions.length) return null; const priorityClass = `action-priority-${priority.toLowerCase().replaceAll(" ", "-")}`; return <section className={priorityClass} key={priority}><header><span>{priority}</span><b>{actions.length}</b></header>{actions.map(({ scan, issue }) => <button key={`queue-${issue.id}`} onClick={() => void onOpen(scan.league, actionView(issue.category))}><i aria-hidden="true">{leagueIssueIcon(issue.category, issue.title)}</i><p><strong>{issue.title}</strong><small>{scan.league.name} · {issue.category}</small></p><em>Review →</em></button>)}</section>; })}<section className="no-action-group"><header><span>No action</span><b>{healthyLeagues.length}</b></header>{healthyLeagues.length ? healthyLeagues.map((scan) => <button key={`healthy-${scan.league.id}`} onClick={() => void onOpen(scan.league)}><i>✓</i><p><strong>{scan.league.name} is healthy</strong><small>{scan.teamName} · lineup and availability checks are clear</small></p><em>Open →</em></button>) : <p>Every league with data has at least one item to monitor.</p>}</section></div>
+            <div className="action-queue-groups">{(["Act now", "Before kickoff", "Tonight", "This week", "Monitor"] as QueuePriority[]).map((priority) => { const actions = remainingActions.filter((item) => item.priority === priority); if (!actions.length) return null; const priorityClass = `action-priority-${priority.toLowerCase().replaceAll(" ", "-")}`; return <section className={priorityClass} key={priority}><header><span>{priority}</span><b>{actions.length}</b></header>{actions.map(({ scan, issue, key, members }) => members.length === 1 ? <button key={key} onClick={() => void onOpen(scan.league, actionView(issue.category))}><i aria-hidden="true">{leagueIssueIcon(issue.category, issue.title)}</i><p><strong>{issue.title}</strong><small>{scan.league.name} · {issue.category}</small></p><em>Review →</em></button> : <article className="consolidated-queue-item" key={key}><header><i aria-hidden="true">{leagueIssueIcon(issue.category, issue.title)}</i><div><strong>{issue.title}</strong><small>{issue.category} · {members.length} leagues</small></div></header><div>{members.map((member) => <button key={member.scan.league.id} onClick={() => void onOpen(member.scan.league, actionView(member.issue.category))}><span>{member.scan.league.name}</span><em>Review →</em></button>)}</div></article>)}</section>; })}<section className="no-action-group"><header><span>No action</span><b>{healthyLeagues.length}</b></header>{healthyLeagues.length ? healthyLeagues.map((scan) => <button key={`healthy-${scan.league.id}`} onClick={() => void onOpen(scan.league)}><i>✓</i><p><strong>{scan.league.name} is healthy</strong><small>{scan.teamName} · lineup and availability checks are clear</small></p><em>Open →</em></button>) : <p>Every league with data has at least one item to monitor.</p>}</section></div>
           </section>
           <section className="portfolio-grid">
             <article className="portfolio-section panel">
