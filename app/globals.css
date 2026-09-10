@@ -2234,6 +2234,17 @@ html[data-theme="dark"] .command-action-queue span em{color:#ff9c88}
 .week-one-welcome-secondary{margin-top:10px;padding:10px 15px;color:#fff;background:#ffffff12;border:1px solid #ffffff42;border-radius:9px;font-size:10px;font-weight:900}
 .week-one-welcome-later{margin-top:14px;padding:5px;color:#b9c5cf;background:transparent;border:0;font-size:9px;font-weight:850}
 .week-one-welcome :is(button):hover{transform:translateY(-1px)}
+.scoreboard-section-nav{display:none}
+@media(max-width:700px){
+  .scoreboard-section-nav{position:fixed;z-index:90;top:var(--section-nav-top,166px);right:max(0px,env(safe-area-inset-right));display:flex;flex-direction:column;width:44px;max-height:calc(100dvh - var(--section-nav-top,166px) - max(90px,calc(env(safe-area-inset-bottom) + 70px)));touch-action:none;user-select:none;-webkit-user-select:none}
+  .scoreboard-section-nav>button{position:relative;display:grid;place-items:center;flex:0 1 32px;min-height:18px;width:44px;padding:0;border:0;background:transparent;color:var(--ink);touch-action:none}
+  .scoreboard-section-nav>button>i{width:6px;height:6px;border-radius:50%;background:var(--muted);box-shadow:0 0 0 2px var(--chalk);opacity:.65;pointer-events:none}
+  .scoreboard-section-nav>button[aria-current]>i,.scoreboard-section-nav>button.previewing>i{width:9px;height:9px;background:var(--gold);opacity:1}
+  .section-nav-label{display:none;position:absolute;right:42px;padding:8px 12px;border:1px solid var(--line);border-radius:8px;background:var(--chalk);color:var(--ink);box-shadow:0 4px 18px #0003;font-size:12px;font-weight:800;white-space:nowrap;pointer-events:none}
+  .scoreboard-section-nav>button.previewing .section-nav-label,.scoreboard-section-nav>button:focus-visible .section-nav-label{display:block}
+  .scoreboard-section-nav>button:focus-visible{outline:2px solid var(--gold);outline-offset:-4px;border-radius:8px}
+  body:has(dialog[open], [aria-modal="true"]:not(dialog)) .scoreboard-section-nav{display:none}
+}
 /* Cold performers retain their rank and stats, with a temperature-matched surface. */
 .on-fire-grid > button:has(.temperature-indicator:is(.cold, .ice)) {
   background: linear-gradient(145deg, color-mix(in srgb, #319bea 16%, var(--chalk)), var(--chalk));

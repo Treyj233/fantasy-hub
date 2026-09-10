@@ -15,6 +15,7 @@ import { isProtectedWaiverDrop, waiverMarketProtection } from "./waiver-drop-mod
 import LaunchSplash from "./LaunchSplash";
 import NewsAndNotes from "./NewsAndNotes";
 import DraftDashboard from "./DraftDashboard";
+import ScoreboardSectionNav from "./ScoreboardSectionNav";
 import { cacheActiveLeagueBootstrap, readSessionCache, safeLocalStorageSet, writeSessionCache } from "./local-storage";
 import { teamPositionStrength } from "./team-position-strength";
 import { weeklyProjectionValue } from "./weekly-projection";
@@ -2082,6 +2083,10 @@ export default function FantasyHub({
     let edgeStart: { x: number; y: number } | null = null;
     const drawerViewport = window.matchMedia("(max-width: 700px), (min-width: 701px) and (max-width: 1366px) and (pointer: coarse)");
     const onTouchStart = (event: TouchEvent) => {
+      if (event.target instanceof Element && event.target.closest(".scoreboard-section-nav")) {
+        edgeStart = null;
+        return;
+      }
       if (!drawerViewport.matches) {
         edgeStart = null;
         return;
@@ -6564,6 +6569,7 @@ function AllLeagueScoreboard({
     );
   return (
     <div className="page-content portfolio-scoreboard-page">
+      <ScoreboardSectionNav />
       <section className="scoreboard-head portfolio-scoreboard-head">
         <div>
           <span>FANTASY SCOREBOARD</span>
