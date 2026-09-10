@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type PointerEvent } from "react";
+import { nativeImpact } from "./native-runtime";
 
 const sections = [
   [".portfolio-scoreboard-head", "Overview"],
@@ -17,6 +18,7 @@ const sections = [
 export default function ScoreboardSectionNav() {
   const rail = useRef<HTMLElement>(null);
   const dragging = useRef(false);
+  const previewedSection = useRef<number | null>(null);
   const [available, setAvailable] = useState<number[]>([]);
   const [active, setActive] = useState(0);
   const [preview, setPreview] = useState<number | null>(null);
@@ -81,30 +83,40 @@ export default function ScoreboardSectionNav() {
     });
     return available[closest] ?? 0;
   };
+  const previewSection = (index: number) => {
+    if (previewedSection.current !== index) {
+      previewedSection.current = index;
+      void nativeImpact("light");
+    }
+    setPreview(index);
+  };
 
   return <nav ref={rail} className="scoreboard-section-nav" aria-label="Scoreboard sections"
     onPointerDown={event => {
       if (!event.isPrimary || event.button !== 0) return;
+      // Touch navigation is handled here; avoid native button focus/tap chrome.
+      event.preventDefault();
       event.stopPropagation();
       dragging.current = true;
       event.currentTarget.setPointerCapture(event.pointerId);
-      setPreview(atPointer(event));
+      previewSection(atPointer(event));
     }}
-    onPointerMove={event => { if (dragging.current) { event.stopPropagation(); setPreview(atPointer(event)); } }}
+    onPointerMove={event => { if (dragging.current) { event.stopPropagation(); previewSection(atPointer(event)); } }}
     onPointerUp={event => {
       if (!dragging.current) return;
       event.stopPropagation();
       dragging.current = false;
+      previewedSection.current = null;
       jump(atPointer(event));
       setPreview(null);
       event.currentTarget.releasePointerCapture(event.pointerId);
     }}
-    onPointerCancel={() => { dragging.current = false; setPreview(null); }}
-    onLostPointerCapture={() => { dragging.current = false; setPreview(null); }}>
+    onPointerCancel={() => { dragging.current = false; previewedSection.current = null; setPreview(null); }}
+    onLostPointerCapture={() => { dragging.current = false; previewedSection.current = null; setPreview(null); }}>
     {available.map(index => <button key={index} type="button" aria-label={sections[index][1]}
       aria-current={active === index ? "location" : undefined}
       className={preview === index ? "previewing" : ""}
-      onClick={event => { if (event.detail === 0) jump(index); }}>
+      onClick={event => { if (event.detail === 0) { void nativeImpact("light"); jump(index); } }}>
       <i aria-hidden="true" />
       <span className="section-nav-label">{sections[index][1]}</span>
     </button>)}
