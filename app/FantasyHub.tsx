@@ -5778,6 +5778,7 @@ function AllLeagues({
     );
   return (
     <div className="page-content all-leagues-page">
+      <ScoreboardSectionNav pageType="mission" />
       <section className="all-leagues-hero">
         <div>
           <h2 className="mission-hub-title">Mission Hub</h2>
@@ -5848,9 +5849,7 @@ function AllLeagues({
               {!topActions.length && <div className="portfolio-clear"><i>✓</i><p><strong>No action required right now</strong><small>Every connected lineup passed the current availability, projection, bye, weather, and waiver scan.</small></p></div>}
             </div>
           </section>
-          <details className="mission-deep-dive">
-            <summary><span><b>Explore the full portfolio</b><small>Action queue, matchup board, roster exposure, waivers, and weekly recap</small></span><i aria-hidden="true">⌄</i></summary>
-            <div className="mission-deep-dive-content">
+          <div className="mission-portfolio-expanded">
           <section className="portfolio-section action-queue panel">
             <div className="portfolio-heading"><div><span>FULL ACTION QUEUE</span><h3>Everything else, organized by deadline</h3></div><b>{remainingActions.length} QUEUED</b></div>
             {remainingActions.length > 0 && <div className="action-queue-scroll-preview" aria-hidden="true"><span>Swipe for more</span><i>→</i></div>}
@@ -5889,8 +5888,7 @@ function AllLeagues({
             <div className="portfolio-heading"><div><span>WEEKLY CLUBHOUSE</span><h3>Your portfolio superlatives</h3></div></div>
             <div><article><i>🏆</i><span><small>BEST PREPARED</small><strong>{healthiest?.league.name}</strong><em>{healthiest?.health}/100 weekly readiness</em></span></article><article><i>🚀</i><span><small>BIGGEST LINEUP</small><strong>{biggestProjection?.teamName}</strong><em>{biggestProjection ? `${biggestProjection.league.name} · ${biggestProjection.projection.toFixed(1)} projected points` : "Projection unavailable"}</em></span></article><article><i>🎯</i><span><small>PORTFOLIO ANCHOR</small><strong>{playerExposure[0]?.player.name ?? "No repeat player"}</strong><em>{playerExposure[0] ? `Rostered in ${playerExposure[0].leagues.length} leagues` : "Diversified rosters"}</em></span></article></div>
           </section>
-            </div>
-          </details>
+          </div>
         </>
       )}
       {scanIsActive && (

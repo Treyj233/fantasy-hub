@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type PointerEvent } from "react";
 import { nativeImpact } from "./native-runtime";
 
-const sections = [
+const scoreboardSections = [
   [".portfolio-scoreboard-head", "Overview"],
   [".portfolio-score-rail", "League scores"],
   [".game-day-command", "Command Center"],
@@ -15,7 +15,20 @@ const sections = [
   [".portfolio-scoreboard-grid", "Matchups"],
 ] as const;
 
-export default function ScoreboardSectionNav() {
+const missionSections = [
+  [".all-leagues-hero", "Overview"],
+  [".priority-inbox", "Priority actions"],
+  [".action-queue", "Full action queue"],
+  [".portfolio-section:has(.health-list)", "Weekly readiness"],
+  [".portfolio-section:has(.portfolio-matchups)", "Matchup board"],
+  [".portfolio-section:has(.exposure-list)", "Player exposure"],
+  [".portfolio-section:has(.waiver-opportunity-list)", "Waiver opportunities"],
+  [".portfolio-recap", "Weekly recap"],
+  [".league-scan-list", "League details"],
+] as const;
+
+export default function ScoreboardSectionNav({ pageType = "scoreboard" }: { pageType?: "scoreboard" | "mission" }) {
+  const sections = pageType === "mission" ? missionSections : scoreboardSections;
   const rail = useRef<HTMLElement>(null);
   const dragging = useRef(false);
   const previewedSection = useRef<number | null>(null);
@@ -24,7 +37,7 @@ export default function ScoreboardSectionNav() {
   const [preview, setPreview] = useState<number | null>(null);
 
   useEffect(() => {
-    const page = rail.current?.closest(".portfolio-scoreboard-page");
+    const page = rail.current?.closest(".page-content");
     if (!page) return;
     let frame = 0;
     const update = () => {
@@ -59,10 +72,10 @@ export default function ScoreboardSectionNav() {
       window.removeEventListener("scroll", schedule);
       window.removeEventListener("resize", schedule);
     };
-  }, []);
+  }, [sections]);
 
   const jump = (index: number) => {
-    const page = rail.current?.closest(".portfolio-scoreboard-page");
+    const page = rail.current?.closest(".page-content");
     const target = page?.querySelector(sections[index][0]);
     if (!target) return;
     const pulse = page?.querySelector<HTMLElement>(".sunday-pulse");
@@ -91,7 +104,7 @@ export default function ScoreboardSectionNav() {
     setPreview(index);
   };
 
-  return <nav ref={rail} className="scoreboard-section-nav" aria-label="Scoreboard sections"
+  return <nav ref={rail} className="scoreboard-section-nav" aria-label={pageType === "mission" ? "Mission Hub sections" : "Scoreboard sections"}
     onPointerDown={event => {
       if (!event.isPrimary || event.button !== 0) return;
       // Touch navigation is handled here; avoid native button focus/tap chrome.
