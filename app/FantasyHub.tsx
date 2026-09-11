@@ -7203,16 +7203,15 @@ function NflGames({
           </span>
         </section>
       ) : data?.fantasyMatchup.available ? (
-        <section className="fantasy-score-ribbon">
+        <section className="fantasy-score-ribbon game-day-matchup-summary">
           <span>YOUR FANTASY MATCHUP</span>
-          <strong>You {data.fantasyMatchup.yourPoints.toFixed(2)}</strong>
-          <i>vs</i>
-          <strong>
-            {data.fantasyMatchup.opponentName}{" "}
-            {data.fantasyMatchup.opponentPoints.toFixed(2)}
-          </strong>
+          <div className="game-day-matchup-scores">
+            <div><span>You</span><strong>{data.fantasyMatchup.yourPoints.toFixed(2)}</strong></div>
+            <i>vs</i>
+            <div><span>{data.fantasyMatchup.opponentName}</span><strong>{data.fantasyMatchup.opponentPoints.toFixed(2)}</strong></div>
+          </div>
           <small>
-            {data.fantasyMatchup.playerCount} players mapped to pro football games
+            {data.fantasyMatchup.playerCount} players in this week’s games
           </small>
         </section>
       ) : (
@@ -7279,7 +7278,7 @@ function NflGames({
                   : game.broadcast || game.venue}
               </small>
               <b className={`game-impact-level leverage-${gameLeverageLevel.toLowerCase().replace(" ", "-")}`}>{gameLeverageLevel} Impact{gameLeverageScore ? ` · ${gameLeverageScore}` : ""}</b>
-              {gameLineSummary(game.gameLines, game.teams.find(team => team.homeAway === "away")?.abbreviation, game.teams.find(team => team.homeAway === "home")?.abbreviation) && <small className="game-market-lines">{gameLineSummary(game.gameLines, game.teams.find(team => team.homeAway === "away")?.abbreviation, game.teams.find(team => team.homeAway === "home")?.abbreviation)}<br/>Pregame lines · nflverse · Not live odds</small>}
+              {gameLineSummary(game.gameLines, game.teams.find(team => team.homeAway === "away")?.abbreviation, game.teams.find(team => team.homeAway === "home")?.abbreviation) && <section className="game-market-lines" aria-label="Pregame betting lines"><header>Pregame lines <span>Not live odds</span></header><div>{gameLineSummary(game.gameLines, game.teams.find(team => team.homeAway === "away")?.abbreviation, game.teams.find(team => team.homeAway === "home")?.abbreviation).split(" · ").map(line => <span key={line}>{line}</span>)}</div></section>}
               {gameWeather &&
                 (gameWeather.indoor || gameWeather.forecastAvailable) && (
                   <span className="game-weather" title={gameWeather.summary}>

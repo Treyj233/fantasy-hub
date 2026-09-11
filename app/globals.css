@@ -2012,7 +2012,23 @@ html[data-theme="dark"] .player-verdict,html[data-theme="dark"] .player-range-co
   .season-performance .season-history dl>div{display:flex;align-items:baseline;gap:5px;min-width:0}
 }
 
-.nfl-game-card>header>.game-market-lines{flex-basis:100%;width:100%;text-align:left;white-space:normal;line-height:1.5;color:var(--muted)}
+.nfl-game-card>header>.game-market-lines{grid-column:1/-1;min-width:0;margin-top:5px;padding-top:8px;border-top:1px solid var(--line);color:var(--ink)}
+.game-market-lines>header{display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px 10px;margin-bottom:6px;color:var(--muted);font-size:10px;font-weight:600}
+.game-market-lines>header>span{font-weight:400}
+.nfl-game-card>header .game-market-lines>div{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;font-size:11px;font-weight:650}
+.game-market-lines>div>span{padding:6px 5px;text-align:center;line-height:1.35;background:var(--chalk);border-radius:5px;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+.fantasy-score-ribbon.game-day-matchup-summary{display:grid;grid-template-columns:minmax(0,1fr) minmax(240px,1.4fr);gap:5px 20px;padding:13px 18px}
+.game-day-matchup-summary>.game-day-matchup-scores{grid-column:2;grid-row:1/3;display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:12px}
+.game-day-matchup-scores>div{display:grid;grid-template-rows:minmax(2.6em,auto) auto;text-align:center;min-width:0}
+.game-day-matchup-scores>div>span{font-size:12px;line-height:1.3;overflow-wrap:anywhere;align-self:end}
+.game-day-matchup-scores>div>strong{margin-top:4px;font-size:24px;line-height:1.1;font-variant-numeric:tabular-nums}
+.game-day-matchup-summary>small{margin:0;grid-column:1;line-height:1.4}
+@media(max-width:600px){
+  .fantasy-score-ribbon.game-day-matchup-summary{grid-template-columns:minmax(0,1fr);gap:8px;padding:12px}
+  .game-day-matchup-summary>.game-day-matchup-scores{grid-column:1;grid-row:2}
+  .game-day-matchup-summary>small{text-align:center}
+  .nfl-game-card>header .game-market-lines>div{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
 .player-game-script{display:block;margin-top:7px;color:var(--muted);font-size:11px;line-height:1.4}
 /* Player details: one cohesive summary, readable labels, and balanced mobile rows. */
 .player-panel.player-dossier{padding:0 0 12px}
