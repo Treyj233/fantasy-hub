@@ -19,6 +19,7 @@ import NewsAndNotes from "./NewsAndNotes";
 import DraftDashboard from "./DraftDashboard";
 import ScoreboardSectionNav from "./ScoreboardSectionNav";
 import ScrollingLeagueName from "./ScrollingLeagueName";
+import { myTeamScore } from "./my-team-score.mjs";
 import { portfolioProjectedFinish } from "./portfolio-live-projection.mjs";
 import { cacheActiveLeagueBootstrap, readSessionCache, safeLocalStorageSet, writeSessionCache } from "./local-storage";
 import { teamPositionStrength } from "./team-position-strength";
@@ -8413,6 +8414,7 @@ function MyTeam({
   const [livePlayers, setLivePlayers] = useState<Map<string, { player: ScoreboardPlayer; status: string }>>(new Map());
   useEffect(() => {
     let active = true;
+    setLivePlayers(new Map());
     const refresh = async (signal: AbortSignal) => {
       if (!leagueId) return;
       try {
@@ -8506,13 +8508,14 @@ function RosterSection({
               <th>Player</th>
               <th>Slot</th>
               <th>Matchup</th>
-              <th>{projectionPlatform} projection</th>
+              <th title={`Pregame: ${projectionPlatform} projection. Live and final: actual fantasy points.`}>Fantasy points</th>
               <th>Status</th>
             </tr>
           </thead>
           <tbody>
             {players.map((player, playerIndex) => {
               const live = livePlayers.get(player.id);
+              const score = myTeamScore(player.leagueProjection, live);
               const temperature = live ? playerTemperature(live.player, live.status) : { value: 50, label: "Waiting for kickoff", state: "steady" };
               return (
               <tr data-tour={playerIndex === 0 ? "player-detail" : undefined} className={temperature.state === "fire" ? "temperature-card-fire" : temperature.state === "ice" ? "temperature-card-ice" : undefined} key={player.id} onClick={() => setSelectedPlayer(player)}>
@@ -8548,12 +8551,11 @@ function RosterSection({
                     <span className="temperature-track"><i style={{ left: `${temperature.value}%` }} /></span>
                   </span>
                 </td>
-                <td>
-                  <b className="league-projection">
-                    {typeof player.leagueProjection === "number"
-                      ? player.leagueProjection.toFixed(1)
-                      : "—"}
+                <td data-score-label={score.label}>
+                  <b className="league-projection" aria-label={`${score.label === "PROJ" ? "Projected" : score.label === "FINAL" ? "Final" : "Live"} fantasy points: ${score.value ?? "unavailable"}`}>
+                    {score.value == null ? "—" : score.value.toFixed(1)}
                   </b>
+                  <small className="roster-score-label">{score.label}</small>
                 </td>
                 <td>
                   <Status value={player.status} />
@@ -8736,6 +8738,10 @@ function TeamRankings({
       .map((team, index) => [team.id, index + 1]),
   );
   const myTeam = scoredTeams.find((team) => team.id === selectedTeamId);
+  const rawMyTeam = rawTeams.find((team) => team.id === selectedTeamId);
+  const depthRank = rawMyTeam
+    ? 1 + rawTeams.filter((team) => team.depthScore > rawMyTeam.depthScore).length
+    : null;
   const strongestPosition = myTeam
     ? [...positions].sort(
         (a, b) =>
@@ -8772,7 +8778,7 @@ function TeamRankings({
         title="See where every roster has an edge"
         text={`Overall rank blends league-adjusted starters, usable depth, and positional balance${isDynasty ? ", plus roster runway and calibrated three-year draft capital" : " using this league’s lineup and scoring settings"}. Single-starter rooms emphasize the starter with a small platoon bonus for an elite backup; Superflex counts the second quarterback as required.`}
       />
-      <div className="team-rank-summary">
+      <div className={`team-rank-summary ${isDynasty ? "with-draft-capital" : ""}`}>
         <Metric
           label="Your overall rank"
           value={`#${overallRanks.get(selectedTeamId) ?? "—"}`}
@@ -8798,6 +8804,12 @@ function TeamRankings({
               : "Select your roster"
           }
           tone="warn"
+        />
+        <Metric
+          label="Depth"
+          value={depthRank == null ? "—" : `#${depthRank}`}
+          detail={depthRank == null ? "Select your roster" : `of ${teams.length} · Top-five bench strength`}
+          tone={depthRank != null && depthRank <= 3 ? "good" : "warn"}
         />
         {isDynasty && (
           <Metric
