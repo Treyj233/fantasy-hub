@@ -10631,11 +10631,12 @@ function tradePackageValueAdjustment(
           : 0;
   const rosterDepth = context?.rosterSlots.length ?? 18;
   const depthMultiplier = rosterDepth <= 18 ? 1.25 : rosterDepth >= 28 ? 0.85 : 1;
-  const extraRosterSlotCost = extraPieces * (4.5 + studFactor * 7);
-  const adjustment = Math.min(45, Math.max(3, Math.round(
-    (extraRosterSlotCost + starTierPremium + qualityEdge * 9) *
+  // Each extra piece consumes a roster spot; quantity cannot erase star scarcity.
+  const extraRosterSlotCost = extraPieces * (6 + studFactor * 12);
+  const adjustment = Math.max(3, Math.round(
+    (extraRosterSlotCost + starTierPremium * (1.5 + extraPieces * 0.25) + qualityEdge * 18) *
       (0.85 + concentration * 0.35) * depthMultiplier,
-  )));
+  ));
   return consolidatedSide === "send"
     ? { send: adjustment, receive: 0 }
     : { send: 0, receive: adjustment };
@@ -10782,6 +10783,28 @@ function tradeRosterStrength(
   );
 }
 
+function tradePreservesPositionDepth(
+  team: LeagueTeam,
+  outgoing: TradeAssetValue[],
+  incoming: TradeAssetValue[],
+  context: RankingContext | null,
+) {
+  const baseline: Record<string, number> = { QB: 1, RB: 2, WR: 2, TE: 1 };
+  return Object.entries(baseline).every(([position, fallback]) => {
+    const before = team.roster.filter(player => player.position === position).length;
+    const sent = outgoing.filter(asset => asset.position === position).length;
+    const received = incoming.filter(asset => asset.position === position).length;
+    const slots = context?.rosterSlots ?? [];
+    const dedicated = slots.filter(slot => slot === position).length;
+    const superflex = position === "QB"
+      ? slots.filter(slot => ["SUPER_FLEX", "SUPERFLEX", "QB_FLEX", "Q/W/R/T"].includes(slot)).length
+      : 0;
+    const required = Math.max(dedicated + superflex, Math.ceil(context?.positionDemand[position] ?? fallback));
+    // Allow replacements and improvements to already-thin rooms, never worsen a shortage.
+    return before - sent + received >= Math.min(before, required);
+  });
+}
+
 function buildTradeSuggestions(
   yourTeam: LeagueTeam,
   partner: LeagueTeam,
@@ -10855,30 +10878,53 @@ function buildTradeSuggestions(
     context,
   );
   const premium = 1;
-  const hasPositionDepth = (team: LeagueTeam, position: string) => {
-    const desired = Math.max(1, Math.ceil(context?.positionDemand[position] ?? 1));
-    return team.roster.filter((player) => player.position === position).length > desired;
+  // Bound the search before expensive roster evaluation, including depth pieces.
+  const packages = (assets: TradeAssetValue[]) => {
+    const pool = assets.slice(0, 8);
+    const result = assets.map(asset => [asset]);
+    for (let i = 0; i < pool.length; i++) {
+      for (let j = i + 1; j < pool.length; j++) {
+        result.push([pool[i], pool[j]]);
+        for (let k = j + 1; k < pool.length; k++) result.push([pool[i], pool[j], pool[k]]);
+      }
+    }
+    return result;
   };
-  const candidates = partnerAssets.flatMap((target) =>
-    yourAssets.flatMap((offer) => {
-      if (target.position === offer.position) return [];
+  const receivePackages = packages(partnerAssets);
+  const sendPackages = packages([...yourAssets].sort((a, b) =>
+    (partnerNeedOrder.get(a.position) ?? 9) - (partnerNeedOrder.get(b.position) ?? 9) || b.value - a.value));
+  const strengthCache = new Map<string, number>();
+  const packageStrength = (team: LeagueTeam, outgoing: TradeAssetValue[], incoming: TradeAssetValue[], other: LeagueTeam) => {
+    const key = `${team.id}:${outgoing.map(a => a.id).sort().join(',')}:${incoming.map(a => a.id).sort().join(',')}`;
+    if (strengthCache.has(key)) return strengthCache.get(key)!;
+    const outgoingIds = new Set(outgoing.map(a => a.id));
+    const incomingIds = new Set(incoming.map(a => a.id));
+    const value = tradeRosterStrength([
+      ...team.roster.filter(p => !outgoingIds.has(p.id)),
+      ...other.roster.filter(p => incomingIds.has(p.id)),
+    ], rankingById, context);
+    strengthCache.set(key, value);
+    return value;
+  };
+  const candidates = receivePackages.flatMap((receive) =>
+    sendPackages.flatMap((send) => {
+      if (Math.min(send.length, receive.length) > 1 && (send.length !== 2 || receive.length !== 2)) return [];
+      if (!tradePreservesPositionDepth(yourTeam, send, receive, context) ||
+          !tradePreservesPositionDepth(partner, receive, send, context)) return [];
+      const target = [...receive].sort((a, b) => b.value - a.value)[0];
+      const offer = [...send].sort((a, b) => b.value - a.value)[0];
+      const isPackage = send.length > 1 || receive.length > 1;
+      if (!isPackage && target.position === offer.position) return [];
       const yourNeedRank = yourNeedOrder.get(target.position) ?? 9;
       const partnerNeedRank = partnerNeedOrder.get(offer.position) ?? 9;
-      const yourOfferNeedRank = yourNeedOrder.get(offer.position) ?? 9;
-      const partnerTargetNeedRank = partnerNeedOrder.get(target.position) ?? 9;
       if (
         yourNeedRank > policy.maxNeedRank ||
         partnerNeedRank > policy.maxNeedRank
       )
         return [];
       if (
-        (yourOfferNeedRank === 0 && !hasPositionDepth(yourTeam, offer.position)) ||
-        (partnerTargetNeedRank === 0 && !hasPositionDepth(partner, target.position))
-      )
-        return [];
-      if (
         policy.requireConfidence &&
-        (target.confidence === "Low" || offer.confidence === "Low")
+        [...send, ...receive].some(asset => asset.confidence === "Low")
       )
         return [];
       const targetRank = rankingForPlayer(
@@ -10894,47 +10940,28 @@ function buildTradeSuggestions(
       const leagueSize = context?.teams ?? 12;
       const eliteAsset = betterRank <= leagueSize;
       if (
-        (eliteAsset &&
+        !isPackage && ((eliteAsset &&
           worseRank > leagueSize * policy.eliteMismatchMultiplier) ||
         (betterRank <= leagueSize * 3 &&
-          worseRank > betterRank * policy.eliteMismatchMultiplier)
+          worseRank > betterRank * policy.eliteMismatchMultiplier))
       )
         return [];
-      const offerRatio = offer.value / Math.max(target.value, 1);
+      const adjustment = tradePackageValueAdjustment(send, receive, context);
+      const offerValue = send.reduce((sum, asset) => sum + asset.value, 0) + adjustment.send;
+      const targetValue = receive.reduce((sum, asset) => sum + asset.value, 0) + adjustment.receive;
+      const offerRatio = offerValue / Math.max(targetValue, 1);
       if (offerRatio < policy.offerRatioFloor) return [];
       const valueGap =
-        Math.abs(offer.value - target.value * premium) /
-        Math.max(1, target.value);
+        Math.abs(offerValue - targetValue * premium) /
+        Math.max(1, targetValue);
       const maximumValueGap = eliteAsset
         ? 0.12
         : betterRank <= leagueSize * 3
           ? 0.18
           : 0.25;
       if (valueGap > maximumValueGap * policy.valueGapMultiplier) return [];
-      const targetPlayer = partner.roster.find(
-        (player) => player.id === target.id,
-      )!;
-      const offerPlayer = yourTeam.roster.find(
-        (player) => player.id === offer.id,
-      )!;
-      const yourAfterRoster = [
-        ...yourTeam.roster.filter((player) => player.id !== offer.id),
-        targetPlayer,
-      ];
-      const partnerAfterRoster = [
-        ...partner.roster.filter((player) => player.id !== target.id),
-        offerPlayer,
-      ];
-      const yourAfter = tradeRosterStrength(
-        yourAfterRoster,
-        rankingById,
-        context,
-      );
-      const partnerAfter = tradeRosterStrength(
-        partnerAfterRoster,
-        rankingById,
-        context,
-      );
+      const yourAfter = packageStrength(yourTeam, send, receive, partner);
+      const partnerAfter = packageStrength(partner, receive, send, yourTeam);
       const yourDelta = yourAfter - yourBefore;
       const partnerDelta = partnerAfter - partnerBefore;
       if (
@@ -10962,16 +10989,16 @@ function buildTradeSuggestions(
             styleBase +
               partnerDelta * 7 -
               valueGap * 35 +
-              (offer.value / Math.max(target.value, 1) - 1) * 18,
+              (offerRatio - 1) * 18,
           ),
         ),
       );
       if (acceptance < policy.acceptanceFloor) return [];
       const suggestion: TradeSuggestion = {
-        id: `${partner.id}-${target.id}-${offer.id}`,
-        title: `${target.position} help for ${offer.position} surplus`,
-        receive: [target],
-        send: [offer],
+        id: `${partner.id}-${receive.map(a => a.id).sort().join('+')}-${send.map(a => a.id).sort().join('+')}`,
+        title: isPackage ? `${send.length}-for-${receive.length} · ${target.position} help` : `${target.position} help · ${offer.position} exchange`,
+        receive,
+        send,
         yourBenefit,
         partnerBenefit,
         acceptance,
@@ -11013,8 +11040,10 @@ function buildTradeSuggestions(
       ];
     }),
   );
-  return candidates
-    .sort((a, b) => b.score - a.score)
+  const ranked = candidates.sort((a, b) => b.score - a.score);
+  // Keep a qualifying package visible rather than letting singles occupy every slot.
+  const bestPackage = ranked.find(c => c.suggestion.send.length > 1 || c.suggestion.receive.length > 1);
+  return (bestPackage ? [bestPackage, ...ranked.filter(c => c !== bestPackage)] : ranked)
     .slice(0, 3)
     .map((candidate) => candidate.suggestion);
 }
@@ -11045,6 +11074,43 @@ function TradeLab({
   const [calculatorSendIds, setCalculatorSendIds] = useState<string[]>([]);
   const [calculatorReceiveIds, setCalculatorReceiveIds] = useState<string[]>([]);
   const [assetSelectorSide, setAssetSelectorSide] = useState<"send" | "receive" | null>(null);
+  const [calculatorOpen, setCalculatorOpen] = useState(false);
+  const calculatorDialog = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!calculatorOpen) return;
+    const previousFocus = document.activeElement as HTMLElement | null;
+    const dialog = assetSelectorSide
+      ? document.querySelector<HTMLElement>(".asset-selector-dialog")
+      : calculatorDialog.current;
+    const focusables = () => Array.from(dialog?.querySelectorAll<HTMLElement>(
+      'button:not(:disabled), select:not(:disabled), input:not(:disabled), [tabindex="0"]',
+    ) ?? []).filter(element => element.getClientRects().length);
+    const frame = requestAnimationFrame(() => focusables()[0]?.focus());
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        if (assetSelectorSide) setAssetSelectorSide(null);
+        else setCalculatorOpen(false);
+      } else if (event.key === "Tab") {
+        const items = focusables();
+        const first = items[0];
+        const last = items[items.length - 1];
+        if (!first) { event.preventDefault(); return; }
+        if (!dialog?.contains(document.activeElement) || (event.shiftKey && document.activeElement === first)) {
+          event.preventDefault(); (event.shiftKey ? last : first)?.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault(); first.focus();
+        }
+      }
+    };
+    document.addEventListener("keydown", onKey, true);
+    return () => {
+      cancelAnimationFrame(frame);
+      document.removeEventListener("keydown", onKey, true);
+      if (previousFocus?.isConnected) previousFocus.focus();
+    };
+  }, [calculatorOpen, assetSelectorSide]);
   const partner =
     opponents.find((team) => team.id === selectedId) ?? opponents[0];
   const partnerStyle = partner ? (styles[partner.id] ?? "Neutral") : "Neutral";
@@ -11124,6 +11190,8 @@ function TradeLab({
     );
   const rankingById = buildRankingLookup(tradeRankings);
   const tradeFormat = context?.format ?? "Redraft";
+  const allowDraftPicks = tradeFormat === "Dynasty" || tradeFormat === "Keeper";
+  const selectableAssetLabel = allowDraftPicks ? "players and picks" : "players";
   const eligibleYourPlayers = yourTeam.roster.filter(
     (player) => !["K", "DEF"].includes(player.position),
   );
@@ -11144,14 +11212,14 @@ function TradeLab({
   });
   const yourTradeAssets = [
     ...eligibleYourPlayers.map((player) => tradeAsset(player, rankingById, context)),
-    ...(yourTeam.draftCapital?.picks ?? []).map(pickAsset),
+    ...(allowDraftPicks ? yourTeam.draftCapital?.picks ?? [] : []).map(pickAsset),
   ];
   const partnerTradeAssets = [
     ...eligiblePartnerPlayers.map((player) => tradeAsset(player, rankingById, context)),
-    ...(partner.draftCapital?.picks ?? []).map(pickAsset),
+    ...(allowDraftPicks ? partner.draftCapital?.picks ?? [] : []).map(pickAsset),
   ];
-  const effectiveSendIds = calculatorSendIds;
-  const effectiveReceiveIds = calculatorReceiveIds;
+  const effectiveSendIds = calculatorSendIds.filter(id => yourTradeAssets.some(asset => asset.id === id));
+  const effectiveReceiveIds = calculatorReceiveIds.filter(id => partnerTradeAssets.some(asset => asset.id === id));
   const calculatorSendAssets = yourTradeAssets.filter((asset) => effectiveSendIds.includes(asset.id));
   const calculatorReceiveAssets = partnerTradeAssets.filter((asset) => effectiveReceiveIds.includes(asset.id));
   const calculatorSendPlayers = yourTeam.roster.filter((player) => effectiveSendIds.includes(player.id));
@@ -11275,6 +11343,7 @@ function TradeLab({
         <b><i>↗</i> Lineup impact</b>
         <b><i>◎</i> Format-aware values</b>
       </div>
+      <button type="button" className="trade-create-button" onClick={() => { clearCalculator(); setCalculatorOpen(true); }}>+ Create New Trade</button>
       <section className={`trade-controls panel ${isPro ? "" : "trade-suggestion-controls-locked"}`}>
         <div>
           <label htmlFor="trade-partner">Trade partner</label>
@@ -11314,10 +11383,10 @@ function TradeLab({
         <p>
           <strong>{partnerStyle}</strong>
           {partnerStyle === "Aggressive"
-            ? "Expands eligible needs and value ranges, prioritizing higher-impact, higher-variance deals."
+            ? "An active dealmaker who enjoys big moves, takes risks, and is open to creative packages."
             : partnerStyle === "Strict"
-              ? "Only recommends high-confidence packages with an overpay, a top need, and a clear roster gain."
-              : "Uses balanced value ranges and requires a practical improvement for both starting lineups."}
+              ? "A selective manager who values their players highly and usually needs a clear win to make a deal."
+              : "A balanced manager who considers fair offers and is willing to trade when both teams benefit."}
         </p>
         {!isPro && <button className="inline-pro-unlock trade-profile-unlock" onClick={onUpgrade}>PRO · Unlock negotiation profiles and suggested packages</button>}
       </section>
@@ -11331,7 +11400,7 @@ function TradeLab({
         <section className="panel trade-recommendation-picker">
           <header>
             <div><span>PRO TRADE FINDER</span><h3>Find the right partner for your roster need</h3></div>
-            <small>The calculator stays empty until you choose an option.</small>
+            <small>Choose a suggestion to open the calculator.</small>
           </header>
           <div className="trade-position-filter">
             <div><b>What do you want to receive?</b><small>Select one or more positions.</small></div>
@@ -11344,12 +11413,18 @@ function TradeLab({
             <div className="trade-finder-label"><b>Best trade partners</b><small>Ranked by roster fit, mutual benefit, and modeled acceptance.</small></div>
             {partnerMatches.length ? <div className="trade-partner-grid">{partnerMatches.map((match, index) => <button type="button" key={match.team.id} className={partner.id === match.team.id ? "active" : ""} onClick={() => selectPartner(match.team.id)}><i>{index + 1}</i><span><strong>{match.team.teamName}</strong><small>{match.packages.length} matching framework{match.packages.length === 1 ? "" : "s"}</small></span><b>{match.matchScore}<small>FIT</small></b></button>)}</div> : <p className="trade-finder-empty">No responsible league-wide match was found for the selected position filter.</p>}
           </div>
-          <div className="trade-finder-label"><b>Recommended trades with {partner.teamName}</b><small>Choose a package to load it into the calculator below.</small></div>
+          <div className="trade-finder-label"><b>Recommended trades with {partner.teamName}</b><small>Choose a package to review and customize.</small></div>
           {suggestions.length ? <div className="suggestion-tabs" role="list" aria-label={`Recommended trades with ${partner.teamName}`}>
-            {suggestions.map((item, index) => <button key={item.id} type="button" role="listitem" className={activeSuggestionId === item.id ? "active" : ""} onClick={() => { setActiveSuggestionId(item.id); setCalculatorSendIds(item.send.map((asset) => asset.id)); setCalculatorReceiveIds(item.receive.map((asset) => asset.id)); }}><span>OPTION {index + 1}</span><strong>{item.title}</strong><small><b>You send:</b> {item.send.map((asset) => asset.name).join(", ")}</small><small><b>You receive:</b> {item.receive.map((asset) => asset.name).join(", ")}</small><em>{item.acceptance}% acceptance · Load deal</em></button>)}
+            {suggestions.map((item, index) => <button key={item.id} type="button" role="listitem" className={activeSuggestionId === item.id ? "active" : ""} onClick={() => { setCalculatorOpen(true); setActiveSuggestionId(item.id); setCalculatorSendIds(item.send.map((asset) => asset.id)); setCalculatorReceiveIds(item.receive.map((asset) => asset.id)); }}><span>OPTION {index + 1}</span><strong>{item.title}</strong><small><b>You send:</b> {item.send.map((asset) => asset.name).join(", ")}</small><small><b>You receive:</b> {item.receive.map((asset) => asset.name).join(", ")}</small><em>{item.acceptance}% acceptance · Load deal</em></button>)}
           </div> : <p className="trade-finder-empty">{partner.teamName} has no responsible package matching this position filter. Choose one of the ranked partners above.</p>}
         </section>
       )}
+      {calculatorOpen && typeof document !== "undefined" && createPortal(
+        <div className="trade-calculator-backdrop trade-lab-page" onMouseDown={event => {
+          if (event.target === event.currentTarget) { setAssetSelectorSide(null); setCalculatorOpen(false); }
+        }}>
+        <div ref={calculatorDialog} className="trade-calculator-dialog" role="dialog" aria-modal="true" aria-label="Trade calculator">
+        <div className="trade-calculator-dialog-bar"><strong>Trade Calculator</strong><button type="button" aria-label="Close trade calculator" onClick={() => { setAssetSelectorSide(null); setCalculatorOpen(false); }}>×</button></div>
       <section className="trade-calculator panel">
         <header>
           <div>
@@ -11378,7 +11453,7 @@ function TradeLab({
             const teamName = side === "send" ? yourTeam.teamName : partner.teamName;
             return <section className={`deal-package ${side}`} key={side}>
               <header><div><span>{side === "send" ? "YOU SEND" : "YOU RECEIVE"}</span><h4>{teamName}</h4></div><b>{assets.length} {assets.length === 1 ? "asset" : "assets"}</b></header>
-              <button className="deal-add-assets" type="button" onClick={() => setAssetSelectorSide(side)}><i>+</i><span><strong>{assets.length ? "Edit package" : "Choose players and picks"}</strong><small>Select up to six league assets</small></span></button>
+              <button className="deal-add-assets" type="button" onClick={() => setAssetSelectorSide(side)}><i>+</i><span><strong>{assets.length ? "Edit package" : `Choose ${selectableAssetLabel}`}</strong><small>Select up to six league assets</small></span></button>
               <div className="deal-asset-list">
                 {assets.length ? assets.map((asset) => <article key={asset.id}>
                   <span className={`pos pos-${asset.position.toLowerCase()}`}>{asset.position}</span>
@@ -11402,7 +11477,7 @@ function TradeLab({
           const selectorIds = assetSelectorSide === "send" ? effectiveSendIds : effectiveReceiveIds;
           const selectorTeam = assetSelectorSide === "send" ? yourTeam : partner;
           if (typeof document === "undefined") return null;
-          return createPortal(<div className="asset-selector-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setAssetSelectorSide(null); }}><section className="asset-selector-dialog" role="dialog" aria-modal="true" aria-label={`Select assets from ${selectorTeam.teamName}`}><header><div><span>{assetSelectorSide === "send" ? "YOU SEND" : "YOU RECEIVE"}</span><h3>{selectorTeam.teamName}</h3><small>Select or deselect up to six players and picks.</small></div><button type="button" aria-label="Close asset selector" onClick={() => setAssetSelectorSide(null)}>×</button></header><div className="asset-selector-list">{selectorAssets.map((asset) => <button type="button" className={selectorIds.includes(asset.id) ? "selected" : ""} aria-pressed={selectorIds.includes(asset.id)} key={asset.id} onClick={() => toggleCalculatorAsset(assetSelectorSide, asset.id)}><i>{selectorIds.includes(asset.id) ? "✓" : "+"}</i><span><b>{asset.name}</b><small>{asset.position === "PICK" ? asset.meta : `${asset.position} · ${asset.team}`}</small></span><em>{asset.value}</em></button>)}</div><footer><small>{selectorIds.length}/6 selected</small><button type="button" onClick={() => setAssetSelectorSide(null)}>Done</button></footer></section></div>, document.body);
+          return createPortal(<div className="asset-selector-backdrop trade-asset-selector-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setAssetSelectorSide(null); }}><section className="asset-selector-dialog" role="dialog" aria-modal="true" aria-label={`Select assets from ${selectorTeam.teamName}`}><header><div><span>{assetSelectorSide === "send" ? "YOU SEND" : "YOU RECEIVE"}</span><h3>{selectorTeam.teamName}</h3><small>Select or deselect up to six {selectableAssetLabel}.</small></div><button type="button" aria-label="Close asset selector" onClick={() => setAssetSelectorSide(null)}>×</button></header><div className="asset-selector-list">{selectorAssets.map((asset) => <button type="button" className={selectorIds.includes(asset.id) ? "selected" : ""} aria-pressed={selectorIds.includes(asset.id)} key={asset.id} onClick={() => toggleCalculatorAsset(assetSelectorSide, asset.id)}><i>{selectorIds.includes(asset.id) ? "✓" : "+"}</i><span><b>{asset.name}</b><small>{asset.position === "PICK" ? asset.meta : `${asset.position} · ${asset.team}`}</small></span><em>{asset.value}</em></button>)}</div><footer><small>{selectorIds.length}/6 selected</small><button type="button" onClick={() => setAssetSelectorSide(null)}>Done</button></footer></section></div>, document.body);
         })()}
         <div className="calculator-impact">
           <span>
@@ -11424,6 +11499,7 @@ function TradeLab({
           </span>
         </div>
       </section>
+        </div></div>, document.body)}
     </div>
   );
 }
