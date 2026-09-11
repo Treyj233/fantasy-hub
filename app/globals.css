@@ -2133,10 +2133,10 @@ html[data-theme="dark"] .player-verdict,html[data-theme="dark"] .player-range-co
 .portfolio-score-rail button>p>.score-with-projection{justify-self:end}
 .portfolio-score-rail button>p>.score-with-projection>b{font-size:14px}
 .portfolio-score-rail button>p>.score-with-projection>small{color:var(--muted);font-size:9px!important}
-.head-to-head-score>div>.score-with-projection{justify-content:center}
+.head-to-head-score>div>.score-with-projection{flex-direction:column;align-items:center;justify-content:center;gap:3px}
 .head-to-head-score>div>.score-with-projection>b{font-size:38px}
-.head-to-head-score>div:first-child>.score-with-projection{justify-content:flex-end}
-.head-to-head-score>div:last-child>.score-with-projection{justify-content:flex-start}
+.head-to-head-score>div:first-child>.score-with-projection{align-items:flex-end}
+.head-to-head-score>div:last-child>.score-with-projection{align-items:flex-start}
 .head-to-head-team>header>.score-with-projection{position:absolute;right:20px;top:22px;display:inline-flex;align-items:baseline;gap:6px;color:var(--ink);letter-spacing:normal}
 .head-to-head-team>header>.score-with-projection>b{font-size:29px}
 .head-to-head-team>header>.score-with-projection>small{color:var(--muted);font-size:10px!important}
