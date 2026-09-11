@@ -13,18 +13,30 @@ export default function ScrollingLeagueName({ name }: { name: string }) {
     const copy = first.current;
     if (!container || !moving || !copy) return;
     const media = window.matchMedia("(prefers-reduced-motion: reduce)");
-    let frame = 0;
-    let started = 0;
+    let animation: Animation | undefined;
+    let visible = false;
     let distance = 0;
-    const tick = (now: number) => {
-      if (!started) started = now;
+    const sync = () => {
+      if (!animation) return;
+      if (visible && document.visibilityState === "visible" && !media.matches) animation.play();
+      else animation.pause();
+    };
+    const start = () => {
+      animation?.cancel();
+      if (!distance) return;
       const duration = Math.max(4000, distance * 32);
-      const age = now - started;
-      const firstCycle = 5000 + duration;
-      const pause = age < firstCycle ? 5000 : 20000;
-      const elapsed = age < firstCycle ? age : (age - firstCycle) % (20000 + duration);
-      moving.style.transform = `translate3d(${-distance * (elapsed < pause ? 0 : (elapsed - pause) / duration)}px,0,0)`;
-      frame = requestAnimationFrame(tick);
+      const from = "translate3d(0,0,0)";
+      const to = `translate3d(${-distance}px,0,0)`;
+      animation = moving.animate([{ transform: from }, { transform: to }], { duration, delay: 5000 });
+      animation.onfinish = () => {
+        animation = moving.animate([
+          { transform: from, offset: 0 },
+          { transform: from, offset: 20000 / (20000 + duration) },
+          { transform: to, offset: 1 },
+        ], { duration: 20000 + duration, iterations: Infinity });
+        sync();
+      };
+      sync();
     };
     const measure = () => {
       const width = copy.getBoundingClientRect().width;
@@ -33,21 +45,27 @@ export default function ScrollingLeagueName({ name }: { name: string }) {
       if (!width || !container.clientWidth) return;
       const next = !media.matches && width > container.clientWidth + 3 ? width + 24 : 0;
       if (next === distance) return;
-      cancelAnimationFrame(frame);
       distance = next;
       container.dataset.scrolling = distance ? "true" : "false";
-      started = 0;
       moving.style.transform = "translate3d(0,0,0)";
-      if (distance) frame = requestAnimationFrame(tick);
+      start();
     };
     const observer = new ResizeObserver(measure);
     observer.observe(container);
     observer.observe(copy);
+    const intersection = new IntersectionObserver(entries => {
+      visible = entries[0]?.isIntersecting ?? false;
+      sync();
+    });
+    intersection.observe(container);
+    document.addEventListener("visibilitychange", sync);
     media.addEventListener("change", measure);
     measure();
     return () => {
-      cancelAnimationFrame(frame);
+      animation?.cancel();
       observer.disconnect();
+      intersection.disconnect();
+      document.removeEventListener("visibilitychange", sync);
       media.removeEventListener("change", measure);
     };
   }, [name]);

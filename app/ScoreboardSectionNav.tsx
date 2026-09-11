@@ -40,62 +40,75 @@ export default function ScoreboardSectionNav({ pageType = "scoreboard" }: { page
     const page = rail.current?.closest(".page-content");
     if (!page) return;
     let frame = 0;
+    let dirty = true;
+    let targets: { index: number; element: Element }[] = [];
+    let threshold = 100;
+    const handle = document.querySelector(".league-edge-handle");
+    const navigation = document.querySelector(".mobile-category-tray");
     const update = () => {
       frame = 0;
-      const indices = sections.flatMap(([selector], index) => page.querySelector(selector) ? [index] : []);
-      setAvailable(previous => previous.join() === indices.join() ? previous : indices);
-      const handle = document.querySelector(".league-edge-handle");
+      if (dirty) {
+        targets = sections.flatMap(([selector], index) => {
+          const element = page.querySelector(selector);
+          return element ? [{ index, element }] : [];
+        });
+        const pulse = page.querySelector<HTMLElement>(".sunday-pulse");
+        threshold = Math.max(100, pulse
+          ? (parseFloat(getComputedStyle(pulse).top) || 0) + pulse.offsetHeight + 24 : 100);
+        dirty = false;
+      }
+      const indices = targets.map(target => target.index);
       const bottom = handle?.getBoundingClientRect().bottom ?? 150;
       const top = Math.max(150, bottom + 16);
       const viewportBottom = window.visualViewport
         ? window.visualViewport.offsetTop + window.visualViewport.height
         : window.innerHeight;
-      const navigation = document.querySelector(".mobile-category-tray");
       const navigationRect = navigation?.getBoundingClientRect();
       // The category tray lives in the header. Only constrain the lower edge
       // when the navigation is actually below the rail, not above it.
       const navigationTop = navigationRect && navigationRect.height > 0 && navigationRect.width > 0 && navigationRect.top > top
         ? navigationRect.top : viewportBottom - 90;
       const availableHeight = Math.max(0, Math.min(viewportBottom, navigationTop) - top - 12);
-      rail.current?.style.setProperty("--section-nav-top", `${top}px`);
-      rail.current?.style.setProperty("--section-nav-height", `${Math.min(indices.length * 32, availableHeight)}px`);
-      // Do not overlap either control on exceptionally short landscape views.
-      rail.current?.toggleAttribute("data-insufficient-space", availableHeight < indices.length * 16);
-      const pulse = page.querySelector(".sunday-pulse");
-      // Use the sticky clearance, not the pulse's position in normal flow:
-      // at the page top its bottom can otherwise skip Overview entirely.
-      const threshold = Math.max(100, pulse
-        ? (parseFloat(getComputedStyle(pulse).top) || 0) + (pulse as HTMLElement).offsetHeight + 24
-        : 100);
       let current = indices[0] ?? 0;
-      for (const index of indices) {
-        if (page.querySelector(sections[index][0])!.getBoundingClientRect().top <= threshold) current = index;
+      for (const { index, element } of targets) {
+        if (element.getBoundingClientRect().top <= threshold) current = index;
       }
       if (window.scrollY <= 2) current = indices[0] ?? 0;
       if (window.scrollY > 0 && window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2) {
         current = indices.at(-1) ?? current;
       }
-      setActive(current);
+      // All layout reads precede writes. Never rewrite identical rail styles.
+      const nav = rail.current;
+      const styles = { "--section-nav-top": `${top}px`, "--section-nav-height": `${Math.min(indices.length * 32, availableHeight)}px` };
+      for (const [property, value] of Object.entries(styles)) {
+        if (nav && nav.style.getPropertyValue(property) !== value) nav.style.setProperty(property, value);
+      }
+      const insufficient = availableHeight < indices.length * 16;
+      if (nav && nav.hasAttribute("data-insufficient-space") !== insufficient) nav.toggleAttribute("data-insufficient-space", insufficient);
+      setAvailable(previous => previous.join() === indices.join() ? previous : indices);
+      setActive(previous => previous === current ? previous : current);
     };
     const schedule = () => { if (!frame) frame = requestAnimationFrame(update); };
-    const resize = new ResizeObserver(schedule);
+    const invalidate = () => { dirty = true; schedule(); };
+    const resize = new ResizeObserver(invalidate);
     resize.observe(page);
-    const handle = document.querySelector(".league-edge-handle");
     if (handle) resize.observe(handle);
-    const navigation = document.querySelector(".mobile-category-tray");
     if (navigation) resize.observe(navigation);
-    window.visualViewport?.addEventListener("resize", schedule);
+    const mutations = new MutationObserver(invalidate);
+    mutations.observe(page, { childList: true, subtree: true });
+    window.visualViewport?.addEventListener("resize", invalidate);
     window.visualViewport?.addEventListener("scroll", schedule);
     window.addEventListener("scroll", schedule, { passive: true });
-    window.addEventListener("resize", schedule);
+    window.addEventListener("resize", invalidate);
     update();
     return () => {
       cancelAnimationFrame(frame);
       resize.disconnect();
-      window.visualViewport?.removeEventListener("resize", schedule);
+      mutations.disconnect();
+      window.visualViewport?.removeEventListener("resize", invalidate);
       window.visualViewport?.removeEventListener("scroll", schedule);
       window.removeEventListener("scroll", schedule);
-      window.removeEventListener("resize", schedule);
+      window.removeEventListener("resize", invalidate);
     };
   }, [sections]);
 

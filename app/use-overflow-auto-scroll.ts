@@ -19,9 +19,12 @@ export function useOverflowAutoScroll() {
 
     const update = () => {
       frame = 0;
-      document.querySelectorAll<HTMLElement>(AUTO_SCROLL_TARGETS).forEach((element) => {
+      const measurements = Array.from(document.querySelectorAll<HTMLElement>(AUTO_SCROLL_TARGETS)).map((element) => {
         const overflow = element.scrollWidth - element.clientWidth;
         const eligible = !media.matches && overflow > 3;
+        return { element, eligible };
+      });
+      measurements.forEach(({ element, eligible }) => {
         element.classList.toggle("overflow-auto-scroll", eligible);
         if (!eligible) {
           return;

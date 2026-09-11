@@ -15,10 +15,11 @@ test("clipped single-line dashboard text auto-scrolls without affecting fitting 
   assert.match(styles, /\.fh-marquee-track/);
   assert.match(fallback, /track\.append\(first, second\)/);
   assert.match(fallback, /second\.setAttribute\("aria-hidden", "true"\)/);
-  assert.match(fallback, /const loopDistance = state\.first\.getBoundingClientRect\(\)\.width/);
-  assert.match(fallback, /const firstCycleDuration = 5000 \+ scrollDuration/);
-  assert.match(fallback, /const pauseDuration = age < firstCycleDuration \? 5000 : 20000/);
-  assert.match(fallback, /elapsed < pauseDuration \? 0/);
+  assert.match(fallback, /const distance = measured\.first\.getBoundingClientRect\(\)\.width/);
+  assert.match(fallback, /duration, delay: 5000/);
+  assert.match(fallback, /offset: 20000 \/ \(20000 \+ duration\)/);
+  assert.match(fallback, /animation\.pause\(\)/);
+  assert.doesNotMatch(fallback, /requestAnimationFrame/);
   assert.match(fallback, /translate3d/);
   assert.doesNotMatch(fallback, /element\.scrollLeft = position/);
 });

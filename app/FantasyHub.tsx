@@ -9,6 +9,8 @@ import { PRE_KICKOFF_VISUALS_ENABLED } from "./pre-kickoff-visuals";
 import { DEFAULT_PUSH_PREFERENCES, type PushAlertKey, type PushPreferences } from "./push-preferences";
 import { disableNativePushNotifications, enableNativePushNotifications, initializeNativeRuntime, isNativeIosApp, nativeHapticsEnabled, nativeImpact, nativeLogAppsFlyerEvent, nativeManageSubscriptions, nativePurchase, nativeRefreshPurchases, nativeRestorePurchases, nativeStoreProducts, setNativeHapticsEnabled } from "./native-runtime";
 import { useOverflowAutoScroll } from "./use-overflow-auto-scroll";
+import { startVisiblePolling, subscribeLiveScoreboards, fetchLiveJson, reconcileScoreboards } from "./live-polling.mjs";
+import { useVisibleAnimations } from "./use-visible-animations";
 import { useOverlayGuard } from "./use-overlay-guard";
 import { useProductMonitoring } from "./use-product-monitoring";
 import { isProtectedWaiverDrop, waiverMarketProtection } from "./waiver-drop-model.mjs";
@@ -496,18 +498,6 @@ async function settleWithin<T>(promise: Promise<T>, timeoutMs: number, fallback:
     promise,
     new Promise<T>((resolve) => window.setTimeout(() => resolve(fallback), timeoutMs)),
   ]);
-}
-
-function startVisiblePolling(refresh: () => Promise<void>, intervalMs = 30_000) {
-  const runWhenVisible = () => {
-    if (document.visibilityState === "visible") void refresh();
-  };
-  const timer = window.setInterval(runWhenVisible, intervalMs);
-  document.addEventListener("visibilitychange", runWhenVisible);
-  return () => {
-    window.clearInterval(timer);
-    document.removeEventListener("visibilitychange", runWhenVisible);
-  };
 }
 
 type AccountEntitlement = { plan: "free" | "pro" | "elite"; status: string; pro: boolean; elite: boolean; currentPeriodEnd: string | null; provider: "stripe" | "apple" | "manual" | null; owner: boolean };
@@ -2004,6 +1994,7 @@ export default function FantasyHub({
     return () => window.clearTimeout(timer);
   }, [showLeagueTrayHint]);
   useOverflowAutoScroll();
+  useVisibleAnimations();
   useOverlayGuard();
   useProductMonitoring(view, importState === "loading", accountError);
 
@@ -2144,28 +2135,11 @@ export default function FantasyHub({
     const week = leagueStatus === "pre_draft" || leagueWeek < 1
       ? 1
       : Math.min(18, leagueWeek);
-    const refreshLiveMatchups = async () => {
-      const results = await mapWithConcurrency(leagues, 3, async (league) => {
-        try {
-          const response = await fetchWithTimeout(
-            `/api/scoreboard?leagueId=${encodeURIComponent(league.id)}&week=${week}&scope=mine`,
-            {},
-            12_000,
-          );
-          if (!response.ok) return false;
-          const data = await response.json() as ScoreboardData;
-          const matchup = data.matchups.find((item) =>
-            item.teams.some((team) => team.isMine),
-          );
-          return matchup?.status === "Live";
-        } catch {
-          return false;
-        }
+    const stopPolling = subscribeLiveScoreboards(leagues.map(league => league.id), week,
+      (results: [string, ScoreboardData | null][]) => {
+        if (active) setLiveMatchupCount(results.filter(([, data]) => data?.matchups.some(matchup =>
+          matchup.status === "Live" && matchup.teams.some(team => team.isMine))).length);
       });
-      if (active) setLiveMatchupCount(results.filter(Boolean).length);
-    };
-    void refreshLiveMatchups();
-    const stopPolling = startVisiblePolling(refreshLiveMatchups);
     return () => {
       active = false;
       stopPolling();
@@ -6261,29 +6235,28 @@ function AllLeagueScoreboard({
     } catch {
       // A corrupt or unavailable browser cache should never block live scoring.
     }
-    const refresh = async () => {
+    let currentScores = initialPortfolioSnapshot?.scores ?? {};
+    if (!hasCachedScores) setLoading(true);
+    let playController: AbortController | undefined;
+    const pausePlays = () => { if (document.visibilityState !== "visible") playController?.abort(); };
+    document.addEventListener("visibilitychange", pausePlays);
+    const startPlays = () => {
+      playController?.abort();
+      const controller = new AbortController();
+      playController = controller;
+      const promise: Promise<LivePlayContext[]> = fetchLiveJson(
+        `/api/nfl-plays?season=${encodeURIComponent(leagues[0]?.season ?? String(new Date().getFullYear()))}&week=${week}`,
+        controller.signal,
+      ).then((payload: { plays?: LivePlayContext[] }) => payload.plays ?? []).catch(() => []);
+      return { controller, promise };
+    };
+    const refresh = async (results: [string, ScoreboardData | null][], pending = startPlays()) => {
       if (!hasCachedScores) setLoading(true);
-      const [results, livePlays] = await Promise.all([
-        mapWithConcurrency(
-          leagues,
-          3,
-          async (league) => {
-            try {
-              const response = await fetch(`/api/scoreboard?leagueId=${encodeURIComponent(league.id)}&week=${week}&scope=mine`);
-              if (!response.ok) return [league.id, null] as const;
-              return [league.id, await response.json() as ScoreboardData] as const;
-            } catch {
-              return [league.id, null] as const;
-            }
-          },
-        ),
-        fetch(`/api/nfl-plays?season=${encodeURIComponent(leagues[0]?.season ?? String(new Date().getFullYear()))}&week=${week}`)
-          .then(async (response) => response.ok ? (await response.json() as { plays?: LivePlayContext[] }).plays ?? [] : [])
-          .catch(() => [] as LivePlayContext[]),
-      ]);
-      if (!active) return;
+      const { controller, promise } = pending;
+      const livePlays = await promise;
+      if (!active || controller.signal.aborted) return;
       const hadPulseBaseline = Object.keys(previousPulseSnapshot.current).length > 0;
-      const nextSnapshot: typeof previousPulseSnapshot.current = {};
+      const nextSnapshot: typeof previousPulseSnapshot.current = { ...previousPulseSnapshot.current };
       const scoringEvents: { dedupeKey: string; description: string; confirmedPlay?: string; leagueName: string; impact: "helps" | "hurts"; at: string; delta: number }[] = [];
       results.forEach(([leagueId, data]) => {
         const league = leagues.find((item) => item.id === leagueId);
@@ -6306,7 +6279,7 @@ function AllLeagueScoreboard({
             const payloadHash = JSON.stringify(alternatives);
             if (savedWinPathPayloads.current[payloadKey] !== payloadHash) {
               savedWinPathPayloads.current[payloadKey] = payloadHash;
-              void fetch("/api/decisions", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ id: `win-path:${week}`, leagueId, week, category: "win_path", recommendation: "Live win-path targets", alternatives, information: { teamNeed: need.teamNeed, yourPoints: mine.points, opponentPoints: opponent.points, opponentRemaining, capturedAt: new Date().toISOString() }, confidence: currentOdds == null ? 50 : Math.max(currentOdds, 100 - currentOdds) }) }).catch(() => undefined);
+              void fetchWithTimeout("/api/decisions", { signal: controller.signal, method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ id: `win-path:${week}`, leagueId, week, category: "win_path", recommendation: "Live win-path targets", alternatives, information: { teamNeed: need.teamNeed, yourPoints: mine.points, opponentPoints: opponent.points, opponentRemaining, capturedAt: new Date().toISOString() }, confidence: currentOdds == null ? 50 : Math.max(currentOdds, 100 - currentOdds) }) }).catch(() => undefined);
             }
           }
         }
@@ -6346,13 +6319,17 @@ function AllLeagueScoreboard({
       if (bigPlays.length) setSwingFeed((current) => [...bigPlays, ...current.filter((event) => !bigPlays.some((play) => play.id === event.id))].slice(0, 10));
       if (condensedScoringEvents.length) setPulseEvents((current) => [...condensedScoringEvents.sort((a, b) => b.delta - a.delta), ...current].filter((event) => isSundayPulseEventActive(event.at)).slice(0, 12));
       else if (!hadPulseBaseline) setPulseEvents([]);
-      const nextScores = Object.fromEntries(results);
+      const nextScores = reconcileScoreboards(currentScores, results);
       const nextUpdatedAt = new Date().toISOString();
-      setScores(nextScores);
-      setUpdatedAt(nextUpdatedAt);
+      const changed = nextScores !== currentScores;
+      currentScores = nextScores;
+      if (changed) {
+        setScores(nextScores);
+        setUpdatedAt(nextUpdatedAt);
+      }
       hasCachedScores = true;
       try {
-        safeLocalStorageSet(portfolioCacheKey, JSON.stringify({
+        if (changed) safeLocalStorageSet(portfolioCacheKey, JSON.stringify({
           scores: nextScores,
           updatedAt: nextUpdatedAt,
         }));
@@ -6361,10 +6338,12 @@ function AllLeagueScoreboard({
       }
       setLoading(false);
     };
-    void refresh();
-    const stopPolling = startVisiblePolling(refresh);
+    const stopPolling = subscribeLiveScoreboards(leagues.map(league => league.id), week,
+      (results: [string, ScoreboardData | null][], pending?: ReturnType<typeof startPlays>) => { void refresh(results, pending); }, startPlays);
     return () => {
       active = false;
+      playController?.abort();
+      document.removeEventListener("visibilitychange", pausePlays);
       if (hydrationTimer !== undefined) window.clearTimeout(hydrationTimer);
       stopPolling();
     };
@@ -6786,37 +6765,38 @@ function Scoreboard({
     let hasCached = Boolean(cached);
     if (cached) setData(cached);
     else setData(null);
-    const refresh = async () => {
+    const refresh = async (signal: AbortSignal) => {
       if (!hasCached) setLoading(true);
       try {
         if (!leagueId) throw new Error("No league selected");
         const query = week ? `&week=${week}` : "";
-        const response = await fetch(
+        const response = await fetchWithTimeout(
           `/api/scoreboard?leagueId=${encodeURIComponent(leagueId)}${query}`,
+          { signal },
         );
         const payload = (await response.json()) as ScoreboardData & {
           error?: string;
         };
         if (!response.ok)
           throw new Error(payload.error ?? "Scores unavailable");
-        if (!active) return;
+        if (!active || signal.aborted) return;
         setData(payload);
         writeSessionCache(cacheKey, payload);
         hasCached = true;
         setWeek((current) => current ?? payload.week);
         setError("");
       } catch (requestError) {
-        if (active)
+        if (signal.aborted) return;
+        if (active && !signal.aborted)
           setError(
             requestError instanceof Error
               ? requestError.message
               : "Scores unavailable",
           );
       } finally {
-        if (active) setLoading(false);
+        if (active && !signal.aborted) setLoading(false);
       }
     };
-    void refresh();
     const stopPolling = startVisiblePolling(refresh);
     return () => {
       active = false;
@@ -7000,26 +6980,29 @@ function NflGames({
   useEffect(() => {
     if (!leagueId) return;
     let active = true;
-    const refresh = async () => {
+    const refresh = async (signal: AbortSignal) => {
       setLoading(true);
       try {
         const query = week ? `&week=${week}` : "";
-        const response = await fetch(
+        const response = await fetchWithTimeout(
           `/api/nfl-games?leagueId=${encodeURIComponent(leagueId)}${query}`,
+          { signal },
         );
         const payload = (await response.json()) as NflGameData & {
           error?: string;
         };
         if (!response.ok || !payload.games?.length)
           throw new Error(payload.error ?? "Pro football games unavailable");
-        if (!active) return;
+        if (!active || signal.aborted) return;
         setData(payload);
         setWeek((current) => current ?? payload.week);
         setError("");
       } catch (requestError) {
+        if (signal.aborted) return;
         try {
-          const scheduleResponse = await fetch(
+          const scheduleResponse = await fetchWithTimeout(
             `/api/nfl-schedule?season=${encodeURIComponent(season)}`,
+            { signal },
           );
           const schedule =
             (await scheduleResponse.json()) as NflScheduleData & {
@@ -7084,7 +7067,7 @@ function NflGames({
             impactPlayers,
           });
           });
-          if (!active) return;
+          if (!active || signal.aborted) return;
           setData({
             league: { name: "Pro Football Schedule", season: String(schedule.season) },
             week: selectedWeek?.week ?? week,
@@ -7102,7 +7085,7 @@ function NflGames({
           });
           setError("");
         } catch {
-          if (active)
+          if (active && !signal.aborted)
             setError(
               requestError instanceof Error
                 ? requestError.message
@@ -7110,10 +7093,9 @@ function NflGames({
             );
         }
       } finally {
-        if (active) setLoading(false);
+        if (active && !signal.aborted) setLoading(false);
       }
     };
-    void refresh();
     const stopPolling = startVisiblePolling(refresh);
     return () => {
       active = false;
@@ -8408,17 +8390,16 @@ function MyTeam({
   const [livePlayers, setLivePlayers] = useState<Map<string, { player: ScoreboardPlayer; status: string }>>(new Map());
   useEffect(() => {
     let active = true;
-    const refresh = async () => {
+    const refresh = async (signal: AbortSignal) => {
       if (!leagueId) return;
       try {
-        const response = await fetch(`/api/scoreboard?leagueId=${encodeURIComponent(leagueId)}&week=${week}&scope=mine`);
+        const response = await fetchWithTimeout(`/api/scoreboard?leagueId=${encodeURIComponent(leagueId)}&week=${week}&scope=mine`, { signal });
         if (!response.ok) return;
         const payload = await response.json() as ScoreboardData;
         const mine = payload.matchups.flatMap((matchup) => matchup.teams.filter((team) => team.isMine).map((team) => ({ matchup, team })))[0];
-        if (active && mine) setLivePlayers(new Map(mine.team.topPlayers.map((player) => [player.id, { player, status: mine.matchup.status }])));
+        if (active && !signal.aborted && mine) setLivePlayers(new Map(mine.team.topPlayers.map((player) => [player.id, { player, status: mine.matchup.status }])));
       } catch { /* Roster remains available when live scoring is unavailable. */ }
     };
-    void refresh();
     const stopPolling = startVisiblePolling(refresh);
     return () => { active = false; stopPolling(); };
   }, [leagueId, week]);
@@ -11400,18 +11381,19 @@ function HeadToHeadMatchup({
     } else {
       setData(null);
     }
-    const refresh = async () => {
+    const refresh = async (signal: AbortSignal) => {
       if (!hasCached) setLoading(true);
       try {
-        const response = await fetch(
+        const response = await fetchWithTimeout(
           `/api/scoreboard?leagueId=${encodeURIComponent(leagueId)}&week=${week}`,
+          { signal },
         );
         const payload = (await response.json()) as ScoreboardData & {
           error?: string;
         };
         if (!response.ok)
           throw new Error(payload.error ?? "Matchup unavailable");
-        if (!active) return;
+        if (!active || signal.aborted) return;
         setData(payload);
         writeSessionCache(cacheKey, payload);
         hasCached = true;
@@ -11428,17 +11410,17 @@ function HeadToHeadMatchup({
         });
         setError("");
       } catch (requestError) {
-        if (active)
+        if (signal.aborted) return;
+        if (active && !signal.aborted)
           setError(
             requestError instanceof Error
               ? requestError.message
               : "Matchup unavailable",
           );
       } finally {
-        if (active) setLoading(false);
+        if (active && !signal.aborted) setLoading(false);
       }
     };
-    void refresh();
     const stopPolling = startVisiblePolling(refresh);
     return () => {
       active = false;
