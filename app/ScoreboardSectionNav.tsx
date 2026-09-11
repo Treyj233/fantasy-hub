@@ -27,6 +27,17 @@ const missionSections = [
   [".league-scan-list", "League details"],
 ] as const;
 
+function sectionClearance(page: Element) {
+  const header = document.querySelector<HTMLElement>(".mobile-header-stack");
+  const headerStyle = header ? getComputedStyle(header) : null;
+  const headerBottom = header && headerStyle && ["sticky", "fixed"].includes(headerStyle.position)
+    ? (parseFloat(headerStyle.top) || 0) + header.getBoundingClientRect().height
+    : 0;
+  const pulse = page.querySelector<HTMLElement>(".sunday-pulse");
+  const pulseBottom = pulse ? (parseFloat(getComputedStyle(pulse).top) || 0) + pulse.offsetHeight : 0;
+  return Math.max(headerBottom, pulseBottom, 68) + 12;
+}
+
 export default function ScoreboardSectionNav({ pageType = "scoreboard" }: { pageType?: "scoreboard" | "mission" }) {
   const sections = pageType === "mission" ? missionSections : scoreboardSections;
   const rail = useRef<HTMLElement>(null);
@@ -43,7 +54,8 @@ export default function ScoreboardSectionNav({ pageType = "scoreboard" }: { page
     let dirty = true;
     let targets: { index: number; element: Element }[] = [];
     let threshold = 100;
-    const handle = document.querySelector(".league-edge-handle");
+    let handle: Element | null = null;
+    let lastHandleBottom = 150;
     const navigation = document.querySelector(".mobile-category-tray");
     const update = () => {
       frame = 0;
@@ -52,13 +64,21 @@ export default function ScoreboardSectionNav({ pageType = "scoreboard" }: { page
           const element = page.querySelector(selector);
           return element ? [{ index, element }] : [];
         });
-        const pulse = page.querySelector<HTMLElement>(".sunday-pulse");
-        threshold = Math.max(100, pulse
-          ? (parseFloat(getComputedStyle(pulse).top) || 0) + pulse.offsetHeight + 24 : 100);
+        threshold = sectionClearance(page) + 12;
         dirty = false;
       }
       const indices = targets.map(target => target.index);
-      const bottom = handle?.getBoundingClientRect().bottom ?? 150;
+      // The league drawer unmounts its portal handle while open. Rebind after
+      // it closes instead of measuring a detached element (which returns zero).
+      const currentHandle = document.querySelector(".league-edge-handle");
+      if (currentHandle !== handle) {
+        if (handle) resize.unobserve(handle);
+        handle = currentHandle;
+        if (handle) resize.observe(handle);
+      }
+      const handleRect = handle?.getBoundingClientRect();
+      if (handleRect && handleRect.height > 0 && handleRect.width > 0) lastHandleBottom = handleRect.bottom;
+      const bottom = lastHandleBottom;
       const top = Math.max(150, bottom + 16);
       const viewportBottom = window.visualViewport
         ? window.visualViewport.offsetTop + window.visualViewport.height
@@ -92,10 +112,14 @@ export default function ScoreboardSectionNav({ pageType = "scoreboard" }: { page
     const invalidate = () => { dirty = true; schedule(); };
     const resize = new ResizeObserver(invalidate);
     resize.observe(page);
-    if (handle) resize.observe(handle);
+    const stickyHeader = document.querySelector(".mobile-header-stack");
+    if (stickyHeader) resize.observe(stickyHeader);
     if (navigation) resize.observe(navigation);
     const mutations = new MutationObserver(invalidate);
     mutations.observe(page, { childList: true, subtree: true });
+    // Drawer/handle portals are siblings of the app, outside page-content.
+    const portals = new MutationObserver(invalidate);
+    portals.observe(document.body, { childList: true });
     window.visualViewport?.addEventListener("resize", invalidate);
     window.visualViewport?.addEventListener("scroll", schedule);
     window.addEventListener("scroll", schedule, { passive: true });
@@ -105,6 +129,7 @@ export default function ScoreboardSectionNav({ pageType = "scoreboard" }: { page
       cancelAnimationFrame(frame);
       resize.disconnect();
       mutations.disconnect();
+      portals.disconnect();
       window.visualViewport?.removeEventListener("resize", invalidate);
       window.visualViewport?.removeEventListener("scroll", schedule);
       window.removeEventListener("scroll", schedule);
@@ -116,8 +141,7 @@ export default function ScoreboardSectionNav({ pageType = "scoreboard" }: { page
     const page = rail.current?.closest(".page-content");
     const target = page?.querySelector(sections[index][0]);
     if (!target) return;
-    const pulse = page?.querySelector<HTMLElement>(".sunday-pulse");
-    const clearance = pulse ? (parseFloat(getComputedStyle(pulse).top) || 0) + pulse.offsetHeight + 12 : 80;
+    const clearance = sectionClearance(page!);
     window.scrollTo({
       top: index === 0 ? 0 : Math.max(0, window.scrollY + target.getBoundingClientRect().top - clearance),
       behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
