@@ -6415,10 +6415,23 @@ function AllLeagueScoreboard({
         });
       });
     });
+    // Include the rest of each connected league, not just our matchup.
+    // Only our matchup contributes helps/hurts badges.
+    leagues.forEach((league) => {
+      scores[league.id]?.matchups.forEach((matchup) => {
+        matchup.teams.forEach((team) => team.topPlayers.forEach((player) => {
+          const current = performerGroups.get(player.id);
+          if (!current) performerGroups.set(player.id, { player, status: matchup.status, leagues: [] });
+          else if (player.points > current.player.points) {
+            performerGroups.set(player.id, { ...current, player, status: matchup.status });
+          }
+        }));
+      });
+    });
     const onFire = [...performerGroups.values()]
-      .filter((item) => item.player.points > 0)
+      .filter((item) => item.player.points > 0 || isPlayerGameInProgress(item.player))
       .map((item) => ({ ...item, temperature: playerTemperature(item.player, item.status), performanceScore: item.player.points + Math.max(0, item.player.points - (item.player.projection ?? item.player.points)) * .8 }))
-      .sort((a, b) => b.performanceScore - a.performanceScore)
+      .sort((a, b) => Number(isPlayerGameInProgress(b.player)) - Number(isPlayerGameInProgress(a.player)) || b.player.points - a.player.points || b.performanceScore - a.performanceScore)
       .slice(0, hotPerformerLimit);
     const activePlayers = matchups.flatMap((item) => [...item.mineStarters, ...item.opponentStarters]).filter(isPlayerGameInProgress).length;
     const completedPlayers = matchups.reduce(
@@ -6657,7 +6670,7 @@ function AllLeagueScoreboard({
         {mostImportantPath ? <><div className="primary-win-path"><div className="win-path-player"><PlayerHeadshot id={mostImportantPath.target.id} position={mostImportantPath.target.position} /><i aria-hidden="true">!</i></div><p><span>MOST IMPORTANT RIGHT NOW</span><button className="inline-player-link" onClick={() => openPlayer(playerShell(mostImportantPath.target))}>{mostImportantPath.target.name}</button><small>{mostImportantPath.need.message} {mostImportantPath.target.name} carries the largest current share of the path.</small><span className="win-path-leagues">{mostImportantLeagues.map((item) => <b key={`${item.league.id}-${item.target.id}`}>{item.league.name} · {item.target.pointsNeeded.toFixed(1)} needed</b>)}</span></p><div><strong>{mostImportantPath.target.pointsNeeded.toFixed(1)}</strong><small>MORE PTS</small><span><i style={{ width: `${mostImportantPath.target.progress}%` }} /></span><em>{mostImportantPath.target.statLine}</em></div></div><div className="league-win-paths">{secondaryWinPaths.map((item) => <article key={`${item.league.id}-${item.target.id}`}><span className={item.status === "live" ? "live" : "upcoming"}>{item.status === "live" ? "● LIVE" : "UP NEXT"}</span><PlayerHeadshot id={item.target.id} position={item.target.position} /><p><strong>{item.league.name}</strong><button className="inline-player-link" onClick={() => openPlayer(playerShell(item.target))}>{item.target.name}</button><small>{item.target.pointsNeeded.toFixed(1)} more points · {item.winProbability ?? "—"}% win chance</small><span className="mini-win-progress"><i style={{ width: `${item.target.progress}%` }} /></span></p><b>{item.target.progress}%</b></article>)}</div></> : <p className="game-day-empty">A portfolio-wide win path will appear when connected matchups have remaining projected starters.</p>}
       </section>
       <section className="on-fire-board panel" data-visual-source={displayedOnFire === preKickoffOnFire && displayedOnFire.length ? "pre-kickoff" : "observed"}>
-        <header><div><span>🔥 ON FIRE</span><h3>Week {week}&apos;s hottest performers</h3></div><b>{gameDay.onFire.length ? "LIVE LEADERS" : displayedOnFire.length ? "SUNDAY OUTLOOK" : "WAITING FOR KICKOFF"}</b></header>
+        <header><div><span>🔥 ON FIRE</span><h3>Week {week}&apos;s hottest performers</h3></div><b>{gameDay.onFire.some((item) => isPlayerGameInProgress(item.player)) ? "LIVE LEADERS" : gameDay.onFire.length ? "WEEKLY LEADERS" : displayedOnFire.length ? "SUNDAY OUTLOOK" : "WAITING FOR KICKOFF"}</b></header>
         {displayedOnFire.length ? <div className="on-fire-grid">{displayedOnFire.map((item, index) => {
           const helps = item.leagues.filter((league) => league.side === "helps").length;
           const hurts = item.leagues.length - helps;
