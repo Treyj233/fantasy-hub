@@ -6533,6 +6533,22 @@ function AllLeagueScoreboard({
     ...pulseEvents.filter((event) => isSundayPulseEventActive(event.at)).slice(0, 6).map((event) => event.text),
     ...statusPulseItems,
   ];
+  const pulseText = pulseItems.join("  •  ");
+  const pulseTrackRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const track = pulseTrackRef.current;
+    const segment = track?.firstElementChild;
+    if (!track || !segment) return;
+    // Constant travel speed regardless of league count, viewport, or font width.
+    const measure = () => {
+      const distance = track.scrollWidth / 2;
+      track.style.setProperty("--pulse-duration", `${Math.max(32, distance / 38)}s`);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(segment);
+    return () => observer.disconnect();
+  }, [pulseText]);
   useEffect(() => {
     const original = document.title;
     document.title = gameDay.matchups.length
@@ -6604,7 +6620,7 @@ function AllLeagueScoreboard({
       </button>
       <section className="sunday-pulse" aria-label="Sunday Pulse">
         <b><i /> SUNDAY PULSE</b>
-        <div><div className="sunday-pulse-track" key={pulseItems.join("  •  ")}><span>{pulseItems.join("  •  ")}</span><span aria-hidden="true">{pulseItems.join("  •  ")}</span></div></div>
+        <div><div className="sunday-pulse-track" ref={pulseTrackRef}><span>{pulseText}</span><span aria-hidden="true">{pulseText}</span></div></div>
         <button type="button" onClick={enterTvMode}>Full screen</button>
       </section>
       <section className="portfolio-score-rail" aria-label="Quick access to fantasy matchup scores">
