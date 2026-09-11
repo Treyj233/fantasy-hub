@@ -3772,8 +3772,10 @@ export default function FantasyHub({
 
       {selectedPlayer && (
         <PlayerPanel
-          key={selectedPlayer.id}
+          key={`${selectedPlayer.id}-${leagueId}-${defaultGameWeek}`}
           player={selectedPlayer}
+          leagueId={leagueId}
+          week={defaultGameWeek}
           portfolioScans={portfolioScans}
           close={() => setSelectedPlayer(null)}
         />
@@ -12270,12 +12272,35 @@ function PlayerPanel({
   player,
   close,
   portfolioScans,
+  leagueId,
+  week,
 }: {
   player: Player;
   close: () => void;
   portfolioScans: LeagueScan[];
+  leagueId: string;
+  week: number;
 }) {
   const projectionPlatform = useContext(ProjectionPlatformContext);
+  const [liveScore, setLiveScore] = useState<{ player: ScoreboardPlayer; status: string } | undefined>();
+  useEffect(() => {
+    if (!leagueId) return;
+    let active = true;
+    const stop = subscribeLiveScoreboards([leagueId], week,
+      (results: [string, ScoreboardData | null][]) => {
+        if (!active) return;
+        const data = results.find(([id]) => id === leagueId)?.[1];
+        if (!data) return;
+        for (const matchup of data.matchups) {
+          const candidate = matchup.teams.flatMap(team => team.topPlayers).find(item => item.id === player.id);
+          if (candidate) {
+            setLiveScore({ player: candidate, status: matchup.status });
+            return;
+          }
+        }
+      });
+    return () => { active = false; stop(); };
+  }, [leagueId, week, player.id]);
   const platformProjection =
     typeof player.leagueProjection === "number" && player.leagueProjection > 0
       ? player.leagueProjection
@@ -12378,6 +12403,8 @@ function PlayerPanel({
   );
   const adjustedRange = matchupAdjustedRange(player);
   const projectionValue = platformProjection;
+  const displayedScore = myTeamScore(platformProjection, liveScore);
+  const showActualScore = displayedScore.label !== "PROJ";
   const rangeWidth = Math.max(1, adjustedRange.ceiling - adjustedRange.floor);
   const projectionPosition = projectionValue === null ? 50 : Math.max(4, Math.min(96, ((projectionValue - adjustedRange.floor) / rangeWidth) * 100));
   const statusRisk = /out|doubtful|ir|suspend/i.test(player.status);
@@ -12422,9 +12449,9 @@ function PlayerPanel({
             <p>{statusRisk ? `${player.status} status overrides the current projection until availability is confirmed.` : projectionValue === null ? "Open a connected league with current weekly projections to see a fantasy-point estimate." : `${projectionPlatform} projects ${projectionValue.toFixed(1)} points with a ${player.matchupStrength?.label.toLowerCase() ?? "neutral"} positional matchup.`}</p>
           </div>
           <div className="player-projection-command">
-            <span>{projectionPlatform.toUpperCase()} PROJECTION</span>
-            <strong>{platformProjection !== null ? platformProjection.toFixed(1) : "—"}</strong>
-            <small>Expected fantasy points</small>
+            <span>{showActualScore ? `${displayedScore.label} SCORE` : `${projectionPlatform.toUpperCase()} PROJECTION`}</span>
+            <strong>{displayedScore.value !== null ? displayedScore.value.toFixed(1) : "—"}</strong>
+            <small>{showActualScore ? "Actual fantasy points" : "Expected fantasy points"}</small>
           </div>
           <div className="player-range-command">
             <header><span>WEEKLY OUTCOME RANGE</span><small>{(adjustedRange.ceiling - adjustedRange.floor).toFixed(1)} point spread</small></header>
@@ -12468,7 +12495,7 @@ function PlayerPanel({
             </div>
           </section>
         )}
-        <section className="history-section">
+        <section className="history-section season-performance">
           <header>
             <div>
               <span>HISTORICAL PRODUCTION</span>
@@ -12497,7 +12524,7 @@ function PlayerPanel({
                     <span>
                       {season.games} games ·{" "}
                       {season.positionRank
-                        ? `${season.season} PPR finish: ${season.position} #${season.positionRank}`
+                        ? `${player.position || "Position"} #${season.positionRank} · PPR`
                         : "PPR finish unavailable"}
                     </span>
                   </div>
