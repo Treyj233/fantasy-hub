@@ -1432,11 +1432,11 @@ function matchupAdjustedRange(player: Player) {
   const projection = Math.max(0, player.projection);
   const positionVolatility: Record<string, number> = { QB: .24, RB: .36, WR: .43, TE: .4, K: .48, DEF: .46 };
   const baseVolatility = positionVolatility[matchupPosition(player.position)] ?? .38;
-  const benchVolatility = isStartingPlayer(player) ? 0 : .07;
   const snapVolatility = typeof player.snapPct === "number" ? Math.max(-.07, Math.min(.1, (65 - player.snapPct) / 250)) : 0;
   const injuryVolatility = /questionable|doubtful|out/i.test(player.status) ? .1 : 0;
   const roleStability = projection >= 18 ? -.04 : projection <= 7 ? .06 : 0;
-  const volatility = Math.max(.18, Math.min(.62, baseVolatility + benchVolatility + snapVolatility + injuryVolatility + roleStability));
+  // Fantasy roster placement does not change a player's on-field uncertainty.
+  const volatility = Math.max(.18, Math.min(.62, baseVolatility + snapVolatility + injuryVolatility + roleStability));
   const trendTail = Math.max(-.08, Math.min(.08, player.trend / 100));
   const offenseTail = player.teamOffenseRank2025 == null ? 0 : Math.max(-.05, Math.min(.05, (17 - player.teamOffenseRank2025) / 320));
   const baseFloor = Number(Math.max(0, projection * (1 - volatility - Math.min(0, trendTail))).toFixed(1));

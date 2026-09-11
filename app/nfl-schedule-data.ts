@@ -1,3 +1,5 @@
+import { scheduleResultStatus } from './schedule-result-status.mjs';
+
 export type GameLines = {
   total: number | null;
   homeFavoredBy: number | null;
@@ -78,16 +80,18 @@ async function fetchSeasonSchedule(season: number) {
         const value = Number(raw);
         return raw !== "" && Number.isFinite(value) ? value : null;
       };
+      const awayScore = score("away_score");
+      const homeScore = score("home_score");
       return [{
         gameLines: { total: score("total_line"), homeFavoredBy: score("spread_line"), awayMoneyline: score("away_moneyline"), homeMoneyline: score("home_moneyline") },
         id: cells[column("game_id")] || `${season}-${cells[column("week")]}-${awayCode}-${homeCode}`,
         week: Number(cells[column("week")]),
         date,
-        status: "Scheduled",
+        status: scheduleResultStatus(awayScore, homeScore),
         broadcast: "",
         venue: cells[column("stadium")] || "",
-        awayScore: score("away_score"),
-        homeScore: score("home_score"),
+        awayScore,
+        homeScore,
         away: { abbreviation: awayCode, name: teamNames[awayCode] ?? awayCode },
         home: { abbreviation: homeCode, name: teamNames[homeCode] ?? homeCode },
       }];
