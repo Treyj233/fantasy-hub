@@ -6,6 +6,19 @@ import { PushNotifications } from "@capacitor/push-notifications";
 import { registerPlugin } from "@capacitor/core";
 
 type NativeTransaction = { status: string; transactionId?: string; productId?: string; expirationDate?: string };
+const LeagueLinks = registerPlugin<{
+  open(options: { url: string }): Promise<{ opened: boolean }>;
+}>("FantasyHubLeagueLinks");
+
+export async function nativeOpenLeague(url: string) {
+  if (!isNativeIosApp()) return false;
+  try {
+    return (await LeagueLinks.open({ url })).opened;
+  } catch {
+    // Older installed builds do not have the bridge yet; retain web navigation.
+    return false;
+  }
+}
 type NativeProduct = { id: string; name: string; description: string; displayPrice: string; periodValue?: number; periodUnit?: string };
 const StoreKit = registerPlugin<{
   products(): Promise<{ products: NativeProduct[] }>;

@@ -56,3 +56,16 @@ test('protects the only QB, every piece in a package, and superflex depth', () =
   assert.equal(preservesDepth({ roster: [qb, qb2, wr] }, [qb, qb2], [replacement], null), true);
   assert.equal(preservesDepth({ roster: [qb, qb2, wr] }, [qb, qb2], [wr], null), false);
 });
+
+test('sub-60 player bundles never balance a 99-rated superstar at any package size', () => {
+  for (const count of [1, 2, 3, 4, 5, 6, 20]) {
+    const depth = Array.from({ length: count }, (_, i) => asset(59, `depth-${i}`));
+    for (const stars of [[asset(99)], [asset(99), asset(8)]]) {
+      const adjustment = adjust(depth, stars, null);
+      const offered = count * 59 + adjustment.send;
+      const required = stars.reduce((sum, a) => sum + a.value, 0) + adjustment.receive;
+      assert.ok(offered / required <= .6);
+      assert.deepEqual(adjust(stars, depth, null), { send: adjustment.receive, receive: adjustment.send });
+    }
+  }
+});

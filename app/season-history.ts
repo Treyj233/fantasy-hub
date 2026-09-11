@@ -51,7 +51,7 @@ async function fetchPlayerSeason(season: number) {
   try {
     const response = await fetch(
       `https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_${season}.csv`,
-      { next: { revalidate: 21600 } },
+      { next: { revalidate: season >= new Date().getUTCFullYear() ? 300 : 21600 } },
     );
     if (!response.ok) return new Map<string, PlayerSeasonProfile>();
     const lines = (await response.text()).trim().split(/\r?\n/);
@@ -169,7 +169,7 @@ export function loadPlayerSeasonProfiles(season: number) {
   const cached = playerCache.get(season);
   if (cached && cached.expiresAt > Date.now()) return cached.request;
   const request = fetchPlayerSeason(season);
-  playerCache.set(season, { expiresAt: Date.now() + 24 * 60 * 60 * 1000, request });
+  playerCache.set(season, { expiresAt: Date.now() + (season >= new Date().getUTCFullYear() ? 300_000 : 24 * 60 * 60 * 1000), request });
   return request;
 }
 

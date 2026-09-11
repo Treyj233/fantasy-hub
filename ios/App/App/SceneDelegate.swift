@@ -6,6 +6,35 @@ import ClerkKit
 import StoreKit
 import WebKit
 
+@objc(FantasyHubLeagueLinksPlugin)
+class FantasyHubLeagueLinksPlugin: CAPPlugin, CAPBridgedPlugin {
+    let identifier = "FantasyHubLeagueLinksPlugin"
+    let jsName = "FantasyHubLeagueLinks"
+    let pluginMethods: [CAPPluginMethod] = [
+        CAPPluginMethod(name: "open", returnType: CAPPluginReturnPromise),
+    ]
+
+    @objc func open(_ call: CAPPluginCall) {
+        guard let value = call.getString("url"), let url = URL(string: value),
+              url.scheme == "https",
+              ["sleeper.com", "fantasy.espn.com"].contains(url.host ?? "") else {
+            call.reject("Unsupported league URL")
+            return
+        }
+        DispatchQueue.main.async {
+            UIApplication.shared.open(url, options: [.universalLinksOnly: true]) { openedApp in
+                if openedApp {
+                    call.resolve(["opened": true])
+                } else {
+                    UIApplication.shared.open(url, options: [:]) { opened in
+                        call.resolve(["opened": opened])
+                    }
+                }
+            }
+        }
+    }
+}
+
 @objc(FantasyHubAnalyticsPlugin)
 class FantasyHubAnalyticsPlugin: CAPPlugin, CAPBridgedPlugin {
     let identifier = "FantasyHubAnalyticsPlugin"
@@ -412,6 +441,7 @@ class FantasyHubBridgeViewController: CAPBridgeViewController {
         bridge?.registerPluginInstance(FantasyHubStoreKitPlugin())
         bridge?.registerPluginInstance(FantasyHubAppleAuthPlugin())
         bridge?.registerPluginInstance(FantasyHubAnalyticsPlugin())
+        bridge?.registerPluginInstance(FantasyHubLeagueLinksPlugin())
         guard let webView = bridge?.webView else { return }
         webView.scrollView.showsVerticalScrollIndicator = false
         webView.scrollView.showsHorizontalScrollIndicator = false

@@ -10,14 +10,15 @@ import { adpPlayerKey, loadEspnAdpByPlayerKey, loadUnderdogAdpByPlayerKey } from
 import { sleeperFantasyPoints } from "../../sleeper-live-scoring.mjs";
 import { assumedSuspensionGames, depthChartRoleAdjustment, rosPerformanceAdjustment, rosUnavailableGames, seasonRankingValue, suspensionReplacementAdjustment } from "../../season-ranking";
 import { seasonEndingPlayerIds } from "../../news-availability";
+import { applyPostgameRankings } from "../../postgame-rankings";
 
 type SourcePlayer = { player_id?: string; full_name?: string; first_name?: string; last_name?: string; position?: string; team?: string; injury_status?: string | null; search_rank?: number; age?: number; status?: string; depth_chart_order?: number | null; depth_chart_position?: string | null };
 type SourceProjection = { player_id?: string; stats?: Record<string, number> };
 type MatchupRow = { roster_id?: number; matchup_id?: number | null };
 type TrendingRow = { player_id?: string; count?: number };
 
-const LEAGUE_PAYLOAD_VERSION = 21;
-const LEAGUE_SNAPSHOT_TTL_MS = 6 * 60 * 60 * 1000;
+const LEAGUE_PAYLOAD_VERSION = 23;
+const LEAGUE_SNAPSHOT_TTL_MS = 5 * 60 * 1000;
 const SHARED_TTL_SECONDS = {
   projections: 15 * 60,
   adp: 12 * 60 * 60,
@@ -67,7 +68,7 @@ export async function GET(request: Request) {
     if (!leagueId || !/^\d{4,24}$/.test(leagueId))
       return Response.json({ error: "Invalid ESPN league ID" }, { status: 400 });
     try {
-      const result = { ...(await normalizeEspnLeague(await fetchEspnLeagueForUser(userId, leagueId, Number(season)))), payloadVersion: LEAGUE_PAYLOAD_VERSION };
+      const result = await applyPostgameRankings({ ...(await normalizeEspnLeague(await fetchEspnLeagueForUser(userId, leagueId, Number(season)))), payloadVersion: LEAGUE_PAYLOAD_VERSION });
       const refreshedAt = new Date().toISOString();
       const snapshot = { id: crypto.randomUUID(), userId, leagueKey: id, payloadJson: JSON.stringify(result), refreshedAt };
       await db.insert(leagueDataSnapshots).values(snapshot).onConflictDoUpdate({ target: [leagueDataSnapshots.userId, leagueDataSnapshots.leagueKey], set: { payloadJson: snapshot.payloadJson, refreshedAt } });
@@ -82,7 +83,7 @@ export async function GET(request: Request) {
       fetch(`https://api.sleeper.app/v1/league/${id}`, { cache: "no-store" }),
       fetch(`https://api.sleeper.app/v1/league/${id}/rosters`, { cache: "no-store" }),
       fetch(`https://api.sleeper.app/v1/league/${id}/users`, { cache: "no-store" }),
-      fetchCachedUpstream("https://api.sleeper.app/v1/players/nfl", 86400),
+      fetchCachedUpstream("https://api.sleeper.app/v1/players/nfl", 300),
       fetch(`https://api.sleeper.app/v1/league/${id}/traded_picks`, { cache: "no-store" }).catch(() => null),
       fetchCachedUpstream("https://api.sleeper.app/v1/players/nfl/trending/add?lookback_hours=24&limit=100", SHARED_TTL_SECONDS.trends).catch(() => null),
       fetchCachedUpstream("https://api.sleeper.app/v1/players/nfl/trending/drop?lookback_hours=24&limit=100", SHARED_TTL_SECONDS.trends).catch(() => null),
@@ -287,7 +288,7 @@ export async function GET(request: Request) {
         })(),
       });
       const waiverProjection = platformProjection;
-      return [{ id: player.player_id ?? playerId, name, position, team: player.team, opponent: "Matchup pending", projection: platformProjection, leagueProjection: leagueProjections.get(playerId) ?? null, waiverProjection: Number(waiverProjection.toFixed(2)), floor: Number((platformProjection * .68).toFixed(1)), ceiling: Number((platformProjection * 1.38).toFixed(1)), trend: 0, status: player.injury_status ?? "Healthy", role: "Player pool", age: player.age ?? null, rankingValue: seasonValue.value, seasonMarketRank: seasonValue.marketRank, rosAvailabilityPenalty: seasonValue.availabilityPenalty, rosRoleAdjustment: seasonValue.roleAdjustment, rosPerformanceAdjustment: seasonValue.performanceAdjustment, rosOpportunityAdjustment: seasonValue.opportunityAdjustment, sleeperRank: sourceRank, ageAdjustment: Number(ageAdjustment.toFixed(1)), lineupAdjustment: Number(lineupAdjustment.toFixed(1)), snapPct: snapProfile?.latestPct ?? null, snapAverage: snapProfile?.averagePct ?? null, snapWeek: snapProfile?.latestWeek ?? null, snapSeason: snapProfile?.season ?? null, statsSourceSeason, statsBlended, fantasyPoints2025: fantasyPoints == null ? null : Number(fantasyPoints.toFixed(1)), fantasyPpg2025: historicalPointsPerGame == null ? null : Number(historicalPointsPerGame.toFixed(1)), gamesPlayed2025: seasonProfile?.games ?? null, targets2025: seasonProfile?.targets ?? null, receptions2025: seasonProfile?.receptions ?? null, receivingYards2025: seasonProfile?.receivingYards ?? null, receivingTouchdowns2025: seasonProfile?.receivingTouchdowns ?? null, rushingAttempts2025: seasonProfile?.rushingAttempts ?? null, rushingYards2025: seasonProfile?.rushingYards ?? null, rushingTouchdowns2025: seasonProfile?.rushingTouchdowns ?? null, passingAttempts2025: seasonProfile?.passingAttempts ?? null, passingYards2025: seasonProfile?.passingYards ?? null, passingTouchdowns2025: seasonProfile?.passingTouchdowns ?? null, team2025: seasonProfile?.team ?? null, teamOffenseRank2025: seasonTeamOffense?.rank ?? null, teamPointsPerGame2025: seasonTeamOffense?.pointsPerGame ?? null, adpBySite }];
+      return [{ id: player.player_id ?? playerId, name, position, team: player.team, opponent: "Matchup pending", projection: platformProjection, leagueProjection: leagueProjections.get(playerId) ?? null, waiverProjection: Number(waiverProjection.toFixed(2)), floor: Number((platformProjection * .68).toFixed(1)), ceiling: Number((platformProjection * 1.38).toFixed(1)), trend: 0, status: player.injury_status ?? "Healthy", role: "Player pool", age: player.age ?? null, rankingValue: seasonValue.value, seasonMarketRank: seasonValue.marketRank, rosAvailabilityPenalty: seasonValue.availabilityPenalty, rosRoleAdjustment: seasonValue.roleAdjustment, rosPerformanceAdjustment: seasonValue.performanceAdjustment, rosOpportunityAdjustment: seasonValue.opportunityAdjustment, sleeperRank: sourceRank, ageAdjustment: Number(ageAdjustment.toFixed(1)), lineupAdjustment: Number(lineupAdjustment.toFixed(1)), snapPct: snapProfile?.latestPct ?? null, snapAverage: snapProfile?.averagePct ?? null, snapWeek: snapProfile?.latestWeek ?? null, snapSeason: snapProfile?.season ?? null, statsSourceSeason, statsBlended, fantasyPoints2025: fantasyPoints == null ? null : Number(fantasyPoints.toFixed(1)), fantasyPpg2025: historicalPointsPerGame == null ? null : Number(historicalPointsPerGame.toFixed(1)), gamesPlayed2025: seasonProfile?.games ?? null, currentSeasonGames: currentSeasonProfile?.games ?? 0, currentSeasonPpg: currentSeasonPointsPerGame, targets2025: seasonProfile?.targets ?? null, receptions2025: seasonProfile?.receptions ?? null, receivingYards2025: seasonProfile?.receivingYards ?? null, receivingTouchdowns2025: seasonProfile?.receivingTouchdowns ?? null, rushingAttempts2025: seasonProfile?.rushingAttempts ?? null, rushingYards2025: seasonProfile?.rushingYards ?? null, rushingTouchdowns2025: seasonProfile?.rushingTouchdowns ?? null, passingAttempts2025: seasonProfile?.passingAttempts ?? null, passingYards2025: seasonProfile?.passingYards ?? null, passingTouchdowns2025: seasonProfile?.passingTouchdowns ?? null, team2025: seasonProfile?.team ?? null, teamOffenseRank2025: seasonTeamOffense?.rank ?? null, teamPointsPerGame2025: seasonTeamOffense?.pointsPerGame ?? null, adpBySite }];
     }).sort((a, b) => b.rankingValue - a.rankingValue).filter((player, index) => index < 600 || rosteredPlayerIds.has(player.id)).map((player, index) => ({ ...player, overallRank: index + 1 }));
     const rankingById = new Map(rankingPool.map((player) => [player.id, player]));
     const availablePool = league.status === "pre_draft" ? [] : rankingPool.filter((player) => !rosteredPlayerIds.has(player.id));
@@ -349,7 +350,7 @@ export async function GET(request: Request) {
       return { id: String(rosterId), ownerId: roster.owner_id, managerName, teamName: owner?.metadata?.team_name ?? `${managerName}'s Team`, matchupId: matchupByRoster.get(rosterId) ?? null, roster: normalized, draftCapital: { score: Number(ownedPicks.reduce((sum, pick) => sum + pick.value, 0).toFixed(1)), picks: ownedPicks } };
     });
     const managers = users.flatMap((user, index) => user.user_id ? [{ id: user.user_id, name: user.display_name ?? `Manager ${index + 1}`, teamName: user.metadata?.team_name ?? `${user.display_name ?? `Manager ${index + 1}`}'s Team`, style: "Neutral" as const }] : []);
-    const result = { payloadVersion: LEAGUE_PAYLOAD_VERSION, league: { name: league.name ?? "Imported League", platform: "Sleeper", status: league.status ?? "unknown", teams: league.total_rosters, season: league.season, currentWeek: Math.max(0, league.leg ?? 0), projectionWeek, managers: users.length }, teams, managers, rankingContext: { format, scoring: receptionLabel, teams: league.total_rosters ?? rosters.length, rosterSlots, positionDemand, tePremium: tePremiumValue, passTouchdown: scoring.pass_td ?? 4, interception: scoring.pass_int ?? -2, bonusRuleCount, scoringRuleCount: Object.values(scoring).filter((value) => value !== 0).length }, rankings: rankingPool, waiverPlayers, waiverTrending };
+    const result = await applyPostgameRankings({ payloadVersion: LEAGUE_PAYLOAD_VERSION, league: { name: league.name ?? "Imported League", platform: "Sleeper", status: league.status ?? "unknown", teams: league.total_rosters, season: league.season, currentWeek: Math.max(0, league.leg ?? 0), projectionWeek, managers: users.length }, teams, managers, rankingContext: { format, scoring: receptionLabel, teams: league.total_rosters ?? rosters.length, rosterSlots, positionDemand, tePremium: tePremiumValue, passTouchdown: scoring.pass_td ?? 4, interception: scoring.pass_int ?? -2, bonusRuleCount, scoringRuleCount: Object.values(scoring).filter((value) => value !== 0).length }, rankings: rankingPool, waiverPlayers, waiverTrending });
     const refreshedAt = new Date().toISOString();
     const snapshot = { id: crypto.randomUUID(), userId, leagueKey: id, payloadJson: JSON.stringify(result), refreshedAt };
     await db.insert(leagueDataSnapshots).values(snapshot).onConflictDoUpdate({ target: [leagueDataSnapshots.userId, leagueDataSnapshots.leagueKey], set: { payloadJson: snapshot.payloadJson, refreshedAt } });

@@ -9,6 +9,9 @@ import { PRE_KICKOFF_VISUALS_ENABLED } from "./pre-kickoff-visuals";
 import { DEFAULT_PUSH_PREFERENCES, type PushAlertKey, type PushPreferences } from "./push-preferences";
 import { disableNativePushNotifications, enableNativePushNotifications, initializeNativeRuntime, isNativeIosApp, nativeHapticsEnabled, nativeImpact, nativeLogAppsFlyerEvent, nativeManageSubscriptions, nativePurchase, nativeRefreshPurchases, nativeRestorePurchases, nativeStoreProducts, setNativeHapticsEnabled } from "./native-runtime";
 import { useOverflowAutoScroll } from "./use-overflow-auto-scroll";
+import { nativeOpenLeague } from "./native-runtime";
+import { injuryTradePenalty } from "./postgame-value.mjs";
+import { hideFinishedWeeklyGame } from "./weekly-ranking-visibility.mjs";
 import { startVisiblePolling, subscribeLiveScoreboards, fetchLiveJson, reconcileScoreboards } from "./live-polling.mjs";
 import { useVisibleAnimations } from "./use-visible-animations";
 import { useOverlayGuard } from "./use-overlay-guard";
@@ -78,6 +81,8 @@ type Player = {
   statsBlended?: boolean;
   fantasyPpg2025?: number | null;
   gamesPlayed2025?: number | null;
+  currentSeasonGames?: number;
+  currentSeasonPpg?: number | null;
   team2025?: string | null;
   teamOffenseRank2025?: number | null;
   teamPointsPerGame2025?: number | null;
@@ -429,6 +434,8 @@ type LeagueRanking = Player & {
   rosRoleAdjustment?: number;
   rosPerformanceAdjustment?: number;
   rosOpportunityAdjustment?: number;
+  postgameAdjustment?: number;
+  postgameWeek?: number;
 };
 type CompositeLeagueRanking = LeagueRanking & {
   compositeAdp: number | null;
@@ -547,10 +554,17 @@ const platformLeagueUrl = (league: ConnectedLeague) =>
     : sleeperLeagueUrl(league.sourceId ?? league.id);
 function openPlatformLeagueOnMobile(event: MouseEvent<HTMLAnchorElement>, league: ConnectedLeague) {
   if (typeof window === "undefined") return;
-  const isMobile = window.matchMedia("(pointer: coarse)").matches || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+  const url = platformLeagueUrl(league);
+  if (isNativeIosApp()) {
+    event.preventDefault();
+    void nativeOpenLeague(url).then(opened => { if (!opened) window.location.assign(url); });
+    return;
+  }
+  const isMobile = window.matchMedia("(pointer: coarse)").matches || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
   if (!isMobile) return;
-  event.preventDefault();
-  window.location.assign(platformLeagueUrl(league));
+  // Preserve a direct user-activated universal link instead of a scripted redirect.
+  event.currentTarget.target = "_self";
 }
 function PlatformLogo({ provider = "Sleeper" }: { provider?: string }) {
   return provider.toLowerCase() === "sleeper" ? <span className="platform-logo" role="img" aria-label="Sleeper" /> : <span className="platform-logo-fallback">{provider}</span>;
@@ -1796,6 +1810,31 @@ export default function FantasyHub({
   const [leagueTeams, setLeagueTeams] = useState<LeagueTeam[]>([]);
   const [selectedTeamId, setSelectedTeamId] = useState("");
   const [leagueRankings, setLeagueRankings] = useState<LeagueRanking[]>([]);
+  useEffect(() => {
+    if (!leagueId || importState !== "success" || !["Player Rankings", "Trade Lab"].includes(view)) return;
+    return startVisiblePolling(async (signal: AbortSignal) => {
+      const endpoint = `/api/league?id=${encodeURIComponent(leagueId)}`;
+      let response = await fetchWithTimeout(endpoint, { signal });
+      if (!response.ok) return;
+      let data = await response.json();
+      if (data.cache?.status === "stale") {
+        response = await fetchWithTimeout(`${endpoint}&refresh=1`, { signal });
+        if (!response.ok) return;
+        data = await response.json();
+      }
+      if (signal.aborted || !Array.isArray(data.rankings) || !data.rankings.length) return;
+      const fresh = new Map<string, LeagueRanking>(data.rankings.map((player: LeagueRanking) => [player.id, player]));
+      // Preserve matchup/weather context and the current screen while refreshing value evidence.
+      setLeagueRankings(current => current.map(player => {
+        const latest = fresh.get(player.id);
+        return latest ? { ...player, ...latest, opponent: player.opponent, weatherSummary: player.weatherSummary } : player;
+      }));
+      setLeagueTeams(current => current.map(team => ({ ...team, roster: team.roster.map(player => {
+        const latest = fresh.get(player.id);
+        return latest ? { ...player, status: latest.status } : player;
+      }) })));
+    }, 300_000);
+  }, [leagueId, view, importState]);
   const [rankingContext, setRankingContext] = useState<RankingContext | null>(
     null,
   );
@@ -3630,6 +3669,7 @@ export default function FantasyHub({
         )}
         {view === "Player Rankings" && (
           <PlayerRanks
+            season={leagueSeason}
             roster={players}
             leagueRankings={leagueRankings}
             context={rankingContext}
@@ -9098,12 +9138,12 @@ function buildSeasonCompositeRankings(
       // while keeping the dedicated ADP page as a pure market view.
       const availabilityRankPenalty = redraftMarketHorizon
         ? 0
-        : player.rosAvailabilityPenalty ?? 0;
+        : Math.max(player.rosAvailabilityPenalty ?? 0, injuryTradePenalty(player.status, "Redraft"));
       const currentSeasonRankAdjustment = redraftMarketHorizon
         ? 0
         : (player.rosRoleAdjustment ?? 0) +
           (player.rosPerformanceAdjustment ?? 0) +
-          (player.rosOpportunityAdjustment ?? 0);
+          (player.rosOpportunityAdjustment ?? 0) + (player.postgameAdjustment ?? 0);
       const leagueAdjustedMarketRank = redraftMarketHorizon
         ? marketRank
         : Math.max(
@@ -9128,6 +9168,7 @@ function buildSeasonCompositeRankings(
 }
 
 function PlayerRanks({
+  season,
   roster,
   leagueRankings,
   context,
@@ -9139,6 +9180,7 @@ function PlayerRanks({
   setSelectedPlayer,
 }: {
   roster: Player[];
+  season: string;
   leagueRankings: LeagueRanking[];
   context: RankingContext | null;
   isPro: boolean;
@@ -9235,7 +9277,7 @@ function PlayerRanks({
       </section>
       {rankingMode === "weekly" ? (
         isPro ? (
-          <WeeklyPlayerRankings players={leagueRankings} week={Math.max(1, week)} setSelectedPlayer={setSelectedPlayer} />
+          <WeeklyPlayerRankings players={leagueRankings} season={season} week={Math.max(1, week)} setSelectedPlayer={setSelectedPlayer} />
         ) : (
           <section className="weekly-rankings-gate panel">
             <span>FANTASY HUB PRO</span><div className="pro-lock"><FHLogo label="Fantasy Hub" /></div>
@@ -9381,14 +9423,29 @@ function PlayerRanks({
 
 function WeeklyPlayerRankings({
   players,
+  season,
   week,
   setSelectedPlayer,
 }: {
   players: LeagueRanking[];
+  season: string;
   week: number;
   setSelectedPlayer: (player: Player) => void;
 }) {
   const [expandedPositions, setExpandedPositions] = useState<Set<string>>(() => new Set());
+  const [schedule, setSchedule] = useState<NflScheduleData | null>(null);
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    setSchedule(null);
+    return startVisiblePolling(async (signal: AbortSignal) => {
+      setNow(new Date());
+      const next = await loadScheduleData(season);
+      if (!signal.aborted) setSchedule(next);
+    }, 60_000);
+  }, [season, week]);
+  const hiddenTeams = new Set((schedule?.season === Number(season) ? schedule.weeks.find(item => item.week === week)?.games ?? [] : [])
+    .filter(game => hideFinishedWeeklyGame(game, now))
+    .flatMap(game => [normalizeNflTeam(game.away.abbreviation), normalizeNflTeam(game.home.abbreviation)]));
   const positionConfig = [
     { position: "QB", limit: 24, label: "Quarterbacks" },
     { position: "RB", limit: 24, label: "Running backs" },
@@ -9399,6 +9456,7 @@ function WeeklyPlayerRankings({
     const positionPlayers = players.filter((player) =>
       player.position === config.position &&
       player.opponent !== "BYE" &&
+      !hiddenTeams.has(normalizeNflTeam(player.team)) &&
       weeklyProjectionValue(player) !== null);
     const ranges = new Map(positionPlayers.map((player) => {
       const projection = weeklyProjectionValue(player) ?? 0;
@@ -10437,7 +10495,8 @@ function fantasyTradeProfile(
   const overallRank = ranking?.overallRank ?? 600;
   const rankPercentile = 100 * (1 - (Math.min(600, overallRank) - 1) / 599);
   const rankGrade = ratingFromPercentile(rankPercentile);
-  const ppg = ranking?.fantasyPpg2025;
+  const currentGames = Math.max(0, ranking?.currentSeasonGames ?? 0);
+  const ppg = currentGames > 0 ? ranking?.currentSeasonPpg ?? ranking?.fantasyPpg2025 : ranking?.fantasyPpg2025;
   const games = ranking?.gamesPlayed2025 ?? 0;
   const productionBands: Record<string, [number, number]> = {
     QB: [14, 25],
@@ -10454,7 +10513,7 @@ function fantasyTradeProfile(
           98,
         )
       : rankGrade;
-  const productionWeight = Math.min(0.72, (games / 14) * 0.72);
+  const productionWeight = Math.min(0.72, (currentGames / 8) * 0.72);
   const productionGrade =
     rankGrade + (rawProductionGrade - rankGrade) * productionWeight;
   const snap = ranking?.snapAverage;
@@ -10462,17 +10521,7 @@ function fantasyTradeProfile(
     typeof snap === "number"
       ? clampTradeRating(55 + snap * 0.42, 50, 97)
       : rankGrade;
-  const weeklyProjection = Math.max(
-    player.projection,
-    player.leagueProjection ?? 0,
-  );
-  const weeklyGrade = clampTradeRating(
-    58 +
-      ((weeklyProjection - replacementPpg) / (elitePpg - replacementPpg)) * 36,
-    50,
-    98,
-  );
-  const status = player.status.toLowerCase();
+  const status = (ranking?.status ?? player.status).toLowerCase();
   const availabilityGrade =
     status === "healthy"
       ? 95
@@ -10484,10 +10533,7 @@ function fantasyTradeProfile(
             ? 45
             : 86;
   const trueTalent = clampTradeRating(
-    rankGrade * 0.44 +
-      productionGrade * 0.34 +
-      roleGrade * 0.14 +
-      weeklyGrade * 0.08,
+    rankGrade * 0.46 + productionGrade * 0.40 + roleGrade * 0.14,
   );
   const marketAdp = ranking?.compositeAdp;
   const marketGrade = typeof marketAdp === "number"
@@ -10496,16 +10542,13 @@ function fantasyTradeProfile(
   // Trade value should remain anchored to what managers are actually paying.
   // Production and role can move a player off ADP, but should not erase a
   // persistent market signal after only a partial season sample.
-  const marketWeight = marketGrade == null ? 0 : games < 4 ? 0.46 : games < 8 ? 0.36 : 0.25;
+  const marketWeight = marketGrade == null ? 0 : currentGames === 0 ? .9 : currentGames < 4 ? .75 : currentGames < 8 ? .6 : .45;
   const marketAdjustedTalent = clampTradeRating(
     trueTalent * (1 - marketWeight) + (marketGrade ?? trueTalent) * marketWeight,
   );
-  const currentOverall = clampTradeRating(
-    marketAdjustedTalent * 0.5 +
-      weeklyGrade * 0.25 +
-      availabilityGrade * 0.15 +
-      roleGrade * 0.1,
-  );
+  // Forward trade value is not a start/sit rating. Injury penalties are applied
+  // separately in tradeAsset so availability still updates immediately.
+  const currentOverall = marketAdjustedTalent;
   const age = ranking?.age;
   const provenYoungPlayer =
     games >= 8 && marketAdjustedTalent >= 80 && rawProductionGrade >= 78;
@@ -10602,6 +10645,17 @@ function tradePackageValueAdjustment(
   context: RankingContext | null,
 ) {
   const empty = { send: 0, receive: 0 };
+  // Depth-only bundles cannot substitute for a 99-rated cornerstone, regardless
+  // of piece count (including equal-size packages with throw-ins).
+  const depthOnly = (assets: TradeAssetValue[]) => assets.length > 0 && assets.every(asset => asset.position !== "PICK" && asset.value < 60);
+  const superstar = (assets: TradeAssetValue[]) => assets.some(asset => asset.position !== "PICK" && asset.value >= 99);
+  const sum = (assets: TradeAssetValue[]) => assets.reduce((total, asset) => total + asset.value, 0);
+  if (superstar(send) && depthOnly(receive)) {
+    return { send: Math.max(0, Math.ceil(sum(receive) / .6 - sum(send))), receive: 0 };
+  }
+  if (superstar(receive) && depthOnly(send)) {
+    return { send: 0, receive: Math.max(0, Math.ceil(sum(send) / .6 - sum(receive))) };
+  }
   if (!send.length || !receive.length || send.length === receive.length) return empty;
   const consolidatedSide = send.length < receive.length ? "send" : "receive";
   const consolidated = consolidatedSide === "send" ? send : receive;
@@ -10674,7 +10728,9 @@ function tradeAsset(
     Math.min(
       99,
       Math.round(
-        (formatOverall - 55) * 2.25 + scarcityAdjustment + starPowerAdjustment,
+        (formatOverall - 55) * 2.25 + scarcityAdjustment + starPowerAdjustment +
+          (ranking?.postgameAdjustment ?? 0) * (format === "Dynasty" ? .35 : format === "Keeper" ? .65 : 1) -
+          injuryTradePenalty(ranking?.status ?? player.status, format),
       ),
     ),
   );
@@ -11153,6 +11209,7 @@ function TradeLab({
     setCalculatorReceiveIds([]);
   };
   function selectPartner(id: string) {
+    setAssetSelectorSide(null);
     setSelectedId(id);
     setActiveSuggestionId("");
     setCalculatorSendIds([]);
@@ -11425,6 +11482,12 @@ function TradeLab({
         }}>
         <div ref={calculatorDialog} className="trade-calculator-dialog" role="dialog" aria-modal="true" aria-label="Trade calculator">
         <div className="trade-calculator-dialog-bar"><strong>Trade Calculator</strong><button type="button" aria-label="Close trade calculator" onClick={() => { setAssetSelectorSide(null); setCalculatorOpen(false); }}>×</button></div>
+        <label className="trade-dialog-partner">
+          <span>Trade partner</span>
+          <select value={partner.id} onChange={event => selectPartner(event.target.value)}>
+            {opponents.map(team => <option key={team.id} value={team.id}>{team.teamName} · {team.managerName}</option>)}
+          </select>
+        </label>
       <section className="trade-calculator panel">
         <header>
           <div>
