@@ -2013,10 +2013,10 @@ html[data-theme="dark"] .player-verdict,html[data-theme="dark"] .player-range-co
   .season-performance .season-history dl>div{display:flex;align-items:baseline;gap:5px;min-width:0}
 }
 
-.nfl-game-card>header>.game-market-lines{grid-column:1/-1;min-width:0;margin-top:5px;padding-top:8px;border-top:1px solid var(--line);color:var(--ink)}
+.nfl-game-card>.game-market-lines{min-width:0;padding:10px 13px;border-bottom:1px solid var(--line);color:var(--ink)}
 .game-market-lines>header{display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px 10px;margin-bottom:6px;color:var(--muted);font-size:10px;font-weight:600}
 .game-market-lines>header>span{font-weight:400}
-.nfl-game-card>header .game-market-lines>div{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;font-size:11px;font-weight:650}
+.nfl-game-card>.game-market-lines>div{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;font-size:11px;font-weight:650}
 .game-market-lines>div>span{padding:6px 5px;text-align:center;line-height:1.35;background:var(--chalk);border-radius:5px;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
 .fantasy-score-ribbon.game-day-matchup-summary{display:grid;grid-template-columns:minmax(0,1fr) minmax(240px,1.4fr);gap:5px 20px;padding:13px 18px}
 .game-day-matchup-summary>.game-day-matchup-scores{grid-column:2;grid-row:1/3;display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:12px}
@@ -2028,7 +2028,7 @@ html[data-theme="dark"] .player-verdict,html[data-theme="dark"] .player-range-co
   .fantasy-score-ribbon.game-day-matchup-summary{grid-template-columns:minmax(0,1fr);gap:8px;padding:12px}
   .game-day-matchup-summary>.game-day-matchup-scores{grid-column:1;grid-row:2}
   .game-day-matchup-summary>small{text-align:center}
-  .nfl-game-card>header .game-market-lines>div{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .nfl-game-card>.game-market-lines>div{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 .player-game-script{display:block;margin-top:7px;color:var(--muted);font-size:11px;line-height:1.4}
 .tool-context-bar>.context-league-button{background:color-mix(in srgb,var(--gold) 20%,var(--chalk));box-shadow:inset 3px 0 0 var(--gold),inset 0 0 0 1px color-mix(in srgb,var(--gold) 48%,transparent);cursor:pointer}
@@ -2346,6 +2346,18 @@ html[data-theme="dark"] .command-action-queue span em{color:#ff9c88}
 /* Keep opponent strength at its natural size and let its stacked forecast use
    the otherwise open horizontal space in the matchup column. */
 @media(min-width:701px){.roster-section table{table-layout:auto}.roster-section th:nth-child(3){width:52%}.roster-section .roster-matchup-details{display:flex;align-items:flex-start;flex-direction:column;width:100%;min-width:150px}.roster-section .roster-matchup-details>.matchup-team{flex:none}.roster-section .roster-weather{width:100%;max-width:none;margin-top:5px;white-space:normal}.roster-section .roster-temperature{max-width:230px}}
+@media(min-width:701px){
+  .roster-section th:nth-child(3),.roster-section .roster-matchup-cell{text-align:center}
+  .roster-section .roster-matchup-details{align-items:center}
+  .roster-section .roster-temperature{margin-inline:auto}
+  .roster-section td[data-score-label]>.league-projection{display:inline-block;min-width:56px;padding:6px 8px;border-radius:7px;font-variant-numeric:tabular-nums;text-align:center}
+  .roster-section td[data-score-label="LIVE"]>.league-projection,.roster-section td[data-score-label="FINAL"]>.league-projection{color:var(--ink);background:color-mix(in srgb,var(--gold) 22%,var(--chalk));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--gold) 55%,transparent);font-weight:850}
+  .roster-section td[data-score-label="PROJ"]>.league-projection{color:var(--muted)}
+  .roster-section td[data-score-label]>.roster-score-label{margin-top:4px;text-align:center;letter-spacing:.06em}
+  .roster-section td[data-score-label="LIVE"]>.roster-score-label,.roster-section td[data-score-label="FINAL"]>.roster-score-label{color:var(--ink);font-weight:800}
+  .roster-section td[data-score-label]{text-align:center}
+  .roster-section th:nth-child(4){text-align:center}
+}
 @media(max-width:700px){.roster-section .roster-matchup-details{display:flex;width:100%;align-items:flex-start;flex-direction:column}.roster-section .roster-weather{overflow:visible;width:100%;max-width:none;margin-top:5px;line-height:1.25;text-overflow:clip;white-space:normal}}
 
 /* One-time, account-aware Week 1 kickoff prompt. */
