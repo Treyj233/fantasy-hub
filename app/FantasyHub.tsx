@@ -270,7 +270,7 @@ const playerShell = (
     name: player.name,
     position: player.position,
     team: player.team ?? player.nflTeam ?? "FA",
-    opponent: "Matchup details in league view",
+    opponent: "Matchup details pending",
     projection,
     leagueProjection: typeof player.leagueProjection === "number" ? player.leagueProjection : null,
     floor: Number((projection * .68).toFixed(1)),
@@ -3777,6 +3777,7 @@ export default function FantasyHub({
           player={selectedPlayer}
           leagueId={leagueId}
           week={defaultGameWeek}
+          season={selectedConnectedLeague?.season ?? leagueSeason}
           portfolioScans={portfolioScans}
           close={() => setSelectedPlayer(null)}
         />
@@ -12281,18 +12282,42 @@ function Simulator({
 }
 
 function PlayerPanel({
-  player,
+  player: sourcePlayer,
   close,
   portfolioScans,
   leagueId,
   week,
+  season,
 }: {
   player: Player;
   close: () => void;
   portfolioScans: LeagueScan[];
   leagueId: string;
   week: number;
+  season: string | number;
 }) {
+  const [matchupContext, setMatchupContext] = useState<{
+    key: string;
+    schedule: NflScheduleData | null;
+    weather: WeatherData | null;
+    strength: MatchupStrengthData | null;
+  } | null>(null);
+  const matchupContextKey = `${season}:${week}`;
+  useEffect(() => {
+    let active = true;
+    void Promise.all([
+      loadScheduleData(season),
+      loadWeatherData(season, week),
+      loadMatchupStrengthData(season, week),
+    ]).then(([schedule, weather, strength]) => {
+      if (active) setMatchupContext({ key: matchupContextKey, schedule, weather, strength });
+    });
+    return () => { active = false; };
+  }, [season, week, matchupContextKey]);
+  const context = matchupContext?.key === matchupContextKey ? matchupContext : null;
+  const withOpponent = applyOpponent(sourcePlayer, context?.schedule ?? null, week);
+  const withWeather = applyWeather(withOpponent, context?.weather ?? null);
+  const player = context?.strength ? applyMatchupStrength(withWeather, context.strength) : withWeather;
   const projectionPlatform = useContext(ProjectionPlatformContext);
   const [liveScore, setLiveScore] = useState<{ player: ScoreboardPlayer; status: string } | undefined>();
   useEffect(() => {
