@@ -5,7 +5,7 @@ import { postgameValueAdjustment } from './postgame-value.mjs';
 
 const key = (name: string, position: string) => `${name.toLowerCase().replace(/[^a-z0-9]/g, '').replace(/(jr|sr|iii|ii|iv)$/, '')}:${position}`;
 const teamKey = (team: string) => ({ JAC: 'JAX', WSH: 'WAS', LA: 'LAR' }[team] ?? team);
-type RankedPlayer = { id: string; name: string; position: string; team?: string; status: string; postgameAdjustment?: number; postgameWeek?: number };
+type RankedPlayer = { id: string; name: string; position: string; team?: string; status: string; postgameAdjustment?: number; postgameWeek?: number; seasonMarketRank?: number | null; adpBySite?: Record<string, number | null>; gamesPlayed2025?: number | null };
 type LeaguePayload = { league: { season?: string; currentWeek?: number }; rankings: RankedPlayer[]; teams: { roster: RankedPlayer[] }[] };
 
 export async function applyPostgameRankings<T extends LeaguePayload>(payload: T): Promise<T> {
@@ -30,6 +30,24 @@ export async function applyPostgameRankings<T extends LeaguePayload>(payload: T)
       }
     }
     const byName = new Map<string, string[]>();
+    // A short, shared upstream-cached window supplies evidence, not a week-number multiplier.
+    const priorWeeks = await Promise.all(Array.from({ length: Math.min(3, week - 1) }, (_, index) => week - Math.min(3, week - 1) + index).map(async priorWeek => {
+      try {
+        const [actual, projected, response] = await Promise.all([
+          getSleeperWeeklyStats(String(season), priorWeek),
+          getSleeperWeeklyProjections(String(season), priorWeek),
+          fetchCachedUpstream(`https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates=${season}&seasontype=2&week=${priorWeek}`, 300),
+        ]);
+        if (!response.ok) return null;
+        const previousGames = await response.json() as NonNullable<typeof games>;
+        const teams = new Set<string>();
+        for (const game of previousGames.events ?? []) {
+          if (game.season?.year !== season || game.season?.type !== 2 || game.week?.number !== priorWeek || !game.status?.type?.completed) continue;
+          for (const competitor of game.competitions?.[0]?.competitors ?? []) if (competitor.team?.abbreviation) teams.add(teamKey(competitor.team.abbreviation));
+        }
+        return { actual, projected, teams };
+      } catch { return null; }
+    }));
     for (const [id, player] of Object.entries(directory)) {
       const name = player.full_name ?? `${player.first_name ?? ''} ${player.last_name ?? ''}`.trim();
       const nameKey = key(name, player.position ?? '');
@@ -47,6 +65,16 @@ export async function applyPostgameRankings<T extends LeaguePayload>(payload: T)
       const adjustment = actual && projected ? postgameValueAdjustment(
         sleeperFantasyPoints(actual, scoring), sleeperFantasyPoints(projected, scoring),
         finalTeams.has(teamKey(source.team ?? player.team ?? '')),
+        {
+          marketRank: player.seasonMarketRank ?? player.adpBySite?.Sleeper ?? player.adpBySite?.ESPN ?? null,
+          historicalGames: player.gamesPlayed2025 ?? 0,
+          priorGames: priorWeeks.flatMap(previous => {
+            const a = previous?.actual.value.get(sourceId);
+            const p = previous?.projected.value.get(sourceId);
+            return a && p && previous?.teams.has(teamKey(source.team ?? player.team ?? ''))
+              ? [{ actual: sleeperFantasyPoints(a, scoring), projected: sleeperFantasyPoints(p, scoring), completed: true }] : [];
+          }),
+        },
       ) : 0;
       return { ...player, status: source.injury_status || player.status, postgameAdjustment: adjustment, postgameWeek: week };
     };

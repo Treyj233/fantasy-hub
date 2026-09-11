@@ -9,8 +9,8 @@ test('only confirmed finals change performance value; missing projections stay n
   assert.equal(postgameValueAdjustment(30, 15, false), 0);
   assert.equal(postgameValueAdjustment(30, 0, true), 0);
   assert.equal(postgameValueAdjustment(null, 15, true), 0);
-  assert.equal(postgameValueAdjustment(30, 15, true), 8);
-  assert.equal(postgameValueAdjustment(0, 15, true), -8);
+  assert.equal(postgameValueAdjustment(30, 15, true), 1.25);
+  assert.equal(postgameValueAdjustment(0, 15, true), -1.25);
   assert.equal(postgameValueAdjustment(15, 15, true), 0);
 });
 
@@ -20,6 +20,18 @@ test('confirmed injury statuses affect value with less dynasty impact', () => {
   assert.ok(injuryTradePenalty('IR', 'Redraft') > injuryTradePenalty('Out', 'Redraft'));
   assert.ok(injuryTradePenalty('Out', 'Redraft') > injuryTradePenalty('Questionable', 'Redraft'));
   assert.ok(injuryTradePenalty('IR', 'Dynasty') < injuryTradePenalty('IR', 'Redraft'));
+});
+
+test('one bad star game is protected; breakouts get modest upside and repetition earns conviction', () => {
+  const star = { marketRank: 10, historicalGames: 17 };
+  assert.equal(postgameValueAdjustment(0, 20, true, star), -.75);
+  assert.equal(postgameValueAdjustment(24, 8, true, { marketRank: 100 }), 2);
+  const bad = { actual: 0, projected: 20, completed: true };
+  const repeated = postgameValueAdjustment(0, 20, true, { ...star, priorGames: [bad, bad, bad] });
+  assert.equal(repeated, -8);
+  const good = { actual: 40, projected: 20, completed: true };
+  assert.equal(postgameValueAdjustment(40, 20, true, { ...star, priorGames: [good, good, good] }), 8);
+  assert.ok(Math.abs(postgameValueAdjustment(0, 20, true, { ...star, priorGames: [good, bad, good] })) < 1);
 });
 
 test('final game data enriches both provider IDs and roster copies without accumulating', async () => {
@@ -39,8 +51,8 @@ test('final game data enriches both provider IDs and roster copies without accum
     const payload = { league: { season: '2026', currentWeek: 1 }, rankings: [player], teams: [{ roster: [player] }] };
     const enriched = await apply(payload);
     assert.equal(enriched.rankings[0].status, 'Out');
-    assert.equal(enriched.rankings[0].postgameAdjustment, 8);
-    assert.equal(enriched.teams[0].roster[0].postgameAdjustment, 8);
-    assert.equal((await apply(enriched)).rankings[0].postgameAdjustment, 8);
+    assert.equal(enriched.rankings[0].postgameAdjustment, 1.25);
+    assert.equal(enriched.teams[0].roster[0].postgameAdjustment, 1.25);
+    assert.equal((await apply(enriched)).rankings[0].postgameAdjustment, 1.25);
   }
 });

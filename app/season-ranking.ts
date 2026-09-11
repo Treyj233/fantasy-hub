@@ -71,9 +71,10 @@ export function rosPerformanceAdjustment({
   games: number;
 }) {
   if (games <= 0 || currentPointsPerGame == null || projectedPointsPerGame == null) return 0;
-  const currentSeasonWeight = Math.min(1, Math.max(.25, (currentWeek - 1) / 4));
+  const currentSeasonWeight = Math.min(1, games / 6);
   const performanceDelta = (currentPointsPerGame - projectedPointsPerGame) * .8 * currentSeasonWeight;
-  return Number(Math.max(-10, Math.min(10, performanceDelta)).toFixed(2));
+  const evidenceCap = games < 2 ? 1 : games < 3 ? 2 : games < 4 ? 4 : games < 6 ? 6 : 10;
+  return Number(Math.max(-evidenceCap, Math.min(evidenceCap, performanceDelta)).toFixed(2));
 }
 
 export function seasonRankingValue({

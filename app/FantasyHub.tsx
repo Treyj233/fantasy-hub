@@ -12,6 +12,7 @@ import { useOverflowAutoScroll } from "./use-overflow-auto-scroll";
 import { nativeOpenLeague } from "./native-runtime";
 import { injuryTradePenalty } from "./postgame-value.mjs";
 import { hideFinishedWeeklyGame } from "./weekly-ranking-visibility.mjs";
+import { tradeMatchesTarget } from "./trade-target-fit.mjs";
 import { startVisiblePolling, subscribeLiveScoreboards, fetchLiveJson, reconcileScoreboards } from "./live-polling.mjs";
 import { useVisibleAnimations } from "./use-visible-animations";
 import { useOverlayGuard } from "./use-overlay-guard";
@@ -10867,6 +10868,7 @@ function buildTradeSuggestions(
   rankings: LeagueRanking[],
   context: RankingContext | null,
   style: TradeStyle,
+  targetPositions: string[] = [],
 ): TradeSuggestion[] {
   const policy = {
     Aggressive: {
@@ -10965,6 +10967,7 @@ function buildTradeSuggestions(
   const candidates = receivePackages.flatMap((receive) =>
     sendPackages.flatMap((send) => {
       if (Math.min(send.length, receive.length) > 1 && (send.length !== 2 || receive.length !== 2)) return [];
+      if (!tradeMatchesTarget(send, receive, targetPositions)) return [];
       if (!tradePreservesPositionDepth(yourTeam, send, receive, context) ||
           !tradePreservesPositionDepth(partner, receive, send, context)) return [];
       const target = [...receive].sort((a, b) => b.value - a.value)[0];
@@ -11179,10 +11182,11 @@ function TradeLab({
           tradeRankings,
           context,
           partnerStyle,
+          targetPositions,
         )
       : [];
   const matchesTargetPosition = (suggestion: TradeSuggestion) =>
-    !targetPositions.length || suggestion.receive.some((asset) => targetPositions.includes(asset.position));
+    tradeMatchesTarget(suggestion.send, suggestion.receive, targetPositions);
   const suggestions = allSuggestions.filter(matchesTargetPosition);
   const partnerMatches = isPro && yourTeam
     ? opponents.map((team) => {
@@ -11192,6 +11196,7 @@ function TradeLab({
           tradeRankings,
           context,
           styles[team.id] ?? "Neutral",
+          targetPositions,
         ).filter(matchesTargetPosition);
         const best = packages[0] ?? null;
         const matchScore = best
@@ -11395,12 +11400,14 @@ function TradeLab({
         title="Evaluate any deal, then let Pro find the best ones"
         text="The manual calculator is free and uses players currently owned by both teams. Fantasy Hub Pro adds roster-wide suggestions, mutual-need analysis, negotiation behavior, and estimated acceptance."
       />
+      <div className="trade-lab-action-row">
       <div className="trade-lab-status" aria-label="Trade Lab capabilities">
         <b><i>✓</i> Live league rosters</b>
         <b><i>↗</i> Lineup impact</b>
         <b><i>◎</i> Format-aware values</b>
       </div>
       <button type="button" className="trade-create-button" onClick={() => { clearCalculator(); setCalculatorOpen(true); }}>+ Create New Trade</button>
+      </div>
       <section className={`trade-controls panel ${isPro ? "" : "trade-suggestion-controls-locked"}`}>
         <div>
           <label htmlFor="trade-partner">Trade partner</label>

@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import ts from 'typescript';
+import { tradeMatchesTarget } from '../app/trade-target-fit.mjs';
 
 const source = readFileSync(new URL('../app/FantasyHub.tsx', import.meta.url), 'utf8');
 const extract = (name, next) => ts.transpile(source.slice(source.indexOf(`function ${name}(`), source.indexOf(`function ${next}(`)), { target: ts.ScriptTarget.ES2022 });
@@ -23,12 +24,12 @@ test('package premium grows beyond the old cap and is symmetric', () => {
 });
 
 test('suggestions evaluate and surface multi-player packages without duplicate assets', () => {
-  const build = new Function('buildRankingLookup', 'rankingForPlayer', 'teamNeeds', 'tradeAsset', 'tradeRosterStrength', 'tradePackageValueAdjustment', 'tradePreservesPositionDepth',
+  const build = new Function('buildRankingLookup', 'rankingForPlayer', 'teamNeeds', 'tradeAsset', 'tradeRosterStrength', 'tradePackageValueAdjustment', 'tradePreservesPositionDepth', 'tradeMatchesTarget',
     `${extract('buildTradeSuggestions', 'TradeLab')}; return buildTradeSuggestions;`)(
     () => new Map(), () => ({ overallRank: 30 }),
     () => ['WR', 'RB', 'QB', 'TE'].map(position => ({ position })),
     p => p, roster => roster.reduce((sum, p) => sum + p.value, 0) / 20,
-    adjust, preservesDepth,
+    adjust, preservesDepth, tradeMatchesTarget,
   );
   const yours = { id: 'a', roster: [asset(70, 'a1', 'RB'), asset(60, 'a2', 'RB'), asset(50, 'a3', 'WR'), asset(40, 'a4', 'WR')] };
   const theirs = { id: 'b', teamName: 'Partner', roster: [asset(70, 'b1', 'WR'), asset(61, 'b2', 'WR'), asset(49, 'b3', 'RB'), asset(40, 'b4', 'RB')] };
