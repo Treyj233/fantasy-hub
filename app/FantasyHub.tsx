@@ -3459,21 +3459,13 @@ export default function FantasyHub({
 
         {view !== "Manage Leagues" && view !== "Draft HQ" && leagueTeams.length > 1 && (
           <section
-            className={`team-picker-strip ${selectedTeamId ? "selected" : ""}`}
+            className={`team-picker-strip ${selectedTeamId ? "selected" : ""} ${selectedLeagueTeam ? "compact-team-picker" : ""}`}
           >
-            <div>
-              <span>
-                {selectedTeamId ? "YOUR TEAM IS ACTIVE" : "ONE MORE STEP"}
-              </span>
-              <strong>
-                {selectedLeagueTeam
-                  ? selectedLeagueTeam.teamName
-                  : "Which team is yours?"}
-              </strong>
-              {!selectedLeagueTeam && (
-                <small>Choose your fantasy team so another manager’s roster never replaces yours.</small>
-              )}
-            </div>
+            {!selectedLeagueTeam && <div>
+              <span>SELECT YOUR TEAM</span>
+              <strong>Which team is yours?</strong>
+              <small>Choose your fantasy team so another manager’s roster never replaces yours.</small>
+            </div>}
             <button
               className={`team-active-live ${liveMatchupCount === null ? "checking" : liveMatchupCount > 0 ? "live" : "idle"}`}
               type="button"
@@ -5788,7 +5780,7 @@ function AllLeagues({
     <div className="page-content all-leagues-page">
       <section className="all-leagues-hero">
         <div>
-          <span>MISSION HUB</span>
+          <h2 className="mission-hub-title">Mission Hub</h2>
           <div className="mission-title-row">
             <button className="personalize-hub" onClick={onPersonalize} aria-label="Personalize your Fantasy Hub with team colors, themes, and icon packs">
               <i className="personalize-artwork" aria-hidden="true">
