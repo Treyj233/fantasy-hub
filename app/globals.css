@@ -1756,6 +1756,29 @@ html[data-theme="dark"] .all-leagues-page .exposure-list>b,html[data-theme="dark
 @media(max-width:700px){.start-sit-page>.section-intro{padding:8px 10px}.start-sit-page>.section-intro h2{font-size:17px;line-height:1.08}.start-sit-page>.section-intro p{font-size:12px!important;line-height:1.25}}
 
 /* Keep matchup posture controls visible throughout the vertical decision list. */
+/* Compact tablet/desktop Start Sit without hiding comparison information. */
+@media(min-width:701px){
+  .start-sit-page>.risk-console{gap:12px;margin-bottom:10px;padding:12px 16px}
+  .start-sit-page>.aggression-panel{margin-bottom:12px;padding:12px 16px}
+  .start-sit-page>.aggression-panel>input{margin:10px 0 6px}
+  .start-sit-page .start-sit-decisions{gap:14px}
+  .start-sit-page .start-sit-option{padding-top:12px}
+  .start-sit-page .start-sit-option:first-child{padding-top:0}
+  .start-sit-page .start-sit-option>header{gap:10px;margin-bottom:8px}
+  .start-sit-page .start-sit-option .compare-grid{gap:10px}
+  .start-sit-page .start-sit-option .compare-card{min-width:0;padding:13px 14px}
+  .start-sit-page .start-sit-option .compare-card>.matchup-team{margin-top:8px}
+  .start-sit-page .start-sit-option .compare-card h3{margin:10px 0 12px}
+  .start-sit-page .start-sit-option .range-bar{margin:10px 0}
+  .start-sit-page .start-sit-option .compare-card>p{min-height:0;margin:10px 0;line-height:1.4}
+  .start-sit-page .start-sit-option .select-label{padding-top:8px}
+  .start-sit-page .start-sit-option .insight-box{margin-top:8px;padding:12px 16px}
+  .start-sit-page .start-sit-option .insight-box h3{margin:4px 0}
+  .start-sit-page .start-sit-option .insight-box p{line-height:1.4}
+  .start-sit-page>.custom-start-sit{gap:10px;padding:16px;margin-top:14px}
+  .start-sit-page .custom-start-sit>header{gap:12px}
+  .start-sit-page .custom-risk-score{margin-top:8px;padding-top:7px}
+}
 .start-sit-page{overflow:visible!important}
 .start-sit-page>.aggression-panel{position:-webkit-sticky!important;position:sticky!important;z-index:34;top:12px;align-self:start;background:color-mix(in srgb,var(--chalk) 96%,transparent);backdrop-filter:blur(16px);transform:translateZ(0)}
 @media(max-width:700px){.start-sit-page>.aggression-panel{top:108px}}
@@ -1936,7 +1959,8 @@ html[data-theme="dark"] .player-verdict,html[data-theme="dark"] .player-range-co
   .sidebar{transition:width .34s cubic-bezier(.22,1,.36,1),padding .34s cubic-bezier(.22,1,.36,1)}
   .brand,.brand-logo,.league-card,.sidebar nav button,.sidebar nav .nav-group>span,.sidebar .nav-label,.sidebar .nav-pro-tag,.sidebar-bottom,.sidebar-bottom>div,.sidebar-bottom>small,.theme-toggle,.theme-toggle>b,.theme-toggle>i{transition:opacity .16s ease,max-width .34s cubic-bezier(.22,1,.36,1),max-height .34s cubic-bezier(.22,1,.36,1),margin .34s cubic-bezier(.22,1,.36,1),padding .34s cubic-bezier(.22,1,.36,1),gap .34s cubic-bezier(.22,1,.36,1),transform .34s cubic-bezier(.22,1,.36,1)}
   .brand>div{display:block;max-width:170px;overflow:hidden;opacity:1;white-space:nowrap}
-  .league-card{display:block;max-height:82px;overflow:hidden;opacity:1}
+  /* Let wrapped league/team names determine the expanded card height. */
+  .league-card{display:block;max-height:none;overflow:hidden;opacity:1}
   .sidebar nav .nav-group>span{display:block;max-height:20px;overflow:hidden;opacity:1}
   .sidebar .nav-label{display:block;max-width:150px;overflow:hidden;opacity:1;white-space:nowrap}
   .sidebar .nav-pro-tag{display:block;max-width:38px;overflow:hidden;opacity:1}

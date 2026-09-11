@@ -10778,11 +10778,14 @@ function tradeRosterStrength(
   roster: Player[],
   rankingById: Map<string, LeagueRanking>,
   context: RankingContext | null,
+  cachedValues?: Map<string, number>,
 ) {
   const slotCounts = (context?.rosterSlots ?? []).reduce<
     Record<string, number>
   >((counts, slot) => ({ ...counts, [slot]: (counts[slot] ?? 0) + 1 }), {});
   const positionScore = (player: Player) => {
+    const cached = cachedValues?.get(player.id);
+    if (cached !== undefined) return cached;
     const ranking = rankingForPlayer(player, rankingById);
     return ranking
       ? tradeAsset(
@@ -10929,11 +10932,13 @@ function buildTradeSuggestions(
   const yourAssets = yourTeam.roster
     .filter(eligible)
     .map((player) => tradeAsset(player, rankingById, context));
-  const yourBefore = tradeRosterStrength(yourTeam.roster, rankingById, context);
+  const cachedValues = new Map([...yourAssets, ...partnerAssets].map(asset => [asset.id, asset.value]));
+  const yourBefore = tradeRosterStrength(yourTeam.roster, rankingById, context, cachedValues);
   const partnerBefore = tradeRosterStrength(
     partner.roster,
     rankingById,
     context,
+    cachedValues,
   );
   const premium = 1;
   // Bound the search before expensive roster evaluation, including depth pieces.
@@ -10960,7 +10965,7 @@ function buildTradeSuggestions(
     const value = tradeRosterStrength([
       ...team.roster.filter(p => !outgoingIds.has(p.id)),
       ...other.roster.filter(p => incomingIds.has(p.id)),
-    ], rankingById, context);
+    ], rankingById, context, cachedValues);
     strengthCache.set(key, value);
     return value;
   };
@@ -11123,9 +11128,9 @@ function TradeLab({
   onUpgrade: () => void;
 }) {
   const yourTeam = teams.find((team) => team.id === selectedTeamId);
-  const opponents = teams.filter(
+  const opponents = useMemo(() => teams.filter(
     (team) => team.id !== selectedTeamId && team.roster.length,
-  );
+  ), [teams, selectedTeamId]);
   const [selectedId, setSelectedId] = useState(opponents[0]?.id ?? "");
   const [styles, setStyles] = useState<Record<string, TradeStyle>>({});
   const [targetPositions, setTargetPositions] = useState<string[]>([]);
@@ -11173,22 +11178,8 @@ function TradeLab({
   const partner =
     opponents.find((team) => team.id === selectedId) ?? opponents[0];
   const partnerStyle = partner ? (styles[partner.id] ?? "Neutral") : "Neutral";
-  const tradeRankings = buildSeasonCompositeRankings(rankings, context);
-  const allSuggestions =
-    isPro && yourTeam && partner
-      ? buildTradeSuggestions(
-          yourTeam,
-          partner,
-          tradeRankings,
-          context,
-          partnerStyle,
-          targetPositions,
-        )
-      : [];
-  const matchesTargetPosition = (suggestion: TradeSuggestion) =>
-    tradeMatchesTarget(suggestion.send, suggestion.receive, targetPositions);
-  const suggestions = allSuggestions.filter(matchesTargetPosition);
-  const partnerMatches = isPro && yourTeam
+  const tradeRankings = useMemo(() => buildSeasonCompositeRankings(rankings, context), [rankings, context]);
+  const evaluatedPartners = useMemo(() => isPro && yourTeam
     ? opponents.map((team) => {
         const packages = buildTradeSuggestions(
           yourTeam,
@@ -11197,14 +11188,17 @@ function TradeLab({
           context,
           styles[team.id] ?? "Neutral",
           targetPositions,
-        ).filter(matchesTargetPosition);
+        );
         const best = packages[0] ?? null;
         const matchScore = best
           ? Math.min(99, Math.round(best.acceptance * 0.62 + best.yourBenefit * 0.23 + best.partnerBenefit * 0.15))
           : 0;
         return { team, packages, best, matchScore };
-      }).filter((match) => match.best).sort((a, b) => b.matchScore - a.matchScore).slice(0, 4)
-    : [];
+      })
+    : [], [isPro, yourTeam, opponents, tradeRankings, context, styles, targetPositions]);
+  const suggestions = evaluatedPartners.find(match => match.team.id === partner?.id)?.packages ?? [];
+  const partnerMatches = useMemo(() => evaluatedPartners.filter(match => match.best)
+    .sort((a, b) => b.matchScore - a.matchScore).slice(0, 4), [evaluatedPartners]);
   const toggleTargetPosition = (position: string) => {
     setTargetPositions((current) => current.includes(position)
       ? current.filter((item) => item !== position)
