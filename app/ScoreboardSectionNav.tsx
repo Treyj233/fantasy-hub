@@ -62,11 +62,16 @@ export default function ScoreboardSectionNav({ pageType = "scoreboard" }: { page
       // Do not overlap either control on exceptionally short landscape views.
       rail.current?.toggleAttribute("data-insufficient-space", availableHeight < indices.length * 16);
       const pulse = page.querySelector(".sunday-pulse");
-      const threshold = Math.max(100, (pulse?.getBoundingClientRect().bottom ?? 0) + 24);
+      // Use the sticky clearance, not the pulse's position in normal flow:
+      // at the page top its bottom can otherwise skip Overview entirely.
+      const threshold = Math.max(100, pulse
+        ? (parseFloat(getComputedStyle(pulse).top) || 0) + (pulse as HTMLElement).offsetHeight + 24
+        : 100);
       let current = indices[0] ?? 0;
       for (const index of indices) {
         if (page.querySelector(sections[index][0])!.getBoundingClientRect().top <= threshold) current = index;
       }
+      if (window.scrollY <= 2) current = indices[0] ?? 0;
       if (window.scrollY > 0 && window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2) {
         current = indices.at(-1) ?? current;
       }
@@ -101,7 +106,7 @@ export default function ScoreboardSectionNav({ pageType = "scoreboard" }: { page
     const pulse = page?.querySelector<HTMLElement>(".sunday-pulse");
     const clearance = pulse ? (parseFloat(getComputedStyle(pulse).top) || 0) + pulse.offsetHeight + 12 : 80;
     window.scrollTo({
-      top: Math.max(0, window.scrollY + target.getBoundingClientRect().top - clearance),
+      top: index === 0 ? 0 : Math.max(0, window.scrollY + target.getBoundingClientRect().top - clearance),
       behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
     });
   };
