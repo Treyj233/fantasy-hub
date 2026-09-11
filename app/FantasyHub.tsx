@@ -6466,9 +6466,11 @@ function AllLeagueScoreboard({
       if (!data || !matchup || !mine || !opponent) return [];
       const mineStarters = mine.topPlayers.filter((player) => player.isStarter);
       const opponentStarters = opponent.topPlayers.filter((player) => player.isStarter);
-      const mineRemaining = mineStarters.reduce((sum, player) => sum + Math.max(0, (player.projection ?? 0) - player.points), 0);
-      const opponentRemaining = opponentStarters.reduce((sum, player) => sum + Math.max(0, (player.projection ?? 0) - player.points), 0);
-      const projectionsAvailable = [...mineStarters, ...opponentStarters].some((player) => player.projection != null);
+      const mineFinish = portfolioProjectedFinish(mine, matchup.status);
+      const opponentFinish = portfolioProjectedFinish(opponent, matchup.status);
+      const mineRemaining = Math.max(0, (mineFinish ?? mine.points) - mine.points);
+      const opponentRemaining = Math.max(0, (opponentFinish ?? opponent.points) - opponent.points);
+      const projectionsAvailable = mineFinish != null && opponentFinish != null;
       const status = matchup.status === "Final" ? "final" : matchup.status === "Scheduled" ? "pre" : "live";
       const winProbability = estimatedWinProbability({ yourPoints: mine.points, opponentPoints: opponent.points, yourRemaining: mineRemaining, opponentRemaining, status, projectionsAvailable });
       return [{ league, data, matchup, mine, opponent, mineStarters, opponentStarters, mineRemaining, opponentRemaining, winProbability, status }];
