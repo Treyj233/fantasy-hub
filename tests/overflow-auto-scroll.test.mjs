@@ -1,32 +1,23 @@
-import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
-import test from "node:test";
-
-test("clipped single-line dashboard text auto-scrolls without affecting fitting text", async () => {
-  const source = await readFile(new URL("../app/use-overflow-auto-scroll.ts", import.meta.url), "utf8");
-  const fallback = await readFile(new URL("../public/auto-scroll-overflow.js", import.meta.url), "utf8");
-  const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
-  assert.match(source, /element\.scrollWidth - element\.clientWidth/);
-  assert.match(source, /overflow > 3/);
-  assert.match(source, /prefers-reduced-motion: reduce/);
-  assert.match(source, /MutationObserver/);
-  assert.match(source, /ResizeObserver/);
-  assert.match(styles, /prefers-reduced-motion:reduce/);
-  assert.match(styles, /\.fh-marquee-track/);
-  assert.match(fallback, /track\.append\(first, second\)/);
-  assert.match(fallback, /second\.setAttribute\("aria-hidden", "true"\)/);
-  assert.match(fallback, /const distance = measured\.first\.getBoundingClientRect\(\)\.width/);
-  assert.match(fallback, /duration, delay: 5000/);
-  assert.match(fallback, /offset: 20000 \/ \(20000 \+ duration\)/);
-  assert.match(fallback, /animation\.pause\(\)/);
-  assert.doesNotMatch(fallback, /requestAnimationFrame/);
-  assert.match(fallback, /translate3d/);
-  assert.doesNotMatch(fallback, /element\.scrollLeft = position/);
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import test from 'node:test';
+const source = readFileSync(new URL('../public/auto-scroll-overflow.js', import.meta.url), 'utf8');
+test('overflow text remains React-owned and static; pulse excluded', () => {
+  assert.doesNotMatch(source, /\.animate\(|requestAnimationFrame|setInterval|el\.textContent\s*=/);
+  assert.match(source, /\.sunday-pulse/);
+  assert.match(source, /el\.scrollWidth > el\.clientWidth \+ 3/);
 });
-
-test("existing marquees measure the original name, not the moving track overflow", async () => {
-  const fallback = await readFile(new URL("../public/auto-scroll-overflow.js", import.meta.url), "utf8");
-  assert.match(fallback, /const textWidth = state \? state\.first\.getBoundingClientRect\(\)\.width : element\.scrollWidth/);
-  assert.match(fallback, /const overflow = textWidth - element\.clientWidth/);
-  assert.match(fallback, /\[data-no-auto-scroll\], \.fh-marquee-track/);
+test('reveal supports keyboard, outside dismissal, and existing navigation', () => {
+  for (const event of ['focusin','click','keydown','pointerdown','scroll']) assert.ok(source.includes("'" + event + "'"));
+  assert.match(source, /event.key === 'Escape'/);
+  assert.match(source, /\['Enter', ' '\]/);
+  assert.match(source, /!el\.closest\(interactive\)/);
+  assert.doesNotMatch(source, /stopPropagation/);
+});
+test('popover fits visual viewport and safe area without layout expansion', () => {
+  assert.match(source, /window.visualViewport/);
+  assert.match(source, /safeTop/);
+  assert.match(source, /safeBottom/);
+  assert.match(source, /setAttribute\('popover', 'manual'\)/);
+  assert.match(source, /popup.style.maxHeight/);
 });

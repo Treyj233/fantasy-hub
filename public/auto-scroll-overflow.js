@@ -1,149 +1,96 @@
 (() => {
+  // Keep React-owned text intact. Sunday Pulse retains its dedicated animation.
   const tracked = new Map();
-  const visible = new Set();
-  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
-  let scanTimer = 0;
-  const dirty = new Set();
-  let fullScan = true;
-
-  const syncAnimation = (element) => {
-    const animation = tracked.get(element)?.animation;
-    if (!animation) return;
-    if (visible.has(element) && document.visibilityState === "visible" && !reduceMotion.matches) animation.play();
-    else animation.pause();
+  const interactive = 'button,a,input,select,textarea,[role="button"],[role="link"]';
+  let timer, active, popup;
+  const dismiss = () => { popup?.remove(); popup = active = undefined; };
+  const eligible = el => el.clientWidth > 0 && el.scrollWidth > el.clientWidth + 3 &&
+    (getComputedStyle(el).textOverflow === 'ellipsis' || el.hasAttribute('data-overflow-label')) &&
+    !el.closest('.sunday-pulse,[data-overflow-popup]');
+  const reveal = el => {
+    if (!eligible(el)) return;
+    dismiss();
+    active = el;
+    popup = document.createElement('div');
+    popup.dataset.overflowPopup = '';
+    popup.className = 'fh-overflow-popover';
+    popup.setAttribute('role', 'tooltip');
+    popup.textContent = el.textContent.trim();
+    popup.setAttribute('popover', 'manual');
+    document.body.append(popup);
+    popup.showPopover?.();
+    const rect = el.getBoundingClientRect();
+    const viewport = window.visualViewport;
+    const left = viewport?.offsetLeft || 0, top = viewport?.offsetTop || 0;
+    const width = viewport?.width || innerWidth, height = viewport?.height || innerHeight;
+    const style = getComputedStyle(popup);
+    const safeTop = Math.max(12, parseFloat(style.getPropertyValue('--reveal-safe-top')) || 0);
+    const safeBottom = Math.max(12, parseFloat(style.getPropertyValue('--reveal-safe-bottom')) || 0);
+    popup.style.maxWidth = Math.min(360, Math.max(0, width - 32)) + 'px';
+    popup.style.maxHeight = Math.max(0, height - safeTop - safeBottom) + 'px';
+    const box = popup.getBoundingClientRect();
+    popup.style.left = Math.max(left + 16, Math.min(rect.left, left + width - box.width - 16)) + 'px';
+    const y = rect.bottom + 8 + box.height <= top + height - safeBottom ? rect.bottom + 8 : rect.top - box.height - 8;
+    popup.style.top = Math.max(top + safeTop, Math.min(y, top + height - safeBottom - box.height)) + 'px';
   };
-  const startAnimation = (element, state, distance) => {
-    if (distance === state.distance && state.animation) return;
-    state.animation?.cancel();
-    state.distance = distance;
-    const duration = Math.max(4000, distance * 32);
-    const from = "translate3d(0,0,0)";
-    const to = `translate3d(${-distance}px,0,0)`;
-    state.animation = state.track.animate([{ transform: from }, { transform: to }], { duration, delay: 5000 });
-    state.animation.onfinish = () => {
-      state.animation = state.track.animate([
-        { transform: from, offset: 0 },
-        { transform: from, offset: 20000 / (20000 + duration) },
-        { transform: to, offset: 1 },
-      ], { duration: 20000 + duration, iterations: Infinity });
-      syncAnimation(element);
-    };
-    syncAnimation(element);
-  };
-
-  const intersectionObserver = new IntersectionObserver((entries) => {
-    for (const entry of entries) {
-      if (entry.isIntersecting) visible.add(entry.target);
-      else visible.delete(entry.target);
-      syncAnimation(entry.target);
-    }
-  });
-
-  const stopTracking = (element) => {
-    const state = tracked.get(element);
-    state?.animation?.cancel();
-    if (state?.track?.parentElement === element) element.textContent = state.originalText;
-    tracked.delete(element);
-    visible.delete(element);
-    intersectionObserver.unobserve(element);
-    element.classList.remove("fh-auto-scroll-text");
-    element.scrollLeft = 0;
-  };
-
-  const inspect = (element) => {
-    if (!(element instanceof HTMLElement) || !element.isConnected) return;
-    if (element.closest("[data-no-auto-scroll], .fh-marquee-track")) return;
-    if (!element.clientWidth) return;
-    const current = tracked.get(element);
-    if (current && !current.track.isConnected) {
-      current.animation?.cancel();
-      tracked.delete(element);
-      visible.delete(element);
-      intersectionObserver.unobserve(element);
-      element.classList.remove("fh-auto-scroll-text");
-    }
-    if (reduceMotion.matches) {
-      if (tracked.has(element)) stopTracking(element);
-      return;
-    }
-    const style = window.getComputedStyle(element);
-    const isEllipsis = style.textOverflow === "ellipsis" || element.classList.contains("fh-auto-scroll-text") || element.classList.contains("overflow-auto-scroll");
-    // A translated track changes its parent's scrollWidth as it moves. Measure
-    // the original copy instead so live-update scans cannot tear down/restart
-    // a valid marquee midway through its animation.
-    const state = tracked.get(element);
-    const textWidth = state ? state.first.getBoundingClientRect().width : element.scrollWidth;
-    const overflow = textWidth - element.clientWidth;
-    if (!isEllipsis || overflow < 3) {
-      if (tracked.has(element)) stopTracking(element);
-      return;
-    }
-    if (!tracked.has(element)) {
-      if (element.childElementCount > 0) return;
-      const originalText = (element.textContent || "").trim();
-      if (!originalText) return;
-      const track = document.createElement("span");
-      track.className = "fh-marquee-track";
-      const first = document.createElement("span");
-      first.className = "fh-marquee-copy";
-      first.textContent = originalText;
-      const second = document.createElement("span");
-      second.className = "fh-marquee-copy";
-      second.textContent = originalText;
-      second.setAttribute("aria-hidden", "true");
-      track.append(first, second);
-      element.textContent = "";
-      element.append(track);
-      tracked.set(element, { track, first, originalText });
-      element.classList.add("fh-auto-scroll-text");
-      if (!element.hasAttribute("title")) element.title = originalText;
-      intersectionObserver.observe(element);
-    }
-    const measured = tracked.get(element);
-    if (measured && element.clientWidth) {
-      const distance = measured.first.getBoundingClientRect().width + parseFloat(getComputedStyle(measured.track.children[1]).paddingLeft || "0");
-      if (distance > 3) startAnimation(element, measured, distance);
-    }
-  };
-
   const scan = () => {
-    scanTimer = 0;
-    for (const element of tracked.keys()) {
-      if (!element.isConnected) stopTracking(element);
+    for (const [el, owned] of tracked) {
+      if (!el.isConnected || !eligible(el)) {
+        if (owned) { el.removeAttribute('tabindex'); el.removeAttribute('role'); }
+        el.removeAttribute('data-overflow-reveal');
+        tracked.delete(el);
+        if (active === el) dismiss();
+      }
     }
-    const roots = fullScan ? [document.querySelector(".app-shell") || document.body] : [...dirty];
-    fullScan = false;
-    dirty.clear();
-    for (const root of roots) {
-      if (!root?.isConnected) continue;
-      inspect(root);
-      root.querySelectorAll?.("span,strong,b,small,p,h1,h2,h3,h4,button,a,td,label").forEach(inspect);
+    document.querySelectorAll('.app-shell').forEach(root => {
+      root.querySelectorAll('span,strong,b,small,p,h1,h2,h3,h4,button,a,td,label').forEach(el => {
+        if (el.childElementCount || !eligible(el) || tracked.has(el)) return;
+        const owned = !el.closest(interactive) && !el.hasAttribute('tabindex');
+        if (owned) { el.tabIndex = 0; el.setAttribute('role', 'button'); }
+        el.dataset.overflowReveal = '';
+        tracked.set(el, owned);
+      });
+    });
+    if (active && popup && popup.textContent !== active.textContent.trim()) reveal(active);
+  };
+  const schedule = () => { clearTimeout(timer); timer = setTimeout(scan, 160); };
+  const target = event => event.target instanceof Element ? event.target.closest('[data-overflow-reveal]') : null;
+  document.addEventListener('pointerover', event => {
+    const el = target(event);
+    if (event.pointerType === 'mouse' && el && el !== active) reveal(el);
+  });
+  document.addEventListener('pointerout', event => {
+    if (event.pointerType === 'mouse' && active && !active.contains(event.relatedTarget) && !popup?.contains(event.relatedTarget)) dismiss();
+  });
+  document.addEventListener('focusin', event => {
+    const el = target(event) || event.target.querySelector?.('[data-overflow-reveal]');
+    if (el) reveal(el);
+  });
+  document.addEventListener('focusout', dismiss);
+  document.addEventListener('click', event => {
+    const el = target(event);
+    // Never consume existing button/link navigation.
+    if (el && tracked.get(el)) reveal(el);
+    else if (!popup?.contains(event.target)) dismiss();
+  });
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape') dismiss();
+    const el = target(event);
+    if (el && tracked.get(el) && ['Enter', ' '].includes(event.key)) {
+      event.preventDefault(); reveal(el);
     }
-  };
-
-  const scheduleScan = () => {
-    window.clearTimeout(scanTimer);
-    scanTimer = window.setTimeout(scan, 160);
-  };
-
+  });
+  document.addEventListener('pointerdown', event => {
+    if (active && !active.contains(event.target) && !popup?.contains(event.target)) dismiss();
+  });
+  document.addEventListener('scroll', event => { if (!popup?.contains(event.target)) dismiss(); }, true);
+  window.addEventListener('resize', () => { dismiss(); schedule(); }, { passive: true });
+  window.visualViewport?.addEventListener('resize', dismiss);
+  document.addEventListener('visibilitychange', dismiss);
   new MutationObserver(records => {
-    for (const record of records) {
-      const target = record.target instanceof Element ? record.target : record.target.parentElement;
-      if (target?.closest(".fh-marquee-track")) continue;
-      if (target) dirty.add(target);
-    }
-    if (dirty.size) scheduleScan();
-  }).observe(document.documentElement, {
-    childList: true,
-    characterData: true,
-    subtree: true,
-  });
-  window.addEventListener("resize", () => { fullScan = true; scheduleScan(); }, { passive: true });
-  window.addEventListener("load", () => { fullScan = true; scan(); }, { once: true });
-  reduceMotion.addEventListener("change", () => { fullScan = true; scheduleScan(); });
-  document.addEventListener("visibilitychange", () => {
-    for (const element of tracked.keys()) syncAnimation(element);
-  });
-  scheduleScan();
-
+    if (records.some(record => (record.target instanceof Element ? record.target : record.target.parentElement)?.closest('.app-shell'))) schedule();
+  }).observe(document.documentElement, { childList: true, characterData: true, subtree: true });
+  new ResizeObserver(schedule).observe(document.documentElement);
+  document.fonts?.ready.then(schedule);
+  schedule();
 })();

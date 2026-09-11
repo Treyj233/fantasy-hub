@@ -1,5 +1,11 @@
 @import "tailwindcss";
 
+/* Static overflow labels; the floating reveal never changes card geometry. */
+.all-leagues-page .mission-league-name{ text-overflow:ellipsis!important }
+[data-overflow-reveal][role="button"]{cursor:pointer}
+[data-overflow-reveal]:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.fh-overflow-popover{--reveal-safe-top:env(safe-area-inset-top,0px);--reveal-safe-bottom:env(safe-area-inset-bottom,0px);position:fixed;inset:auto;margin:0;box-sizing:border-box;width:max-content;max-width:min(360px,calc(100vw - 32px));padding:12px 16px;border:1px solid var(--gold,#d9b45c);border-radius:12px;background:var(--chalk,#fff);color:var(--ink,#17212c);box-shadow:0 8px 28px #0004;font:500 14px/1.5 var(--font-geist-sans),Arial,sans-serif;white-space:normal;overflow-wrap:anywhere;overflow:auto;overscroll-behavior:contain;z-index:2147483647}
+
 /* Keep the visual status, but stop decorative work outside the viewport. */
 html[data-animations-hidden] *,html[data-animations-hidden] *::before,html[data-animations-hidden] *::after,
 [data-animation-visible="false"],[data-animation-visible="false"] *,
