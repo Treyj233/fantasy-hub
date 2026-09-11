@@ -19,6 +19,7 @@ import NewsAndNotes from "./NewsAndNotes";
 import DraftDashboard from "./DraftDashboard";
 import ScoreboardSectionNav from "./ScoreboardSectionNav";
 import ScrollingLeagueName from "./ScrollingLeagueName";
+import { portfolioProjectedFinish } from "./portfolio-live-projection.mjs";
 import { cacheActiveLeagueBootstrap, readSessionCache, safeLocalStorageSet, writeSessionCache } from "./local-storage";
 import { teamPositionStrength } from "./team-position-strength";
 import { weeklyProjectionValue } from "./weekly-projection";
@@ -5207,6 +5208,28 @@ function AllLeagues({
 }) {
   const openPlayer = useContext(PlayerOpenContext);
   const [scans, setScans] = useState<LeagueScan[]>(cachedScans);
+  const [portfolioScores, setPortfolioScores] = useState<Record<string, ScoreboardData | null>>({});
+  const portfolioScoreKey = scans.filter(scan => !scan.preDraft).map(scan => [scan.league.id, scan.week]).sort().map(pair => pair.join(":")).join("|");
+  useEffect(() => {
+    const groups = new Map<number, string[]>();
+    for (const scan of scans) if (!scan.preDraft) groups.set(scan.week, [...(groups.get(scan.week) ?? []), scan.league.id]);
+    setPortfolioScores({});
+    const stops = [...groups].map(([week, ids]) => subscribeLiveScoreboards(ids, week,
+      (results: [string, ScoreboardData | null][]) => setPortfolioScores(previous => ({
+        ...previous, ...reconcileScoreboards(Object.fromEntries(ids.map(id => [id, previous[id]])), results),
+      }))));
+    return () => stops.forEach(stop => stop());
+  }, [portfolioScoreKey]);
+  const livePortfolio = (scan: LeagueScan) => {
+    const matchup = portfolioScores[scan.league.id]?.matchups.find(item => item.teams.some(team => team.isMine));
+    const mine = matchup?.teams.find(team => team.isMine);
+    const opponent = matchup?.teams.find(team => !team.isMine);
+    return {
+      mine: portfolioProjectedFinish(mine, matchup?.status),
+      opponent: portfolioProjectedFinish(opponent, matchup?.status),
+      final: matchup?.status === "Final",
+    };
+  };
   const [loading, setLoading] = useState(
     leagues.length > 0 && cachedScans.length === 0,
   );
@@ -5840,7 +5863,7 @@ function AllLeagues({
             <article className="portfolio-section panel">
               <div className="portfolio-heading"><div><span>LIVE PORTFOLIO</span><h3>This week’s matchup board</h3></div></div>
               <div className="portfolio-matchups">
-                {scans.map((scan) => scan.preDraft ? <button key={`matchup-${scan.league.id}`} className="pre-draft-matchup" onClick={() => void onOpen(scan.league, "Player Ranks")}><span><strong>{scan.teamName}</strong><small>Draft preparation is open</small></span><b>DRAFT</b><em>View rankings →</em></button> : (() => { const edge = scan.projection - scan.opponentProjection; return <button key={`matchup-${scan.league.id}`} onClick={() => void onOpen(scan.league, "Scoreboard")}><span><strong>{scan.teamName}</strong><small>vs {scan.opponentName}</small></span><b className={edge >= 0 ? "positive" : "negative"}>{scan.opponentProjection ? `${edge >= 0 ? "+" : ""}${edge.toFixed(1)}` : "—"}</b><em>{scan.projection.toFixed(1)}–{scan.opponentProjection ? scan.opponentProjection.toFixed(1) : "—"}</em></button>; })())}
+                {scans.map((scan) => scan.preDraft ? <button key={`matchup-${scan.league.id}`} className="pre-draft-matchup" onClick={() => void onOpen(scan.league, "Player Ranks")}><span><strong>{scan.teamName}</strong><small>Draft preparation is open</small></span><b>DRAFT</b><em>View rankings →</em></button> : (() => { const live = livePortfolio(scan); const edge = live.mine != null && live.opponent != null ? live.mine - live.opponent : null; return <button key={`matchup-${scan.league.id}`} onClick={() => void onOpen(scan.league, "Scoreboard")}><span><strong>{scan.teamName}</strong><small>vs {scan.opponentName}</small></span><b className={edge == null ? "" : edge >= 0 ? "positive" : "negative"}>{edge != null ? `${edge >= 0 ? "+" : ""}${edge.toFixed(1)}` : "—"}</b><em>{live.mine?.toFixed(1) ?? "—"}–{live.opponent?.toFixed(1) ?? "—"}<small>{live.final ? "FINAL" : "LIVE PROJ"}</small></em></button>; })())}
               </div>
             </article>
           </section>

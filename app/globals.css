@@ -1,5 +1,15 @@
 @import "tailwindcss";
 
+/* Compact Mission Hub matchup and clubhouse rows without hiding content. */
+.all-leagues-page .portfolio-matchups button{min-height:48px!important;padding:8px 12px!important;gap:6px 10px!important;grid-template-columns:minmax(0,1fr) auto auto!important}
+.all-leagues-page .portfolio-matchups button>span{min-width:0}
+.all-leagues-page .portfolio-matchups button>em{grid-column:auto!important;text-align:right!important;white-space:nowrap}
+.all-leagues-page .portfolio-matchups button>em small{display:block;font-size:9px;line-height:1.2}
+.all-leagues-page .portfolio-recap .portfolio-heading{padding:10px 14px!important}
+.all-leagues-page .portfolio-recap article{min-height:0!important;padding:9px 12px!important;gap:9px!important}
+.all-leagues-page .portfolio-recap article :is(strong,em){margin-top:2px!important;line-height:1.25}
+.all-leagues-page .portfolio-recap>div:not(.portfolio-heading){gap:6px!important}
+
 /* Static overflow labels; the floating reveal never changes card geometry. */
 .all-leagues-page .mission-league-name{ text-overflow:ellipsis!important }
 [data-overflow-reveal][role="button"]{cursor:pointer}
