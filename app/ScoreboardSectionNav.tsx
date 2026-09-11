@@ -52,7 +52,9 @@ export default function ScoreboardSectionNav({ pageType = "scoreboard" }: { page
         : window.innerHeight;
       const navigation = document.querySelector(".mobile-category-tray");
       const navigationRect = navigation?.getBoundingClientRect();
-      const navigationTop = navigationRect && navigationRect.height > 0 && navigationRect.width > 0
+      // The category tray lives in the header. Only constrain the lower edge
+      // when the navigation is actually below the rail, not above it.
+      const navigationTop = navigationRect && navigationRect.height > 0 && navigationRect.width > 0 && navigationRect.top > top
         ? navigationRect.top : viewportBottom - 90;
       const availableHeight = Math.max(0, Math.min(viewportBottom, navigationTop) - top - 12);
       rail.current?.style.setProperty("--section-nav-top", `${top}px`);
