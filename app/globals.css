@@ -674,6 +674,7 @@ html[data-native-platform="ios"] .auth-landing{box-sizing:border-box;height:100s
 .mission-title-row .personalize-hub>span strong{font-family:var(--font-geist-sans),Arial,sans-serif;font-size:14px;font-style:normal;font-weight:950;letter-spacing:-.025em;line-height:1.08;text-transform:none}
 .mission-title-row .personalize-hub>span small{margin-top:5px;font-family:var(--font-geist-sans),Arial,sans-serif;font-size:8px;font-style:normal;font-weight:900;letter-spacing:.075em}
 .mission-title-row .personalize-hub:focus-visible{outline:3px solid #fff;outline-offset:4px}
+@media(min-width:901px){.mission-title-row .personalize-hub{padding-left:24px;padding-right:26px}}
 @media(prefers-reduced-motion:reduce){.mission-title-row .personalize-hub{animation:none}.mission-title-row .personalize-hub:after{display:none}}
 @media(max-width:700px){.mission-title-row .personalize-hub{box-sizing:border-box;width:100%;min-height:58px;align-self:stretch}.mission-title-row .personalize-hub>span{flex:1}.mission-title-row .personalize-hub>span strong{font-size:13px}}
 
