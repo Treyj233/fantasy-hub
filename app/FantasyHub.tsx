@@ -5802,7 +5802,7 @@ function AllLeagues({
       <section className="all-leagues-hero">
         <div>
           <h2 className="mission-hub-title">Mission Hub</h2>
-          <p className="mission-hub-subtitle">Your leagues. Your priorities. Your next move.</p>
+          <p className="mission-hub-subtitle">Your key decisions, prioritized.</p>
           <div className="mission-title-row">
             <button className="personalize-hub" onClick={onPersonalize} aria-label="Personalize your Fantasy Hub with team colors, themes, and icon packs">
               <i className="personalize-artwork" aria-hidden="true">
