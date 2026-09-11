@@ -8308,7 +8308,7 @@ function CommandCenter({
         />
         <Metric
           label="Lineup range"
-          value={`${lineupFloor.toFixed(0)}–${totals.ceiling.toFixed(0)}`}
+          value={`${lineupFloor.toFixed(0)}\u2009-\u2009${totals.ceiling.toFixed(0)}`}
           detail={`${totals.projection.toFixed(1)} median projection`}
         />
         <Metric
