@@ -46,7 +46,19 @@ export default function ScoreboardSectionNav({ pageType = "scoreboard" }: { page
       setAvailable(previous => previous.join() === indices.join() ? previous : indices);
       const handle = document.querySelector(".league-edge-handle");
       const bottom = handle?.getBoundingClientRect().bottom ?? 150;
-      rail.current?.style.setProperty("--section-nav-top", `${Math.max(150, bottom + 16)}px`);
+      const top = Math.max(150, bottom + 16);
+      const viewportBottom = window.visualViewport
+        ? window.visualViewport.offsetTop + window.visualViewport.height
+        : window.innerHeight;
+      const navigation = document.querySelector(".mobile-category-tray");
+      const navigationRect = navigation?.getBoundingClientRect();
+      const navigationTop = navigationRect && navigationRect.height > 0 && navigationRect.width > 0
+        ? navigationRect.top : viewportBottom - 90;
+      const availableHeight = Math.max(0, Math.min(viewportBottom, navigationTop) - top - 12);
+      rail.current?.style.setProperty("--section-nav-top", `${top}px`);
+      rail.current?.style.setProperty("--section-nav-height", `${Math.min(indices.length * 32, availableHeight)}px`);
+      // Do not overlap either control on exceptionally short landscape views.
+      rail.current?.toggleAttribute("data-insufficient-space", availableHeight < indices.length * 16);
       const pulse = page.querySelector(".sunday-pulse");
       const threshold = Math.max(100, (pulse?.getBoundingClientRect().bottom ?? 0) + 24);
       let current = indices[0] ?? 0;
@@ -63,12 +75,18 @@ export default function ScoreboardSectionNav({ pageType = "scoreboard" }: { page
     resize.observe(page);
     const handle = document.querySelector(".league-edge-handle");
     if (handle) resize.observe(handle);
+    const navigation = document.querySelector(".mobile-category-tray");
+    if (navigation) resize.observe(navigation);
+    window.visualViewport?.addEventListener("resize", schedule);
+    window.visualViewport?.addEventListener("scroll", schedule);
     window.addEventListener("scroll", schedule, { passive: true });
     window.addEventListener("resize", schedule);
     update();
     return () => {
       cancelAnimationFrame(frame);
       resize.disconnect();
+      window.visualViewport?.removeEventListener("resize", schedule);
+      window.visualViewport?.removeEventListener("scroll", schedule);
       window.removeEventListener("scroll", schedule);
       window.removeEventListener("resize", schedule);
     };

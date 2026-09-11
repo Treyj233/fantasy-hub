@@ -2235,8 +2235,13 @@ html[data-theme="dark"] .command-action-queue span em{color:#ff9c88}
 .week-one-welcome-later{margin-top:14px;padding:5px;color:#b9c5cf;background:transparent;border:0;font-size:9px;font-weight:850}
 .week-one-welcome :is(button):hover{transform:translateY(-1px)}
 .scoreboard-section-nav{display:none}
+@media(max-width:700px){
+  nav.scoreboard-section-nav{height:var(--section-nav-height,auto);max-height:var(--section-nav-height,calc(100dvh - var(--section-nav-top,166px) - 110px))}
+  nav.scoreboard-section-nav>button{min-height:0}
+  nav.scoreboard-section-nav[data-insufficient-space]{display:none}
+}
 .mission-portfolio-expanded{display:grid;gap:15px;min-width:0}
-.all-leagues-hero h2.mission-hub-title{margin:0 0 14px;font-size:clamp(28px,3.2vw,40px);font-weight:950;line-height:1.1;letter-spacing:-.035em;color:var(--gold-light)}
+.all-leagues-hero h2.mission-hub-title{margin:0 0 14px;font-family:var(--font-geist-sans),Arial,sans-serif;font-size:clamp(27px,2.8vw,34px);font-style:normal;font-weight:900;line-height:1.15;letter-spacing:-.025em;text-transform:none;color:inherit}
 .team-picker-strip.compact-team-picker{display:flex;align-items:center;gap:16px;padding:12px 16px}
 .team-picker-strip.compact-team-picker>label{order:-1;flex:1;min-width:0;margin:0}
 .team-picker-strip.compact-team-picker .team-active-live{position:static;flex-shrink:0;margin:0}

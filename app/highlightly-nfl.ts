@@ -129,13 +129,14 @@ function matchState(description?: string) {
 }
 
 function scores(value?: string) {
-  const [away, home] = (value ?? "").split(/\s*-\s*/).map(Number);
-  return [Number.isFinite(away) ? away : 0, Number.isFinite(home) ? home : 0] as const;
+  const [home, away] = (value ?? "").split(/\s*-\s*/).map(Number);
+  return [Number.isFinite(home) ? home : 0, Number.isFinite(away) ? away : 0] as const;
 }
 
 function normalizeMatch(match: HighlightlyMatch): NflDataGame | null {
   if (match.id == null || !match.awayTeam || !match.homeTeam) return null;
-  const [awayScore, homeScore] = scores(match.state?.score?.current);
+  // Highlightly score strings use home–away order; UI rows use away–home.
+  const [homeScore, awayScore] = scores(match.state?.score?.current);
   const state = matchState(match.state?.description ?? match.state?.report);
   const team = (value: HighlightlyTeam, score: number, opponentScore: number) => ({
     id: String(value.id ?? normalizeTeam(value.abbreviation)),
