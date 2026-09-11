@@ -21,6 +21,7 @@ import ScoreboardSectionNav from "./ScoreboardSectionNav";
 import ScrollingLeagueName from "./ScrollingLeagueName";
 import { myTeamScore } from "./my-team-score.mjs";
 import { portfolioProjectedFinish } from "./portfolio-live-projection.mjs";
+import { sundayPulseOutlooks } from "./sunday-pulse-outlook.mjs";
 import { cacheActiveLeagueBootstrap, readSessionCache, safeLocalStorageSet, writeSessionCache } from "./local-storage";
 import { teamPositionStrength } from "./team-position-strength";
 import { weeklyProjectionValue } from "./weekly-projection";
@@ -6527,16 +6528,11 @@ function AllLeagueScoreboard({
     yourRemaining: item.mineRemaining,
     opponentRemaining: item.opponentRemaining,
   })).length;
-  const closest = [...gameDay.matchups].sort((a, b) => Math.abs((a.winProbability ?? 50) - 50) - Math.abs((b.winProbability ?? 50) - 50))[0];
-  const statusPulseItems = [
-    gameDay.matchups.some((item) => item.status === "live")
-      ? `${gameDay.matchups.filter((item) => item.status === "live").length} matchups live now`
-      : `Week ${week} portfolio is standing by`,
-    closest ? `${closest.league.name} is your closest matchup at ${closest.winProbability ?? 50}%` : "Waiting for matchup projections",
-    gameDay.leveragePlayers[0] ? `${gameDay.leveragePlayers[0].name} is your highest-leverage player` : "Leverage alerts appear at kickoff",
-    featured && featured.status !== "final" ? `${featured.mineRemaining.toFixed(1)} projected points remain for ${featured.mine.teamName}` : "Final scores collapse into postgame reviews",
+  const statusPulseItems = sundayPulseOutlooks(leagues, scores);
+  const pulseItems = [
+    ...pulseEvents.filter((event) => isSundayPulseEventActive(event.at)).slice(0, 6).map((event) => event.text),
+    ...statusPulseItems,
   ];
-  const pulseItems = pulseEvents.length ? pulseEvents.slice(0, 6).map((event) => event.text) : statusPulseItems;
   useEffect(() => {
     const original = document.title;
     document.title = gameDay.matchups.length
