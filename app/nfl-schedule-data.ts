@@ -1,4 +1,11 @@
+export type GameLines = {
+  total: number | null;
+  homeFavoredBy: number | null;
+  awayMoneyline: number | null;
+  homeMoneyline: number | null;
+};
 export type SeasonScheduleGame = {
+  gameLines: GameLines;
   id: string;
   week: number;
   date: string;
@@ -46,9 +53,9 @@ function csvRow(line: string) {
 
 async function fetchSeasonSchedule(season: number) {
   try {
-    const requestInit = { next: { revalidate: 21600 } } as RequestInit & { next: { revalidate: number } };
+    const requestInit = { next: { revalidate: 300 } } as RequestInit & { next: { revalidate: number } };
     const response = await fetch(
-      "https://github.com/nflverse/nflverse-data/releases/download/schedules/games.csv",
+      "https://raw.githubusercontent.com/nflverse/nfldata/master/data/games.csv",
       requestInit,
     );
     if (!response.ok) return [];
@@ -72,6 +79,7 @@ async function fetchSeasonSchedule(season: number) {
         return raw !== "" && Number.isFinite(value) ? value : null;
       };
       return [{
+        gameLines: { total: score("total_line"), homeFavoredBy: score("spread_line"), awayMoneyline: score("away_moneyline"), homeMoneyline: score("home_moneyline") },
         id: cells[column("game_id")] || `${season}-${cells[column("week")]}-${awayCode}-${homeCode}`,
         week: Number(cells[column("week")]),
         date,
@@ -89,12 +97,12 @@ async function fetchSeasonSchedule(season: number) {
   }
 }
 
-const scheduleCache = new Map<number, Promise<SeasonScheduleGame[]>>();
+const scheduleCache = new Map<number, { expiresAt: number; request: Promise<SeasonScheduleGame[]> }>();
 
 export function loadNflSeasonSchedule(season: number) {
   const cached = scheduleCache.get(season);
-  if (cached) return cached;
+  if (cached && cached.expiresAt > Date.now()) return cached.request;
   const request = fetchSeasonSchedule(season);
-  scheduleCache.set(season, request);
+  scheduleCache.set(season, { expiresAt: Date.now() + 300_000, request });
   return request;
 }

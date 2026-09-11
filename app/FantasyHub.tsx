@@ -22,6 +22,8 @@ import ScrollingLeagueName from "./ScrollingLeagueName";
 import { myTeamScore } from "./my-team-score.mjs";
 import { portfolioProjectedFinish } from "./portfolio-live-projection.mjs";
 import { sundayPulseOutlooks } from "./sunday-pulse-outlook.mjs";
+import { gameLineRange, gameLineSummary } from "./game-line-range.mjs";
+import type { GameLines } from "./nfl-schedule-data";
 import { cacheActiveLeagueBootstrap, readSessionCache, safeLocalStorageSet, writeSessionCache } from "./local-storage";
 import { teamPositionStrength } from "./team-position-strength";
 import { weeklyProjectionValue } from "./weekly-projection";
@@ -51,6 +53,7 @@ type View =
   | "Theme Locker"
   | "Manage Leagues";
 type Player = {
+  gameLines?: { total: number | null; favoredBy: number | null };
   id: string;
   name: string;
   position: string;
@@ -140,7 +143,7 @@ function storeSharedDataCache<T>(
   return value;
 }
 
-const scheduleStorageKey = (season: string | number) => `fantasy-hub-nfl-schedule:${season}`;
+const scheduleStorageKey = (season: string | number) => `fantasy-hub-nfl-schedule-lines-v1:${season}`;
 function readCachedScheduleData(season: string | number) {
   const key = String(season);
   return readSharedDataCache(scheduleRequestCache, key, scheduleStorageKey(key));
@@ -153,9 +156,9 @@ function loadScheduleData(season: string | number) {
   if (pending?.request && pending.expiresAt > Date.now()) return pending.request;
   const request = fetch(`/api/nfl-schedule?season=${encodeURIComponent(key)}`)
     .then(async (response) => response.ok ? await response.json() as NflScheduleData : null)
-    .then((value) => value ? storeSharedDataCache(scheduleRequestCache, key, scheduleStorageKey(key), value, 6 * 60 * 60 * 1000) : null)
+    .then((value) => value ? storeSharedDataCache(scheduleRequestCache, key, scheduleStorageKey(key), value, 5 * 60 * 1000) : null)
     .catch(() => null);
-  scheduleRequestCache.set(key, { expiresAt: Date.now() + 6 * 60 * 60 * 1000, request });
+  scheduleRequestCache.set(key, { expiresAt: Date.now() + 5 * 60 * 1000, request });
   return request;
 }
 
@@ -808,6 +811,7 @@ type NflGameData = {
     playerCount: number;
   };
   games: {
+    gameLines?: GameLines | null;
     id: string;
     date: string;
     name: string;
@@ -831,6 +835,7 @@ type NflGameData = {
   }[];
 };
 type ScheduleGame = {
+  gameLines?: GameLines;
   id: string;
   week: number;
   date: string;
@@ -1365,12 +1370,12 @@ function applyOpponent(
         normalizeNflTeam(item.away.abbreviation) === team ||
         normalizeNflTeam(item.home.abbreviation) === team,
     );
-  if (!game) return { ...player, opponent: "BYE" };
+  if (!game) return { ...player, opponent: "BYE", gameLines: undefined };
   const isAway = normalizeNflTeam(game.away.abbreviation) === team;
   const opponent = isAway
     ? normalizeNflTeam(game.home.abbreviation)
     : normalizeNflTeam(game.away.abbreviation);
-  return { ...player, opponent: `${isAway ? "@" : "vs"} ${opponent}` };
+  return { ...player, opponent: `${isAway ? "@" : "vs"} ${opponent}`, gameLines: game.gameLines ? { total: game.gameLines.total, favoredBy: game.gameLines.homeFavoredBy == null ? null : game.gameLines.homeFavoredBy * (isAway ? -1 : 1) } : undefined };
 }
 
 const opponentCode = (opponent: string) =>
@@ -1422,14 +1427,13 @@ function matchupAdjustedRange(player: Player) {
   const baseFloor = Number(Math.max(0, projection * (1 - volatility - Math.min(0, trendTail))).toFixed(1));
   const baseCeiling = Number(Math.max(projection, projection * (1 + volatility + Math.max(0, trendTail) + offenseTail)).toFixed(1));
   const strength = player.matchupStrength;
-  if (!strength) return { floor: baseFloor, ceiling: baseCeiling, edge: 0, confidence: 0 };
+  if (!strength) return gameLineRange({ floor: baseFloor, ceiling: baseCeiling, edge: 0, confidence: 0 }, projection, player.position, player.gameLines);
   const confidence = Math.min(1, strength.games / 8);
   const edge = ((strength.score - 50) / 50) * confidence;
   const floorFactor = 1 + edge * (edge >= 0 ? 0.04 : 0.12);
   const ceilingFactor = 1 + edge * (edge >= 0 ? 0.12 : 0.04);
   return {
-    floor: Number(Math.max(0, baseFloor * floorFactor).toFixed(1)),
-    ceiling: Number(Math.max(player.projection, baseCeiling * ceilingFactor).toFixed(1)),
+    ...gameLineRange({ floor: Number(Math.max(0, baseFloor * floorFactor).toFixed(1)), ceiling: Number(Math.max(player.projection, baseCeiling * ceilingFactor).toFixed(1)) }, projection, player.position, player.gameLines),
     edge,
     confidence,
   };
@@ -7275,6 +7279,7 @@ function NflGames({
                   : game.broadcast || game.venue}
               </small>
               <b className={`game-impact-level leverage-${gameLeverageLevel.toLowerCase().replace(" ", "-")}`}>{gameLeverageLevel} Impact{gameLeverageScore ? ` · ${gameLeverageScore}` : ""}</b>
+              {gameLineSummary(game.gameLines, game.teams.find(team => team.homeAway === "away")?.abbreviation, game.teams.find(team => team.homeAway === "home")?.abbreviation) && <small className="game-market-lines">{gameLineSummary(game.gameLines, game.teams.find(team => team.homeAway === "away")?.abbreviation, game.teams.find(team => team.homeAway === "home")?.abbreviation)}<br/>Pregame lines · nflverse · Not live odds</small>}
               {gameWeather &&
                 (gameWeather.indoor || gameWeather.forecastAvailable) && (
                   <span className="game-weather" title={gameWeather.summary}>
@@ -12492,6 +12497,7 @@ function PlayerPanel({
           </div>
           <div className="player-range-command">
             <header><span>WEEKLY OUTCOME RANGE</span><small>{(adjustedRange.ceiling - adjustedRange.floor).toFixed(1)} point spread</small></header>
+            {player.gameLines && (player.gameLines.total != null || player.gameLines.favoredBy != null) && <small className="player-game-script">Pregame context: {player.gameLines.total != null ? `O/U ${player.gameLines.total}` : "Total unavailable"}{player.gameLines.favoredBy != null ? ` · ${player.gameLines.favoredBy === 0 ? "Even matchup" : `${player.gameLines.favoredBy > 0 ? "Favored" : "Underdog"} by ${Math.abs(player.gameLines.favoredBy)}`}` : ""}. Modest floor/ceiling adjustment; base projection unchanged.</small>}
             <div className="player-range-track"><i style={{ left: `${projectionPosition}%` }} /></div>
             <footer><span><b>{platformProjection === null ? "—" : adjustedRange.floor.toFixed(1)}</b> FLOOR</span><span><b>{projectionValue === null ? "—" : projectionValue.toFixed(1)}</b> PROJ</span><span><b>{platformProjection === null ? "—" : adjustedRange.ceiling.toFixed(1)}</b> CEILING</span></footer>
           </div>

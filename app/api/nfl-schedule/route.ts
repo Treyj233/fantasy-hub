@@ -16,6 +16,6 @@ export async function GET(request: Request) {
   }));
   return Response.json(
     { season, currentWeek, updatedAt: new Date().toISOString(), source: "season_schedule", weeks },
-    { headers: { "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400" } },
+    { headers: { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=300" } },
   );
 }

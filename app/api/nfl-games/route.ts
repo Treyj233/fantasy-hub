@@ -212,6 +212,7 @@ export async function GET(request: Request) {
     ];
     return {
       id: game.id,
+      gameLines: scheduleGame?.gameLines ?? null,
       date: game.date,
       name: `${game.away.name} at ${game.home.name}`,
       status: game.status,
@@ -232,6 +233,7 @@ export async function GET(request: Request) {
       ];
       return {
         id: game.id,
+        gameLines: game.gameLines,
         date: game.date,
         name: `${game.away.name} at ${game.home.name}`,
         status: game.status,

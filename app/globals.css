@@ -2012,6 +2012,8 @@ html[data-theme="dark"] .player-verdict,html[data-theme="dark"] .player-range-co
   .season-performance .season-history dl>div{display:flex;align-items:baseline;gap:5px;min-width:0}
 }
 
+.nfl-game-card>header>.game-market-lines{flex-basis:100%;width:100%;text-align:left;white-space:normal;line-height:1.5;color:var(--muted)}
+.player-game-script{display:block;margin-top:7px;color:var(--muted);font-size:11px;line-height:1.4}
 /* Player details: one cohesive summary, readable labels, and balanced mobile rows. */
 .player-panel.player-dossier{padding:0 0 12px}
 .player-panel.player-dossier>header{top:0;margin:0;display:grid;grid-template-columns:minmax(0,1fr) 44px;align-items:start;gap:12px;padding:18px 16px;border-bottom-width:2px}
