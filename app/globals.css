@@ -2030,6 +2030,10 @@ html[data-theme="dark"] .player-verdict,html[data-theme="dark"] .player-range-co
   .nfl-game-card>header .game-market-lines>div{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 .player-game-script{display:block;margin-top:7px;color:var(--muted);font-size:11px;line-height:1.4}
+.tool-context-bar>.context-league-button{background:color-mix(in srgb,var(--gold) 20%,var(--chalk));box-shadow:inset 3px 0 0 var(--gold),inset 0 0 0 1px color-mix(in srgb,var(--gold) 48%,transparent);cursor:pointer}
+.tool-context-bar>.context-league-button>b{color:var(--ink);font-weight:800}
+.tool-context-bar>.context-league-button>small{color:var(--ink)}
+.tool-context-bar>.context-league-button:focus-visible{outline:2px solid var(--green);outline-offset:-3px}
 /* Player details: one cohesive summary, readable labels, and balanced mobile rows. */
 .player-panel.player-dossier{padding:0 0 12px}
 .player-panel.player-dossier>header{top:0;margin:0;display:grid;grid-template-columns:minmax(0,1fr) 44px;align-items:start;gap:12px;padding:18px 16px;border-bottom-width:2px}

@@ -2908,14 +2908,28 @@ export default function FantasyHub({
   const proViews = new Set<View>(["Command Center", "League Analytics", "Simulator"]);
   const eliteViews = new Set<View>(["League Stories", "Manager Report"]);
   const rosterReady = players.length > 0;
+  const [seasonSchedule, setSeasonSchedule] = useState<NflScheduleData | null>(null);
+  useEffect(() => {
+    let active = true;
+    void loadScheduleData(leagueSeason).then(schedule => {
+      if (active) setSeasonSchedule(schedule);
+    });
+    return () => { active = false; };
+  }, [leagueSeason]);
+  const startedScheduleWeek = seasonSchedule?.season === Number(leagueSeason)
+    ? Math.max(0, ...seasonSchedule.weeks.filter(item => item.games.some(game => Date.parse(game.date) <= Date.now())).map(item => item.week))
+    : 0;
+  const activeSeasonWeek = Math.max(leagueWeek, startedScheduleWeek);
   const periodLabel =
-    leagueStatus === "pre_draft" || leagueWeek < 1
-      ? "PRESEASON"
-      : leagueStatus === "complete"
-        ? "SEASON COMPLETE"
-        : `WEEK ${leagueWeek}`;
+    leagueStatus === "complete"
+      ? "SEASON COMPLETE"
+      : startedScheduleWeek > 0
+        ? `WEEK ${Math.min(18, activeSeasonWeek)}`
+        : leagueStatus === "pre_draft" || leagueWeek < 1
+          ? "PRESEASON"
+          : `WEEK ${leagueWeek}`;
   const defaultGameWeek =
-    leagueStatus === "pre_draft" || leagueWeek < 1
+    startedScheduleWeek > 0 ? Math.min(18, activeSeasonWeek) : leagueStatus === "pre_draft" || leagueWeek < 1
       ? 1
       : Math.min(18, leagueWeek);
   const weekOneWelcomeDay = (() => {
