@@ -396,7 +396,12 @@ html[data-theme="dark"] .ranking-mode-toggle .weekly-ranking-toggle:not(.active)
     line-height: 1.25;
   }
   .weekly-rank-list > button {
-    grid-template-columns: 34px minmax(140px,240px) 64px 64px minmax(195px,1fr) minmax(100px,160px) 48px;
+    grid-template-columns: 34px minmax(140px,240px) 64px 64px minmax(195px,1.5fr) minmax(160px,1fr) 48px;
+  }
+  .weekly-rank-list > button > .weekly-weather {
+    width: 100%;
+    max-width: 160px;
+    justify-self: start;
   }
   .weekly-rank-list > button > .weekly-matchup {
     display: flex;
