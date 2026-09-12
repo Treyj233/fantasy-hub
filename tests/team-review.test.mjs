@@ -75,6 +75,18 @@ test('written reports reuse owner validation with no provider dependency',()=>{
   assert.match(route,/private, no-store/);
 });
 
+test('report presentation separates ranks, verdict, player names and roster moves',()=>{
+  const ui=readFileSync(new URL('../app/FantasyHub.tsx',import.meta.url),'utf8');
+  const css=readFileSync(new URL('../app/team-review.css',import.meta.url),'utf8');
+  assert.match(ui,/report-summary-strip/);
+  assert.match(ui,/report-player-name/);
+  assert.match(ui,/report-next-move/);
+  assert.match(ui,/Trade options.*Waiver options/);
+  assert.match(css,/report-section-grid\{display:grid/);
+  assert.match(css,/@media\(max-width:560px\)/);
+  assert.match(css,/safe-area-inset-top/);
+});
+
 const writtenSource = readFileSync(new URL('../app/team-review-written.ts', import.meta.url), 'utf8');
 const writtenCode = ts.transpile(writtenSource, { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022 });
 const { buildWrittenTeamReport } = await import(`data:text/javascript;base64,${Buffer.from(writtenCode).toString('base64')}`);

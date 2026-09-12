@@ -8841,6 +8841,12 @@ function TeamReview({ teams, selectedTeamId, rankings, context, waivers, onNavig
   const { structure } = report;
   const decision = startSitDecision(selected.roster);
   const slotSummary = [...new Set(structure.slots)].map(slot => `${structure.slots.filter(s => s === slot).length} ${formatRosterSlot(slot)}`).join(' · ');
+  const reportPlayerNames = [...new Set([...teams.flatMap(t => t.roster), ...waivers, ...rankings].map(p => p.name).filter(Boolean))]
+    .filter(name => writtenReport.some(section => section.body.includes(name))).sort((a, b) => b.length - a.length);
+  const reportNamePattern = reportPlayerNames.length ? new RegExp('(' + reportPlayerNames.map(name => name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') + ')', 'g') : null;
+  const reportNameSet = new Set(reportPlayerNames);
+  const renderReportText = (text: string) => reportNamePattern ? text.split(reportNamePattern).map((part, i) =>
+    reportNameSet.has(part) ? <strong className="report-player-name" key={i}>{part}</strong> : part) : text;
   return <div className="page-content team-review-page">
     <header className="review-heading"><div><span>OWNER PREVIEW · TEAM REVIEW</span><h2>{selected.teamName}</h2><p>{context.format} · {context.scoring} · {report.leagueSize} teams</p></div><button className="review-generate" aria-haspopup="dialog" disabled={tradesLoading || writing} onClick={() => void generateReport()}>{writing ? 'Preparing report…' : tradesLoading ? 'Checking roster moves…' : 'Generate Team Report'} <span aria-hidden="true">↗</span></button></header>
     <section className="review-verdict panel">
@@ -8883,7 +8889,11 @@ function TeamReview({ teams, selectedTeamId, rankings, context, waivers, onNavig
       <div className="review-report-body" aria-busy={writing}>
         {writing && <p role="status">Preparing your team report…</p>}
         {writingError && <div role="alert"><p>{writingError}</p><button onClick={() => void generateReport()}>Try again</button></div>}
-        {writtenReport.map((section, i) => <section key={i}><h4>{section.heading}</h4><p>{section.body}</p></section>)}
+        {writtenReport.length > 0 && <div className="report-summary-strip" aria-label="Roster readiness rankings">{[['Overall', report.overallRank], ['Starters', report.starterRank], ['Balance', report.balanceRank], ['Depth', report.depthRank]].map(([label, rank]) => <div key={label}><span>{label}</span><strong>#{rank}</strong></div>)}</div>}
+        <div className="report-section-grid">{writtenReport.map((section, i) => <section className={i === 0 ? 'report-verdict-block' : i === writtenReport.length - 1 ? 'report-next-move' : section.heading === 'Trade & waiver options' ? 'report-moves-block' : 'report-detail-block'} key={i}>
+          <header><span className="report-section-mark" aria-hidden="true">{i === 0 ? 'VERDICT' : i === writtenReport.length - 1 ? 'PRIORITY' : String(i).padStart(2, '0')}</span><h4>{section.heading}</h4></header>
+          {section.body.split('\n\n').map((paragraph, index) => <div className="report-paragraph" key={index}>{section.heading === 'Trade & waiver options' && <span className="report-move-label">{index === 0 ? 'Trade options' : 'Waiver options'}</span>}<p>{renderReportText(paragraph)}</p></div>)}
+        </section>)}</div>
       </div>
     </dialog>
   </div>;
