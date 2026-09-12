@@ -2786,11 +2786,12 @@ export default function FantasyHub({
     if (data.connection) setConnection(data.connection);
     setAvailableLeagues(orderedLeagues);
     const activeLeague = selectableLeagues.find((league) => league.id === leagueId);
-    if ((activateFirst || !activeLeague) && selectableLeagues.length) {
+    // Explicit refresh must reconcile lineup assignments, not just discovery.
+    if ((forceRefresh || activateFirst || !activeLeague) && selectableLeagues.length) {
       const defaultLeague = activeLeague ?? selectableLeagues[0];
       setLeagueId(defaultLeague.id);
       setLeagueName(defaultLeague.name);
-      await importLeague(defaultLeague.id, data.connection?.sleeperUserId, defaultLeague.rosterId);
+      await importLeague(defaultLeague.id, data.connection?.sleeperUserId, defaultLeague.rosterId, forceRefresh, Boolean(activeLeague));
     }
   }
 
