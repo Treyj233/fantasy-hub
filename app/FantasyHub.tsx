@@ -31,6 +31,8 @@ import type { GameLines } from "./nfl-schedule-data";
 import { cacheActiveLeagueBootstrap, readSessionCache, safeLocalStorageSet, writeSessionCache } from "./local-storage";
 import { teamPositionStrength } from "./team-position-strength";
 import { weeklyProjectionValue } from "./weekly-projection";
+import { evaluateReviewTeam, type ReviewPlayer, type TeamReviewReport } from "./team-review-model";
+import "./team-review.css";
 
 type View =
   | "Command Center"
@@ -43,6 +45,7 @@ type View =
   | "League Analytics"
   | "My Team"
   | "Team Rankings"
+  | "Team Review"
   | "Player Rankings"
   | "ADP"
   | "Draft HQ"
@@ -1003,6 +1006,7 @@ const nav: { label: View; displayLabel?: string; mark: string; tone: string; gro
   { label: "Manager Report", mark: "✓", tone: "report-mint", group: "Manage Team" },
   { label: "Player Rankings", mark: "♛", tone: "player-gold", group: "Analyze League" },
   { label: "Team Rankings", mark: "↥", tone: "team-jade", group: "Analyze League" },
+  { label: "Team Review", mark: "✦", tone: "team-jade", group: "Analyze League" },
   { label: "Draft HQ", mark: "🖥", tone: "pro-gold", group: "Analyze League" },
   { label: "ADP", mark: "⌁", tone: "adp-cyan", group: "Analyze League" },
   { label: "League Analytics", mark: "◈", tone: "analytics-violet", group: "Analyze League" },
@@ -1028,6 +1032,7 @@ const glossaryDetails: Record<View, { summary: string; use: string }> = {
   "Simulator": { summary: "Runs an analytical season simulation using the league’s rosters, schedule, scoring, lineup rules, and player ranges.", use: "Explore likely season outcomes." },
   "League Analytics": { summary: "Adapts to dynasty or redraft and explains roster strength, depth, positional allocation, competitive window, and future trajectory.", use: "Analyze long-term roster strategy." },
   "Team Rankings": { summary: "Ranks every team using league-relative starters, depth, balance, scoring settings, and—when applicable—runway and draft capital.", use: "Compare every league roster." },
+  "Team Review": { summary: "A Pro roster report combining league-specific lineup balance, strengths, risks, and targeted trade and waiver plans.", use: "Get your team verdict and improvement plan." },
   "Player Rankings": { summary: "Tier-based player rankings tailored to league format, scoring, lineup demand, and positional importance.", use: "Compare rest-of-season player value." },
   "ADP": { summary: "Shows market draft position by available source, separated from Fantasy Hub’s internal player rankings.", use: "Compare draft cost and value." },
   "Draft HQ": { summary: "A configurable mock-draft room with a live board, roster construction, rankings, and tiered draft intelligence.", use: "Practice and prepare for drafts." },
@@ -2955,10 +2960,10 @@ export default function FantasyHub({
     () => availableLeagues.filter((league) => !hiddenLeagueIds.includes(league.id)),
     [availableLeagues, hiddenLeagueIds],
   );
-  const visibleNav = nav;
+  const visibleNav = nav.filter(item => item.label !== "Team Review" || entitlement.owner);
   const activeRivalryWeek = entitlement.elite && rivalryWeek?.leagueId === leagueId && leaguePlatform.toLowerCase() === "sleeper" ? rivalryWeek : null;
   const activeNavGroup = nav.find((item) => item.label === view)?.group ?? "Home";
-  const proViews = new Set<View>(["Command Center", "League Analytics", "Simulator"]);
+  const proViews = new Set<View>(["Command Center", "League Analytics", "Simulator", "Team Review"]);
   const eliteViews = new Set<View>(["League Stories", "Manager Report"]);
   const rosterReady = players.length > 0;
   const [seasonSchedule, setSeasonSchedule] = useState<NflScheduleData | null>(null);
@@ -3668,6 +3673,13 @@ export default function FantasyHub({
             setSelectedPlayer={setSelectedPlayer}
           />
         )}
+        {view === "Team Review" && !entitlement.owner && <div className="page-content"><p>This preview is not available for your account.</p></div>}
+        {view === "Team Review" && entitlement.owner && (rosterReady ? <TeamReview
+          key={`${leagueId}:${selectedTeamId}`}
+          teams={leagueTeams} selectedTeamId={selectedTeamId} rankings={leagueRankings}
+          context={rankingContext} waivers={waiverPlayers} onNavigate={setView}
+          onPlayer={setSelectedPlayer}
+        /> : rosterEmptyState)}
         {view === "Player Rankings" && (
           <PlayerRanks
             season={leagueSeason}
@@ -3784,7 +3796,7 @@ export default function FantasyHub({
           ) : (
             rosterEmptyState
           ))}
-        {view === "Glossary" && <Glossary onNavigate={setView} onStartOnboarding={startOnboardingTour} showOnboarding={onboardingTourEligible} />}
+        {view === "Glossary" && <Glossary owner={entitlement.owner} onNavigate={setView} onStartOnboarding={startOnboardingTour} showOnboarding={onboardingTourEligible} />}
         {view === "Theme Locker" && (
           <ThemeStore
             teamTheme={effectiveTeamTheme}
@@ -4085,11 +4097,11 @@ function MissionHubOnboarding({ step, displayName, hasLeagues, onStep, onNavigat
   );
 }
 
-function Glossary({ onNavigate, onStartOnboarding, showOnboarding }: { onNavigate: (view: View) => void; onStartOnboarding: () => void; showOnboarding: boolean }) {
+function Glossary({ onNavigate, onStartOnboarding, showOnboarding, owner = false }: { onNavigate: (view: View) => void; onStartOnboarding: () => void; showOnboarding: boolean; owner?: boolean }) {
   const categories = mobileCategoryNav.map((category) => ({
     ...category,
     leadPage: nav.find((item) => item.label === category.lead)!,
-    pages: nav.filter((item) => item.group === category.group),
+    pages: nav.filter((item) => item.group === category.group && (item.label !== "Team Review" || owner)),
   }));
   return (
     <div className="page-content glossary-page">
@@ -4551,6 +4563,7 @@ function ProPlans({ entitlement }: { entitlement: AccountEntitlement }) {
   ];
   const proFeatures = [
     "Everything included in Free",
+    ...(entitlement.owner ? ["Team Review owner preview: roster verdict, lineup balance, and targeted trade and waiver plans"] : []),
     "Command Center planning with roster readiness, alerts, injuries, weather, and weekly priorities",
     "Advanced Start/Sit controls with floor-to-ceiling strategy and saved decision memory",
     "Advanced Trade Lab scans, partner fit, negotiation profiles, suggested packages, and acceptance estimates",
@@ -8686,6 +8699,132 @@ function RosterSection({
       </div>
     </section>
   );
+}
+
+function TeamReview({ teams, selectedTeamId, rankings, context, waivers, onNavigate, onPlayer }: {
+  teams: LeagueTeam[]; selectedTeamId: string; rankings: LeagueRanking[]; context: RankingContext | null;
+  waivers: WaiverPlayer[]; onNavigate: (view: View) => void; onPlayer: (player: Player) => void;
+}) {
+  const [report, setReport] = useState<TeamReviewReport | null>(null);
+  const [error, setError] = useState('');
+  const [retry, setRetry] = useState(0);
+  const [trades, setTrades] = useState<{ partner: string; suggestion: TradeSuggestion; gain: number }[]>([]);
+  const [tradesLoading, setTradesLoading] = useState(false);
+  const [tradesError, setTradesError] = useState(false);
+  const prepared = useMemo(() => {
+    const composite = buildSeasonCompositeRankings(rankings, context);
+    const lookup = buildRankingLookup(composite);
+    const value = buildTeamRankingPlayerValue(composite, teams.length, context);
+    const convert = (p: Player): ReviewPlayer => ({ id: p.id, name: p.name, position: p.position, team: p.team,
+      status: p.status, value: value(p), projection: weeklyProjectionValue(p) ?? undefined, age: rankingForPlayer(p, lookup)?.age });
+    return { composite, convert, teams: teams.map(t => ({ id: t.id, teamName: t.teamName, roster: t.roster.map(convert) })) };
+  }, [teams, rankings, context]);
+  useEffect(() => {
+    const controller = new AbortController();
+    setReport(null); setError(''); setTrades([]);
+    if (!context) { setError('Connect a league with lineup settings to build your report.'); return; }
+    void fetch('/api/team-review', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ teams: prepared.teams, selectedTeamId, context }), signal: controller.signal,
+    }).then(async response => {
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error ?? 'Your review could not load.');
+      if (!controller.signal.aborted) setReport(result);
+    }).catch(reason => { if (!controller.signal.aborted) setError(reason.message ?? 'Your review could not load.'); });
+    return () => controller.abort();
+  }, [prepared, selectedTeamId, context, retry]);
+  const selected = teams.find(t => t.id === selectedTeamId);
+  useEffect(() => {
+    let cancelled = false;
+    setTrades([]);
+    setTradesError(false);
+    if (!report || !selected || !context || !report.targetPositions.length) { setTradesLoading(false); return; }
+    setTradesLoading(true);
+    // Yield between partners so opening the report never freezes navigation.
+    void (async () => {
+      const found: { partner: string; suggestion: TradeSuggestion; gain: number }[] = [];
+      try {
+        for (const partner of teams.filter(t => t.id !== selectedTeamId)) {
+          await new Promise(resolve => setTimeout(resolve, 0));
+          if (cancelled) return;
+          const partnerSnapshot = prepared.teams.find(t => t.id === partner.id)!;
+          const mySnapshot = prepared.teams.find(t => t.id === selectedTeamId)!;
+          const beforePartner = evaluateReviewTeam(partnerSnapshot, context);
+          for (const suggestion of buildTradeSuggestions(selected, partner, prepared.composite, context, 'Neutral', report.targetPositions)) {
+            if (suggestion.send.some(a => a.position === 'PICK') || suggestion.receive.some(a => a.position === 'PICK')) continue;
+            const sent = new Set(suggestion.send.map(a => a.id));
+            const received = new Set(suggestion.receive.map(a => a.id));
+            const mineAfter = evaluateReviewTeam({ ...mySnapshot, roster: [...mySnapshot.roster.filter(p => !sent.has(p.id)), ...partnerSnapshot.roster.filter(p => received.has(p.id))] }, context);
+            const theirsAfter = evaluateReviewTeam({ ...partnerSnapshot, roster: [...partnerSnapshot.roster.filter(p => !received.has(p.id)), ...mySnapshot.roster.filter(p => sent.has(p.id))] }, context);
+            const gain = mineAfter.score - report.score;
+            if (gain > .1 && mineAfter.vacancies <= report.vacancies && theirsAfter.vacancies <= beforePartner.vacancies && theirsAfter.score >= beforePartner.score - .25) {
+              found.push({ partner: partner.teamName, suggestion, gain });
+            }
+          }
+        }
+        if (!cancelled) setTrades(found.sort((a, b) => b.gain - a.gain).slice(0, 3));
+      } catch { if (!cancelled) setTradesError(true); }
+      finally { if (!cancelled) setTradesLoading(false); }
+    })();
+    return () => { cancelled = true; };
+  }, [report, selected, teams, selectedTeamId, context, prepared]);
+  const waiverPlans = useMemo(() => {
+    if (!report || !selected || !context) return [];
+    const rostered = new Set(teams.flatMap(t => t.roster.map(p => p.id)));
+    const snapshot = prepared.teams.find(t => t.id === selectedTeamId)!;
+    return waivers.filter(add => !rostered.has(add.id) && report.targetPositions.includes(add.position))
+      .map(add => {
+        const plan = waiverAddDropPlan(add, selected.roster, context);
+        if (!plan.worthIt || !plan.drop) return null;
+        const lookup = buildRankingLookup(prepared.composite);
+        if (!tradePreservesPositionDepth(selected, [tradeAsset(plan.drop, lookup, context)], [tradeAsset(add, lookup, context)], context)) return null;
+        const after = evaluateReviewTeam({ ...snapshot, roster: [...snapshot.roster.filter(p => p.id !== plan.drop!.id), prepared.convert(add)] }, context);
+        if (after.score <= report.score + .05 || after.vacancies > report.vacancies) return null;
+        return { add, drop: plan.drop, gain: after.score - report.score, starter: after.lineup.some(row => row.player?.id === add.id) };
+      }).filter((item): item is NonNullable<typeof item> => item !== null).sort((a, b) => b.gain - a.gain).slice(0, 3);
+  }, [report, selected, context, teams, waivers, prepared, selectedTeamId]);
+  const open = (p: { id: string }) => {
+    const player = [...teams.flatMap(t => t.roster), ...waivers, ...rankings].find(item => item.id === p.id);
+    if (player) onPlayer(player);
+  };
+  if (error) return <div className="page-content team-review-page"><section className="panel"><h2>Team Review</h2><p role="alert">{error}</p><button onClick={() => setRetry(n => n + 1)}>Try again</button><button onClick={() => onNavigate('Manage Leagues')}>Manage leagues</button></section></div>;
+  if (!report || !context || !selected) return <div className="page-content team-review-page"><section className="panel" role="status"><h2>Reviewing your team</h2><p>Checking lineup requirements, league strength, and usable depth…</p></section></div>;
+  const { structure } = report;
+  const decision = startSitDecision(selected.roster);
+  const slotSummary = [...new Set(structure.slots)].map(slot => `${structure.slots.filter(s => s === slot).length} ${formatRosterSlot(slot)}`).join(' · ');
+  const uncertainty = report.injuries.filter(p => /questionable/i.test(p.status));
+  return <div className="page-content team-review-page">
+    <header className="review-heading"><div><span>PRO · TEAM REVIEW</span><h2>{selected.teamName}</h2><p>{context.format} · {context.scoring} · {report.leagueSize} teams</p></div><button onClick={() => setRetry(n => n + 1)}>Reassess team</button></header>
+    <section className="review-verdict">
+      <div><span>YOUR TEAM VERDICT</span><h3>{report.verdict}</h3><p>{report.summary}</p></div>
+      <div className="review-rank"><strong>#{report.overallRank}</strong><span>roster readiness<br />of {report.leagueSize} teams</span></div>
+    </section>
+    <div className="review-metrics">{[['Starter strength', report.starterRank], ['Lineup balance', report.balanceRank], ['Usable depth', report.depthRank]].map(([label, rank]) => <div key={label}><span>{label}</span><strong>#{rank}</strong><small>in your league</small></div>)}</div>
+    <section className="review-section"><header><span>01 · YOUR LEAGUE CHANGES THE PLAN</span><h3>{structure.deep >= .5 ? 'Coverage wins in a deeper lineup' : 'Make your starting spots count'}</h3></header>
+      <p className="review-settings">{slotSummary}</p>
+      <p>{structure.deep >= .5 ? `With ${structure.skillSlots} RB/WR/TE-eligible starting spots, weak flex options and thin replacement depth are costly. Preserve multiple usable starters; a consolidation trade must still improve your complete lineup.` : 'With fewer RB/WR/TE starting spots, prioritize upgrades to players who actually make your lineup. Extra bench names matter less than stronger starters and a meaningful QB or TE edge.'}</p>
+      {structure.superflex && <p><b>Quarterback scarcity:</b> Superflex can require a second QB. Do not treat that quarterback as surplus just because only one dedicated QB slot appears.</p>}
+      {context.tePremium > 0 && <p><b>TE premium:</b> Your league’s extra TE scoring is reflected in the underlying player values; preserve a real advantage at this position.</p>}
+      <small>Starter quality {Math.round(structure.weights.starters * 100)}% · weakest lineup spots {Math.round(structure.weights.balance * 100)}% · depth {Math.round(structure.weights.depth * 100)}%. Values inherit your league’s scoring and format.</small>
+    </section>
+    <section className="review-section"><header><span>02 · STRENGTHS & VULNERABILITIES</span><h3>Your positional profile</h3></header>
+      <div className="review-rooms">{report.rooms.map(room => <article key={room.position}><header><h4>{room.position}</h4><b>#{room.rank} / {report.leagueSize}</b></header><strong>{room.score < room.leagueAverage * .9 ? 'Needs attention' : room.rank <= Math.ceil(report.leagueSize / 3) ? 'A team strength' : 'Competitive room'}</strong><p>{room.starters.length ? room.starters.map((p, i) => <Fragment key={p.id}>{i > 0 && ', '}<button className="review-player" onClick={() => open(p)}>{p.name}</button></Fragment>) : 'No player in the best available lineup.'}</p><small>{room.backups.length ? `${room.backups.length} available backup${room.backups.length === 1 ? '' : 's'} · Best: ${room.backups[0].name}` : 'No available backup at this position.'}</small></article>)}</div>
+    </section>
+    <section className="review-section"><header><span>03 · RISKS & THIS WEEK’S LINEUP</span><h3>What could hold this team back</h3></header>
+      {report.vacancies > 0 && <p><b>Coverage gap:</b> {report.vacancies} required offensive spot(s) cannot be filled by available players. Address these before sacrificing depth.</p>}
+      {report.injuries.length > 0 ? <p><b>Availability watch:</b> {report.injuries.map(p => `${p.name} (${p.status})`).join(' · ')}.{uncertainty.length > 0 && ' Questionable players remain in this model; have an alternative ready.'}</p> : <p>No injury flags in the loaded roster snapshot.</p>}
+      {report.concentration.length > 0 && <p><b>Shared game risk:</b> {report.concentration.map(([team, count]) => `${count} modeled starters from ${team}`).join(' · ')}. Correlated upside also concentrates exposure to one offense.</p>}
+      {report.depthRank > Math.ceil(report.leagueSize / 2) && <p><b>Thin insurance:</b> Depth ranks #{report.depthRank}. Favor replacement coverage over a luxury bench stash.</p>}
+      {decision ? <p><b>Start/Sit check:</b> Compare <button className="review-player" onClick={() => onPlayer(decision.starter)}>{decision.starter.name}</button> with <button className="review-player" onClick={() => onPlayer(decision.candidate)}>{decision.candidate.name}</button> using this week’s floor, ceiling, and matchup.</p> : <p>No close Start/Sit decision surfaced in the current snapshot. Check injuries and byes before kickoff.</p>}
+      <button onClick={() => onNavigate('Start / Sit')}>Review lineup decisions →</button>
+    </section>
+    <section className="review-section"><header><span>04 · YOUR IMPROVEMENT PLAN</span><h3>{report.targetPositions.length ? `Address ${report.targetPositions.join(' and ')} first` : 'Protect the edge you already have'}</h3></header>
+      <p>{report.targetPositions.length ? 'These positions combine below-average starter strength or missing backup coverage. Every move below is also checked against your complete lineup and depth.' : 'No clear positional repair is required. Do not force a trade just to make a move.'}</p>
+      <div className="review-plan-columns"><div><h4>Waiver targets</h4>{waiverPlans.length ? waiverPlans.map(({ add, drop, starter }) => <article className="review-move" key={add.id}><span>{starter ? 'LINEUP HELP' : 'DEPTH HELP'} · {add.position}</span><h4><button className="review-player" onClick={() => onPlayer(add)}>Add {add.name}</button></h4><p>Consider dropping <button className="review-player" onClick={() => onPlayer(drop)}>{drop.name}</button>.</p><small>{starter ? 'Enters the model’s strongest available lineup.' : 'Improves usable injury/bye coverage.'} Recheck availability and roster locks before claiming.</small></article>) : <p>{waivers.length ? 'No available add/drop pair clears both the protected-player and roster-improvement checks. Hold rather than force a downgrade.' : 'No waiver pool is loaded. Refresh the league or check Waiver Wire; this does not mean no free agents exist.'}</p>}<button onClick={() => onNavigate('Waiver Wire')}>Explore waiver wire →</button></div>
+      <div><h4>Trade opportunities</h4>{tradesError ? <p role="alert">Trade matching is temporarily unavailable. Reassess the report or open Trade Lab to retry.</p> : tradesLoading ? <p role="status">Checking packages against each partner’s roster…</p> : trades.length ? trades.map(({ partner, suggestion }) => <article className="review-move" key={suggestion.id}><span>WITH {partner}</span><h4>{suggestion.title}</h4><p><b>Receive:</b> {suggestion.receive.map(a => a.name).join(' + ')}</p><p><b>Send:</b> {suggestion.send.map(a => a.name).join(' + ')}</p><small>Improves your format-adjusted lineup/depth score without creating a new vacancy. Also passes the partner roster check. An idea to negotiate—not an accepted offer.</small></article>) : <p>No qualifying package currently improves your roster while preserving both teams’ coverage. Revisit when rosters or values change.</p>}<button onClick={() => onNavigate('Trade Lab')}>Open Trade Lab →</button></div></div>
+    </section>
+    {context.format !== 'Redraft' && <section className="review-section"><header><span>05 · BEYOND THIS WEEK</span><h3>Keep future flexibility</h3></header><p>{context.format} values include the existing age and format adjustments. {selected.draftCapital ? `Your roster holds ${selected.draftCapital.picks.length} tracked picks across the available classes.` : 'Draft-pick information is not available in this snapshot.'} This readiness verdict evaluates the players you can field; it is not a championship probability or a draft-capital ranking.</p><button onClick={() => onNavigate('League Analytics')}>Explore long-term outlook →</button></section>}
+    <details className="review-section"><summary>How this review was built</summary><p>Deterministic analysis of the currently loaded league—not a human scout or a generated guarantee. The model finds a high-value eligible offensive lineup, rewards its weakest spots more in deep formats, and measures usable backups. Injured/unavailable players are excluded from readiness, while questionable players remain. Team Rankings can differ because this report emphasizes current availability and optimal slot coverage.</p><p>Trade ideas reuse Trade Lab’s package, superstar-protection, and positional-target rules. Waivers reuse its available pool and protected-drop rules. Suggestions are alternatives, not a sequence to execute together.</p>{structure.unsupported.length > 0 && <p>Excluded from this offensive review: {[...new Set(structure.unsupported)].join(', ')}. Kicker, defense, and unsupported positions are not graded.</p>}<button onClick={() => onNavigate('Team Rankings')}>Compare league rosters →</button><button onClick={() => onNavigate('Simulator')}>Explore season scenarios →</button></details>
+  </div>;
 }
 
 function TeamRankings({
