@@ -36,6 +36,9 @@ test('suggestions evaluate and surface multi-player packages without duplicate a
   const results = build(yours, theirs, [], null, 'Aggressive');
   assert.ok(results.length > 0 && results.length <= 3);
   assert.ok(results.some(r => r.send.length > 1 || r.receive.length > 1));
+  const reviewCandidates = build(yours, theirs, [], null, 'Aggressive', [], 40);
+  assert.ok(reviewCandidates.length > results.length, 'review evaluates beyond the three Trade Lab display slots');
+  assert.ok(reviewCandidates.length <= 40);
   for (const r of results) {
     assert.equal(new Set(r.send.map(a => a.id)).size, r.send.length);
     assert.equal(new Set(r.receive.map(a => a.id)).size, r.receive.length);
