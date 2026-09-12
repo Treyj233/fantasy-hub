@@ -381,6 +381,12 @@ html[data-theme="dark"] .ranking-mode-toggle .weekly-ranking-toggle:not(.active)
 .weekly-weather { min-width: 0; }
 .weekly-weather small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (min-width: 981px) and (pointer: fine) {
+  .weekly-rank-list > button > .weekly-score {
+    font-size: 20px;
+    font-weight: 850;
+    line-height: 1.2;
+    font-variant-numeric: tabular-nums;
+  }
   .weekly-rank-list > button > span strong {
     font-size: 15px;
     line-height: 1.25;
@@ -390,7 +396,14 @@ html[data-theme="dark"] .ranking-mode-toggle .weekly-ranking-toggle:not(.active)
     line-height: 1.25;
   }
   .weekly-rank-list > button {
-    grid-template-columns: 34px minmax(140px,240px) 64px 64px minmax(195px,240px) minmax(100px,1fr) 48px;
+    grid-template-columns: 34px minmax(140px,240px) 64px 64px minmax(195px,1fr) minmax(100px,160px) 48px;
+  }
+  .weekly-rank-list > button > .weekly-matchup {
+    display: flex;
+    justify-content: center;
+  }
+  .weekly-rank-list > button > .weekly-matchup > .matchup-team {
+    max-width: 240px;
   }
   .weekly-rank-list > button > div:nth-child(3) > b,
   .weekly-rank-list > button > div:nth-child(4) > b {
