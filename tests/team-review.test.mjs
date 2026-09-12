@@ -44,3 +44,71 @@ test('owner gate exists on API before input evaluation and navigation follows Te
   assert.match(ui,/view === "Team Review" && entitlement.owner/);
   assert.match(ui,/nav.filter\(item => item.label !== "Team Review" \|\| entitlement.owner\)/);
 });
+
+test('review trade handoff keeps partner and both asset sides scoped to the active league/team',()=>{
+  const ui=readFileSync(new URL('../app/FantasyHub.tsx',import.meta.url),'utf8');
+  assert.match(ui,/reviewTradeDraft\?\.leagueId === leagueId && reviewTradeDraft.teamId === selectedTeamId/);
+  assert.match(ui,/setCalculatorOpen|calculatorOpen/);
+  assert.match(ui,/useState\(Boolean\(validInitialTrade\)\)/);
+  assert.match(ui,/useState<string\[\]>\(validInitialTrade\?\.sendIds \?\? \[\]\)/);
+  assert.match(ui,/useState<string\[\]>\(validInitialTrade\?\.receiveIds \?\? \[\]\)/);
+  assert.match(ui,/View in Trade Lab/);
+});
+
+test('polished review uses separate position cards and an accessible safe-area report dialog',()=>{
+  const ui=readFileSync(new URL('../app/FantasyHub.tsx',import.meta.url),'utf8').split('function TeamReview(')[1].split('function TeamRankings(')[0];
+  const css=readFileSync(new URL('../app/team-review.css',import.meta.url),'utf8');
+  assert.doesNotMatch(ui,/Reassess team|roster rating/);
+  assert.match(ui,/Generate Team Report/);
+  assert.match(ui,/review-section review-profile/);
+  assert.match(ui,/<dialog ref=\{reportDialog\}/);
+  assert.match(ui,/reportRequest.current\?\.abort/);
+  assert.match(css,/100dvh[^}]+safe-area-inset-top[^}]+safe-area-inset-bottom/);
+  assert.match(css,/review-report-body\{overflow-y:auto/);
+});
+
+test('written reports reuse owner validation with no provider dependency',()=>{
+  const route=readFileSync(new URL('../app/api/team-review/report/route.ts',import.meta.url),'utf8');
+  assert.ok(route.indexOf('await assessTeam') < route.indexOf('sections: buildWrittenTeamReport'));
+  assert.match(route,/if \(!assessment.ok\) return assessment/);
+  assert.doesNotMatch(route,/fetch\(|OPENAI|TEAM_REPORT_MODEL/);
+  assert.match(route,/private, no-store/);
+});
+
+const writtenSource = readFileSync(new URL('../app/team-review-written.ts', import.meta.url), 'utf8');
+const writtenCode = ts.transpile(writtenSource, { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022 });
+const { buildWrittenTeamReport } = await import(`data:text/javascript;base64,${Buffer.from(writtenCode).toString('base64')}`);
+const reportTeams = [{id:'a',teamName:'My Team',roster:[p('Allen','QB',95),p('Gibbs','RB',95),p('Chase','WR',95),p('Kittle','TE',80)]},{id:'b',teamName:'Opponent',roster:[p('Maye','QB',80),p('Cook','RB',80),p('Nabers','WR',80),p('Pitts','TE',70)]}];
+test('written report includes actual packages, waivers and no methodology or redraft picks',()=>{
+  const ctx=context(['QB','RB','WR','TE']);
+  const review=buildTeamReview(reportTeams,'a',ctx);
+  const result=buildWrittenTeamReport(review,ctx,{trades:[{partner:'Opponent',send:['Chase','Kittle'],receive:['Nabers','Pitts']}],waivers:[{add:'Available Player',drop:'Bench Player'}],tradeStatus:'complete',waiverStatus:'available',draftPicks:4});
+  const text=JSON.stringify(result);
+  assert.equal(result.length,6);
+  assert.match(text,/sending Chase and Kittle for Nabers and Pitts/);
+  assert.match(text,/adding Available Player, with Bench Player/);
+  assert.match(text,/separate proposals, not accepted/);
+  assert.doesNotMatch(text,/AI|undefined|NaN|draft picks|roster.rating/);
+  assert.deepEqual(result,buildWrittenTeamReport(review,ctx,{trades:[{partner:'Opponent',send:['Chase','Kittle'],receive:['Nabers','Pitts']}],waivers:[{add:'Available Player',drop:'Bench Player'}],tradeStatus:'complete',waiverStatus:'available',draftPicks:4}));
+});
+test('written report adapts to deep superflex, unavailable data and uncovered slots',()=>{
+  const ctx={...context(['QB','SUPER_FLEX','RB','RB','WR','WR','WR','TE','FLEX','FLEX']),format:'Dynasty',tePremium:1};
+  const review=buildTeamReview(reportTeams,'a',ctx);
+  const result=buildWrittenTeamReport(review,ctx,{tradeStatus:'unavailable',waiverStatus:'unavailable',draftPicks:0});
+  const text=JSON.stringify(result);
+  assert.match(text,/deeper lineup/);
+  assert.match(text,/second starting quarterback/);
+  assert.match(text,/TE-premium/);
+  assert.match(text,/0 tracked draft picks/);
+  assert.match(text,/Trade matching is unavailable/);
+  assert.match(result.at(-1).body,/Fill your uncovered starting slots/);
+});
+test('written report safely handles missing and malformed move details',()=>{
+  const ctx=context(['QB','RB','WR','TE']);
+  const review=buildTeamReview(reportTeams,'a',ctx);
+  for(const moves of [null,undefined,{trades:[null,{}, {send:42}],waivers:[null,{}]}]) {
+    const text=JSON.stringify(buildWrittenTeamReport(review,ctx,moves));
+    assert.match(text,/No qualifying trade package/);
+    assert.doesNotMatch(text,/undefined|NaN/);
+  }
+});

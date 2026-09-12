@@ -1,4 +1,36 @@
 .team-review-page{max-width:1440px;margin-inline:auto;color:var(--ink)}
+/* Compact, aligned review surface; all accents follow the active theme. */
+.team-review-page .review-heading{gap:12px;margin-bottom:12px}
+.team-review-page .review-heading>div{min-width:0}
+.team-review-page button.review-generate{flex-shrink:0;max-width:none;display:flex;align-items:center;justify-content:center;gap:12px;padding:12px 18px;color:var(--chalk);background:linear-gradient(120deg,var(--deep),var(--green));border:1px solid var(--gold);box-shadow:0 4px 14px color-mix(in srgb,var(--green) 22%,transparent)}
+.team-review-page button.review-generate>span{color:var(--gold-light);font-size:20px}
+.team-review-page button:disabled{cursor:wait;opacity:.65}
+.team-review-page .review-verdict{padding:18px 20px;gap:16px}
+.team-review-page .review-verdict h3{margin:6px 0 8px;font-size:30px}
+.team-review-page section.review-section.panel{padding:14px 16px;margin-bottom:10px}
+.team-review-page .review-section>header{margin-bottom:8px}
+.team-review-page .review-section h3{margin:4px 0;font-size:19px}
+.team-review-page div.review-metrics{padding:10px 0;gap:10px}
+.team-review-page .review-metrics>div.panel{padding:12px;border:1px solid var(--line)}
+.team-review-page .review-profile{padding:0;margin:4px 0 12px}
+.team-review-page .review-rooms{gap:10px}
+.team-review-page .review-rooms article{min-width:0;display:flex;flex-direction:column;padding:12px;border:1px solid var(--line);border-top:3px solid var(--green);border-radius:var(--radius-card,14px);background:var(--chalk);box-shadow:0 4px 14px rgb(7 59 39 / .05)}
+.team-review-page .review-rooms article p{overflow-wrap:anywhere;margin:8px 0}
+.team-review-page .review-rooms article small{margin-top:auto;padding-top:8px;border-top:1px solid var(--line)}
+.team-review-page .review-trade-card{padding:12px;display:flex;flex-direction:column}
+.team-review-page .review-trade-sides{gap:6px;margin:8px 0;flex:1}
+.team-review-page .review-open-trade{margin-top:10px!important;background:var(--green)!important;color:var(--chalk)!important}
+.team-review-page .review-move{padding:10px;border:1px solid var(--line);border-radius:10px}
+.review-report-dialog{position:fixed;inset:0;margin:auto;box-sizing:border-box;width:min(680px,calc(100% - 24px - env(safe-area-inset-left,0px) - env(safe-area-inset-right,0px)));max-height:calc(100dvh - 32px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));padding:0;border:1px solid var(--line);border-radius:18px;background:var(--chalk);color:var(--ink);box-shadow:0 24px 80px #0006;overflow:hidden}
+.review-report-dialog[open]{display:flex;flex-direction:column;top:calc(env(safe-area-inset-top,0px) + 16px);bottom:calc(env(safe-area-inset-bottom,0px) + 16px);left:env(safe-area-inset-left,0px);right:env(safe-area-inset-right,0px)}
+.review-report-dialog::backdrop{background:rgb(0 10 25 / .65)}
+.review-report-dialog>header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:18px 20px;border-bottom:1px solid var(--line);flex-shrink:0}
+.review-report-dialog>header>div{min-width:0}.review-report-dialog h3{font-size:22px;margin:5px 0;overflow-wrap:anywhere}.review-report-dialog header span{color:var(--green);font-size:11px;font-weight:800;letter-spacing:.12em}.review-report-dialog small{color:var(--muted)}
+.review-report-dialog button{min-height:44px;min-width:44px;flex-shrink:0;cursor:pointer;border:1px solid var(--line);border-radius:10px;background:var(--chalk);color:var(--green)}
+.review-report-body{overflow-y:auto;overscroll-behavior:contain;min-height:0;padding:4px 20px 20px;-webkit-overflow-scrolling:touch}
+.review-report-body section{padding:14px 0;border-bottom:1px solid var(--line)}.review-report-body section:last-child{border:0;padding-bottom:0}.review-report-body h4{margin:0 0 6px;font-size:16px;color:var(--green)}.review-report-body p{font-size:15px;line-height:1.65;margin:8px 0;white-space:pre-line;overflow-wrap:anywhere}
+@media(max-width:700px){.team-review-page .review-heading{flex-wrap:wrap}.team-review-page button.review-generate{width:100%;max-width:none}.team-review-page .review-verdict{padding:14px}.team-review-page .review-section.panel{padding:12px}.team-review-page .review-rooms{gap:8px}.team-review-page .review-rooms article{padding:10px}.review-report-dialog>header{padding:14px}.review-report-body{padding:4px 14px 16px}}
+.team-review-page .review-open-trade{display:block;width:100%;margin-top:12px;background:var(--green);color:var(--chalk);border-color:var(--green)}
 .team-review-page .review-section.panel,.team-review-page .review-metrics>.panel{background:var(--chalk);border:1px solid var(--line);border-radius:var(--radius-card,14px);box-shadow:0 6px 20px rgb(7 59 39 / .06)}
 .team-review-page .review-metrics{gap:12px;border-bottom:0;padding:14px 0}
 .team-review-page .review-metrics>div{padding:14px 16px}

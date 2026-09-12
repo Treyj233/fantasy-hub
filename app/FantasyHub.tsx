@@ -34,6 +34,7 @@ import { weeklyProjectionValue } from "./weekly-projection";
 import { evaluateReviewTeam, type ReviewPlayer, type TeamReviewReport } from "./team-review-model";
 import "./team-review.css";
 
+type ReviewTradeDraft = { partnerId: string; sendIds: string[]; receiveIds: string[] };
 type View =
   | "Command Center"
   | "League Stories"
@@ -1759,6 +1760,8 @@ export default function FantasyHub({
     [accountUser?.email, cachedAccount?.connection?.sleeperUserId],
   );
   const [view, setView] = useState<View>("All Leagues");
+  const [reviewTradeDraft, setReviewTradeDraft] = useState<(ReviewTradeDraft & { leagueId: string; teamId: string }) | null>(null);
+  useEffect(() => { if (view !== "Trade Lab") setReviewTradeDraft(null); }, [view]);
   const [playerRankingMode, setPlayerRankingMode] = useState<"season" | "weekly">("season");
   useEffect(() => {
     const screenName = view
@@ -3679,6 +3682,7 @@ export default function FantasyHub({
           teams={leagueTeams} selectedTeamId={selectedTeamId} rankings={leagueRankings}
           context={rankingContext} waivers={waiverPlayers} onNavigate={setView}
           onPlayer={setSelectedPlayer}
+          onTrade={(draft) => { setReviewTradeDraft({ ...draft, leagueId, teamId: selectedTeamId }); setView("Trade Lab"); }}
         /> : rosterEmptyState)}
         {view === "Player Rankings" && (
           <PlayerRanks
@@ -3762,6 +3766,7 @@ export default function FantasyHub({
         )}
         {view === "Trade Lab" && tradeStylesReady && (
           <TradeLab
+            initialTrade={reviewTradeDraft?.leagueId === leagueId && reviewTradeDraft.teamId === selectedTeamId ? reviewTradeDraft : null}
             key={`${leagueId}-${selectedTeamId}`}
             teams={leagueTeams}
             selectedTeamId={selectedTeamId}
@@ -8701,16 +8706,30 @@ function RosterSection({
   );
 }
 
-function TeamReview({ teams, selectedTeamId, rankings, context, waivers, onNavigate, onPlayer }: {
+function TeamReview({ teams, selectedTeamId, rankings, context, waivers, onNavigate, onPlayer, onTrade }: {
   teams: LeagueTeam[]; selectedTeamId: string; rankings: LeagueRanking[]; context: RankingContext | null;
   waivers: WaiverPlayer[]; onNavigate: (view: View) => void; onPlayer: (player: Player) => void;
+  onTrade: (draft: ReviewTradeDraft) => void;
 }) {
   const [report, setReport] = useState<TeamReviewReport | null>(null);
   const [error, setError] = useState('');
   const [retry, setRetry] = useState(0);
-  const [trades, setTrades] = useState<{ partner: string; suggestion: TradeSuggestion; gain: number }[]>([]);
+  const [trades, setTrades] = useState<{ partner: string; partnerId: string; suggestion: TradeSuggestion; gain: number }[]>([]);
   const [tradesLoading, setTradesLoading] = useState(false);
   const [tradesError, setTradesError] = useState(false);
+  const reportDialog = useRef<HTMLDialogElement>(null);
+  const reportRequest = useRef<AbortController | null>(null);
+  const [writtenReport, setWrittenReport] = useState<{ heading: string; body: string }[]>([]);
+  const [writing, setWriting] = useState(false);
+  const [writingError, setWritingError] = useState('');
+  const [reportOpen, setReportOpen] = useState(false);
+  useEffect(() => {
+    if (!reportOpen) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = previous; };
+  }, [reportOpen]);
+  useEffect(() => () => reportRequest.current?.abort(), []);
   const prepared = useMemo(() => {
     const composite = buildSeasonCompositeRankings(rankings, context);
     const lookup = buildRankingLookup(composite);
@@ -8722,6 +8741,8 @@ function TeamReview({ teams, selectedTeamId, rankings, context, waivers, onNavig
   useEffect(() => {
     const controller = new AbortController();
     setReport(null); setError(''); setTrades([]);
+    reportRequest.current?.abort(); setWriting(false); setReportOpen(false);
+    reportDialog.current?.close(); setWrittenReport([]);
     if (!context) { setError('Connect a league with lineup settings to build your report.'); return; }
     void fetch('/api/team-review', { method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ teams: prepared.teams, selectedTeamId, context }), signal: controller.signal,
@@ -8741,7 +8762,7 @@ function TeamReview({ teams, selectedTeamId, rankings, context, waivers, onNavig
     setTradesLoading(true);
     // Yield between partners so opening the report never freezes navigation.
     void (async () => {
-      const found: { partner: string; suggestion: TradeSuggestion; gain: number }[] = [];
+      const found: { partner: string; partnerId: string; suggestion: TradeSuggestion; gain: number }[] = [];
       try {
         for (const partner of teams.filter(t => t.id !== selectedTeamId)) {
           await new Promise(resolve => setTimeout(resolve, 0));
@@ -8758,7 +8779,7 @@ function TeamReview({ teams, selectedTeamId, rankings, context, waivers, onNavig
             const theirsAfter = evaluateReviewTeam({ ...partnerSnapshot, roster: [...partnerSnapshot.roster.filter(p => !received.has(p.id)), ...mySnapshot.roster.filter(p => sent.has(p.id))] }, context);
             const gain = mineAfter.score - report.score;
             if (gain > .1 && mineAfter.vacancies <= report.vacancies && theirsAfter.vacancies <= beforePartner.vacancies && theirsAfter.score >= beforePartner.score - .25) {
-              found.push({ partner: partner.teamName, suggestion, gain });
+              found.push({ partner: partner.teamName, partnerId: partner.id, suggestion, gain });
             }
           }
         }
@@ -8787,13 +8808,40 @@ function TeamReview({ teams, selectedTeamId, rankings, context, waivers, onNavig
     const player = [...teams.flatMap(t => t.roster), ...waivers, ...rankings].find(item => item.id === p.id);
     if (player) onPlayer(player);
   };
+  const generateReport = async () => {
+    if (!report || writing || !context || !selected) return;
+    reportDialog.current?.showModal();
+    setReportOpen(true);
+    reportRequest.current?.abort();
+    const controller = new AbortController();
+    reportRequest.current = controller;
+    setWriting(true); setWritingError(''); setWrittenReport([]);
+    try {
+      const response = await fetch('/api/team-review/report', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: controller.signal,
+        body: JSON.stringify({ teams: prepared.teams, selectedTeamId, context,
+          moves: {
+            trades: trades.map(t => ({ partner: t.partner, send: t.suggestion.send.map(p => p.name), receive: t.suggestion.receive.map(p => p.name) })),
+            waivers: waiverPlans.map(p => ({ add: p.add.name, drop: p.drop.name, starter: p.starter })),
+            tradeStatus: tradesError ? 'unavailable' : 'complete',
+            waiverStatus: waivers.length ? 'available' : 'unavailable',
+            draftPicks: selected.draftCapital?.picks.length ?? null,
+          } }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Your report could not be completed. Please try again.');
+      if (!controller.signal.aborted) setWrittenReport(result.sections);
+    } catch (reason) {
+      if (!controller.signal.aborted) setWritingError(reason instanceof Error ? reason.message : 'Please try again.');
+    } finally { if (!controller.signal.aborted) setWriting(false); }
+  };
   if (error) return <div className="page-content team-review-page"><section className="panel"><h2>Team Review</h2><p role="alert">{error}</p><button onClick={() => setRetry(n => n + 1)}>Try again</button><button onClick={() => onNavigate('Manage Leagues')}>Manage leagues</button></section></div>;
   if (!report || !context || !selected) return <div className="page-content team-review-page"><section className="panel" role="status"><h2>Reviewing your team</h2><p>Checking lineup requirements, league strength, and usable depth…</p></section></div>;
   const { structure } = report;
   const decision = startSitDecision(selected.roster);
   const slotSummary = [...new Set(structure.slots)].map(slot => `${structure.slots.filter(s => s === slot).length} ${formatRosterSlot(slot)}`).join(' · ');
   return <div className="page-content team-review-page">
-    <header className="review-heading"><div><span>OWNER PREVIEW · TEAM REVIEW</span><h2>{selected.teamName}</h2><p>{context.format} · {context.scoring} · {report.leagueSize} teams</p></div><button onClick={() => setRetry(n => n + 1)}>Reassess team</button></header>
+    <header className="review-heading"><div><span>OWNER PREVIEW · TEAM REVIEW</span><h2>{selected.teamName}</h2><p>{context.format} · {context.scoring} · {report.leagueSize} teams</p></div><button className="review-generate" aria-haspopup="dialog" disabled={tradesLoading || writing} onClick={() => void generateReport()}>{writing ? 'Preparing report…' : tradesLoading ? 'Checking roster moves…' : 'Generate Team Report'} <span aria-hidden="true">↗</span></button></header>
     <section className="review-verdict panel">
       <div><span>YOUR TEAM VERDICT</span><h3>{report.verdict}</h3><p><b>{report.strengths[0].position}</b> leads your roster. {report.vacancies ? report.vacancies + ' starting spots need coverage.' : report.targetPositions.length ? 'Prioritize ' + report.targetPositions.join(' and ') + '.' : 'Protect your starting advantage.'}</p></div>
       <div className="review-rank"><strong>#{report.overallRank}</strong><span>roster readiness<br />of {report.leagueSize} teams</span></div>
@@ -8804,7 +8852,7 @@ function TeamReview({ teams, selectedTeamId, rankings, context, waivers, onNavig
       <p>{structure.deep >= .5 ? 'Protect your flex depth. Upgrade weak starting spots without leaving another hole.' : 'Prioritize stronger starters and QB/TE advantages over extra bench depth.'}</p>
       <div className="review-tags">{structure.superflex && <span>Superflex · Protect your second QB</span>}{context.tePremium > 0 && <span>TE premium · Preserve your edge</span>}{structure.unsupported.length > 0 && <span>Offensive roster review</span>}</div>
     </section>
-    <section className="review-section panel"><header><span>STRENGTHS & GAPS</span><h3>Your positional profile</h3></header>
+    <section className="review-section review-profile"><header><span>STRENGTHS & GAPS</span><h3>Your positional profile</h3></header>
       <div className="review-rooms">{report.rooms.map(room => <article key={room.position}><header><h4>{room.position}</h4><b>#{room.rank} / {report.leagueSize}</b></header><strong>{room.score < room.leagueAverage * .9 ? 'Needs attention' : room.rank <= Math.ceil(report.leagueSize / 3) ? 'Strength' : 'Competitive'}</strong><p>{room.starters.length ? room.starters.map((p, i) => <Fragment key={p.id}>{i > 0 && ', '}<button className="review-player" onClick={() => open(p)}>{p.name}</button></Fragment>) : 'No available starter.'}</p><small>{room.backups.length ? room.backups.length + ' backups · ' + room.backups[0].name : 'No backup coverage'}</small></article>)}</div>
     </section>
     <section className="review-section panel"><header><span>WATCH LIST</span><h3>Lineup & availability</h3></header>
@@ -8816,10 +8864,11 @@ function TeamReview({ teams, selectedTeamId, rankings, context, waivers, onNavig
       <button onClick={() => onNavigate('Start / Sit')}>Compare lineup options →</button>
     </section>
     <section className="review-section panel"><header><span>ROSTER MOVES</span><h3>Trades built for your team</h3></header>
-      {tradesError ? <p role="alert">Trade matching is unavailable. Reassess the report to retry.</p> : tradesLoading ? <p role="status">Finding balanced trade packages…</p> : trades.length ? <div className="review-trades">{trades.map(({ partner, suggestion, gain }) => <article className="review-trade-card" key={suggestion.id}>
-        <header><span>TRADE WITH</span><h4>{partner}</h4><b>+{gain.toFixed(1)} roster rating</b></header>
+      {tradesError ? <p role="alert">Trade matching is unavailable. <button onClick={() => setRetry(n => n + 1)}>Retry trades</button></p> : tradesLoading ? <p role="status">Finding balanced trade packages…</p> : trades.length ? <div className="review-trades">{trades.map(({ partner, partnerId, suggestion }) => <article className="review-trade-card" key={suggestion.id}>
+        <header><span>TRADE WITH</span><h4>{partner}</h4></header>
         <div className="review-trade-sides">{[['You receive', suggestion.receive], ['You send', suggestion.send]].map(([label, assets]) => <div key={label as string}><span>{label as string}</span>{(assets as TradeAssetValue[]).map(asset => <button className="review-trade-player" key={asset.id} onClick={() => open(asset)}><i className={'pos pos-' + asset.position.toLowerCase()}>{asset.position}</i><strong>{asset.name}</strong></button>)}</div>)}</div>
         <small>{suggestion.receive.map(a => a.position).filter((p, i, all) => all.indexOf(p) === i).join('/')} help · Both rosters retain coverage</small>
+        <button className="review-open-trade" onClick={() => onTrade({ partnerId, sendIds: suggestion.send.map(a => a.id), receiveIds: suggestion.receive.map(a => a.id) })}>View in Trade Lab →</button>
       </article>)}</div> : <p>No balanced package clears the roster-improvement checks right now.</p>}
       {trades.length > 0 && <small className="review-trade-note">Proposed deals, not accepted offers. Each is a separate option.</small>}
     </section>
@@ -8828,6 +8877,14 @@ function TeamReview({ teams, selectedTeamId, rankings, context, waivers, onNavig
       <button onClick={() => onNavigate('Waiver Wire')}>Check waiver availability →</button>
     </section>
     {context.format !== 'Redraft' && <section className="review-section panel"><header><span>LONG-TERM OUTLOOK</span><h3>Future flexibility</h3></header><p>{selected.draftCapital ? selected.draftCapital.picks.length + ' tracked draft picks.' : 'Draft-pick data unavailable.'} Player values account for {context.format.toLowerCase()} format and age.</p><button onClick={() => onNavigate('League Analytics')}>View competitive window →</button></section>}
+    <dialog ref={reportDialog} className="review-report-dialog" aria-labelledby="review-report-title" onClose={() => { reportRequest.current?.abort(); setWriting(false); setReportOpen(false); }}>
+      <header><div><span>TEAM REPORT</span><h3 id="review-report-title">{selected.teamName}</h3><small>{context.format} · {context.scoring}</small></div><button aria-label="Close team report" onClick={() => reportDialog.current?.close()}>×</button></header>
+      <div className="review-report-body" aria-busy={writing}>
+        {writing && <p role="status">Preparing your team report…</p>}
+        {writingError && <div role="alert"><p>{writingError}</p><button onClick={() => void generateReport()}>Try again</button></div>}
+        {writtenReport.map((section, i) => <section key={i}><h4>{section.heading}</h4><p>{section.body}</p></section>)}
+      </div>
+    </dialog>
   </div>;
 }
 
@@ -11259,6 +11316,7 @@ function buildTradeSuggestions(
 }
 
 function TradeLab({
+  initialTrade,
   teams,
   selectedTeamId,
   rankings,
@@ -11266,6 +11324,7 @@ function TradeLab({
   isPro,
   onUpgrade,
 }: {
+  initialTrade?: ReviewTradeDraft | null;
   teams: LeagueTeam[];
   selectedTeamId: string;
   rankings: LeagueRanking[];
@@ -11277,14 +11336,17 @@ function TradeLab({
   const opponents = useMemo(() => teams.filter(
     (team) => team.id !== selectedTeamId && team.roster.length,
   ), [teams, selectedTeamId]);
-  const [selectedId, setSelectedId] = useState(opponents[0]?.id ?? "");
+  const validInitialTrade = initialTrade && opponents.some(t => t.id === initialTrade.partnerId) &&
+    initialTrade.sendIds.every(id => yourTeam?.roster.some(p => p.id === id)) &&
+    initialTrade.receiveIds.every(id => opponents.find(t => t.id === initialTrade.partnerId)?.roster.some(p => p.id === id)) ? initialTrade : null;
+  const [selectedId, setSelectedId] = useState(validInitialTrade?.partnerId ?? opponents[0]?.id ?? "");
   const [styles, setStyles] = useState<Record<string, TradeStyle>>({});
   const [targetPositions, setTargetPositions] = useState<string[]>([]);
   const [activeSuggestionId, setActiveSuggestionId] = useState("");
-  const [calculatorSendIds, setCalculatorSendIds] = useState<string[]>([]);
-  const [calculatorReceiveIds, setCalculatorReceiveIds] = useState<string[]>([]);
+  const [calculatorSendIds, setCalculatorSendIds] = useState<string[]>(validInitialTrade?.sendIds ?? []);
+  const [calculatorReceiveIds, setCalculatorReceiveIds] = useState<string[]>(validInitialTrade?.receiveIds ?? []);
   const [assetSelectorSide, setAssetSelectorSide] = useState<"send" | "receive" | null>(null);
-  const [calculatorOpen, setCalculatorOpen] = useState(false);
+  const [calculatorOpen, setCalculatorOpen] = useState(Boolean(validInitialTrade));
   const calculatorDialog = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!calculatorOpen) return;
