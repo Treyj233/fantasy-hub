@@ -8269,11 +8269,20 @@ function CommandCenter({
   const unavailable = players.filter((player) => /out|ir|suspend|doubt/i.test(player.status));
   const monitored = players.filter((player) => /question/i.test(player.status));
   const readiness = lineupReadiness(players, context?.rosterSlots);
-  const scenarioLineups=useMemo(()=>({
-    safe:commandLineup(players,context?.rosterSlots,'floor'),
-    balanced:commandLineup(players,context?.rosterSlots,'projection'),
-    upside:commandLineup(players,context?.rosterSlots,'ceiling'),
-  }),[players,context]);
+  const scenarioLineups=useMemo(()=>{
+    // Share Start / Sit's projection source and player-specific risk model.
+    // Adjusted ranges are also used in the selected lineup's range display.
+    const candidates=players.map(player=>{
+      const normalized={...player,projection:weeklyProjectionValue(player)??0};
+      const range=matchupAdjustedRange(normalized);
+      return {...normalized,floor:range.floor,ceiling:range.ceiling};
+    });
+    return {
+      safe:commandLineup(candidates,context?.rosterSlots,p=>aggressionScore(p,20)),
+      balanced:commandLineup(candidates,context?.rosterSlots,p=>aggressionScore(p,50)),
+      upside:commandLineup(candidates,context?.rosterSlots,p=>aggressionScore(p,80)),
+    };
+  },[players,context]);
   const selectedLineup=scenarioLineups[scenario];
   const scenarioFloor=selectedLineup.reduce((n,r)=>n+(r.player?.floor??0),0);
   const scenarioCeiling=selectedLineup.reduce((n,r)=>n+(r.player?.ceiling??0),0);
@@ -8397,6 +8406,7 @@ function CommandCenter({
         </section>
         <section className="panel command-scenarios">
           <Header eyebrow="LINEUP APPROACH" title="Choose your scenario" />
+          <small>Start / Sit risk model · Safe 20% · Balanced 50% · Upside 80%</small>
           <div className="command-scenario-toggle" role="group" aria-label="Lineup scenario">
             {(["safe", "balanced", "upside"] as const).map((option) => <button key={option} className={scenario === option ? "active" : ""} onClick={() => setScenario(option)}>{option}</button>)}
           </div>
