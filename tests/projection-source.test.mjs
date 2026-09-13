@@ -28,8 +28,8 @@ test('Vegas estimate is entirely independent of platform projections',()=>{
   const low=on.player({...p,projection:1,leagueProjection:1},context,2026,1);
   const high=on.player({...p,projection:99,leagueProjection:99},context,2026,1);
   assert.equal(low.projection,high.projection);
-  // 80.5 receiving yards + 6.5 receptions + odds-implied TD expectation.
-  assert.equal(low.projection,Math.round((8.05+6.5+6*Math.log(2))*10)/10);
+  // 80.5 yards + Poisson-implied receptions (~6.67) + TD expectation.
+  assert.equal(low.projection,18.9);
 });
 test('week, season and missing markets fail to labeled platform fallback',()=>{
   assert.equal(on.player(p,context,2026,2).projection,p.projection);

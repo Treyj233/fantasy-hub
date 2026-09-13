@@ -59,3 +59,42 @@
 .edge-market-dialog header>div{min-width:0}.edge-market-dialog header span{font-size:10px;letter-spacing:.1em;color:var(--green);font-weight:700}.edge-market-dialog header h3{margin:4px 0 0;font-family:inherit;font-size:19px;overflow-wrap:anywhere}.edge-market-dialog header button{flex-shrink:0;width:44px;height:44px;border:1px solid var(--line);border-radius:50%;background:var(--chalk);color:var(--ink);font-size:26px}
 .edge-market-body{padding:12px 18px 18px}.edge-market-meta{font-size:12px;color:var(--muted);margin:0 0 12px}.edge-market-list article{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px 0;border-top:1px solid var(--line)}.edge-market-list b{font-size:13px;text-transform:capitalize}.edge-market-list small{display:block;font-size:11px;color:var(--muted);margin-top:4px}.edge-market-list strong{font-size:23px;color:var(--green);font-variant-numeric:tabular-nums}.edge-market-body footer{display:grid;gap:7px;border-top:1px solid var(--line);padding-top:12px;font-size:11px;color:var(--muted)}.edge-market-body footer span{display:flex;justify-content:space-between;gap:12px}
 @media(max-width:600px){.vegas-edge-page .edge-board col.edge-name-col{width:49%}.vegas-edge-page .edge-board th,.vegas-edge-page .edge-board td{padding:9px 3px}.vegas-edge-page .edge-table-wrap{padding:0 6px}.vegas-edge-page .edge-board td{font-size:12px}.vegas-edge-page .edge-board .edge-projection{font-size:18px}.vegas-edge-page .edge-board .edge-player{font-size:12px}.vegas-edge-page .edge-market-trigger{font-size:10px}.edge-market-dialog{--edge-safe-top:max(72px,calc(env(safe-area-inset-top,0px) + 16px))}}
+.vegas-edge-page .edge-board table{min-width:760px}
+.vegas-edge-page .edge-board col.edge-name-col{width:27%}.vegas-edge-page .edge-board col.edge-slot-col{width:9%}.vegas-edge-page .edge-board col.edge-matchup-col{width:28%}
+.vegas-edge-page .edge-board td:nth-child(3){background:none;white-space:normal}.vegas-edge-page .edge-board td:nth-child(5){background:color-mix(in srgb,var(--lime) 8%,transparent)}
+.vegas-edge-page .edge-roster-player{display:flex;align-items:center;gap:9px;width:100%;padding:0;border:0;background:none;color:inherit;text-align:left;white-space:normal}
+.vegas-edge-page .edge-board .roster-player-cell{display:table-cell}.vegas-edge-page .edge-board .roster-player-copy{min-width:0}.vegas-edge-page .edge-board .roster-player-copy strong{font-size:14px}.vegas-edge-page .edge-board .roster-player-copy small{display:block;color:var(--muted);font-size:11px;margin-top:3px}
+.vegas-edge-page .edge-board .roster-matchup-details{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;width:100%}.vegas-edge-page .edge-board .roster-weather{white-space:normal;text-align:center;font-size:11px}
+.vegas-edge-page .edge-board .edge-coverage-label{font-weight:400;white-space:normal;font-size:9px;line-height:1.3}.vegas-edge-page .edge-board .edge-market-trigger{white-space:nowrap}
+@media(max-width:600px){.vegas-edge-page .edge-board table{min-width:700px}.vegas-edge-page .edge-board col.edge-name-col{width:25%}.vegas-edge-page .edge-board th,.vegas-edge-page .edge-board td{padding:10px 7px}}
+/* Mobile roster uses stacked My Team-style rows, never a wide table. */
+@media(max-width:700px){
+  .vegas-edge-page .edge-table-wrap{padding:0 10px;overflow:visible;min-width:0}
+  .vegas-edge-page .edge-board table{display:block;width:100%;min-width:0;max-width:100%}
+  .vegas-edge-page .edge-board colgroup{display:none}
+  .vegas-edge-page .edge-board thead{position:absolute;width:1px;height:1px;padding:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+  .vegas-edge-page .edge-board tbody{display:block;width:100%}
+  .vegas-edge-page .edge-board tbody tr{display:grid;grid-template-columns:minmax(0,1fr) minmax(92px,30%);grid-template-areas:"player platform" "slot vegas" "matchup vegas" "matchup edge";gap:5px 10px;padding:13px 0;border-bottom:1px solid var(--line);min-width:0}
+  .vegas-edge-page .edge-board tbody tr:last-child{border-bottom:0}
+  .vegas-edge-page .edge-board tbody td{display:block;min-width:0;width:auto;padding:0;border:0;white-space:normal;text-align:left}
+  .vegas-edge-page .edge-board td:nth-child(1){grid-area:player;align-self:center}
+  .vegas-edge-page .edge-board td:nth-child(2){grid-area:slot;text-align:left}
+  .vegas-edge-page .edge-board td:nth-child(3){grid-area:matchup;align-self:start}
+  .vegas-edge-page .edge-board td:nth-child(4){grid-area:platform}
+  .vegas-edge-page .edge-board td:nth-child(5){grid-area:vegas;border-radius:8px;padding:7px 5px}
+  .vegas-edge-page .edge-board td:nth-child(6){grid-area:edge}
+  .vegas-edge-page .edge-board td:nth-child(n+4){text-align:center;align-self:center;font-variant-numeric:tabular-nums}
+  .vegas-edge-page .edge-board td:nth-child(n+4):before{display:block;font-size:9px;line-height:1.3;font-weight:500;color:var(--muted);margin-bottom:2px;letter-spacing:.03em}
+  .vegas-edge-page .edge-board td:nth-child(4):before{content:"PLATFORM"}
+  .vegas-edge-page .edge-board td:nth-child(5):before{content:"VEGAS"}
+  .vegas-edge-page .edge-board td:nth-child(6):before{content:"EDGE"}
+  .vegas-edge-page .edge-roster-player{gap:6px;min-width:0}
+  .vegas-edge-page .edge-roster-player>.pos{flex:0 0 29px;width:29px;height:29px;font-size:10px;display:grid;place-items:center}
+  .vegas-edge-page .edge-board .roster-player-copy strong{font-size:13px;line-height:1.25;overflow-wrap:anywhere}
+  .vegas-edge-page .edge-board .roster-matchup-details{align-items:flex-start;max-width:100%}
+  .vegas-edge-page .edge-board .roster-matchup-details>*{box-sizing:border-box;max-width:100%;min-width:0}
+  .vegas-edge-page .edge-board .roster-weather{text-align:left;overflow-wrap:anywhere;font-size:10px}
+  .vegas-edge-page .edge-board .roster-slot{font-size:10px;padding:3px 7px}
+  .vegas-edge-page .edge-board .edge-market-trigger{max-width:100%;font-size:10px;min-height:32px;padding:4px}
+  .vegas-edge-page .edge-board .edge-projection{font-size:20px;line-height:1.2}
+}

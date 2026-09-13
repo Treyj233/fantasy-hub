@@ -7,12 +7,19 @@ const number = (v: unknown) => v !== null && v !== undefined && v !== '' && Numb
 const median = (values: number[]) => { const v = [...values].sort((a,b)=>a-b); return v.length ? (v[Math.floor((v.length-1)/2)] + v[Math.floor(v.length/2)]) / 2 : null; };
 export const teamCode = (s: string) => ({JAC:'JAX',WSH:'WAS',LA:'LAR'}[s.toUpperCase()] ?? s.toUpperCase());
 const nameKey = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/\b(jr|sr|ii|iii|iv)\b/g,'').replace(/[^a-z]/g,'');
+// Allow only the offensive markets this model understands. Apply after cache
+// reads too, so older snapshots cannot display unrelated defensive props.
+function positionMarket(position:string,stat:string) {
+  const skill=['rushing_yards','receiving_yards','receiving_receptions','receptions','touchdowns','rushing_receiving_touchdowns'];
+  if(position==='QB')return [...skill,'passing_yards','passing_touchdowns','passing_interceptions'].includes(stat);
+  return ['RB','WR','TE'].includes(position)&&skill.includes(stat);
+}
 export function impliedProbability(value: unknown) { const n = number(value); return n === null || Math.abs(n) < 100 ? null : n < 0 ? -n / (-n + 100) : 100 / (n + 100); }
 export function refreshInterval(startsAt: string, now = Date.now()) { const left = Date.parse(startsAt)-now; return left <= 0 ? Infinity : left <= 2*3600000 ? 600000 : left <= 86400000 ? 7200000 : 43200000; }
 // Invert a Poisson tail for discrete TD/INT props. A line of 1.5 with
 // P(over)=0.33 is not an expected 1.5 touchdowns. This is an approximation.
 export function countExpectation(prop:EdgeProp|undefined) {
-  if(!prop || prop.line<0 || prop.line>20 || prop.overProbability<=0 || prop.overProbability>=1)return undefined;
+  if(!prop || !Number.isFinite(prop.line) || !Number.isFinite(prop.overProbability) || prop.line<0 || prop.line>20 || prop.overProbability<=0 || prop.overProbability>=1)return undefined;
   const k=Math.floor(prop.line);
   let low=0,high=60;
   for(let i=0;i<50;i++){
@@ -21,6 +28,14 @@ export function countExpectation(prop:EdgeProp|undefined) {
     if(1-cdf<prop.overProbability)low=mean;else high=mean;
   }
   return (low+high)/2;
+}
+// A single priced threshold cannot uniquely identify a yardage mean. Use an
+// explicit logistic location approximation (scale = 20% of line, min 1 yard).
+// This uses only the line and its no-vig price, never platform projections.
+export function marketExpectation(prop:EdgeProp|undefined) {
+  if(!prop||!Number.isFinite(prop.line)||!Number.isFinite(prop.overProbability)||prop.line<0||prop.overProbability<=0||prop.overProbability>=1)return undefined;
+  if(!prop.stat.endsWith('_yards'))return countExpectation(prop);
+  return Math.max(0,prop.line+Math.max(1,prop.line*.2)*Math.log(prop.overProbability/(1-prop.overProbability)));
 }
 // Provider payload stays on the server. Only validated, paired main markets are exposed.
 export function normalizeEvents(raw: unknown, now = Date.now()): EdgeEvent[] {
@@ -47,7 +62,11 @@ export function normalizeEvents(raw: unknown, now = Date.now()): EdgeEvent[] {
       const under:any = odds[o.opposingOddID] ?? odds[`${o.statID}-${id}-game-ou-under`];
       const pairs=activeBooks(o).flatMap(([book,b]: any)=>{const u=under?.byBookmaker?.[book]; const line=number(b.overUnder), ul=number(u?.overUnder), op=impliedProbability(b.odds),up=impliedProbability(u?.odds);return u?.available===true && u.isMainLine!==false && line!==null && line===ul && op!==null && up!==null ? [{line,p:op/(op+up)}]:[];});
       if(!pairs.length) return [];
-      return [{stat:o.statID,line:median(pairs.map(p=>p.line))!,overProbability:median(pairs.map(p=>p.p))!,books:pairs.length,source:'paired-books'}];
+      // Choose a real quoted line with the most paired books. Never combine
+      // the median line with probabilities quoted at different thresholds.
+      const lines=[...new Set(pairs.map(p=>p.line))].sort((a,b)=>pairs.filter(p=>p.line===b).length-pairs.filter(p=>p.line===a).length||a-b);
+      const line=lines[0],sameLine=pairs.filter(p=>p.line===line);
+      return [{stat:o.statID,line,overProbability:median(sameLine.map(p=>p.p))!,books:sameLine.length,source:'paired-books'}];
     })})) }];
   });
 }
@@ -55,9 +74,9 @@ export function edgeProjection(player: EdgePlayer, events: EdgeEvent[], context:
   const baseline = player.leagueProjection ?? player.projection;
   const matches = events.flatMap(event=>event.players.filter(p=>p.team===teamCode(player.team) && [p.name,...(p.aliases ?? [])].some(name=>nameKey(name)===nameKey(player.name))).map(p=>({event,p})));
   const match=matches.length===1?matches[0]:null;
-  const props=[...new Map([...(match?.p.props ?? [])].sort((a,b)=>Number(a.source==='provider-fair')-Number(b.source==='provider-fair')).map(p=>[p.stat,p])).values()];
+  const props=[...new Map([...(match?.p.props ?? [])].filter(p=>positionMarket(player.position,p.stat)).sort((a,b)=>Number(a.source==='provider-fair')-Number(b.source==='provider-fair')).map(p=>[p.stat,p])).values()];
   const find=(...names:string[])=>props.find(p=>names.includes(p.stat));
-  const value=(...names:string[])=>find(...names)?.line;
+  const value=(...names:string[])=>marketExpectation(find(...names));
   const weights={pass_yd:0,rush_yd:0,rec_yd:0,pass_td:0,pass_int:0,rush_td:0,rec_td:0,rec:0,...context.scoringRules};
   const py=value('passing_yards'),pt=countExpectation(find('passing_touchdowns')),pi=countExpectation(find('passing_interceptions')),ry=value('rushing_yards'),cy=value('receiving_yards'),c=value('receiving_receptions','receptions');
   const td=find('touchdowns','rushing_receiving_touchdowns');

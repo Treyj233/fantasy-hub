@@ -3543,6 +3543,7 @@ export default function FantasyHub({
               <strong>Which team is yours?</strong>
               <small>Choose your fantasy team so another manager’s roster never replaces yours.</small>
             </div>}
+            <div className="team-picker-heading"><label htmlFor="fantasy-team-select">Fantasy team</label>{vegasMode.enabled && <div className="projection-mode-notice"><button type="button" onClick={()=>setView('Vegas Edge')} aria-label="Vegas Implied Projections active. Manage projection source." title="Vegas Implied Projections active. Uncovered players use platform projections; actual scores are unchanged."><span aria-hidden="true">📈</span>{VEGAS_PROJECTION_LABEL}<span aria-hidden="true">›</span></button></div>}</div>
             <button
               className={`team-active-live ${liveMatchupCount === null ? "checking" : liveMatchupCount > 0 ? "live" : "idle"}`}
               type="button"
@@ -3555,8 +3556,9 @@ export default function FantasyHub({
               }}
             ><i aria-hidden="true" /><span><b>{liveMatchupCount === null ? "CHECKING" : liveMatchupCount > 0 ? `${liveMatchupCount} LIVE` : "NOT LIVE"}</b><small>Open scoreboard</small></span><strong aria-hidden="true">›</strong></button>
             <label>
-              Fantasy team
               <select
+                id="fantasy-team-select"
+                aria-label="Fantasy team"
                 value={selectedTeamId}
                 onChange={(event) => selectLeagueTeam(event.target.value)}
               >
@@ -3571,7 +3573,6 @@ export default function FantasyHub({
           </section>
         )}
 
-        {vegasMode.enabled && <div className="projection-mode-notice"><button type="button" onClick={()=>setView('Vegas Edge')} aria-label="Vegas Implied Projections active. Manage projection source." title="Vegas Implied Projections active. Uncovered players use platform projections; actual scores are unchanged."><span aria-hidden="true">📈</span>{VEGAS_PROJECTION_LABEL}<span aria-hidden="true">›</span></button></div>}
         {view === "Command Center" && !entitlement.pro && <ProGate feature="Command Center" onUpgrade={() => setView("Fantasy Hub Pro")} />}
         {view === "Command Center" && entitlement.pro &&
           (rosterReady ? (
@@ -3699,7 +3700,7 @@ export default function FantasyHub({
             setSelectedPlayer={setSelectedPlayer}
           />
         )}
-        {view === 'Vegas Edge' && entitlement.owner && entitlement.elite && (rosterReady && rankingContext ? <VegasEdge key={`${leagueId}:${selectedTeamId}`} season={leagueSeason} week={defaultGameWeek} roster={platformPlayers} waivers={platformWaivers} enabled={vegasMode.enabled} onToggle={vegasMode.toggle} onFeed={vegasMode.setFeed} context={rankingContext} onPlayer={p => setSelectedPlayer(p as Player)} onWaivers={() => setView('Waiver Wire')} /> : rosterEmptyState)}
+        {view === 'Vegas Edge' && entitlement.owner && entitlement.elite && (rosterReady && rankingContext ? <VegasEdge key={`${leagueId}:${selectedTeamId}`} season={leagueSeason} week={defaultGameWeek} roster={platformPlayers} waivers={platformWaivers} enabled={vegasMode.enabled} onToggle={vegasMode.toggle} renderRosterColumns={p=>{const player=p as Player;return <><td className="roster-player-cell"><button type="button" className="edge-roster-player" onClick={()=>setSelectedPlayer(player)}><span className={`pos pos-${player.position.toLowerCase()}`}>{player.position}</span><span className="roster-player-copy"><strong>{player.name}</strong><small>{player.team}</small></span></button></td><td><span className={isStartingPlayer(player)?'roster-slot':'roster-slot bench'}>{formatRosterSlot(player.role)}</span></td><td className="roster-matchup-cell"><span className="roster-matchup-details"><MatchupBadge player={player}/>{player.weatherSummary&&<small className="roster-weather">☁ {player.weatherSummary}</small>}</span></td></>;}} onFeed={vegasMode.setFeed} context={rankingContext} onPlayer={p => setSelectedPlayer(p as Player)} onWaivers={() => setView('Waiver Wire')} /> : rosterEmptyState)}
         {view === 'Vegas Edge' && !entitlement.owner && <div className="page-content"><section className="panel">This page is not available.</section></div>}
         {view === "Team Review" && !entitlement.pro && <ProGate feature="Team Review" onUpgrade={() => setView("Fantasy Hub Pro")} />}
         {view === "Team Review" && entitlement.pro && (rosterReady ? <TeamReview

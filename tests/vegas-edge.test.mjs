@@ -35,6 +35,15 @@ test('complete coverage uses scoring, while partial/unknown data produces no est
   const standard=edgeProjection(player,[event],{...context,scoringRules:{...context.scoringRules,rec:0}},now);
   assert.ok(standard.projection<row.projection);
 });
+test('Michael Wilson cannot display defensive or quarterback markets from cached props',()=>{
+  const wilson={...player,name:'Michael Wilson',team:'ARI'};
+  const mixed={...event,players:[{name:wilson.name,team:'ARI',status:'active',props:[...props,...['defense_tackles','defense_sacks','interceptions','passing_interceptions'].map(stat=>({stat,line:2.5,overProbability:.5,books:2}))]}]};
+  const row=edgeProjection(wilson,[mixed],context,now);
+  assert.deepEqual(row.props.map(p=>p.stat),props.map(p=>p.stat));
+  const defenseOnly={...mixed,players:[{...mixed.players[0],props:mixed.players[0].props.slice(3)}]};
+  assert.equal(edgeProjection(wilson,[defenseOnly],context,now).projection,null);
+  assert.equal(edgeProjection(wilson,[defenseOnly],context,now).props.length,0);
+});
 test('wrong team and ambiguous identities cannot match',()=>{
   assert.equal(edgeProjection({...player,team:'NYG'},[event],context,now).usable,false);
   assert.equal(edgeProjection(player,[event,event],context,now).usable,false);
@@ -52,6 +61,12 @@ test('anytime TD requires available Yes books and an explicit fair consensus pai
   assert.ok(Math.abs(countExpectation(p)+Math.log(1-p.overProbability))<.00001);
   raw.odds[no].fairOddsAvailable=false;
   assert.equal(normalizeEvents([raw],now)[0].players[0].props.length,0);
+});
+test('identical lines with different prices produce different estimates',()=>{
+  const price=(stat,p)=>edgeProjection(player,[{...event,players:[{...event.players[0],props:props.map(x=>x.stat===stat?{...x,overProbability:p}:x)}]}],context,now).projection;
+  for(const stat of ['touchdowns','receiving_yards','receptions'])assert.ok(price(stat,.7)>price(stat,.3),stat);
+  assert.ok(Math.abs(countExpectation({line:.5,overProbability:.25})+Math.log(.75))<1e-9);
+  assert.ok(Math.abs(countExpectation({line:.5,overProbability:.75})+Math.log(.25))<1e-9);
 });
 test('discrete TD projection accounts for price, rather than using the line as the mean',()=>{
   assert.ok(countExpectation({line:1.5,overProbability:.33})<1.5);
