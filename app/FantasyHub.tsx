@@ -30,6 +30,7 @@ import { gameLineRange, gameLineSummary } from "./game-line-range.mjs";
 import type { GameLines } from "./nfl-schedule-data";
 import { cacheActiveLeagueBootstrap, readSessionCache, safeLocalStorageSet, writeSessionCache } from "./local-storage";
 import { teamPositionStrength } from "./team-position-strength";
+import { lineupReadiness } from "./lineup-readiness";
 import { weeklyProjectionValue } from "./weekly-projection";
 import { evaluateReviewTeam, type ReviewPlayer, type TeamReviewReport } from "./team-review-model";
 import "./team-review.css";
@@ -8216,7 +8217,7 @@ function CommandCenter({
   const emptySlots = Math.max(0, requiredStarters - starters.length);
   const unavailable = players.filter((player) => /out|ir|suspend|doubt/i.test(player.status));
   const monitored = players.filter((player) => /question/i.test(player.status));
-  const healthScore = Math.max(0, 100 - unavailable.length * 18 - monitored.length * 6 - emptySlots * 15);
+  const readiness = lineupReadiness(players, context?.rosterSlots);
   const scenarioPool = starters.filter((player) => !/out|ir|suspend|doubt/i.test(player.status));
   const balancedAnchor = [...scenarioPool].sort((a, b) => b.projection - a.projection)[0] ?? null;
   const safeAnchor = [...scenarioPool]
@@ -8262,7 +8263,7 @@ function CommandCenter({
     const storageKey = `fantasy-hub:command-snapshot:${selectedTeamId}`;
     const nextSnapshot = {
       projection: Number(totals.projection.toFixed(1)),
-      healthScore,
+      readiness: readiness.value,
       concern: concern?.name ?? null,
       waiver: waiverPlans[0]?.add.name ?? null,
       opponent: opponentTeam?.teamName ?? null,
@@ -8274,8 +8275,8 @@ function CommandCenter({
         const projectionChange = nextSnapshot.projection - prior.projection;
         if (Math.abs(projectionChange) >= 0.1)
           changes.push(`Lineup projection ${projectionChange > 0 ? "rose" : "fell"} ${Math.abs(projectionChange).toFixed(1)} points.`);
-        if (nextSnapshot.healthScore !== prior.healthScore)
-          changes.push(`Lineup health moved from ${prior.healthScore} to ${nextSnapshot.healthScore}.`);
+        if (prior.readiness && nextSnapshot.readiness !== prior.readiness)
+          changes.push(`Lineup readiness moved from ${prior.readiness} to ${nextSnapshot.readiness}.`);
         if (nextSnapshot.concern !== prior.concern)
           changes.push(nextSnapshot.concern ? `${nextSnapshot.concern} now requires availability monitoring.` : "The previous availability concern has cleared.");
         if (nextSnapshot.waiver && nextSnapshot.waiver !== prior.waiver)
@@ -8288,7 +8289,7 @@ function CommandCenter({
     } catch {
       setCommandChanges([]);
     }
-  }, [selectedTeamId, totals.projection, healthScore, concern?.name, waiverPlans[0]?.add.name, opponentTeam?.teamName]);
+  }, [selectedTeamId, totals.projection, readiness.value, concern?.name, waiverPlans[0]?.add.name, opponentTeam?.teamName]);
   return (
     <div className="page-content command-center-page">
       <section className="hero">
@@ -8333,10 +8334,10 @@ function CommandCenter({
           detail={`${totals.projection.toFixed(1)} median projection`}
         />
         <Metric
-          label="Lineup health"
-          value={String(healthScore)}
-          detail={concern ? `Monitor ${concern.name}` : emptySlots ? `${emptySlots} empty starter slot` : "No active concerns"}
-          tone={healthScore >= 90 ? "good" : "warn"}
+          label="Lineup readiness"
+          value={readiness.value}
+          detail={readiness.detail}
+          tone={readiness.required > 0 && readiness.ready === readiness.required ? "good" : "warn"}
         />
       </div>
       <section className="panel command-matchup-strip">

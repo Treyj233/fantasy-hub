@@ -71,6 +71,12 @@
 .team-review-page .review-move{padding:10px;border:1px solid var(--line);border-radius:10px}
 .review-report-dialog{position:fixed;inset:0;margin:auto;box-sizing:border-box;width:min(680px,calc(100% - 24px - env(safe-area-inset-left,0px) - env(safe-area-inset-right,0px)));max-height:calc(100dvh - 32px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));padding:0;border:1px solid var(--line);border-radius:18px;background:var(--chalk);color:var(--ink);box-shadow:0 24px 80px #0006;overflow:hidden}
 .review-report-dialog[open]{display:flex;flex-direction:column;top:calc(env(safe-area-inset-top,0px) + 16px);bottom:calc(env(safe-area-inset-bottom,0px) + 16px);left:env(safe-area-inset-left,0px);right:env(safe-area-inset-right,0px)}
+/* Keep native iPhone status/home regions clear even when WKWebView reports
+   zero safe-area insets. The small viewport also reserves Safari toolbar room. */
+@media(max-width:700px),(max-height:500px) and (pointer:coarse){
+  .review-report-dialog[open]{--report-safe-top:max(72px,calc(env(safe-area-inset-top,0px) + 16px));--report-safe-bottom:max(32px,calc(env(safe-area-inset-bottom,0px) + 12px));top:var(--report-safe-top);bottom:auto;left:max(12px,env(safe-area-inset-left,0px));right:max(12px,env(safe-area-inset-right,0px));margin:0 auto;width:auto;max-width:680px;max-height:calc(100svh - var(--report-safe-top) - var(--report-safe-bottom));overscroll-behavior:none}
+  .review-report-dialog[open]>.review-report-body{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain}
+}
 .review-report-dialog::backdrop{background:rgb(0 10 25 / .65)}
 .review-report-dialog>header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:18px 20px;border-bottom:1px solid var(--line);flex-shrink:0}
 .review-report-dialog>header>div{min-width:0}.review-report-dialog h3{font-size:22px;margin:5px 0;overflow-wrap:anywhere}.review-report-dialog header span{color:var(--green);font-size:11px;font-weight:800;letter-spacing:.12em}.review-report-dialog small{color:var(--muted)}
