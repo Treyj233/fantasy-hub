@@ -1,4 +1,17 @@
-.team-review-page{max-width:1440px;margin-inline:auto;color:var(--ink)}
+.team-review-page{max-width:1440px;margin-inline:auto;color:var(--ink);display:grid;grid-template-columns:minmax(0,1fr);column-gap:16px;align-items:start}
+.team-review-page>*{min-width:0;grid-column:1/-1}
+.team-review-page .review-priority{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border-left:3px solid var(--gold);background:color-mix(in srgb,var(--lime) 12%,var(--chalk));border-radius:0 0 10px 10px}
+.review-priority>div{display:grid;gap:4px;min-width:0}.review-priority>div>span{font-size:10px;font-weight:800;letter-spacing:.08em;color:var(--muted)}.review-priority strong{font-size:14px;line-height:1.4}.review-priority a{display:flex;align-items:center;gap:6px;min-height:44px;flex-shrink:0;color:var(--green);font-size:13px;font-weight:750;text-underline-offset:3px}
+.team-review-page .review-league-fit{padding:10px 0;margin-bottom:14px;border-bottom:1px solid var(--line)}
+.review-league-fit summary{display:flex;align-items:center;gap:10px;min-height:44px;cursor:pointer;list-style:none}.review-league-fit summary::-webkit-details-marker{display:none}.review-league-fit summary>span:first-child{font-size:10px;letter-spacing:.08em;color:var(--muted);font-weight:800;flex-shrink:0}.review-league-fit summary strong{font-size:13px;line-height:1.4}.review-fit-toggle{margin-left:auto;font-size:12px;color:var(--green)}.review-fit-toggle::after{content:' +';font-weight:800}.review-league-fit[open] .review-fit-toggle::after{content:' −'}.review-league-fit p{font-size:13px;line-height:1.5;margin:7px 0}.review-league-fit .review-tags:empty{display:none}
+.team-review-page>section.review-section.review-moves-section.panel{background:transparent;box-shadow:none;border:0;padding:0;margin-top:4px;margin-bottom:18px}
+.team-review-page>section.review-section.review-moves-section>header{margin:0 0 10px;padding:8px 0;background:none;border-radius:0;border-bottom:1px solid var(--line)}
+.team-review-page>section.review-profile .review-rooms article[data-room-status]{border-left:0;border-top-color:var(--room-accent);background:linear-gradient(180deg,color-mix(in srgb,var(--room-accent) 8%,var(--chalk)),var(--chalk) 75%)}
+.review-rooms [data-room-status="strength"]{--room-accent:#23865a}.review-rooms [data-room-status="attention"]{--room-accent:#ce8330}.review-rooms [data-room-status="competitive"]{--room-accent:#758597}
+.team-review-page .review-all-clear{padding:10px;border-left:3px solid #23865a;background:color-mix(in srgb,#23865a 8%,var(--chalk));border-radius:6px}
+.team-review-page #review-availability,.team-review-page #review-trades{scroll-margin-top:220px}
+@media(min-width:1100px){.team-review-page{grid-template-columns:minmax(0,1.65fr) minmax(300px,1fr)}.team-review-page>section.review-profile{grid-column:1}.team-review-page>section.review-availability{grid-column:2}.team-review-page .review-profile .review-rooms{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:480px){.team-review-page>section.review-section.review-moves-section .review-trade-sides{grid-template-columns:1fr}.team-review-page>section.review-section.review-moves-section .review-trade-player strong{font-size:14px}.review-priority{flex-wrap:wrap}.review-league-fit summary{flex-wrap:wrap;gap:5px 8px}.review-league-fit summary strong{flex-basis:75%}.review-fit-toggle{margin-left:0}}
 /* Main-page treatment follows the report, without changing the dialog. */
 .team-review-page>section.review-section.panel{padding:12px;margin-bottom:10px;background:color-mix(in srgb,var(--green) 3%,var(--chalk));box-shadow:none}
 .team-review-page>section.review-section>header{display:flex;flex-wrap:wrap;align-items:center;gap:7px 10px;margin:-12px -12px 10px;padding:10px 12px;border-bottom:2px solid var(--gold);border-radius:var(--radius-card,14px) var(--radius-card,14px) 0 0;background:linear-gradient(110deg,color-mix(in srgb,var(--lime) 24%,var(--chalk)),color-mix(in srgb,var(--lime) 8%,var(--chalk)))}
@@ -39,7 +52,7 @@
 /* Compact, aligned review surface; all accents follow the active theme. */
 .team-review-page .review-heading{gap:12px;margin-bottom:12px}
 .team-review-page .review-heading>div{min-width:0}
-.team-review-page button.review-generate{flex-shrink:0;max-width:none;display:flex;align-items:center;justify-content:center;gap:12px;padding:12px 18px;color:var(--chalk);background:linear-gradient(120deg,var(--deep),var(--green));border:1px solid var(--gold);box-shadow:0 4px 14px color-mix(in srgb,var(--green) 22%,transparent)}
+.team-review-page button.review-generate{flex-shrink:0;max-width:none;display:flex;align-items:center;justify-content:center;gap:12px;padding:12px 18px;min-height:44px;border-radius:9px;font:inherit;font-size:13px;font-weight:750;cursor:pointer;color:white;background:linear-gradient(120deg,var(--deep),var(--green));border:1px solid var(--gold);box-shadow:0 4px 14px color-mix(in srgb,var(--green) 22%,transparent)}
 .team-review-page button.review-generate>span{color:var(--gold-light);font-size:20px}
 .team-review-page button:disabled{cursor:wait;opacity:.65}
 .team-review-page .review-verdict{padding:18px 20px;gap:16px}
@@ -106,7 +119,7 @@
 .review-heading{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:18px}
 .review-heading span,.review-section>header>span,.review-verdict>div>span{font-size:11px;font-weight:850;letter-spacing:.12em;color:var(--green)}
 .review-heading h2{margin:5px 0;font-size:28px;overflow-wrap:anywhere}.review-heading p{margin:0;color:var(--muted);font-size:13px}
-.team-review-page button:not(.review-player){padding:10px 14px;min-height:44px;border:1px solid var(--line);border-radius:9px;background:var(--chalk);color:var(--green);font:inherit;font-size:13px;font-weight:750;cursor:pointer}
+.team-review-page button:not(.review-player):not(.review-generate):not(.review-trade-player){padding:10px 14px;min-height:44px;border:1px solid var(--line);border-radius:9px;background:var(--chalk);color:var(--green);font:inherit;font-size:13px;font-weight:750;cursor:pointer}
 .team-review-page button:focus-visible,.team-review-page summary:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
 .review-verdict{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:24px;padding:26px 28px;background:linear-gradient(120deg,var(--deep),var(--green));border-radius:16px;color:white;border-top:3px solid var(--gold)}
 .review-verdict>div>span{color:var(--gold-light)}.review-verdict h3{font-size:36px;line-height:1.1;margin:9px 0 12px}.review-verdict p{max-width:780px;line-height:1.55;margin:0;font-size:14px;color:#fff}

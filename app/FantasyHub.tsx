@@ -8840,6 +8840,9 @@ function TeamReview({ teams, selectedTeamId, rankings, context, waivers, onNavig
   if (!report || !context || !selected) return <div className="page-content team-review-page"><section className="panel" role="status"><h2>Reviewing your team</h2><p>Checking lineup requirements, league strength, and usable depth…</p></section></div>;
   const { structure } = report;
   const decision = startSitDecision(selected.roster);
+  const hasReviewAlerts = report.vacancies > 0 || report.injuries.length > 0 || report.concentration.length > 0 || report.depthRank > Math.ceil(report.leagueSize / 2) || Boolean(decision);
+  const priorityIsLineup = report.vacancies > 0 || report.injuries.length > 0 || Boolean(decision);
+  const reviewPriority = report.vacancies > 0 ? `Cover ${report.vacancies} open starting spots` : report.injuries.length > 0 ? 'Check availability before setting your lineup' : decision ? 'Resolve your close lineup decision' : report.targetPositions.length ? `Find help at ${report.targetPositions.join(' and ')}` : 'Protect your starting advantage';
   const slotSummary = [...new Set(structure.slots)].map(slot => `${structure.slots.filter(s => s === slot).length} ${formatRosterSlot(slot)}`).join(' · ');
   const reportPlayerNames = [...new Set([...teams.flatMap(t => t.roster), ...waivers, ...rankings].map(p => p.name).filter(Boolean))]
     .filter(name => writtenReport.some(section => section.body.includes(name))).sort((a, b) => b.length - a.length);
@@ -8853,24 +8856,26 @@ function TeamReview({ teams, selectedTeamId, rankings, context, waivers, onNavig
       <div><span>YOUR TEAM VERDICT</span><h3>{report.verdict}</h3><p><b>{report.strengths[0].position}</b> leads your roster. {report.vacancies ? report.vacancies + ' starting spots need coverage.' : report.targetPositions.length ? 'Prioritize ' + report.targetPositions.join(' and ') + '.' : 'Protect your starting advantage.'}</p></div>
       <div className="review-rank"><strong>#{report.overallRank}</strong><span>roster readiness<br />of {report.leagueSize} teams</span></div>
     </section>
+    <div className="review-priority"><div><span>TOP PRIORITY</span><strong>{reviewPriority}</strong></div><a href={priorityIsLineup ? '#review-availability' : '#review-trades'}>Review options <span aria-hidden="true">↓</span></a></div>
     <div className="review-metrics">{[['Starter strength', report.starterRank], ['Lineup balance', report.balanceRank], ['Usable depth', report.depthRank]].map(([label, rank]) => <div className="panel" key={label}><span>{label}</span><strong>#{rank}</strong><small>in your league</small></div>)}</div>
-    <section className="review-section panel"><header><span>LEAGUE FIT</span><h3>{structure.deep >= .5 ? 'Build through balanced depth' : 'Prioritize difference-making starters'}</h3></header>
+    <details className="review-league-fit"><summary><span>LEAGUE FIT</span><strong>{structure.deep >= .5 ? 'Build through balanced depth' : 'Prioritize difference-making starters'}</strong><span className="review-fit-toggle">Details</span></summary>
       <p className="review-settings">{slotSummary}</p>
       <p>{structure.deep >= .5 ? 'Protect your flex depth. Upgrade weak starting spots without leaving another hole.' : 'Prioritize stronger starters and QB/TE advantages over extra bench depth.'}</p>
       <div className="review-tags">{structure.superflex && <span>Superflex · Protect your second QB</span>}{context.tePremium > 0 && <span>TE premium · Preserve your edge</span>}{structure.unsupported.length > 0 && <span>Offensive roster review</span>}</div>
-    </section>
+    </details>
     <section className="review-section review-profile"><header><span>STRENGTHS & GAPS</span><h3>Your positional profile</h3></header>
-      <div className="review-rooms">{report.rooms.map(room => <article key={room.position}><header><h4>{room.position}</h4><b>#{room.rank} / {report.leagueSize}</b></header><strong>{room.score < room.leagueAverage * .9 ? 'Needs attention' : room.rank <= Math.ceil(report.leagueSize / 3) ? 'Strength' : 'Competitive'}</strong><p>{room.starters.length ? room.starters.map((p, i) => <Fragment key={p.id}>{i > 0 && ', '}<button className="review-player" onClick={() => open(p)}>{p.name}</button></Fragment>) : 'No available starter.'}</p><small>{room.backups.length ? room.backups.length + ' backups · ' + room.backups[0].name : 'No backup coverage'}</small></article>)}</div>
+      <div className="review-rooms">{report.rooms.map(room => <article data-room-status={room.score < room.leagueAverage * .9 ? 'attention' : room.rank <= Math.ceil(report.leagueSize / 3) ? 'strength' : 'competitive'} key={room.position}><header><h4>{room.position}</h4><b>#{room.rank} / {report.leagueSize}</b></header><strong>{room.score < room.leagueAverage * .9 ? 'Needs attention' : room.rank <= Math.ceil(report.leagueSize / 3) ? 'Strength' : 'Competitive'}</strong><p>{room.starters.length ? room.starters.map((p, i) => <Fragment key={p.id}>{i > 0 && ', '}<button className="review-player" onClick={() => open(p)}>{p.name}</button></Fragment>) : 'No available starter.'}</p><small>{room.backups.length ? room.backups.length + ' backups · ' + room.backups[0].name : 'No backup coverage'}</small></article>)}</div>
     </section>
-    <section className="review-section panel"><header><span>WATCH LIST</span><h3>Lineup & availability</h3></header>
+    <section id="review-availability" className="review-section review-availability panel"><header><span>WATCH LIST</span><h3>Lineup & availability</h3></header>
+      {!hasReviewAlerts && <p className="review-all-clear">✓ No current injury flags or close lineup decisions. Starting spots are covered.</p>}
       {report.vacancies > 0 && <p><b>Fill {report.vacancies} starting spots</b> before trading away depth.</p>}
-      <p><b>Health:</b> {report.injuries.length ? report.injuries.map(p => p.name + ' (' + p.status + ')').join(' · ') : 'No current injury flags.'}</p>
+      {hasReviewAlerts && <p><b>Health:</b> {report.injuries.length ? report.injuries.map(p => p.name + ' (' + p.status + ')').join(' · ') : 'No current injury flags.'}</p>}
       {report.concentration.length > 0 && <p><b>Concentration:</b> {report.concentration.map(([team, count]) => count + ' starters from ' + team).join(' · ')}</p>}
       {report.depthRank > Math.ceil(report.leagueSize / 2) && <p><b>Depth #{report.depthRank}:</b> Add reliable injury and bye-week cover.</p>}
-      {decision ? <p><b>Start/Sit:</b> <button className="review-player" onClick={() => onPlayer(decision.starter)}>{decision.starter.name}</button> vs <button className="review-player" onClick={() => onPlayer(decision.candidate)}>{decision.candidate.name}</button></p> : <p>No close lineup decisions flagged.</p>}
+      {decision ? <p><b>Start/Sit:</b> <button className="review-player" onClick={() => onPlayer(decision.starter)}>{decision.starter.name}</button> vs <button className="review-player" onClick={() => onPlayer(decision.candidate)}>{decision.candidate.name}</button></p> : hasReviewAlerts ? <p>No close lineup decisions flagged.</p> : null}
       <button onClick={() => onNavigate('Start / Sit')}>Compare lineup options →</button>
     </section>
-    <section className="review-section panel"><header><span>ROSTER MOVES</span><h3>Trades built for your team</h3></header>
+    <section id="review-trades" className="review-section review-moves-section panel"><header><span>ROSTER MOVES</span><h3>Trades built for your team</h3></header>
       {tradesError ? <p role="alert">Trade matching is unavailable. <button onClick={() => setRetry(n => n + 1)}>Retry trades</button></p> : tradesLoading ? <p role="status">Finding balanced trade packages…</p> : trades.length ? <div className="review-trades">{trades.map(({ partner, partnerId, suggestion }) => <article className="review-trade-card" key={suggestion.id}>
         <header><span>TRADE WITH</span><h4>{partner}</h4></header>
         <div className="review-trade-sides">{[['You receive', suggestion.receive], ['You send', suggestion.send]].map(([label, assets]) => <div key={label as string}><span>{label as string}</span>{(assets as TradeAssetValue[]).map(asset => <button className="review-trade-player" key={asset.id} onClick={() => open(asset)}><i className={'pos pos-' + asset.position.toLowerCase()}>{asset.position}</i><strong>{asset.name}</strong></button>)}</div>)}</div>
@@ -8879,7 +8884,7 @@ function TeamReview({ teams, selectedTeamId, rankings, context, waivers, onNavig
       </article>)}</div> : <p>No balanced package clears the roster-improvement checks right now.</p>}
       {trades.length > 0 && <small className="review-trade-note">Proposed deals, not accepted offers. Each is a separate option.</small>}
     </section>
-    <section className="review-section panel"><header><span>AVAILABLE IN YOUR LEAGUE</span><h3>Waiver targets</h3></header>
+    <section className="review-section review-moves-section panel"><header><span>AVAILABLE IN YOUR LEAGUE</span><h3>Waiver targets</h3></header>
       {waiverPlans.length ? <div className="review-waivers">{waiverPlans.map(({ add, drop, starter }) => <article className="review-move" key={add.id}><span>{starter ? 'STARTER UPGRADE' : 'DEPTH UPGRADE'}</span><h4><button className="review-player" onClick={() => onPlayer(add)}>Add {add.name}</button></h4><p>Drop candidate: <button className="review-player" onClick={() => onPlayer(drop)}>{drop.name}</button></p><small>Recheck availability before claiming.</small></article>)}</div> : <p>{waivers.length ? 'No worthwhile add/drop upgrade found. Keep your current assets.' : 'Waiver data unavailable. Refresh your league to load targets.'}</p>}
       <button onClick={() => onNavigate('Waiver Wire')}>Check waiver availability →</button>
     </section>
