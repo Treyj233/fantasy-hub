@@ -14,6 +14,8 @@ type SleeperPlayer = {
 };
 
 export type PlayerContext = {
+  availabilityContext?: string[];
+  reportingContext?: string[];
   playerId: string;
   player: string;
   position: string;
@@ -58,7 +60,7 @@ async function loadPlayers() {
     if (!response.ok) return [];
     const data = await response.json() as Record<string, SleeperPlayer>;
     playerCache = {
-      expires: Date.now() + 6 * 60 * 60 * 1000,
+      expires: Date.now() + 5 * 60 * 1000,
       players: Object.entries(data).map(([playerId, player]) => ({ ...player, player_id: player.player_id ?? playerId })),
     };
   }
@@ -122,6 +124,15 @@ export async function findPlayerContext(text: string, eventType?: string): Promi
     .sort((a, b) => fantasyRelevanceOrder(a) - fantasyRelevanceOrder(b))
     .slice(0, 3);
   const affectedPlayers = affectedPlayerRecords.map((player) => player.full_name!);
+  // Injury context is not a recommendation: injured starters must remain visible
+  // even though they are correctly excluded from healthy replacement candidates.
+  const injuredTeammates = players.filter((player) => player.full_name && player.team === mentioned.team
+    && player.position && affectedPositions.has(player.position) && player.injury_status
+    && player.full_name !== mentioned.full_name && isFantasySignificant(player))
+    .sort((a, b) => fantasyRelevanceOrder(a) - fantasyRelevanceOrder(b)).slice(0, 3);
+  const availabilityContext = injuredTeammates.map((player) =>
+    `${player.full_name}: Sleeper injury status ${player.injury_status}. Status snapshot, not a confirmed inactive ruling or evidence of the signing's motive.`);
+  for (const player of injuredTeammates) if (!affectedPlayers.includes(player.full_name!)) affectedPlayers.push(player.full_name!);
   const hasRelevantAffectedPlayer = players
     .filter((player) => player.full_name && player.team === mentioned.team && player.position && affectedPositions.has(player.position))
     .some((player) => player.full_name !== mentioned.full_name && isAvailableForRecommendation(player) && isFantasySignificant(player));
@@ -136,7 +147,8 @@ export async function findPlayerContext(text: string, eventType?: string): Promi
   // fantasy-relevant teammate whose opportunity can actually be affected.
   const meaningfulAvailabilityReturn = materialAvailabilityReturn.test(primaryStatement)
     && hasRelevantAffectedPlayer;
-  if (!isFantasySignificant(mentioned) && !meaningfulTeammateImpact && !meaningfulAvailabilityReturn) return null;
+  const possibleInjuryCover = eventType === "contract" && /sign|elevat|promot/i.test(primaryStatement) && injuredTeammates.length > 0;
+  if (!isFantasySignificant(mentioned) && !meaningfulTeammateImpact && !meaningfulAvailabilityReturn && !possibleInjuryCover) return null;
   const backupRecords = players
     .filter((player) => player.player_id && player.full_name && backups.includes(player.full_name));
   const relatedPlayers = [
@@ -144,5 +156,5 @@ export async function findPlayerContext(text: string, eventType?: string): Promi
     ...affectedPlayerRecords.filter((player) => player.player_id && player.full_name && player.position && player.team).map((player) => ({ id: player.player_id!, name: player.full_name!, position: player.position!, team: player.team!, relationship: "beneficiary" as const })),
     ...backupRecords.filter((player) => !affectedPlayers.includes(player.full_name!)).map((player) => ({ id: player.player_id!, name: player.full_name!, position: player.position!, team: player.team!, relationship: "backup" as const })),
   ].filter((player, index, players) => players.findIndex((candidate) => candidate.id === player.id) === index);
-  return { playerId: mentioned.player_id ?? mentioned.full_name, player: mentioned.full_name, position: mentioned.position, team: mentioned.team, backups, affectedPlayers, relatedPlayers };
+  return { playerId: mentioned.player_id ?? mentioned.full_name, player: mentioned.full_name, position: mentioned.position, team: mentioned.team, backups, affectedPlayers, relatedPlayers, availabilityContext };
 }

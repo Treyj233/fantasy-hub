@@ -418,8 +418,7 @@ const specificImpact = (story: Story, context: FantasyPlayerContext | null) => {
       return `${context.player}'s departure clears an opening for ${affected}. Add the likely replacement to your watchlist now, but wait for the team to assign the vacated role before spending meaningful FAAB.`;
     }
     if (playerAdded.test(move)) {
-      const action = context.position === "QB" ? "Hold the surrounding pass catchers until the team confirms the pecking order" : context.position === "K" ? "Do not roster either kicker until the competition is settled" : `Treat ${affected} as the immediate value-pressure point`;
-      return `${context.player}'s arrival adds real competition. ${action}; avoid buying at the old price until the role is clear.`;
+      return `${context.player}'s signing adds roster depth, but does not establish a workload change. Keep existing valuations until a role or game-status report confirms an impact.`;
     }
   }
   if (story.category === "news" && context) {

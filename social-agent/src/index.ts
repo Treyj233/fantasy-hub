@@ -1,4 +1,5 @@
 import { Agent, getAgentByName } from "agents";
+import { editorialContext, findReportingContext } from "./editorial-context";
 import { categorizeStory, composeFantasyPost, isFantasyRelevant, isLiveContentPost, isPotentialTradeStory, isPracticeSetting, isSelfContainedMediaPost, isSixPointFantasyPlay, splitAtomicUpdates, splitImpactSteps, type Story } from "./content";
 import { createXPost, xApiGet, type XCredentials } from "./x-client";
 import { findPlayerContext, findTeamFantasyPlayers } from "./player-data";
@@ -544,6 +545,7 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
       const candidates = [...new Set([...context.affectedPlayers, ...context.backups])].slice(0, 5);
       const result = await this.env.AI.run("@cf/meta/llama-3.3-70b-instruct-fp8-fast", {
         messages: [
+          { role: "user", content: editorialContext(context) },
           {
             role: "system",
             content: "You are Fantasy Hub's senior fantasy-football news editor. Your job is comprehension first and writing second. Privately resolve the subject, the exact new development, its timing and certainty, the fantasy mechanism it could change, the correct action now, and the next observable decision trigger. Then write for a reader who has not seen the source post. Stay strictly inside the supplied evidence. Distinguish practice from games, observation from confirmation, and preseason from lineup season. Never invent stats, injuries, transactions, roles, teammates, beneficiaries, or recommendations. Return JSON only.",
@@ -656,6 +658,7 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
       const allowedPlayers = context ? [...new Set([context.player, ...context.affectedPlayers, ...context.backups])].slice(0, 7) : [];
       const result = await this.env.AI.run("@cf/meta/llama-3.3-70b-instruct-fp8-fast", {
         messages: [
+          { role: "user", content: editorialContext(context) },
           {
             role: "system",
             content: "You are Fantasy Hub's senior in-app fantasy-football editor. First understand the evidence, then explain it to a reader who never saw the source. Every field must have a different job: the headline states the development, the summary explains what happened, whyItMatters translates the football change into fantasy consequences, and nextMove gives a decision plus its trigger. Use only supplied facts. Never infer an injury, transaction, role, game result, statistic, teammate, beneficiary, or recommendation. Treat practice as practice and preseason as preseason. Prefer plain, specific language over analyst jargon. Return JSON only.",
@@ -707,6 +710,7 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
     try {
       const result = await this.env.AI.run("@cf/meta/llama-3.3-70b-instruct-fp8-fast", {
         messages: [
+          { role: "user", content: editorialContext(context) },
           { role: "system", content: "You are the independent final source auditor for a fantasy-football news account. The proposed X post is a compact version of an approved in-app editorial brief. Verify the reported event, player identity, timing, and season context against the supplied evidence. Treat clearly labeled fantasy analysis as analysis: it may draw a cautious football-to-fantasy conclusion from the verified event and resolved roster context even when the source did not state that conclusion verbatim. Reject contradictions, invented facts, unsupported certainty, wrong players or events, practice/preseason conclusions presented as regular-season facts, surname-only references, vague headlines, and generic fantasy commentary. Do not reject solely because concise wording differs from the source. Return JSON only." },
           { role: "user", content: `Original source evidence: ${story.summary}\nStructured facts: ${JSON.stringify(facts)}\nResolved subject: ${context?.player ?? "weather report"}\nAllowed affected-player names: ${JSON.stringify(context ? [...new Set([...context.affectedPlayers, ...context.backups])] : [])}\nProposed X post: ${draft}\nAudit the factual news claim against the original evidence. Then confirm that WHY IT MATTERS is a reasonable, cautious fantasy consequence tied to a named mechanism such as availability, workload, role, targets, touches, lineup use, or format value. It need not be quoted by the source. Approve concise paraphrases that preserve meaning. Return a short verification note when approved; otherwise name each exact factual conflict, overstatement, or missing mechanism.` },
         ],
@@ -892,7 +896,8 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
             error = 'Incomplete quote introduction without the quoted statement'
         WHERE status IN ('draft', 'posted') AND TRIM(title) LIKE '%:'`;
       const cutoff = now.getTime() - RECENT_STORY_HOURS * 60 * 60 * 1000;
-      const candidates = [...await this.sourceStories(), ...await gameDayWeatherStories()]
+      const sourceReports = (await this.sourceStories()).filter((story) => !RETRACTED_STORY_IDS.includes(story.id));
+      const candidates = [...sourceReports, ...await gameDayWeatherStories()]
         .filter((story) => !RETRACTED_STORY_IDS.includes(story.id))
         .filter(isFantasyRelevant)
         .filter((story) => story.category !== "performance" || (!isPracticeSetting(`${story.title} ${story.summary}`) && !story.sourceContext?.includes("practice")))
@@ -916,6 +921,7 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
         }
         const context = story.category === "weather" ? null : await findPlayerContext(`${story.title} ${story.summary}`, story.category);
         if (!context && story.category !== "weather") continue;
+        if (context) context.reportingContext = findReportingContext(story, context, sourceReports);
         const storySemanticKey = context ? semanticKey(story, context) : story.id;
         const duplicateWindowMs = story.category === "performance" ? 20 * 60_000 : 24 * 60 * 60_000;
         const duplicateCutoff = new Date(Date.parse(story.publishedAt) - duplicateWindowMs).toISOString();

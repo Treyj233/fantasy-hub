@@ -55,7 +55,7 @@ test("social agent is live, sourced, deduplicated, and rate limited", async () =
   assert.match(content, /if ruled out, reassess \$\{backupText\}/);
   assert.doesNotMatch(content, /Add now where available and monitor pregame status/);
   assert.match(content, /\\bir\\b/);
-  assert.match(content, /arrival adds real competition/);
+  assert.match(content, /does not establish a workload change/);
   assert.match(content, /departure clears an opening/);
   assert.match(worker, /x-editorial-v45-why-it-matters-full-names/);
   assert.match(worker, /2091958236685520923/);
