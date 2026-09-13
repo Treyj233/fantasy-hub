@@ -783,15 +783,18 @@ function projectedTeamTotal(team: ScoreboardTeam) {
 function ScoreWithProjection({
   team,
   precision = 2,
+  status,
 }: {
   team: ScoreboardTeam;
   precision?: number;
+  status?: string;
 }) {
-  const projection = projectedTeamTotal(team);
+  const projection = status ? portfolioProjectedFinish(team, status) : projectedTeamTotal(team);
+  const projectionLabel = status === "Final" ? "FINAL" : status && status !== "Scheduled" ? "LIVE PROJ" : "PROJ";
   return (
     <span className="score-with-projection">
       <b>{team.points.toFixed(precision)}</b>
-      {projection != null && <small>PROJ {projection.toFixed(1)}</small>}
+      {projection != null && <small>{projectionLabel} {projection.toFixed(1)}</small>}
     </span>
   );
 }
@@ -12084,9 +12087,9 @@ function HeadToHeadMatchup({
       {matchup && firstTeam && secondTeam ? (
         <>
           <section className="head-to-head-score panel">
-            <div><small>{firstTeam.isMine ? "YOU" : firstTeam.teamName}</small><ScoreWithProjection team={firstTeam} /></div>
+            <div><small>{firstTeam.isMine ? "YOU" : firstTeam.teamName}</small><ScoreWithProjection team={firstTeam} status={matchup.status} /></div>
             <span className={matchup.status === "Scheduled" ? "game-scheduled" : ""}><b>{matchup.status === "Live" ? "● LIVE" : matchup.status}</b><i>VS</i><small>Week {data?.week}</small></span>
-            <div><small>{secondTeam.isMine ? "YOU" : secondTeam.teamName}</small><ScoreWithProjection team={secondTeam} /></div>
+            <div><small>{secondTeam.isMine ? "YOU" : secondTeam.teamName}</small><ScoreWithProjection team={secondTeam} status={matchup.status} /></div>
           </section>
           <div className="head-to-head-grid">
             {teamColumn(firstTeam, "TEAM 1")}
