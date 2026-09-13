@@ -101,14 +101,11 @@
 }
 .vegas-edge-page .edge-board .matchup-team>span{text-align:center}
 .vegas-edge-page .edge-board .matchup-team>span>b,.vegas-edge-page .edge-board .matchup-team>span>small{text-align:center}
-.vegas-edge-page .edge-intro{padding:14px 18px;gap:10px}
+.vegas-edge-page .edge-intro{padding-block:12px;row-gap:8px}
 .vegas-edge-page .edge-intro .mission-hub-subtitle{margin:5px 0 7px}
-.vegas-edge-page .edge-intro .edge-preview{padding:3px 6px;font-size:8px}
 @media(max-width:700px){
-  .vegas-edge-page .edge-intro{padding:12px 14px;gap:9px;flex-wrap:nowrap}
-  .vegas-edge-page .edge-intro>div{min-width:0;flex:1}
-  .vegas-edge-page .edge-intro .mission-hub-subtitle{font-size:18px;margin:4px 0 6px}
-  .vegas-edge-page .edge-intro .edge-refresh{padding:8px;max-width:92px;white-space:normal;line-height:1.2;font-size:11px;flex-shrink:0;min-height:44px}
+  .vegas-edge-page .edge-intro{padding-block:10px;row-gap:8px}
+  .vegas-edge-page .edge-intro .mission-hub-subtitle{margin-block:4px 6px}
   .vegas-edge-page .edge-games{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:9px}
   .vegas-edge-page .edge-games article{min-width:0;padding:9px 8px;gap:5px;font-size:11px}
   .vegas-edge-page .edge-games article>b{font-size:12px}
