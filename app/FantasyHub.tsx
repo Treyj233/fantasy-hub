@@ -6,6 +6,7 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import { estimatedWinProbability, isProjectedWin, playerLeverage, rootingInterests, whatDoINeed } from "./game-day-model.mjs";
 import { classifyFantasyPlay, findConfirmedPlayContext, isSundayPulseEventActive, SUNDAY_PULSE_EVENT_TTL_MS } from "./live-play-alerts.mjs";
+import { sundaySwingsFromGroups } from "./sunday-swings.mjs";
 import { PRE_KICKOFF_VISUALS_ENABLED } from "./pre-kickoff-visuals";
 import { DEFAULT_PUSH_PREFERENCES, type PushAlertKey, type PushPreferences } from "./push-preferences";
 import { disableNativePushNotifications, enableNativePushNotifications, initializeNativeRuntime, isNativeIosApp, nativeHapticsEnabled, nativeImpact, nativeLogAppsFlyerEvent, nativeManageSubscriptions, nativePurchase, nativeRefreshPurchases, nativeRestorePurchases, nativeStoreProducts, setNativeHapticsEnabled } from "./native-runtime";
@@ -6485,11 +6486,7 @@ function AllLeagueScoreboard({
         const first = events[0];
         return { id: `${first.dedupeKey}:${first.at}`, impact: helps.length ? "helps" as const : "hurts" as const, delta: Math.max(...events.map((event) => event.delta)), at: first.at, text: `${helps.length && !hurts.length ? "📈" : hurts.length && !helps.length ? "📉" : "⚖️"} ${first.description} ${scope}` };
       });
-      const bigPlays = [...groupedScoringEvents.values()].flatMap((events) => {
-        const play = events.find((event) => event.delta > 6 && event.confirmedPlay);
-        if (!play) return [];
-        return [{ id: play.dedupeKey, text: play.confirmedPlay!, delta: play.delta, at: play.at }];
-      });
+      const bigPlays = sundaySwingsFromGroups(groupedScoringEvents.values());
       if (bigPlays.length) setSwingFeed((current) => [...bigPlays, ...current.filter((event) => !bigPlays.some((play) => play.id === event.id))].slice(0, 10));
       if (condensedScoringEvents.length) setPulseEvents((current) => [...condensedScoringEvents.sort((a, b) => b.delta - a.delta), ...current].filter((event) => isSundayPulseEventActive(event.at)).slice(0, 12));
       else if (!hadPulseBaseline) setPulseEvents([]);
@@ -6691,7 +6688,7 @@ function AllLeagueScoreboard({
     // Constant travel speed regardless of league count, viewport, or font width.
     const measure = () => {
       const distance = track.scrollWidth / 2;
-      track.style.setProperty("--pulse-duration", `${Math.max(32, distance / 38)}s`);
+      track.style.setProperty("--pulse-duration", `${Math.max(29, distance / 42)}s`);
     };
     measure();
     const observer = new ResizeObserver(measure);
@@ -6851,7 +6848,7 @@ function AllLeagueScoreboard({
       </section>
       <div className="game-day-insights">
         <section className="panel rooting-interests"><header><div><span>ROOTING INTERESTS</span><h3>Who to cheer—and who to stop</h3></div><b>📣 GAME-DAY PULSE</b></header><div className="insight-scroll-window">{gameDay.interests.length ? gameDay.interests.map((interest) => <article className={`rooting-${interest.sentiment}`} key={interest.playerId}><div className="rooting-visual"><NflTeamLogo team={interest.nflTeam} /><PlayerHeadshot id={interest.playerId} position={interest.position} /><i aria-hidden="true">{interest.sentiment === "cheer" ? "📣" : interest.sentiment === "fade" ? "🛑" : "⚖️"}</i></div><p><span>{interest.sentiment === "cheer" ? "ROOT FOR" : interest.sentiment === "fade" ? "ROOT AGAINST" : "MIXED ROOTING INTEREST"}</span><strong>{interest.playerName}</strong><small>{interest.text}</small><span className="rooting-leagues">{interest.affectedLeagues.map((league) => <b className={league.impact} key={`${interest.playerId}-${league.id}`}>{league.impact === "helps" ? "↑" : "↓"} {league.name}</b>)}</span></p><em><small>{interest.level} impact</small></em></article>) : <p className="game-day-empty">Rooting interests appear when weekly lineups and projections are available.</p>}</div></section>
-        <section className="panel sunday-swing" data-visual-source="observed"><header><div><span>SUNDAY SWINGS</span><h3>Big plays this session</h3></div></header><div className="insight-scroll-window sunday-big-plays">{swingFeed.length ? swingFeed.map((item) => <article key={item.id}><b>+{item.delta.toFixed(1)} pts</b><p><small>{item.text}</small></p><time>{new Date(item.at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</time></article>) : <p className="game-day-empty">Plays worth more than 6 fantasy points will appear here as scoring updates arrive. They stay until newer big plays replace them.</p>}</div></section>
+        <section className="panel sunday-swing" data-visual-source="observed"><header><div><span>SUNDAY SWINGS</span><h3>Big scoring swings</h3></div></header><div className="insight-scroll-window sunday-big-plays">{swingFeed.length ? swingFeed.map((item) => <article key={item.id}><b>+{item.delta.toFixed(1)} pts</b><p><small>{item.text}</small></p><time>{new Date(item.at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</time></article>) : <p className="game-day-empty">Scoring gains above 6 fantasy points appear here, even without play-by-play. They stay until newer updates replace them.</p>}</div></section>
       </div>
       <div className="portfolio-scoreboard-grid" id="league-matchups">
         {orderedLeagues.map((league) => {
