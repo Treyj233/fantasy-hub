@@ -1047,7 +1047,7 @@ const glossaryDetails: Record<View, { summary: string; use: string }> = {
   "League Analytics": { summary: "Adapts to dynasty or redraft and explains roster strength, depth, positional allocation, competitive window, and future trajectory.", use: "Analyze long-term roster strategy." },
   "Team Rankings": { summary: "Ranks every team using league-relative starters, depth, balance, scoring settings, and—when applicable—runway and draft capital.", use: "Compare every league roster." },
   "Team Review": { summary: "A Pro roster report combining league-specific lineup balance, strengths, risks, and targeted trade and waiver plans.", use: "Get your team verdict and improvement plan." },
-  "Vegas Edge": { summary: "Elite market-informed projections, lineup opportunities, and waiver targets. Currently in owner preview.", use: "Find the edge in player props." },
+  "Vegas Edge": { summary: "Elite market-informed projections, lineup opportunities, and waiver targets.", use: "Find the edge in player props." },
   "Player Rankings": { summary: "Tier-based player rankings tailored to league format, scoring, lineup demand, and positional importance.", use: "Compare rest-of-season player value." },
   "ADP": { summary: "Shows market draft position by available source, separated from Fantasy Hub’s internal player rankings.", use: "Compare draft cost and value." },
   "Draft HQ": { summary: "A configurable mock-draft room with a live board, roster construction, rankings, and tiered draft intelligence.", use: "Practice and prepare for drafts." },
@@ -1893,7 +1893,7 @@ export default function FantasyHub({
   const [accountLoading, setAccountLoading] = useState(Boolean(accountUser && !cachedAccount));
   const [accountError, setAccountError] = useState("");
   const [entitlement, setEntitlement] = useState<AccountEntitlement>(cachedAccount?.entitlement ?? { plan: "free", status: "inactive", pro: false, elite: false, currentPeriodEnd: null, provider: null, owner: false });
-  const vegasMode = useProjectionController(entitlement.owner && entitlement.elite,accountUser?.email ?? '',leagueSeason);
+  const vegasMode = useProjectionController(entitlement.elite,accountUser?.email ?? '',leagueSeason);
   const projectionWeek=Math.max(1,leagueWeek);
   const players=useMemo(()=>platformPlayers.map(p=>vegasMode.adapter.player(p,rankingContext,leagueSeason,projectionWeek)),[platformPlayers,vegasMode.adapter,rankingContext,leagueSeason,projectionWeek]);
   const leagueTeams=useMemo(()=>platformTeams.map(t=>({...t,roster:t.roster.map(p=>vegasMode.adapter.player(p,rankingContext,leagueSeason,projectionWeek))})),[platformTeams,vegasMode.adapter,rankingContext,leagueSeason,projectionWeek]);
@@ -2984,7 +2984,7 @@ export default function FantasyHub({
     () => availableLeagues.filter((league) => !hiddenLeagueIds.includes(league.id)),
     [availableLeagues, hiddenLeagueIds],
   );
-  const visibleNav = nav.filter(item => item.label !== 'Vegas Edge' || entitlement.owner);
+  const visibleNav = nav;
   const activeRivalryWeek = entitlement.elite && rivalryWeek?.leagueId === leagueId && leaguePlatform.toLowerCase() === "sleeper" ? rivalryWeek : null;
   const activeNavGroup = nav.find((item) => item.label === view)?.group ?? "Home";
   const proViews = new Set<View>(["Command Center", "League Analytics", "Simulator", "Team Review"]);
@@ -3701,8 +3701,8 @@ export default function FantasyHub({
             setSelectedPlayer={setSelectedPlayer}
           />
         )}
-        {view === 'Vegas Edge' && entitlement.owner && entitlement.elite && (rosterReady && rankingContext ? <VegasEdge key={`${leagueId}:${selectedTeamId}`} season={leagueSeason} week={defaultGameWeek} roster={platformPlayers} waivers={platformWaivers} enabled={vegasMode.enabled} onToggle={vegasMode.toggle} renderRosterColumns={p=>{const player=p as Player;return <><td className="roster-player-cell"><button type="button" className="edge-roster-player" onClick={()=>setSelectedPlayer(player)}><span className={`pos pos-${player.position.toLowerCase()}`}>{player.position}</span><span className="roster-player-copy"><strong>{player.name}</strong><small>{player.team}</small></span></button></td><td><span className={isStartingPlayer(player)?'roster-slot':'roster-slot bench'}>{formatRosterSlot(player.role)}</span></td><td className="roster-matchup-cell"><span className="roster-matchup-details"><MatchupBadge player={player}/>{player.weatherSummary&&<small className="roster-weather">☁ {player.weatherSummary}</small>}</span></td></>;}} onFeed={vegasMode.setFeed} context={rankingContext} onPlayer={p => setSelectedPlayer(p as Player)} onWaivers={() => setView('Waiver Wire')} /> : rosterEmptyState)}
-        {view === 'Vegas Edge' && !entitlement.owner && <div className="page-content"><section className="panel">This page is not available.</section></div>}
+        {view === 'Vegas Edge' && entitlement.elite && (rosterReady && rankingContext ? <VegasEdge leagueId={leagueId} teamId={selectedTeamId} key={`${leagueId}:${selectedTeamId}`} season={leagueSeason} week={defaultGameWeek} roster={platformPlayers} waivers={platformWaivers} enabled={vegasMode.enabled} onToggle={vegasMode.toggle} renderRosterColumns={p=>{const player=p as Player;return <><td className="roster-player-cell"><button type="button" className="edge-roster-player" onClick={()=>setSelectedPlayer(player)}><span className={`pos pos-${player.position.toLowerCase()}`}>{player.position}</span><span className="roster-player-copy"><strong>{player.name}</strong><small>{player.team}</small></span></button></td><td><span className={isStartingPlayer(player)?'roster-slot':'roster-slot bench'}>{formatRosterSlot(player.role)}</span></td><td className="roster-matchup-cell"><span className="roster-matchup-details"><MatchupBadge player={player}/>{player.weatherSummary&&<small className="roster-weather">☁ {player.weatherSummary}</small>}</span></td></>;}} onFeed={vegasMode.setFeed} context={rankingContext} onPlayer={p => setSelectedPlayer(p as Player)} onWaivers={() => setView('Waiver Wire')} /> : rosterEmptyState)}
+        {view === 'Vegas Edge' && !entitlement.elite && <ProGate feature="Vegas Edge" tier="Elite" onUpgrade={() => setView("Fantasy Hub Pro")} />}
         {view === "Team Review" && !entitlement.pro && <ProGate feature="Team Review" onUpgrade={() => setView("Fantasy Hub Pro")} />}
         {view === "Team Review" && entitlement.pro && (rosterReady ? <TeamReview
           key={`${leagueId}:${selectedTeamId}`}
@@ -3828,7 +3828,7 @@ export default function FantasyHub({
           ) : (
             rosterEmptyState
           ))}
-        {view === "Glossary" && <Glossary owner={entitlement.owner} onNavigate={setView} onStartOnboarding={startOnboardingTour} showOnboarding={onboardingTourEligible} />}
+        {view === "Glossary" && <Glossary onNavigate={setView} onStartOnboarding={startOnboardingTour} showOnboarding={onboardingTourEligible} />}
         {view === "Theme Locker" && (
           <ThemeStore
             teamTheme={effectiveTeamTheme}
@@ -4130,11 +4130,11 @@ function MissionHubOnboarding({ step, displayName, hasLeagues, onStep, onNavigat
   );
 }
 
-function Glossary({ onNavigate, onStartOnboarding, showOnboarding, owner = false }: { onNavigate: (view: View) => void; onStartOnboarding: () => void; showOnboarding: boolean; owner?: boolean }) {
+function Glossary({ onNavigate, onStartOnboarding, showOnboarding }: { onNavigate: (view: View) => void; onStartOnboarding: () => void; showOnboarding: boolean }) {
   const categories = mobileCategoryNav.map((category) => ({
     ...category,
     leadPage: nav.find((item) => item.label === category.lead)!,
-    pages: nav.filter((item) => item.group === category.group && (item.label !== 'Vegas Edge' || owner)),
+    pages: nav.filter((item) => item.group === category.group),
   }));
   return (
     <div className="page-content glossary-page">

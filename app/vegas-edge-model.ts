@@ -113,6 +113,14 @@ export function edgeProjection(player: EdgePlayer, events: EdgeEvent[], context:
   const projection=usable?Math.round(points*10)/10:null;
   return {player,baseline,projection,delta:projection===null?null:Math.round((projection-baseline)*10)/10,props,event:match?.event,usable,questionable,locked,stale,label:locked?'Locked':unavailable?'Unavailable':!scoringKnown?'Refresh league scoring':stale?'Stale lines':usable?'Odds implied':props.length?'Partial coverage':'Awaiting props',modeledTd:td?.line===.5};
 }
+// Display the saved pregame estimate after kickoff without unlocking advice.
+export function edgeRosterProjection(player: EdgePlayer, events: EdgeEvent[], context: EdgeContext, now=Date.now()) {
+  const current=edgeProjection(player,events,context,now);
+  const event=current.event;
+  if(!event || Date.parse(event.startsAt)>now || event.locked || !Number.isFinite(Date.parse(event.updatedAt)) || Date.parse(event.updatedAt)>=Date.parse(event.startsAt))return current;
+  const pregame=edgeProjection(player,events,context,Date.parse(event.updatedAt));
+  return pregame.projection===null?current:{...current,projection:pregame.projection,delta:null,label:'Pregame Vegas'};
+}
 export function slotEligible(position:string, slot:string) {
   const s=slot.toUpperCase().replace(/\s/g,'_');
   if(['SUPER_FLEX','SUPERFLEX','QB_FLEX','Q/W/R/T'].includes(s))return ['QB','RB','WR','TE'].includes(position);

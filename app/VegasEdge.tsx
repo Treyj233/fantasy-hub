@@ -1,10 +1,28 @@
 'use client';
 import type { ReactNode } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { edgeProjection, edgeSuggestions, marketExpectation, isReserve, teamCode, type EdgePlayer, type EdgeContext, type EdgeFeed } from './vegas-edge-model';
+import { edgeProjection, edgeRosterProjection, edgeSuggestions, marketExpectation, isReserve, teamCode, type EdgePlayer, type EdgeContext, type EdgeFeed } from './vegas-edge-model';
+import { startVisiblePolling } from './live-polling.mjs';
+import { myTeamScore } from './my-team-score.mjs';
 import './vegas-edge.css';
 
-export default function VegasEdge({roster,waivers,context,season,week,onPlayer,onWaivers,enabled,onToggle,onFeed,renderRosterColumns}:{renderRosterColumns:(p:EdgePlayer)=>ReactNode;roster:EdgePlayer[];waivers:EdgePlayer[];context:EdgeContext;season:string;week:number;onPlayer:(p:EdgePlayer)=>void;onWaivers:()=>void;enabled:boolean;onToggle:(on:boolean)=>void;onFeed:(feed:EdgeFeed)=>void}) {
+export default function VegasEdge({leagueId,teamId,roster,waivers,context,season,week,onPlayer,onWaivers,enabled,onToggle,onFeed,renderRosterColumns}:{leagueId:string;teamId:string;renderRosterColumns:(p:EdgePlayer)=>ReactNode;roster:EdgePlayer[];waivers:EdgePlayer[];context:EdgeContext;season:string;week:number;onPlayer:(p:EdgePlayer)=>void;onWaivers:()=>void;enabled:boolean;onToggle:(on:boolean)=>void;onFeed:(feed:EdgeFeed)=>void}) {
+  const [livePlayers,setLivePlayers]=useState<Map<string,{player:{id:string;points:number;gameProgress?:number};status:string}>>(new Map());
+  useEffect(()=>{
+    let active=true;setLivePlayers(new Map());
+    const stop=startVisiblePolling(async(signal:AbortSignal)=>{
+      if(!leagueId)return;
+      try{
+        const response=await fetch(`/api/scoreboard?leagueId=${encodeURIComponent(leagueId)}&week=${week}`,{signal});
+        if(!response.ok)return;
+        const data=await response.json() as {matchups:{status:string;teams:{rosterId:string;topPlayers:{id:string;points:number;gameProgress?:number}[]}[]}[]};
+        const match=data.matchups.find(m=>m.teams.some(t=>String(t.rosterId)===String(teamId)));
+        const team=match?.teams.find(t=>String(t.rosterId)===String(teamId));
+        if(active&&!signal.aborted&&team&&match)setLivePlayers(new Map(team.topPlayers.map(player=>[player.id,{player,status:match.status}])));
+      }catch{/* Keep roster visible if scores are temporarily unavailable. */}
+    });
+    return()=>{active=false;stop();};
+  },[leagueId,teamId,week]);
   const marketDialog=useRef<HTMLDialogElement>(null);
   const [marketPlayer,setMarketPlayer]=useState<string|null>(null);
   useEffect(()=>{const dialog=marketDialog.current;if(!marketPlayer||!dialog)return;dialog.showModal();return()=>{if(dialog.open)dialog.close();};},[marketPlayer]);
@@ -28,7 +46,7 @@ export default function VegasEdge({roster,waivers,context,season,week,onPlayer,o
     return()=>{clearInterval(timer);document.removeEventListener('visibilitychange',resume);};
   },[]);
   const events=useMemo(()=>(feed?.events ?? []).filter(e=>games.some(g=>teamCode(g.away.abbreviation)===e.away&&teamCode(g.home.abbreviation)===e.home&&Math.abs(Date.parse(g.date)-Date.parse(e.startsAt))<12*3600000)),[feed,games]);
-  const rows=useMemo(()=>roster.map(p=>edgeProjection(p,events,context,clock)),[roster,events,context,clock]);
+  const rows=useMemo(()=>roster.map(p=>edgeRosterProjection(p,events,context,clock)),[roster,events,context,clock]);
   const waiverRows=useMemo(()=>waivers.filter(p=>!roster.some(r=>r.id===p.id)).map(p=>edgeProjection(p,events,context,clock)),[waivers,roster,events,context,clock]);
   const {swaps,targets}=useMemo(()=>edgeSuggestions(rows,waiverRows),[rows,waiverRows]);
   const covered=rows.filter(r=>r.usable).length;
@@ -46,8 +64,8 @@ export default function VegasEdge({roster,waivers,context,season,week,onPlayer,o
     {error && <p className="panel" role="alert">{error} <button onClick={()=>setRefresh(n=>n+1)}>Try again</button></p>}
     <div className="edge-connection" role="status"><span className={feed?.configured?'edge-live-dot is-ready':'edge-live-dot'}/><b>{!feed?'Connecting…':feed.configured?'Markets connected':'Connection needed'}</b>{feed?.checkedAt&&<small>Checked {timestamp(feed.checkedAt)}</small>}</div>
     <div className="edge-metrics"><section className="panel"><small>COVERED</small><strong>{covered}<em> / {rows.length}</em></strong><span>players with fresh lines</span></section><section className="panel"><small>STARTER EDGE</small><strong>{coveredStarters.length?signed(delta):'—'}</strong><span>{coveredStarters.length} of {starters.length} covered starters</span></section><section className="panel"><small>UPGRADES</small><strong>{swaps.length}</strong><span>lineup moves</span></section></div>
-    <section className="panel edge-board"><header><div><h3>Roster outlook</h3><p>Week {week} · {context.scoring} · Pregame</p></div><div className="edge-filters" aria-label="Roster filters">{['All','Starters','Bench','Covered'].map(f=><button key={f} aria-pressed={filter===f} onClick={()=>setFilter(f)}>{f}</button>)}</div></header>
-      <div className="edge-table-wrap"><table><colgroup><col className="edge-name-col"/><col className="edge-slot-col"/><col className="edge-matchup-col"/><col/><col/><col className="edge-props-cell"/><col/></colgroup><thead><tr><th>Player</th><th>Slot</th><th>Matchup</th><th>Platform</th><th>Vegas</th><th className="edge-props-cell">Props</th><th>Edge</th></tr></thead><tbody>{visible.map(r=><tr key={r.player.id}>{renderRosterColumns(r.player)}<td>{r.baseline.toFixed(1)}</td><td className="edge-projection">{r.projection?.toFixed(1) ?? '—'}<small className="edge-coverage-label">{r.label}</small></td><td className="edge-props-cell">{r.props.length>0&&<button type="button" className="edge-market-trigger" aria-haspopup="dialog" aria-label={`View prop markets for ${r.player.name}`} onClick={()=>setMarketPlayer(r.player.id)}>{r.props.length} props ↗</button>}</td><td data-direction={(r.delta ?? 0)>0?'up':(r.delta ?? 0)<0?'down':'flat'}>{r.delta===null?'—':signed(r.delta)}</td></tr>)}</tbody></table></div>
+    <section className="panel edge-board"><header><div><h3>Roster outlook</h3><p>Week {week} · {context.scoring}</p></div><div className="edge-filters" aria-label="Roster filters">{['All','Starters','Bench','Covered'].map(f=><button key={f} aria-pressed={filter===f} onClick={()=>setFilter(f)}>{f}</button>)}</div></header>
+      <div className="edge-table-wrap"><table><colgroup><col className="edge-name-col"/><col className="edge-slot-col"/><col className="edge-matchup-col"/><col/><col/><col className="edge-props-cell"/><col/></colgroup><thead><tr><th>Player</th><th>Slot</th><th>Matchup</th><th>Fantasy points</th><th>Vegas</th><th className="edge-props-cell">Props</th><th>Edge</th></tr></thead><tbody>{visible.map(r=>{const score=myTeamScore(r.baseline,livePlayers.get(r.player.id));return <tr key={r.player.id}>{renderRosterColumns(r.player)}<td data-score-label={score.label === "PROJ" ? "PLATFORM" : score.label} className={score.label === "PROJ" ? "edge-score" : "edge-score is-actual"}>{score.value?.toFixed(1) ?? "—"}<small className="edge-score-status">{score.label}</small></td><td className="edge-projection">{r.projection?.toFixed(1) ?? '—'}<small className="edge-coverage-label">{r.label}</small></td><td className="edge-props-cell">{r.props.length>0&&<button type="button" className="edge-market-trigger" aria-haspopup="dialog" aria-label={`View prop markets for ${r.player.name}`} onClick={()=>setMarketPlayer(r.player.id)}>{r.props.length} props ↗</button>}</td><td data-direction={(r.delta ?? 0)>0?'up':(r.delta ?? 0)<0?'down':'flat'}>{r.delta===null?'—':signed(r.delta)}</td></tr>})}</tbody></table></div>
       {!visible.length&&<p className="edge-empty">No players match this filter yet.</p>}
     </section>
     <div className="edge-actions-grid"><section className="panel"><div className="edge-section-heading"><span className="edge-section-icon" aria-hidden="true">↗</span><h3>Lineup moves</h3><span className="edge-count">{swaps.length}</span></div>{swaps.length?swaps.map(s=><article className="edge-opportunity" key={s.into.player.id}><span className="edge-gain">+{s.gain.toFixed(1)} pts</span><b>Start <button onClick={()=>onPlayer(s.into.player)}>{s.into.player.name}</button></b><span>Over {s.out.player.name} at {s.out.player.role}</span></article>):<p className="edge-empty">{covered?'No clear upgrades.':'Waiting for fresh player lines.'}</p>}</section><section className="panel"><div className="edge-section-heading"><span className="edge-section-icon" aria-hidden="true">+</span><h3>Waiver targets</h3><span className="edge-count">{targets.length}</span></div>{targets.length?targets.map(s=><article className="edge-opportunity" key={s.into.player.id}><span className="edge-gain">+{s.gain.toFixed(1)} pts</span><button className="edge-player" onClick={()=>onPlayer(s.into.player)}>{s.into.player.name}</button><span>{s.into.player.position} · Alternative to {s.out.player.name}</span></article>):<p className="edge-empty">No clear waiver upgrades.</p>}<button className="edge-link" onClick={onWaivers}>Open Waiver Wire →</button></section></div>

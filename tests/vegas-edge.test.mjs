@@ -4,12 +4,29 @@ import {readFileSync} from 'node:fs';
 import ts from 'typescript';
 const source=readFileSync(new URL('../app/vegas-edge-model.ts',import.meta.url),'utf8');
 const compiled=ts.transpile(source,{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022});
-const {normalizeEvents,edgeProjection,edgeSuggestions,impliedProbability,refreshInterval,slotEligible,countExpectation}=await import(`data:text/javascript;base64,${Buffer.from(compiled).toString('base64')}`);
+const {normalizeEvents,edgeProjection,edgeRosterProjection,edgeSuggestions,impliedProbability,refreshInterval,slotEligible,countExpectation}=await import(`data:text/javascript;base64,${Buffer.from(compiled).toString('base64')}`);
 const now=Date.parse('2026-09-13T16:00:00Z');
 const player={id:'1',name:'Test Receiver',team:'BUF',position:'WR',role:'WR',status:'Healthy',projection:12};
 const context={scoring:'PPR',tePremium:0,passTouchdown:4,interception:-2,rosterSlots:['WR','FLEX'],scoringRules:{pass_yd:.04,rush_yd:.1,rec_yd:.1,rec:1,rush_td:6,rec_td:6,pass_td:4,pass_int:-2}};
 const props=[{stat:'receiving_yards',line:80.5,overProbability:.5,books:2},{stat:'receptions',line:6.5,overProbability:.5,books:2},{stat:'touchdowns',line:.5,overProbability:.5,books:2}];
 const event={id:'e',startsAt:'2026-09-13T17:00:00Z',home:'BUF',away:'MIA',locked:false,updatedAt:new Date(now).toISOString(),total:48,homeSpread:-3,players:[{name:player.name,team:'BUF',status:'active',props}]};
+test('roster retains last pregame estimate during live and final without recommending locked players',()=>{
+  const expected=edgeProjection(player,[event],context,now).projection;
+  for(const time of [Date.parse(event.startsAt),now+3*86400000]){
+    const row=edgeRosterProjection(player,[event],context,time);
+    assert.equal(row.projection,expected);
+    assert.equal(row.label,'Pregame Vegas');
+    assert.equal(row.usable,false);
+    assert.equal(row.delta,null);
+    assert.deepEqual(edgeSuggestions([row],[]),{swaps:[],targets:[]});
+  }
+});
+test('roster never presents post-kickoff markets or absent props as a pregame estimate',()=>{
+  const time=Date.parse(event.startsAt)+1000;
+  assert.equal(edgeRosterProjection(player,[{...event,updatedAt:new Date(time).toISOString()}],context,time).projection,null);
+  assert.equal(edgeRosterProjection(player,[],context,time).projection,null);
+  assert.equal(edgeRosterProjection(player,[{...event,locked:true}],context,time).projection,null);
+});
 test('refresh cadence stops at kickoff and accelerates near game',()=>{
   assert.equal(refreshInterval(new Date(now).toISOString(),now),Infinity);
   assert.equal(refreshInterval(event.startsAt,now),600000);
@@ -101,17 +118,17 @@ test('suggestions do not reuse players or include questionable/reserve players',
   assert.equal(edgeSuggestions([starter,{...bench,questionable:true}],[]).swaps.length,0);
   assert.equal(edgeSuggestions([starter,{...bench,player:{...bench.player,role:'IR'}}],[]).swaps.length,0);
 });
-test('UI and API both restrict rollout to owners and Elite',()=>{
+test('UI and API require Elite without an owner restriction',()=>{
   const ui=readFileSync(new URL('../app/FantasyHub.tsx',import.meta.url),'utf8');
   const route=readFileSync(new URL('../app/api/vegas-edge/route.ts',import.meta.url),'utf8');
-  assert.match(ui,/item.label !== 'Vegas Edge' \|\| entitlement.owner/);
-  assert.match(ui,/entitlement.owner && entitlement.elite/);
-  assert.match(route,/if\(!access.owner\)/);assert.match(route,/if\(!access.elite\)/);
-  assert.ok(route.indexOf('if(!access.owner)')<route.indexOf('await vegasFeed'));
+  assert.match(ui,/const visibleNav = nav;/);
+  assert.match(ui,/view === 'Vegas Edge' && entitlement.elite/);
+  assert.doesNotMatch(route,/access.owner/);assert.match(route,/if\(!access.elite\)/);
+  assert.ok(route.indexOf('if(!access.elite)')<route.indexOf('await vegasFeed'));
 });
-test('API denies anonymous and non-owner accounts before calling provider',async()=>{
+test('API denies anonymous and non-Elite accounts while allowing non-owner Elite',async()=>{
   const route=readFileSync(new URL('../app/api/vegas-edge/route.ts',import.meta.url),'utf8').replace(/^import .*;\n/gm,'');
-  for(const [user,access,status,calls]of [[null,{},401,0],[{userId:'u'},{owner:false,elite:true},403,0],[{userId:'u'},{owner:true,elite:false},402,0],[{userId:'u'},{owner:true,elite:true},200,1]]){
+  for(const [user,access,status,calls]of [[null,{},401,0],[{userId:'u'},{owner:false,elite:true},200,1],[{userId:'u'},{owner:false,elite:false},402,0],[{userId:'u'},{owner:true,elite:false},402,0],[{userId:'u'},{owner:true,elite:true},200,1]]){
     const setup=`let calls=0;const getChatGPTUser=async()=>(${JSON.stringify(user)});const entitlementFor=async()=>(${JSON.stringify(access)});const vegasFeed=async()=>{calls++;return {configured:false,events:[]};};export const count=()=>calls;`;
     const code=ts.transpile(setup+route,{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022});
     const mod=await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`);

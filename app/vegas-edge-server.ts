@@ -50,8 +50,10 @@ export async function vegasFeed(refresh=false): Promise<EdgeFeed> {
     const data=await request('events',params);
     if(!Array.isArray(data.data))throw new Error('Provider returned an unexpected response. Cached lines are preserved.');
     const fresh=normalizeEvents(data.data,now);
-    const merged=new Map((state.events ?? []).filter(e=>Date.parse(e.startsAt)>now-86400000).map(e=>[e.id,e]));
-    fresh.forEach(e=>merged.set(e.id,e));
+    const merged=new Map((state.events ?? []).filter(e=>Date.parse(e.startsAt)>now-8*86400000).map(e=>[e.id,e]));
+    // Preserve pre-kickoff props through the fantasy week, including a refresh
+    // that crosses kickoff and returns live/closed markets.
+    fresh.forEach(e=>{const previous=merged.get(e.id);if(previous&&!previous.locked&&Date.parse(previous.updatedAt)<Date.parse(previous.startsAt)&&(e.locked||Date.parse(e.startsAt)<=now))return;merged.set(e.id,e);});
     state={...state,events:[...merged.values()].sort((a,b)=>a.startsAt.localeCompare(b.startsAt)),usage:used+data.data.length,checkedAt:new Date(now).toISOString(),nextAttempt:now+600000,discoveredAt:discover?now:state.discoveredAt,message:data.nextCursor?'Some events remain outside this snapshot. Coverage will be checked before activation.':'Markets checked. Updates are shared across the Hub.'};
   } catch(error) {
     state={...state,nextAttempt:now+600000,message:error instanceof Error?error.message:'Markets unavailable. Try again later.'};

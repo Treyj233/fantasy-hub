@@ -1,6 +1,6 @@
-# Vegas Edge owner preview
+# Vegas Edge
 
-Elite feature, owner-only navigation, rendering and API authorization. Do not remove the owner gate without an explicit rollout request.
+Visible to all users, with Elite membership required for page data, the projection switch, and API authorization. Owner-only restrictions removed at the owner's explicit request. Team Review remains visible to all users with Pro membership required.
 
 ## Connection
 

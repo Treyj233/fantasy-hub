@@ -56,10 +56,7 @@ test('Pro gate exists on API before input evaluation and navigation follows Team
   assert.match(ui,/label: "Team Rankings"[^\n]+\n\s*\{ label: "Team Review"/);
   assert.match(ui,/view === "Team Review" && entitlement.pro/);
   assert.match(ui,/view === "Team Review" && !entitlement.pro && <ProGate/);
-  const visibility=ui.match(/const visibleNav = nav\.filter\(([^;]+)\);/);
-  assert.ok(visibility);
-  const isVisible=new Function('item','entitlement',`return (${visibility[1]}) (item)`);
-  assert.equal(isVisible({label:'Team Review'},{owner:false}),true);
+  assert.match(ui,/const visibleNav = nav;/);
   assert.match(ui,/label: "Team Review", mark: "▤"/);
   assert.doesNotMatch(ui,/OWNER PREVIEW · TEAM REVIEW/);
 });
@@ -86,7 +83,7 @@ test('polished review uses separate position cards and an accessible safe-area r
   assert.match(css,/review-report-body\{overflow-y:auto/);
 });
 
-test('written reports reuse owner validation with no provider dependency',()=>{
+test('written reports reuse membership validation with no provider dependency',()=>{
   const route=readFileSync(new URL('../app/api/team-review/report/route.ts',import.meta.url),'utf8');
   assert.ok(route.indexOf('await assessTeam') < route.indexOf('sections: buildWrittenTeamReport'));
   assert.match(route,/if \(!assessment.ok\) return assessment/);

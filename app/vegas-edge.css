@@ -85,7 +85,7 @@
   .vegas-edge-page .edge-board td:nth-child(6){grid-area:edge}
   .vegas-edge-page .edge-board td:nth-child(n+4){text-align:center;align-self:center;font-variant-numeric:tabular-nums}
   .vegas-edge-page .edge-board td:nth-child(n+4):before{display:block;font-size:9px;line-height:1.3;font-weight:500;color:var(--muted);margin-bottom:2px;letter-spacing:.03em}
-  .vegas-edge-page .edge-board td:nth-child(4):before{content:"PLATFORM"}
+  .vegas-edge-page .edge-board td:nth-child(4):before{content:attr(data-score-label)}
   .vegas-edge-page .edge-board td:nth-child(5):before{content:"VEGAS"}
   .vegas-edge-page .edge-board td:nth-child(6):before{content:"EDGE"}
   .vegas-edge-page .edge-roster-player{gap:6px;min-width:0}
@@ -141,3 +141,6 @@
  .vegas-edge-page .edge-board .roster-slot{min-width:0;padding:2px 5px;white-space:nowrap}
  .vegas-edge-page .edge-board .roster-matchup-details>.matchup-team{grid-template-columns:auto minmax(0,1fr);gap:4px}
 }
+.vegas-edge-page .edge-score-status{display:block;font-size:9px;color:var(--muted)}
+.vegas-edge-page .edge-score.is-actual{font-weight:800;color:var(--accent)}
+@media(max-width:700px){.vegas-edge-page .edge-score-status{display:none}}

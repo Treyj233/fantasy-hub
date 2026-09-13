@@ -76,9 +76,9 @@ test('game day impact remaining projection scales, fantasy points do not',()=>{
   const changed=on.nflGames(raw,null).games[0].impactPlayers[0];
   assert.equal(changed.fantasyPoints,8);assert.equal(changed.remainingProjection,changed.projection*.5);
 });
-test('root keeps raw platform caches and only authorizes owner Elite mode',()=>{
+test('root keeps raw platform caches and authorizes Elite mode',()=>{
   const ui=readFileSync(new URL('../app/FantasyHub.tsx',import.meta.url),'utf8');
-  assert.match(ui,/useProjectionController\(entitlement.owner && entitlement.elite/);
+  assert.match(ui,/useProjectionController\(entitlement.elite/);
   assert.match(ui,/roster=\{platformPlayers\} waivers=\{platformWaivers\}/);
   assert.match(ui,/rawScores, setScores/);assert.match(ui,/projectionSource.scoreboard\(rawData\)/);
   const page=readFileSync(new URL('../app/VegasEdge.tsx',import.meta.url),'utf8');
