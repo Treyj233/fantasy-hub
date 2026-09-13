@@ -114,7 +114,9 @@
   .vegas-edge-page .edge-games article strong{font-size:14px}
 }
 @media(max-width:700px){
- .vegas-edge-page .edge-board tbody tr{grid-template-columns:minmax(0,1fr) minmax(58px,20%) minmax(58px,20%);grid-template-areas:"player platform vegas" "slot props edge" "matchup matchup matchup";gap:3px 6px}
+ .vegas-edge-page .edge-board tbody tr{grid-template-columns:minmax(0,1fr) auto minmax(58px,20%) minmax(58px,20%);grid-template-areas:"player slot platform vegas" "matchup matchup props edge";gap:3px 6px}
+ .vegas-edge-page .edge-board td:nth-child(2){align-self:center;justify-self:end}
+ .vegas-edge-page .edge-board td:nth-child(6),.vegas-edge-page .edge-board td:nth-child(7){align-self:start}
  .vegas-edge-page .edge-board td:nth-child(5){grid-area:vegas;padding:3px 2px}
  .vegas-edge-page .edge-board td:nth-child(6){grid-area:props}
  .vegas-edge-page .edge-board td:nth-child(7){grid-area:edge}
@@ -136,5 +138,6 @@
 }
 @media(max-width:700px){
  .vegas-edge-page .edge-board td:nth-child(n+4):before{margin-bottom:1px}
- .vegas-edge-page .edge-board .roster-slot{padding:2px 6px}
+ .vegas-edge-page .edge-board .roster-slot{min-width:0;padding:2px 5px;white-space:nowrap}
+ .vegas-edge-page .edge-board .roster-matchup-details>.matchup-team{grid-template-columns:auto minmax(0,1fr);gap:4px}
 }
