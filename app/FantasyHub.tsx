@@ -1019,7 +1019,7 @@ const nav: { label: View; displayLabel?: string; mark: string; tone: string; gro
   { label: "Player Rankings", mark: "♛", tone: "player-gold", group: "Analyze League" },
   { label: "Team Rankings", mark: "↥", tone: "team-jade", group: "Analyze League" },
   { label: "Team Review", mark: "▤", tone: "team-jade", group: "Analyze League" },
-  { label: "Vegas Edge", mark: "↗", tone: "adp-cyan", group: "Analyze League" },
+  { label: "Vegas Edge", mark: "📈", tone: "adp-cyan", group: "Analyze League" },
   { label: "Draft HQ", mark: "🖥", tone: "pro-gold", group: "Analyze League" },
   { label: "ADP", mark: "⌁", tone: "adp-cyan", group: "Analyze League" },
   { label: "League Analytics", mark: "◈", tone: "analytics-violet", group: "Analyze League" },
@@ -3571,7 +3571,7 @@ export default function FantasyHub({
           </section>
         )}
 
-        {vegasMode.enabled && <div className="projection-mode-notice" role="status"><strong>{VEGAS_PROJECTION_LABEL}</strong><span>Uncovered players use platform fallback · Actual scores unchanged</span><button type="button" onClick={()=>setView('Vegas Edge')}>Manage</button></div>}
+        {vegasMode.enabled && <div className="projection-mode-notice"><button type="button" onClick={()=>setView('Vegas Edge')} aria-label="Vegas Implied Projections active. Manage projection source." title="Vegas Implied Projections active. Uncovered players use platform projections; actual scores are unchanged."><span aria-hidden="true">📈</span>{VEGAS_PROJECTION_LABEL}<span aria-hidden="true">›</span></button></div>}
         {view === "Command Center" && !entitlement.pro && <ProGate feature="Command Center" onUpgrade={() => setView("Fantasy Hub Pro")} />}
         {view === "Command Center" && entitlement.pro &&
           (rosterReady ? (

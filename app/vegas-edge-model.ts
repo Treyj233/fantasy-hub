@@ -73,10 +73,10 @@ export function edgeProjection(player: EdgePlayer, events: EdgeEvent[], context:
   const points=qb ? (py??0)*weights.pass_yd+(pt??0)*weights.pass_td+(pi??0)*weights.pass_int+(ry??0)*weights.rush_yd : (ry??0)*weights.rush_yd+(cy??0)*weights.rec_yd+(c??0)*(weights.rec+(player.position==='TE'?context.tePremium:0))+(expectedTd??0)*weights.rush_td;
   const scoringKnown=Boolean(context.scoringRules && Object.keys(context.scoringRules).length);
   const usable=Boolean(complete && !locked && !stale && !unavailable && scoringKnown);
-  // Blend reduces reliance on medians/omitted secondary stats; baseline retains
-  // bonuses, fumbles and other scoring not represented by available props.
-  const projection=usable?Math.round((baseline*.4+points*.6)*10)/10:null;
-  return {player,baseline,projection,delta:projection===null?null:Math.round((projection-baseline)*10)/10,props,event:match?.event,usable,questionable,locked,stale,label:locked?'Locked':unavailable?'Unavailable':!scoringKnown?'Refresh league scoring':stale?'Stale lines':usable?'Market blend':props.length?'Partial coverage':'Awaiting props',modeledTd:td?.line===.5};
+  // Platform projections are comparison-only. No platform contribution is
+  // added to the odds-derived estimate, including for unmodeled scoring stats.
+  const projection=usable?Math.round(points*10)/10:null;
+  return {player,baseline,projection,delta:projection===null?null:Math.round((projection-baseline)*10)/10,props,event:match?.event,usable,questionable,locked,stale,label:locked?'Locked':unavailable?'Unavailable':!scoringKnown?'Refresh league scoring':stale?'Stale lines':usable?'Odds implied':props.length?'Partial coverage':'Awaiting props',modeledTd:td?.line===.5};
 }
 export function slotEligible(position:string, slot:string) {
   const s=slot.toUpperCase().replace(/\s/g,'_');
