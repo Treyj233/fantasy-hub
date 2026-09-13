@@ -6,7 +6,7 @@ export async function POST(request: Request) {
   const user = await getChatGPTUser();
   if (!user) return Response.json({ error: 'Sign in required' }, { status: 401 });
   const entitlement = await entitlementFor(user.userId, user.email);
-  if (!entitlement.owner) return Response.json({ error: 'Owner preview only' }, { status: 403 });
+  if (!entitlement.pro) return Response.json({ error: 'Fantasy Hub Pro required', code: 'PRO_REQUIRED' }, { status: 402 });
   // Evaluate the connected snapshot supplied by the app. No accounts, rosters,
   // trades, or waivers are mutated, and no report is shared or persisted.
   const raw = await request.text();

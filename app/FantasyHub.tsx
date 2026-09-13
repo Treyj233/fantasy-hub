@@ -1007,7 +1007,7 @@ const nav: { label: View; displayLabel?: string; mark: string; tone: string; gro
   { label: "Manager Report", mark: "✓", tone: "report-mint", group: "Manage Team" },
   { label: "Player Rankings", mark: "♛", tone: "player-gold", group: "Analyze League" },
   { label: "Team Rankings", mark: "↥", tone: "team-jade", group: "Analyze League" },
-  { label: "Team Review", mark: "✦", tone: "team-jade", group: "Analyze League" },
+  { label: "Team Review", mark: "▤", tone: "team-jade", group: "Analyze League" },
   { label: "Draft HQ", mark: "🖥", tone: "pro-gold", group: "Analyze League" },
   { label: "ADP", mark: "⌁", tone: "adp-cyan", group: "Analyze League" },
   { label: "League Analytics", mark: "◈", tone: "analytics-violet", group: "Analyze League" },
@@ -2964,7 +2964,7 @@ export default function FantasyHub({
     () => availableLeagues.filter((league) => !hiddenLeagueIds.includes(league.id)),
     [availableLeagues, hiddenLeagueIds],
   );
-  const visibleNav = nav.filter(item => item.label !== "Team Review" || entitlement.owner);
+  const visibleNav = nav;
   const activeRivalryWeek = entitlement.elite && rivalryWeek?.leagueId === leagueId && leaguePlatform.toLowerCase() === "sleeper" ? rivalryWeek : null;
   const activeNavGroup = nav.find((item) => item.label === view)?.group ?? "Home";
   const proViews = new Set<View>(["Command Center", "League Analytics", "Simulator", "Team Review"]);
@@ -3677,8 +3677,8 @@ export default function FantasyHub({
             setSelectedPlayer={setSelectedPlayer}
           />
         )}
-        {view === "Team Review" && !entitlement.owner && <div className="page-content"><p>This preview is not available for your account.</p></div>}
-        {view === "Team Review" && entitlement.owner && (rosterReady ? <TeamReview
+        {view === "Team Review" && !entitlement.pro && <ProGate feature="Team Review" onUpgrade={() => setView("Fantasy Hub Pro")} />}
+        {view === "Team Review" && entitlement.pro && (rosterReady ? <TeamReview
           key={`${leagueId}:${selectedTeamId}`}
           teams={leagueTeams} selectedTeamId={selectedTeamId} rankings={leagueRankings}
           context={rankingContext} waivers={waiverPlayers} onNavigate={setView}
@@ -4107,7 +4107,7 @@ function Glossary({ onNavigate, onStartOnboarding, showOnboarding, owner = false
   const categories = mobileCategoryNav.map((category) => ({
     ...category,
     leadPage: nav.find((item) => item.label === category.lead)!,
-    pages: nav.filter((item) => item.group === category.group && (item.label !== "Team Review" || owner)),
+    pages: nav.filter((item) => item.group === category.group),
   }));
   return (
     <div className="page-content glossary-page">
@@ -4569,7 +4569,7 @@ function ProPlans({ entitlement }: { entitlement: AccountEntitlement }) {
   ];
   const proFeatures = [
     "Everything included in Free",
-    ...(entitlement.owner ? ["Team Review owner preview: roster verdict, lineup balance, and targeted trade and waiver plans"] : []),
+    "Team Review: roster verdict, lineup balance, and targeted trade and waiver plans",
     "Command Center planning with roster readiness, alerts, injuries, weather, and weekly priorities",
     "Advanced Start/Sit controls with floor-to-ceiling strategy and saved decision memory",
     "Advanced Trade Lab scans, partner fit, negotiation profiles, suggested packages, and acceptance estimates",
@@ -8841,8 +8841,6 @@ function TeamReview({ teams, selectedTeamId, rankings, context, waivers, onNavig
   const { structure } = report;
   const decision = startSitDecision(selected.roster);
   const hasReviewAlerts = report.vacancies > 0 || report.injuries.length > 0 || report.concentration.length > 0 || report.depthRank > Math.ceil(report.leagueSize / 2) || Boolean(decision);
-  const priorityIsLineup = report.vacancies > 0 || report.injuries.length > 0 || Boolean(decision);
-  const reviewPriority = report.vacancies > 0 ? `Cover ${report.vacancies} open starting spots` : report.injuries.length > 0 ? 'Check availability before setting your lineup' : decision ? 'Resolve your close lineup decision' : report.targetPositions.length ? `Find help at ${report.targetPositions.join(' and ')}` : 'Protect your starting advantage';
   const slotSummary = [...new Set(structure.slots)].map(slot => `${structure.slots.filter(s => s === slot).length} ${formatRosterSlot(slot)}`).join(' · ');
   const reportPlayerNames = [...new Set([...teams.flatMap(t => t.roster), ...waivers, ...rankings].map(p => p.name).filter(Boolean))]
     .filter(name => writtenReport.some(section => section.body.includes(name))).sort((a, b) => b.length - a.length);
@@ -8851,12 +8849,11 @@ function TeamReview({ teams, selectedTeamId, rankings, context, waivers, onNavig
   const renderReportText = (text: string) => reportNamePattern ? text.split(reportNamePattern).map((part, i) =>
     reportNameSet.has(part) ? <strong className="report-player-name" key={i}>{part}</strong> : part) : text;
   return <div className="page-content team-review-page">
-    <header className="review-heading"><div><span>OWNER PREVIEW · TEAM REVIEW</span><h2>{selected.teamName}</h2><p>{context.format} · {context.scoring} · {report.leagueSize} teams</p></div><button className="review-generate" aria-haspopup="dialog" disabled={tradesLoading || writing} onClick={() => void generateReport()}>{writing ? 'Preparing report…' : tradesLoading ? 'Checking roster moves…' : 'Generate Team Report'} <span aria-hidden="true">↗</span></button></header>
+    <header className="review-heading"><div><span>TEAM REVIEW</span><h2>{selected.teamName}</h2><p>{context.format} · {context.scoring} · {report.leagueSize} teams</p></div><button className="review-generate" aria-haspopup="dialog" disabled={tradesLoading || writing} onClick={() => void generateReport()}>{writing ? 'Preparing report…' : tradesLoading ? 'Checking roster moves…' : 'Generate Team Report'} <span aria-hidden="true">↗</span></button></header>
     <section className="review-verdict panel">
       <div><span>YOUR TEAM VERDICT</span><h3>{report.verdict}</h3><p><b>{report.strengths[0].position}</b> leads your roster. {report.vacancies ? report.vacancies + ' starting spots need coverage.' : report.targetPositions.length ? 'Prioritize ' + report.targetPositions.join(' and ') + '.' : 'Protect your starting advantage.'}</p></div>
       <div className="review-rank"><strong>#{report.overallRank}</strong><span>roster readiness<br />of {report.leagueSize} teams</span></div>
     </section>
-    <div className="review-priority"><div><span>TOP PRIORITY</span><strong>{reviewPriority}</strong></div><a href={priorityIsLineup ? '#review-availability' : '#review-trades'}>Review options <span aria-hidden="true">↓</span></a></div>
     <div className="review-metrics">{[['Starter strength', report.starterRank], ['Lineup balance', report.balanceRank], ['Usable depth', report.depthRank]].map(([label, rank]) => <div className="panel" key={label}><span>{label}</span><strong>#{rank}</strong><small>in your league</small></div>)}</div>
     <details className="review-league-fit"><summary><span>LEAGUE FIT</span><strong>{structure.deep >= .5 ? 'Build through balanced depth' : 'Prioritize difference-making starters'}</strong><span className="review-fit-toggle">Details</span></summary>
       <p className="review-settings">{slotSummary}</p>

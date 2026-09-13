@@ -35,14 +35,17 @@ test('reordering roster or fantasy bench slots never changes the assessment',()=
   const c=context(['QB','WR','FLEX']);
   assert.equal(evaluateReviewTeam({id:'a',roster},c).score,evaluateReviewTeam({id:'a',roster:[...roster].reverse()},c).score);
 });
-test('owner gate exists on API before input evaluation and navigation follows Team Rankings',()=>{
+test('Pro gate exists on API before input evaluation and navigation follows Team Rankings',()=>{
   const route=readFileSync(new URL('../app/api/team-review/route.ts',import.meta.url),'utf8');
   assert.ok(route.indexOf('await entitlementFor')<route.indexOf('await request.text'));
-  assert.match(route,/if \(!entitlement.owner\).*status: 403/);
+  assert.match(route,/if \(!entitlement.pro\).*status: 402/);
   const ui=readFileSync(new URL('../app/FantasyHub.tsx',import.meta.url),'utf8');
   assert.match(ui,/label: "Team Rankings"[^\n]+\n\s*\{ label: "Team Review"/);
-  assert.match(ui,/view === "Team Review" && entitlement.owner/);
-  assert.match(ui,/nav.filter\(item => item.label !== "Team Review" \|\| entitlement.owner\)/);
+  assert.match(ui,/view === "Team Review" && entitlement.pro/);
+  assert.match(ui,/view === "Team Review" && !entitlement.pro && <ProGate/);
+  assert.match(ui,/const visibleNav = nav;/);
+  assert.match(ui,/label: "Team Review", mark: "▤"/);
+  assert.doesNotMatch(ui,/OWNER PREVIEW · TEAM REVIEW/);
 });
 
 test('review trade handoff keeps partner and both asset sides scoped to the active league/team',()=>{

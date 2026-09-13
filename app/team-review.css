@@ -1,7 +1,5 @@
 .team-review-page{max-width:1440px;margin-inline:auto;color:var(--ink);display:grid;grid-template-columns:minmax(0,1fr);column-gap:16px;align-items:start}
 .team-review-page>*{min-width:0;grid-column:1/-1}
-.team-review-page .review-priority{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border-left:3px solid var(--gold);background:color-mix(in srgb,var(--lime) 12%,var(--chalk));border-radius:0 0 10px 10px}
-.review-priority>div{display:grid;gap:4px;min-width:0}.review-priority>div>span{font-size:10px;font-weight:800;letter-spacing:.08em;color:var(--muted)}.review-priority strong{font-size:14px;line-height:1.4}.review-priority a{display:flex;align-items:center;gap:6px;min-height:44px;flex-shrink:0;color:var(--green);font-size:13px;font-weight:750;text-underline-offset:3px}
 .team-review-page .review-league-fit{padding:10px 0;margin-bottom:14px;border-bottom:1px solid var(--line)}
 .review-league-fit summary{display:flex;align-items:center;gap:10px;min-height:44px;cursor:pointer;list-style:none}.review-league-fit summary::-webkit-details-marker{display:none}.review-league-fit summary>span:first-child{font-size:10px;letter-spacing:.08em;color:var(--muted);font-weight:800;flex-shrink:0}.review-league-fit summary strong{font-size:13px;line-height:1.4}.review-fit-toggle{margin-left:auto;font-size:12px;color:var(--green)}.review-fit-toggle::after{content:' +';font-weight:800}.review-league-fit[open] .review-fit-toggle::after{content:' −'}.review-league-fit p{font-size:13px;line-height:1.5;margin:7px 0}.review-league-fit .review-tags:empty{display:none}
 .team-review-page>section.review-section.review-moves-section.panel{background:transparent;box-shadow:none;border:0;padding:0;margin-top:4px;margin-bottom:18px}
@@ -16,24 +14,24 @@
 .team-review-page>section.review-section.panel{padding:12px;margin-bottom:10px;background:color-mix(in srgb,var(--green) 3%,var(--chalk));box-shadow:none}
 .team-review-page>section.review-section>header{display:flex;flex-wrap:wrap;align-items:center;gap:7px 10px;margin:-12px -12px 10px;padding:10px 12px;border-bottom:2px solid var(--gold);border-radius:var(--radius-card,14px) var(--radius-card,14px) 0 0;background:linear-gradient(110deg,color-mix(in srgb,var(--lime) 24%,var(--chalk)),color-mix(in srgb,var(--lime) 8%,var(--chalk)))}
 .team-review-page>section.review-section>header>span{font-size:9px;letter-spacing:.09em;padding:4px 6px;border:1px solid var(--line);border-radius:5px;background:var(--chalk);line-height:1.2}
-.team-review-page>section.review-section>header>h3{font-family:ui-rounded,'Arial Rounded MT Bold',var(--font-geist-sans),sans-serif;font-size:13px;font-weight:850;letter-spacing:.055em;text-transform:uppercase;line-height:1.3;margin:0;color:var(--green)}
+.team-review-page>section.review-section>header>h3{font-family:var(--font-geist-sans),Arial,sans-serif;font-size:15px;font-weight:650;letter-spacing:normal;text-transform:none;line-height:1.3;margin:0;color:var(--green)}
 .team-review-page>section.review-section>p{font-size:13px;line-height:1.45;margin:7px 0}
-.team-review-page>div.review-metrics{gap:0;padding:0;margin:10px 0;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--chalk)}
-.team-review-page>div.review-metrics>div.panel{border:0;border-top:3px solid var(--gold);border-right:1px solid var(--line);border-radius:0;box-shadow:none;padding:10px 12px;gap:3px;text-align:center;background:color-mix(in srgb,var(--lime) 12%,var(--chalk))}
-.team-review-page>div.review-metrics>div.panel:last-child{border-right:0}
+.team-review-page>div.review-metrics{gap:10px;padding:0;margin:12px 0;border:0;border-radius:0;overflow:visible;background:transparent}
+.team-review-page>div.review-metrics>div.panel{border:1px solid var(--line);border-radius:var(--radius-card,14px);box-shadow:0 4px 12px rgb(0 0 0 / .04);padding:12px;gap:5px;text-align:center;background:var(--chalk)}
+.team-review-page>div.review-metrics>div.panel:last-child{border-right:1px solid var(--line)}
 .team-review-page>div.review-metrics span{font-size:10px;font-weight:800;letter-spacing:.07em;text-transform:uppercase}
 .team-review-page>div.review-metrics strong{font-size:27px;line-height:1.1;font-variant-numeric:tabular-nums}
 .team-review-page>div.review-metrics small{font-size:10px}
 .team-review-page>section.review-verdict.panel{padding:16px 18px;gap:14px;border-radius:14px;background:radial-gradient(ellipse at 100% 0%,rgb(var(--brand-secondary-rgb) / .38),transparent 65%),linear-gradient(120deg,var(--deep),var(--green))}
-.team-review-page>section.review-verdict h3{font-family:ui-rounded,'Arial Rounded MT Bold',var(--font-geist-sans),sans-serif;letter-spacing:-.025em;color:var(--gold-light);font-size:29px;margin:6px 0}
+.team-review-page>section.review-verdict h3{font-family:var(--font-geist-sans),Arial,sans-serif;font-weight:650;letter-spacing:-.025em;color:var(--gold-light);font-size:29px;margin:6px 0}
 .team-review-page>section.review-verdict .review-rank{min-width:90px;padding-left:14px;border-left:1px solid #ffffff30}
 .team-review-page>section.review-verdict .review-rank strong{font-size:38px;line-height:1.1}
 .team-review-page>section.review-profile{padding:12px;margin:0 0 10px;border:1px solid var(--line);border-radius:var(--radius-card,14px);background:color-mix(in srgb,var(--green) 3%,var(--chalk))}
 .team-review-page>section.review-profile .review-rooms{gap:8px}
 .team-review-page>section.review-profile .review-rooms article{padding:10px;border-top:3px solid var(--gold);box-shadow:none;border-radius:10px;background:linear-gradient(180deg,color-mix(in srgb,var(--lime) 13%,var(--chalk)),var(--chalk) 75%)}
-.team-review-page>section.review-profile .review-rooms h4{font-family:ui-rounded,'Arial Rounded MT Bold',var(--font-geist-sans),sans-serif;font-size:19px;color:var(--green)}
+.team-review-page>section.review-profile .review-rooms h4{font-family:var(--font-geist-sans),Arial,sans-serif;font-size:19px;color:var(--green)}
 .team-review-page>section.review-profile .review-rooms article>header>b{background:color-mix(in srgb,var(--lime) 28%,var(--chalk));color:var(--ink);border:1px solid var(--gold);padding:4px 6px;border-radius:6px;font-size:10px;white-space:nowrap}
-.team-review-page>section.review-profile .review-rooms article>strong{font-size:10px;letter-spacing:.05em;text-transform:uppercase}
+.team-review-page>section.review-profile .review-rooms article>strong{display:block;align-self:stretch;padding:7px 9px;border:1px solid var(--room-accent,var(--line));border-left-width:3px;border-radius:6px;background:color-mix(in srgb,var(--room-accent,var(--green)) 8%,var(--chalk));color:var(--ink);font-size:12px;font-weight:650;letter-spacing:normal;text-transform:none;line-height:1.3}
 .team-review-page>section.review-profile .review-rooms p{font-size:13px;line-height:1.45;margin:7px 0}
 .team-review-page>section.review-profile .review-rooms small{font-size:11px;padding-top:6px}
 .team-review-page>section.review-section .review-player{font-family:var(--font-geist-sans),Arial,sans-serif;font-weight:750;letter-spacing:normal;text-transform:none}
@@ -88,7 +86,7 @@
 .report-summary-strip strong{font-size:23px;line-height:1.1;color:var(--green);font-variant-numeric:tabular-nums}
 .report-section-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .report-section-grid>section>header{display:flex;align-items:center;gap:7px;margin-bottom:7px}
-.review-report-body h4{margin:0;font-family:ui-rounded,'Arial Rounded MT Bold',var(--font-geist-sans),sans-serif;font-size:12px;font-weight:850;letter-spacing:.065em;text-transform:uppercase;line-height:1.3;color:var(--green)}
+.review-report-body h4{margin:0;font-family:var(--font-geist-sans),Arial,sans-serif;font-size:13px;font-weight:650;letter-spacing:normal;text-transform:none;line-height:1.3;color:var(--green)}
 .report-section-mark{font-size:9px;font-weight:800;letter-spacing:.06em;flex-shrink:0;color:var(--green);background:color-mix(in srgb,var(--green) 9%,var(--chalk));padding:4px 5px;border-radius:5px}
 .review-report-body p{font-size:13px;line-height:1.5;margin:0;overflow-wrap:anywhere;color:var(--ink)}
 .review-report-body .report-player-name{font-family:var(--font-geist-sans),Arial,sans-serif;font-weight:750;color:var(--green);text-decoration:underline;text-decoration-color:color-mix(in srgb,var(--green) 25%,transparent);text-underline-offset:3px}
