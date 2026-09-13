@@ -91,7 +91,8 @@
   .vegas-edge-page .edge-roster-player{gap:6px;min-width:0}
   .vegas-edge-page .edge-roster-player>.pos{flex:0 0 29px;width:29px;height:29px;font-size:10px;display:grid;place-items:center}
   .vegas-edge-page .edge-board .roster-player-copy strong{font-size:13px;line-height:1.25;overflow-wrap:anywhere}
-  .vegas-edge-page .edge-board .roster-matchup-details{align-items:flex-start;max-width:100%}
+  .vegas-edge-page .edge-board .roster-matchup-details{align-items:flex-start;width:100%;max-width:100%}
+  .vegas-edge-page .edge-board .roster-matchup-details>.matchup-team{box-sizing:border-box;width:100%;max-width:100%;margin-inline:0;text-align:left}
   .vegas-edge-page .edge-board .roster-matchup-details>*{box-sizing:border-box;max-width:100%;min-width:0}
   .vegas-edge-page .edge-board .roster-weather{text-align:left;overflow-wrap:anywhere;font-size:10px}
   .vegas-edge-page .edge-board .roster-slot{font-size:10px;padding:3px 7px}

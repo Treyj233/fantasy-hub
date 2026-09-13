@@ -7,6 +7,13 @@ const number = (v: unknown) => v !== null && v !== undefined && v !== '' && Numb
 const median = (values: number[]) => { const v = [...values].sort((a,b)=>a-b); return v.length ? (v[Math.floor((v.length-1)/2)] + v[Math.floor(v.length/2)]) / 2 : null; };
 export const teamCode = (s: string) => ({JAC:'JAX',WSH:'WAS',LA:'LAR'}[s.toUpperCase()] ?? s.toUpperCase());
 const nameKey = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/\b(jr|sr|ii|iii|iv)\b/g,'').replace(/[^a-z]/g,'');
+// Narrow alias fallback; exact names always win. Never use last-name-only or
+// initial matching, and never allow an alias to cross NFL teams.
+function marketNameKeys(name:string,team:string) {
+  const key=nameKey(name);
+  return teamCode(team)==='ARI'&&['michaelwilson','mikewilson'].includes(key)
+    ? ['michaelwilson','mikewilson'] : [key];
+}
 // Allow only the offensive markets this model understands. Apply after cache
 // reads too, so older snapshots cannot display unrelated defensive props.
 function positionMarket(position:string,stat:string) {
@@ -72,7 +79,10 @@ export function normalizeEvents(raw: unknown, now = Date.now()): EdgeEvent[] {
 }
 export function edgeProjection(player: EdgePlayer, events: EdgeEvent[], context: EdgeContext, now=Date.now()) {
   const baseline = player.leagueProjection ?? player.projection;
-  const matches = events.flatMap(event=>event.players.filter(p=>p.team===teamCode(player.team) && [p.name,...(p.aliases ?? [])].some(name=>nameKey(name)===nameKey(player.name))).map(p=>({event,p})));
+  const candidates=events.flatMap(event=>event.players.filter(p=>teamCode(p.team)===teamCode(player.team)).map(p=>({event,p})));
+  const exact=candidates.filter(({p})=>[p.name,...(p.aliases ?? [])].some(name=>nameKey(name)===nameKey(player.name)));
+  const keys=marketNameKeys(player.name,player.team);
+  const matches=exact.length?exact:candidates.filter(({p})=>[p.name,...(p.aliases ?? [])].some(name=>marketNameKeys(name,p.team).some(key=>keys.includes(key))));
   const match=matches.length===1?matches[0]:null;
   const props=[...new Map([...(match?.p.props ?? [])].filter(p=>positionMarket(player.position,p.stat)).sort((a,b)=>Number(a.source==='provider-fair')-Number(b.source==='provider-fair')).map(p=>[p.stat,p])).values()];
   const find=(...names:string[])=>props.find(p=>names.includes(p.stat));

@@ -44,6 +44,17 @@ test('Michael Wilson cannot display defensive or quarterback markets from cached
   assert.equal(edgeProjection(wilson,[defenseOnly],context,now).projection,null);
   assert.equal(edgeProjection(wilson,[defenseOnly],context,now).props.length,0);
 });
+test('Cardinals Wilson nickname fallback is team scoped and exact matches win',()=>{
+  const wilson={...player,name:'Michael Wilson',team:'ARI'};
+  const mike={name:'Mike Wilson',team:'ARI',status:'active',props};
+  const feed={...event,players:[mike]};
+  assert.equal(edgeProjection(wilson,[feed],context,now).usable,true);
+  assert.equal(edgeProjection(wilson,[{...feed,players:[{...mike,team:'NYJ'}]}],context,now).usable,false);
+  assert.equal(edgeProjection(wilson,[{...feed,players:[mike,mike]}],context,now).usable,false);
+  const exact={...mike,name:'Michael Wilson',props:[]};
+  assert.equal(edgeProjection(wilson,[{...feed,players:[mike,exact]}],context,now).usable,false);
+  assert.equal(edgeProjection(wilson,[{...feed,players:[{...mike,name:'M. Wilson'}]}],context,now).usable,false);
+});
 test('wrong team and ambiguous identities cannot match',()=>{
   assert.equal(edgeProjection({...player,team:'NYG'},[event],context,now).usable,false);
   assert.equal(edgeProjection(player,[event,event],context,now).usable,false);

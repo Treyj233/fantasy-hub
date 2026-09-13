@@ -2396,7 +2396,7 @@ html[data-theme="dark"] .command-action-queue span em{color:#ff9c88}
   .roster-section td[data-score-label]{text-align:center}
   .roster-section th:nth-child(4){text-align:center}
 }
-@media(max-width:700px){.roster-section .roster-matchup-details{display:flex;width:100%;align-items:flex-start;flex-direction:column}.roster-section .roster-weather{overflow:visible;width:100%;max-width:none;margin-top:5px;line-height:1.25;text-overflow:clip;white-space:normal}}
+@media(max-width:700px){.roster-section .roster-matchup-details{display:flex;flex:1;min-width:0;width:100%;align-items:flex-start;flex-direction:column}.roster-section .roster-matchup-details>.matchup-team{box-sizing:border-box;width:100%;max-width:100%;margin-left:0;margin-right:0;text-align:left}.roster-section .roster-weather{box-sizing:border-box;overflow:visible;width:100%;max-width:none;margin-top:5px;margin-left:0;margin-right:0;text-align:left;line-height:1.25;text-overflow:clip;white-space:normal}}
 
 /* One-time, account-aware Week 1 kickoff prompt. */
 .week-one-welcome-backdrop{position:fixed;z-index:140;inset:0;display:grid;place-items:center;padding:20px;background:rgb(3 10 22/.82);backdrop-filter:blur(12px)}
