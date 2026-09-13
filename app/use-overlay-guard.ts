@@ -22,7 +22,7 @@ export function useOverlayGuard() {
       document.documentElement.style.overflow = dialog && !preservePageScroll ? "hidden" : previousHtmlOverflow;
       if (dialog)
         window.requestAnimationFrame(() =>
-          dialog?.querySelector<HTMLElement>('button[aria-label^="Close"], .close')?.focus(),
+          dialog?.querySelector<HTMLElement>('button[aria-label^="Close"], .close')?.focus({ preventScroll: true }),
         );
     };
     const observer = new MutationObserver(sync);

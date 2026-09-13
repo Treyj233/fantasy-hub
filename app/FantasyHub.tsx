@@ -8735,9 +8735,16 @@ function TeamReview({ teams, selectedTeamId, rankings, context, waivers, onNavig
     const composite = buildSeasonCompositeRankings(rankings, context);
     const lookup = buildRankingLookup(composite);
     const value = buildTeamRankingPlayerValue(composite, teams.length, context);
+    const shared = buildSharedTeamRanks(teams, composite, context);
+    const rankingSummary = (id: string) => {
+      const mine = shared.rawTeams.find(t => t.id === id)!;
+      const rank = (metric: 'starterScore' | 'balanceScore' | 'depthScore') => 1 + shared.rawTeams.filter(t => t[metric] > mine[metric]).length;
+      return { overallRank: shared.overallRanks.get(id)!, starterRank: rank('starterScore'), balanceRank: rank('balanceScore'), depthRank: rank('depthScore'),
+        rooms: shared.positions.map(position => ({ position, rank: shared.roomRanks[position].get(id)!, score: mine.roomScores[position], leagueAverage: shared.rawTeams.reduce((sum, t) => sum + t.roomScores[position], 0) / teams.length })) };
+    };
     const convert = (p: Player): ReviewPlayer => ({ id: p.id, name: p.name, position: p.position, team: p.team,
       status: p.status, value: value(p), projection: weeklyProjectionValue(p) ?? undefined, age: rankingForPlayer(p, lookup)?.age });
-    return { composite, convert, teams: teams.map(t => ({ id: t.id, teamName: t.teamName, roster: t.roster.map(convert) })) };
+    return { composite, convert, teams: teams.map(t => ({ id: t.id, teamName: t.teamName, roster: t.roster.map(convert), ranking: rankingSummary(t.id) })) };
   }, [teams, rankings, context]);
   useEffect(() => {
     const controller = new AbortController();
@@ -8852,7 +8859,7 @@ function TeamReview({ teams, selectedTeamId, rankings, context, waivers, onNavig
     <header className="review-heading"><div><span>TEAM REVIEW</span><h2>{selected.teamName}</h2><p>{context.format} · {context.scoring} · {report.leagueSize} teams</p></div><button className="review-generate" aria-haspopup="dialog" disabled={tradesLoading || writing} onClick={() => void generateReport()}>{writing ? 'Preparing report…' : tradesLoading ? 'Checking roster moves…' : 'Generate Team Report'} <span aria-hidden="true">↗</span></button></header>
     <section className="review-verdict panel">
       <div><span>YOUR TEAM VERDICT</span><h3>{report.verdict}</h3><p><b>{report.strengths[0].position}</b> leads your roster. {report.vacancies ? report.vacancies + ' starting spots need coverage.' : report.targetPositions.length ? 'Prioritize ' + report.targetPositions.join(' and ') + '.' : 'Protect your starting advantage.'}</p></div>
-      <div className="review-rank"><strong>#{report.overallRank}</strong><span>roster readiness<br />of {report.leagueSize} teams</span></div>
+      <div className="review-rank"><strong>#{report.overallRank}</strong><span>overall team rank<br />of {report.leagueSize} teams</span></div>
     </section>
     <div className="review-metrics">{[['Starter strength', report.starterRank], ['Lineup balance', report.balanceRank], ['Usable depth', report.depthRank]].map(([label, rank]) => <div className="panel" key={label}><span>{label}</span><strong>#{rank}</strong><small>in your league</small></div>)}</div>
     <details className="review-league-fit"><summary><span>LEAGUE FIT</span><strong>{structure.deep >= .5 ? 'Build through balanced depth' : 'Prioritize difference-making starters'}</strong><span className="review-fit-toggle">Details</span></summary>
@@ -8901,41 +8908,8 @@ function TeamReview({ teams, selectedTeamId, rankings, context, waivers, onNavig
   </div>;
 }
 
-function TeamRankings({
-  teams,
-  selectedTeamId,
-  rankings,
-  context,
-  setSelectedPlayer,
-}: {
-  teams: LeagueTeam[];
-  selectedTeamId: string;
-  rankings: LeagueRanking[];
-  context: RankingContext | null;
-  setSelectedPlayer: (player: Player) => void;
-}) {
-  const [expandedTeamId, setExpandedTeamId] = useState("");
-  useEffect(() => {
-    if (!expandedTeamId) return;
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setExpandedTeamId("");
-    };
-    window.addEventListener("keydown", closeOnEscape);
-    return () => {
-      window.removeEventListener("keydown", closeOnEscape);
-    };
-  }, [expandedTeamId]);
-  const teamRankings = buildSeasonCompositeRankings(rankings, context);
-  const rankingById = new Map(teamRankings.map((player) => [player.id, player]));
-  const playerPositionRanks = new Map<string, number>();
-  const playerPositionCounts = new Map<string, number>();
-  [...teamRankings]
-    .sort((a, b) => a.overallRank - b.overallRank)
-    .forEach((player) => {
-      const positionRank = (playerPositionCounts.get(player.position) ?? 0) + 1;
-      playerPositionCounts.set(player.position, positionRank);
-      playerPositionRanks.set(player.id, positionRank);
-    });
+function buildSharedTeamRanks(teams: LeagueTeam[], teamRankings: LeagueRanking[], context: RankingContext | null) {
+  const rankingById = new Map(teamRankings.map(player => [player.id, player]));
   const isDynasty = context?.format === "Dynasty";
   const positions = ["QB", "RB", "WR", "TE"];
   const slotCounts = (context?.rosterSlots ?? []).reduce<
@@ -9037,6 +9011,45 @@ function TeamRankings({
       ),
     ]),
   ) as Record<string, Map<string, number>>;
+  return { rawTeams, scoredTeams, overallRanks, roomRanks, positions, isDynasty, playerValue };
+}
+
+function TeamRankings({
+  teams,
+  selectedTeamId,
+  rankings,
+  context,
+  setSelectedPlayer,
+}: {
+  teams: LeagueTeam[];
+  selectedTeamId: string;
+  rankings: LeagueRanking[];
+  context: RankingContext | null;
+  setSelectedPlayer: (player: Player) => void;
+}) {
+  const [expandedTeamId, setExpandedTeamId] = useState("");
+  useEffect(() => {
+    if (!expandedTeamId) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setExpandedTeamId("");
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => {
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [expandedTeamId]);
+  const teamRankings = buildSeasonCompositeRankings(rankings, context);
+  const rankingById = new Map(teamRankings.map((player) => [player.id, player]));
+  const playerPositionRanks = new Map<string, number>();
+  const playerPositionCounts = new Map<string, number>();
+  [...teamRankings]
+    .sort((a, b) => a.overallRank - b.overallRank)
+    .forEach((player) => {
+      const positionRank = (playerPositionCounts.get(player.position) ?? 0) + 1;
+      playerPositionCounts.set(player.position, positionRank);
+      playerPositionRanks.set(player.id, positionRank);
+    });
+  const { rawTeams, scoredTeams, overallRanks, roomRanks, positions, isDynasty, playerValue } = buildSharedTeamRanks(teams, teamRankings, context);
   const roomRankTone = (rank: number) =>
     rank <= 3
       ? "rank-elite"

@@ -7,6 +7,19 @@ const code = ts.transpile(source, { target: ts.ScriptTarget.ES2022, module: ts.M
 const { reviewLineup, reviewStructure, evaluateReviewTeam, buildTeamReview } = await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`);
 const p = (id, position, value, status='Healthy') => ({id,name:id,position,value,status,team:'BUF'});
 const context = rosterSlots => ({rosterSlots,format:'Redraft',scoring:'PPR',tePremium:0,passTouchdown:4});
+test('review uses shared displayed rankings while retaining availability analysis',()=>{
+  const ranking = {overallRank:1,starterRank:1,balanceRank:2,depthRank:2,rooms:['QB','RB','WR','TE'].map(position=>({position,rank:1,score:90,leagueAverage:70}))};
+  const report = buildTeamReview([{id:'a',teamName:'A',roster:[p('q','QB',99,'Out')],ranking},{id:'b',teamName:'B',roster:[p('q2','QB',60)]}], 'a',context(['QB']));
+  assert.equal(report.overallRank,1);
+  assert.equal(report.depthRank,2);
+  assert.equal(report.rooms[0].rank,1);
+  assert.equal(report.rooms[0].score,90);
+  assert.equal(report.vacancies,1);
+  assert.equal(report.injuries.length,1);
+  const ui=readFileSync(new URL('../app/FantasyHub.tsx',import.meta.url),'utf8');
+  assert.match(ui,/buildSharedTeamRanks\(teams, composite, context\)/);
+  assert.match(ui,/buildSharedTeamRanks\(teams, teamRankings, context\)/);
+});
 test('deeper flex requirements increase balance and depth weights',()=>{
   const shallow = reviewStructure(context(['QB','RB','RB','WR','WR','TE','FLEX','BN']));
   const deep = reviewStructure(context(['QB','RB','RB','WR','WR','WR','TE','FLEX','FLEX','FLEX','BN']));

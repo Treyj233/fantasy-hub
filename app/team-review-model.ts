@@ -1,5 +1,6 @@
 export type ReviewPlayer = { id: string; name: string; position: string; team: string; status: string; value: number; projection?: number; age?: number | null };
-export type ReviewTeam = { id: string; teamName: string; roster: ReviewPlayer[] };
+export type ReviewRanking = { overallRank: number; starterRank: number; balanceRank: number; depthRank: number; rooms: { position: string; rank: number; score: number; leagueAverage: number }[] };
+export type ReviewTeam = { id: string; teamName: string; roster: ReviewPlayer[]; ranking?: ReviewRanking };
 export type ReviewContext = { rosterSlots: string[]; format: string; scoring: string; tePremium: number; passTouchdown: number };
 const eligible: Record<string, string[]> = {
   QB: ['QB'], RB: ['RB'], WR: ['WR'], TE: ['TE'], FLEX: ['RB', 'WR', 'TE'],
@@ -71,10 +72,13 @@ export function buildTeamReview(teams: ReviewTeam[], selectedTeamId: string, con
   const mine = assessed.find(t => t.id === selectedTeamId);
   const source = teams.find(t => t.id === selectedTeamId);
   if (!mine || !source || teams.length < 2 || !source.roster.length) throw new Error('Select a team and load league rosters first.');
-  const rank = (metric: 'score' | 'starterScore' | 'balanceScore' | 'depthScore') => 1 + assessed.filter(t => t[metric] > mine[metric] + .001).length;
+  const rank = (metric: 'score' | 'starterScore' | 'balanceScore' | 'depthScore') => source.ranking
+    ? source.ranking[({ score: 'overallRank', starterScore: 'starterRank', balanceScore: 'balanceRank', depthScore: 'depthRank' } as const)[metric]]
+    : 1 + assessed.filter(t => t[metric] > mine[metric] + .001).length;
   const rooms = mine.rooms.map(room => ({ ...room,
     rank: 1 + assessed.filter(t => (t.rooms.find(r => r.position === room.position)?.score ?? 0) > room.score + .001).length,
     leagueAverage: assessed.reduce((sum, t) => sum + (t.rooms.find(r => r.position === room.position)?.score ?? 0), 0) / teams.length,
+    ...source.ranking?.rooms.find(r => r.position === room.position),
   }));
   const strengths = [...rooms].sort((a, b) => a.rank - b.rank || b.score - a.score);
   const weaknesses = [...rooms].sort((a, b) => (a.score - a.leagueAverage) - (b.score - b.leagueAverage));
