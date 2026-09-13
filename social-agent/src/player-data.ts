@@ -1,3 +1,4 @@
+import { beneficiaryAvailable } from './report-safety.ts';
 type SleeperPlayer = {
   player_id?: string;
   full_name?: string;
@@ -46,8 +47,7 @@ const isFantasySignificant = (player: SleeperPlayer) =>
   hasFantasyMarket(player) || hasMeaningfulDepthRole(player);
 
 const isAvailableForRecommendation = (player: SleeperPlayer) =>
-  player.status !== "Inactive"
-  && !player.injury_status;
+  beneficiaryAvailable(player);
 
 const fantasyRelevanceOrder = (player: SleeperPlayer) =>
   player.search_rank && player.search_rank > 0 ? player.search_rank : 10_000 + (player.depth_chart_order ?? 99);
@@ -132,7 +132,7 @@ export async function findPlayerContext(text: string, eventType?: string): Promi
     .sort((a, b) => fantasyRelevanceOrder(a) - fantasyRelevanceOrder(b)).slice(0, 3);
   const availabilityContext = injuredTeammates.map((player) =>
     `${player.full_name}: Sleeper injury status ${player.injury_status}. Status snapshot, not a confirmed inactive ruling or evidence of the signing's motive.`);
-  for (const player of injuredTeammates) if (!affectedPlayers.includes(player.full_name!)) affectedPlayers.push(player.full_name!);
+  // Injured teammates remain availability context, never beneficiary candidates.
   const hasRelevantAffectedPlayer = players
     .filter((player) => player.full_name && player.team === mentioned.team && player.position && affectedPositions.has(player.position))
     .some((player) => player.full_name !== mentioned.full_name && isAvailableForRecommendation(player) && isFantasySignificant(player));

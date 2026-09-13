@@ -113,3 +113,12 @@
   .vegas-edge-page .edge-games article>span{padding-top:6px;line-height:1.5;overflow-wrap:anywhere}
   .vegas-edge-page .edge-games article strong{font-size:14px}
 }
+@media(max-width:700px){
+ .vegas-edge-page .edge-board tbody tr{grid-template-columns:minmax(0,1fr) minmax(58px,20%) minmax(58px,20%);grid-template-areas:"player platform vegas" "slot props edge" "matchup matchup matchup";gap:5px 6px}
+ .vegas-edge-page .edge-board td:nth-child(5){grid-area:vegas;padding:5px 2px}
+ .vegas-edge-page .edge-board td:nth-child(6){grid-area:props}
+ .vegas-edge-page .edge-board td:nth-child(7){grid-area:edge}
+ .vegas-edge-page .edge-board td:nth-child(6):before{content:none}
+ .vegas-edge-page .edge-board td:nth-child(7):before{content:"EDGE"}
+ .vegas-edge-page .edge-board .edge-coverage-label{font-size:8px}
+}

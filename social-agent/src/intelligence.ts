@@ -100,6 +100,7 @@ export function isMaterialStoryUpdate(previous: StoryFacts | null, next: StoryFa
 
 export function validateStoryDraft(story: Story, context: PlayerContext | null, draft: string, facts: StoryFacts): ValidationResult {
   const reasons: string[] = [];
+  if(story.sourceContext?.includes('historical-review-required')) reasons.push('Historical report: verify a distinct new development before publishing');
   if (!context && story.category !== "weather") reasons.push("No fantasy-relevant player resolved");
   if (facts.confidence === "low") reasons.push("Extracted facts are low confidence");
   if (draft.length > 280) reasons.push("Draft exceeds the X character limit");

@@ -1,4 +1,5 @@
 import { Agent, getAgentByName } from "agents";
+import { recycledReport } from './report-safety';
 import { editorialContext, findReportingContext } from "./editorial-context";
 import { categorizeStory, composeFantasyPost, isFantasyRelevant, isLiveContentPost, isPotentialTradeStory, isPracticeSetting, isSelfContainedMediaPost, isSixPointFantasyPlay, splitAtomicUpdates, splitImpactSteps, type Story } from "./content";
 import { createXPost, xApiGet, type XCredentials } from "./x-client";
@@ -482,7 +483,8 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
         const curated = handle.toLowerCase() === "32beatwriters";
         const primaryText = curated && referencedText ? referencedText : cleanText;
         const contextText = curated && referencedText ? referencedText : primaryText;
-        const primaryPost = curated && referencedPost ? referencedPost : post;
+        const isRetweet=reference?.type==='retweeted';
+        const primaryPost = (curated||isRetweet) && referencedPost ? referencedPost : post;
         const sourceUrls = (primaryPost.entities?.urls ?? []).flatMap((entity) => [entity.expanded_url, entity.unwound_url, entity.url].filter((url): url is string => Boolean(url)));
         const mediaKeys = [...new Set([...(post.attachments?.media_keys ?? []), ...(referencedPost?.attachments?.media_keys ?? [])])];
         const hasVideoMedia = mediaKeys.some((mediaKey) => ["video", "animated_gif"].includes(mediaTypes.get(mediaKey) ?? ""));
@@ -501,11 +503,12 @@ export class FantasyHubSocialAgent extends Agent<Env, AgentState> {
           summary: update,
           url: originalUrl,
           source: `@${handle}`,
-          publishedAt: post.created_at ?? new Date().toISOString(),
+          publishedAt: primaryPost.created_at ?? '1970-01-01T00:00:00.000Z',
           category: parentIsPractice && category === "performance" ? "news" : category,
           reporter: originalReporter ? `@${originalReporter.username}` : curated ? "@32BeatWriters" : undefined,
           curator: curated ? "@32BeatWriters" : undefined,
           sourceContext: [
+            ...(recycledReport(`${cleanText} ${referencedText}`,referencedPost?.created_at) ? ['historical-review-required'] : []),
             ...(parentIsPractice ? ["practice"] : []),
             ...(hasVideoMedia ? [isSelfContainedMediaPost(primaryText, sourceUrls) ? "media-self-contained" : "media-ai-review"] : []),
           ],

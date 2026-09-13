@@ -1,4 +1,5 @@
 "use client";
+import { commandLineup } from './command-lineups';
 
 import { Fragment, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type MouseEvent } from "react";
 import { createPortal } from "react-dom";
@@ -8268,25 +8269,15 @@ function CommandCenter({
   const unavailable = players.filter((player) => /out|ir|suspend|doubt/i.test(player.status));
   const monitored = players.filter((player) => /question/i.test(player.status));
   const readiness = lineupReadiness(players, context?.rosterSlots);
-  const scenarioPool = starters.filter((player) => !/out|ir|suspend|doubt/i.test(player.status));
-  const balancedAnchor = [...scenarioPool].sort((a, b) => b.projection - a.projection)[0] ?? null;
-  const safeAnchor = [...scenarioPool]
-    .filter((player) => player.id !== balancedAnchor?.id)
-    .sort((a, b) => b.floor - a.floor)[0] ?? balancedAnchor;
-  const upsideAnchor = [...scenarioPool]
-    .filter((player) => player.id !== balancedAnchor?.id && player.id !== safeAnchor?.id)
-    .sort((a, b) => b.ceiling - a.ceiling)[0] ?? [...scenarioPool]
-      .filter((player) => player.id !== balancedAnchor?.id)
-      .sort((a, b) => b.ceiling - a.ceiling)[0] ?? balancedAnchor;
-  const scenarioPlayer = scenario === "safe" ? safeAnchor : scenario === "upside" ? upsideAnchor : balancedAnchor;
-  const scenarioLineupProjection = totals.projection;
-  const scenarioFloor = lineupFloor;
-  const scenarioCeiling = totals.ceiling;
-  const scenarioProjection = scenario === "safe"
-    ? scenarioFloor + (scenarioLineupProjection - scenarioFloor) * 0.72
-    : scenario === "upside"
-      ? scenarioLineupProjection + (scenarioCeiling - scenarioLineupProjection) * 0.45
-      : scenarioLineupProjection;
+  const scenarioLineups=useMemo(()=>({
+    safe:commandLineup(players,context?.rosterSlots,'floor'),
+    balanced:commandLineup(players,context?.rosterSlots,'projection'),
+    upside:commandLineup(players,context?.rosterSlots,'ceiling'),
+  }),[players,context]);
+  const selectedLineup=scenarioLineups[scenario];
+  const scenarioFloor=selectedLineup.reduce((n,r)=>n+(r.player?.floor??0),0);
+  const scenarioCeiling=selectedLineup.reduce((n,r)=>n+(r.player?.ceiling??0),0);
+  const scenarioProjection=selectedLineup.reduce((n,r)=>n+(r.player?.projection??0),0);
   const scenarioWinProbability = opponentProjection == null
     ? null
     : Math.round(Math.max(8, Math.min(92, 50 + (scenarioProjection - opponentProjection) * 2.15)));
@@ -8414,7 +8405,7 @@ function CommandCenter({
             <span><small>RANGE</small><b>{scenarioFloor.toFixed(0)}–{scenarioCeiling.toFixed(0)}</b></span>
             <span><small>WIN ODDS</small><b>{scenarioWinProbability == null ? "—" : `${scenarioWinProbability}%`}</b></span>
           </div>
-          <p>{scenarioPlayer ? <><strong>{scenario === "safe" ? "Best floor anchor" : scenario === "upside" ? "Best ceiling anchor" : "Best median anchor"}: {scenarioPlayer.name}</strong><small>{scenario === "safe" ? `${scenarioPlayer.floor.toFixed(1)}-point floor anchors the stable path.` : scenario === "upside" ? `${scenarioPlayer.ceiling.toFixed(1)}-point ceiling drives the aggressive path.` : `${scenarioPlayer.projection.toFixed(1)} projected points lead the balanced path.`}</small></> : <><strong>Current lineup retained</strong><small>No active starter is available to anchor this scenario.</small></>}</p>
+          <div className="command-full-lineup">{selectedLineup.map((row,i)=>{const p=row.player;const differs=p&&Object.values(scenarioLineups).some(lineup=>!lineup.some(r=>r.player?.id===p.id));return <button type="button" key={i} className={differs?'scenario-difference':''} disabled={!p} onClick={()=>p&&setSelectedPlayer(p)}><span>{formatRosterSlot(row.slot)}</span><strong>{p?.name??'Empty slot'}{differs&&<small>Scenario pick</small>}</strong><b>{p?.projection.toFixed(1)??'—'}</b></button>;})}</div>
         </section>
       </div>
       <div className="main-grid">
