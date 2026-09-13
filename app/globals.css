@@ -923,7 +923,7 @@ html[data-theme="dark"] .account-theme-customizer{color:#fff;background:radial-g
   .roster-section .table-panel{overflow-x:hidden;padding:0 8px}
   .roster-section table,.roster-section tbody{display:block;width:100%}
   .roster-section thead{display:none}
-  .roster-section tbody tr{display:grid;width:100%;grid-template-columns:minmax(0,1fr) 48px 44px;grid-template-areas:"player slot projection" "matchup matchup status";align-items:center;column-gap:7px;row-gap:7px;padding:9px 4px;border-bottom:1px solid var(--line)}
+  .roster-section tbody tr{display:grid;width:100%;grid-template-columns:minmax(0,1fr) 48px 44px;grid-template-areas:"player slot projection" "matchup matchup matchup" "status status status";align-items:center;column-gap:7px;row-gap:7px;padding:9px 4px;border-bottom:1px solid var(--line)}
   .roster-section tbody tr:last-child{border-bottom:0}
   .roster-section tbody td{min-width:0;padding:0;border:0}
   .roster-section td.roster-player-cell{display:grid;grid-area:player;grid-template-columns:32px minmax(0,1fr);align-items:center;gap:6px;min-width:0;white-space:normal}
