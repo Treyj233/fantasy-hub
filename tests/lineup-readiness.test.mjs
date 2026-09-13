@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import ts from 'typescript';
-const code=ts.transpile(readFileSync(new URL('../app/lineup-readiness.ts',import.meta.url),'utf8'),{module:ts.ModuleKind.ESNext});
+const code=ts.transpile(readFileSync(new URL('../app/lineup-readiness.ts',import.meta.url),'utf8'),{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022});
 const {lineupReadiness}=await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`);
 const p=(id,role='WR',status='Healthy',opponent='BUF')=>({id,role,status,opponent});
 test('bench and IR injuries do not reduce starter readiness',()=>{
