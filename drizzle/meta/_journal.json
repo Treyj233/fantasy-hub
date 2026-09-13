@@ -134,6 +134,13 @@
       "when": 1788977284690,
       "tag": "0018_optimal_baron_strucker",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "6",
+      "when": 1789275934154,
+      "tag": "0019_chubby_eternals",
+      "breakpoints": true
     }
   ]
 }

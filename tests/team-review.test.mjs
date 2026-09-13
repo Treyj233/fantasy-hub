@@ -56,7 +56,10 @@ test('Pro gate exists on API before input evaluation and navigation follows Team
   assert.match(ui,/label: "Team Rankings"[^\n]+\n\s*\{ label: "Team Review"/);
   assert.match(ui,/view === "Team Review" && entitlement.pro/);
   assert.match(ui,/view === "Team Review" && !entitlement.pro && <ProGate/);
-  assert.match(ui,/const visibleNav = nav;/);
+  const visibility=ui.match(/const visibleNav = nav\.filter\(([^;]+)\);/);
+  assert.ok(visibility);
+  const isVisible=new Function('item','entitlement',`return (${visibility[1]}) (item)`);
+  assert.equal(isVisible({label:'Team Review'},{owner:false}),true);
   assert.match(ui,/label: "Team Review", mark: "▤"/);
   assert.doesNotMatch(ui,/OWNER PREVIEW · TEAM REVIEW/);
 });

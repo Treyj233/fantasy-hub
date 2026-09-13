@@ -254,7 +254,7 @@ export async function GET(request: Request) {
         new Date(a.date).getTime() - new Date(b.date).getTime(),
     );
   return Response.json({
-    league: { id: leagueId, name: league.name ?? "League", season, provider: "Sleeper", projectionSource: "Sleeper Projections" },
+    league: { id: leagueId, name: league.name ?? "League", season, provider: "Sleeper", projectionSource: "Sleeper Projections", scoring: league.scoring_settings ?? {} },
     week,
     updatedAt: new Date().toISOString(),
     gameDataSource: fallbackSchedule ? "local-schedule" : "Highlightly",

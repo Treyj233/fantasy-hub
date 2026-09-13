@@ -17,7 +17,7 @@ type SourceProjection = { player_id?: string; stats?: Record<string, number> };
 type MatchupRow = { roster_id?: number; matchup_id?: number | null };
 type TrendingRow = { player_id?: string; count?: number };
 
-const LEAGUE_PAYLOAD_VERSION = 24;
+const LEAGUE_PAYLOAD_VERSION = 25;
 const LEAGUE_SNAPSHOT_TTL_MS = 5 * 60 * 1000;
 const SHARED_TTL_SECONDS = {
   projections: 15 * 60,
@@ -350,7 +350,7 @@ export async function GET(request: Request) {
       return { id: String(rosterId), ownerId: roster.owner_id, managerName, teamName: owner?.metadata?.team_name ?? `${managerName}'s Team`, matchupId: matchupByRoster.get(rosterId) ?? null, roster: normalized, draftCapital: { score: Number(ownedPicks.reduce((sum, pick) => sum + pick.value, 0).toFixed(1)), picks: ownedPicks } };
     });
     const managers = users.flatMap((user, index) => user.user_id ? [{ id: user.user_id, name: user.display_name ?? `Manager ${index + 1}`, teamName: user.metadata?.team_name ?? `${user.display_name ?? `Manager ${index + 1}`}'s Team`, style: "Neutral" as const }] : []);
-    const result = await applyPostgameRankings({ payloadVersion: LEAGUE_PAYLOAD_VERSION, league: { name: league.name ?? "Imported League", platform: "Sleeper", status: league.status ?? "unknown", teams: league.total_rosters, season: league.season, currentWeek: Math.max(0, league.leg ?? 0), projectionWeek, managers: users.length }, teams, managers, rankingContext: { format, scoring: receptionLabel, teams: league.total_rosters ?? rosters.length, rosterSlots, positionDemand, tePremium: tePremiumValue, passTouchdown: scoring.pass_td ?? 4, interception: scoring.pass_int ?? -2, bonusRuleCount, scoringRuleCount: Object.values(scoring).filter((value) => value !== 0).length }, rankings: rankingPool, waiverPlayers, waiverTrending });
+    const result = await applyPostgameRankings({ payloadVersion: LEAGUE_PAYLOAD_VERSION, league: { name: league.name ?? "Imported League", platform: "Sleeper", status: league.status ?? "unknown", teams: league.total_rosters, season: league.season, currentWeek: Math.max(0, league.leg ?? 0), projectionWeek, managers: users.length }, teams, managers, rankingContext: { scoringRules: scoring, format, scoring: receptionLabel, teams: league.total_rosters ?? rosters.length, rosterSlots, positionDemand, tePremium: tePremiumValue, passTouchdown: scoring.pass_td ?? 4, interception: scoring.pass_int ?? -2, bonusRuleCount, scoringRuleCount: Object.values(scoring).filter((value) => value !== 0).length }, rankings: rankingPool, waiverPlayers, waiverTrending });
     const refreshedAt = new Date().toISOString();
     const snapshot = { id: crypto.randomUUID(), userId, leagueKey: id, payloadJson: JSON.stringify(result), refreshedAt };
     await db.insert(leagueDataSnapshots).values(snapshot).onConflictDoUpdate({ target: [leagueDataSnapshots.userId, leagueDataSnapshots.leagueKey], set: { payloadJson: snapshot.payloadJson, refreshedAt } });

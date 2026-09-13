@@ -34,6 +34,10 @@ import { lineupReadiness } from "./lineup-readiness";
 import { weeklyProjectionValue } from "./weekly-projection";
 import { evaluateReviewTeam, type ReviewPlayer, type TeamReviewReport } from "./team-review-model";
 import "./team-review.css";
+import dynamic from 'next/dynamic';
+import { ProjectionSourceContext, useProjectionController, useProjectionSource } from './use-projection-source';
+import { VEGAS_PROJECTION_LABEL } from './projection-source';
+const VegasEdge = dynamic(() => import('./VegasEdge'), { loading: () => <div className="page-content"><section className="panel" role="status">Loading Vegas Edge…</section></div> });
 
 type ReviewTradeDraft = { partnerId: string; sendIds: string[]; receiveIds: string[] };
 type View =
@@ -48,6 +52,7 @@ type View =
   | "My Team"
   | "Team Rankings"
   | "Team Review"
+  | "Vegas Edge"
   | "Player Rankings"
   | "ADP"
   | "Draft HQ"
@@ -62,6 +67,8 @@ type View =
   | "Theme Locker"
   | "Manage Leagues";
 type Player = {
+  projectionLocked?: boolean;
+  projectionOrigin?: string;
   gameLines?: { total: number | null; favoredBy: number | null };
   id: string;
   name: string;
@@ -456,6 +463,7 @@ type WaiverPlayer = LeagueRanking & {
 };
 type WaiverTrending = { up: WaiverPlayer[]; down: WaiverPlayer[] };
 type RankingContext = {
+  scoringRules?: Record<string, number>;
   format: "Dynasty" | "Keeper" | "Redraft";
   scoring: string;
   teams: number;
@@ -952,6 +960,8 @@ type TradeSuggestion = {
   format: "Dynasty" | "Keeper" | "Redraft";
 };
 type LeagueScan = {
+  projectionContext?: RankingContext;
+  opponentRoster?: Player[];
   league: ConnectedLeague;
   teamName: string;
   week: number;
@@ -1009,6 +1019,7 @@ const nav: { label: View; displayLabel?: string; mark: string; tone: string; gro
   { label: "Player Rankings", mark: "♛", tone: "player-gold", group: "Analyze League" },
   { label: "Team Rankings", mark: "↥", tone: "team-jade", group: "Analyze League" },
   { label: "Team Review", mark: "▤", tone: "team-jade", group: "Analyze League" },
+  { label: "Vegas Edge", mark: "↗", tone: "adp-cyan", group: "Analyze League" },
   { label: "Draft HQ", mark: "🖥", tone: "pro-gold", group: "Analyze League" },
   { label: "ADP", mark: "⌁", tone: "adp-cyan", group: "Analyze League" },
   { label: "League Analytics", mark: "◈", tone: "analytics-violet", group: "Analyze League" },
@@ -1035,6 +1046,7 @@ const glossaryDetails: Record<View, { summary: string; use: string }> = {
   "League Analytics": { summary: "Adapts to dynasty or redraft and explains roster strength, depth, positional allocation, competitive window, and future trajectory.", use: "Analyze long-term roster strategy." },
   "Team Rankings": { summary: "Ranks every team using league-relative starters, depth, balance, scoring settings, and—when applicable—runway and draft capital.", use: "Compare every league roster." },
   "Team Review": { summary: "A Pro roster report combining league-specific lineup balance, strengths, risks, and targeted trade and waiver plans.", use: "Get your team verdict and improvement plan." },
+  "Vegas Edge": { summary: "Elite market-informed projections, lineup opportunities, and waiver targets. Currently in owner preview.", use: "Find the edge in player props." },
   "Player Rankings": { summary: "Tier-based player rankings tailored to league format, scoring, lineup demand, and positional importance.", use: "Compare rest-of-season player value." },
   "ADP": { summary: "Shows market draft position by available source, separated from Fantasy Hub’s internal player rankings.", use: "Compare draft cost and value." },
   "Draft HQ": { summary: "A configurable mock-draft room with a live board, roster construction, rankings, and tiered draft intelligence.", use: "Practice and prepare for drafts." },
@@ -1809,7 +1821,7 @@ export default function FantasyHub({
     document.body.scrollTop = 0;
     document.querySelector<HTMLElement>(".workspace")?.scrollTo({ top: 0, left: 0, behavior: "auto" });
   }, [view]);
-  const [players, setPlayers] = useState<Player[]>([]);
+  const [platformPlayers, setPlayers] = useState<Player[]>([]);
   const [leagueId, setLeagueId] = useState("");
   const [leagueName, setLeagueName] = useState("No league selected");
   const [importState, setImportState] = useState<
@@ -1817,9 +1829,9 @@ export default function FantasyHub({
   >("idle");
   const [starterChoice, setStarterChoice] = useState("Rome Odunze");
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
-  const [leagueTeams, setLeagueTeams] = useState<LeagueTeam[]>([]);
+  const [platformTeams, setLeagueTeams] = useState<LeagueTeam[]>([]);
   const [selectedTeamId, setSelectedTeamId] = useState("");
-  const [leagueRankings, setLeagueRankings] = useState<LeagueRanking[]>([]);
+  const [platformRankings, setLeagueRankings] = useState<LeagueRanking[]>([]);
   useEffect(() => {
     if (!leagueId || importState !== "success" || !["Player Rankings", "Trade Lab"].includes(view)) return;
     return startVisiblePolling(async (signal: AbortSignal) => {
@@ -1848,7 +1860,7 @@ export default function FantasyHub({
   const [rankingContext, setRankingContext] = useState<RankingContext | null>(
     null,
   );
-  const [waiverPlayers, setWaiverPlayers] = useState<WaiverPlayer[]>([]);
+  const [platformWaivers, setWaiverPlayers] = useState<WaiverPlayer[]>([]);
   const [waiverTrending, setWaiverTrending] = useState<WaiverTrending>({ up: [], down: [] });
   const [leagueStatus, setLeagueStatus] = useState("unknown");
   const [leagueWeek, setLeagueWeek] = useState(0);
@@ -1880,6 +1892,12 @@ export default function FantasyHub({
   const [accountLoading, setAccountLoading] = useState(Boolean(accountUser && !cachedAccount));
   const [accountError, setAccountError] = useState("");
   const [entitlement, setEntitlement] = useState<AccountEntitlement>(cachedAccount?.entitlement ?? { plan: "free", status: "inactive", pro: false, elite: false, currentPeriodEnd: null, provider: null, owner: false });
+  const vegasMode = useProjectionController(entitlement.owner && entitlement.elite,accountUser?.email ?? '',leagueSeason);
+  const projectionWeek=Math.max(1,leagueWeek);
+  const players=useMemo(()=>platformPlayers.map(p=>vegasMode.adapter.player(p,rankingContext,leagueSeason,projectionWeek)),[platformPlayers,vegasMode.adapter,rankingContext,leagueSeason,projectionWeek]);
+  const leagueTeams=useMemo(()=>platformTeams.map(t=>({...t,roster:t.roster.map(p=>vegasMode.adapter.player(p,rankingContext,leagueSeason,projectionWeek))})),[platformTeams,vegasMode.adapter,rankingContext,leagueSeason,projectionWeek]);
+  const leagueRankings=useMemo(()=>platformRankings.map(p=>vegasMode.adapter.player(p,rankingContext,leagueSeason,projectionWeek)),[platformRankings,vegasMode.adapter,rankingContext,leagueSeason,projectionWeek]);
+  const waiverPlayers=useMemo(()=>platformWaivers.map(p=>vegasMode.adapter.player(p,rankingContext,leagueSeason,projectionWeek)),[platformWaivers,vegasMode.adapter,rankingContext,leagueSeason,projectionWeek]);
   const [rivalryWeek, setRivalryWeek] = useState<RivalryWeek | null>(null);
   const [needsOnboarding, setNeedsOnboarding] = useState(cachedAccount?.preferences ? !cachedAccount.preferences.onboardingCompletedAt : false);
   const [onboardingTourOpen, setOnboardingTourOpen] = useState(false);
@@ -2945,7 +2963,7 @@ export default function FantasyHub({
 
   function selectLeagueTeam(teamId: string) {
     setSelectedTeamId(teamId);
-    const team = leagueTeams.find((candidate) => candidate.id === teamId);
+    const team = platformTeams.find((candidate) => candidate.id === teamId);
     setPlayers(team?.roster ?? []);
     setSelectedPlayer(null);
     if (leagueId && teamId) {
@@ -2965,11 +2983,11 @@ export default function FantasyHub({
     () => availableLeagues.filter((league) => !hiddenLeagueIds.includes(league.id)),
     [availableLeagues, hiddenLeagueIds],
   );
-  const visibleNav = nav;
+  const visibleNav = nav.filter(item => item.label !== 'Vegas Edge' || entitlement.owner);
   const activeRivalryWeek = entitlement.elite && rivalryWeek?.leagueId === leagueId && leaguePlatform.toLowerCase() === "sleeper" ? rivalryWeek : null;
   const activeNavGroup = nav.find((item) => item.label === view)?.group ?? "Home";
   const proViews = new Set<View>(["Command Center", "League Analytics", "Simulator", "Team Review"]);
-  const eliteViews = new Set<View>(["League Stories", "Manager Report"]);
+  const eliteViews = new Set<View>(["League Stories", "Manager Report", "Vegas Edge"]);
   const rosterReady = players.length > 0;
   const [seasonSchedule, setSeasonSchedule] = useState<NflScheduleData | null>(null);
   useEffect(() => {
@@ -3053,7 +3071,8 @@ export default function FantasyHub({
   if (!accountUser) return <SignInScreen />;
   if (accountLoading) return <AccountLoading />;
   return (
-    <ProjectionPlatformContext.Provider value={leaguePlatform}>
+    <ProjectionSourceContext.Provider value={vegasMode.adapter}>
+    <ProjectionPlatformContext.Provider value={vegasMode.enabled ? 'Vegas Implied' : leaguePlatform}>
     <PlayerOpenContext.Provider value={setSelectedPlayer}>
     <main
       className={`app-shell ${sidebarCollapsed ? "sidebar-collapsed" : ""} ${mobileNavOpen ? "mobile-nav-open" : ""} ${activeRivalryWeek ? "rivalry-week-active" : ""} ${onboardingTourOpen ? `onboarding-tour-active onboarding-tour-step-${onboardingTourStep}` : ""}`}
@@ -3552,6 +3571,7 @@ export default function FantasyHub({
           </section>
         )}
 
+        {vegasMode.enabled && <div className="projection-mode-notice" role="status"><strong>{VEGAS_PROJECTION_LABEL}</strong><span>Uncovered players use platform fallback · Actual scores unchanged</span><button type="button" onClick={()=>setView('Vegas Edge')}>Manage</button></div>}
         {view === "Command Center" && !entitlement.pro && <ProGate feature="Command Center" onUpgrade={() => setView("Fantasy Hub Pro")} />}
         {view === "Command Center" && entitlement.pro &&
           (rosterReady ? (
@@ -3634,7 +3654,8 @@ export default function FantasyHub({
             leagueId={leagueId}
             season={selectedConnectedLeague?.season ?? leagueSeason}
             defaultWeek={defaultGameWeek}
-            players={players}
+            players={platformPlayers}
+            projectionContext={rankingContext}
           />
         )}
         {view === "News & Notes" && <NewsAndNotes onOpenPlayer={(player) => {
@@ -3678,6 +3699,8 @@ export default function FantasyHub({
             setSelectedPlayer={setSelectedPlayer}
           />
         )}
+        {view === 'Vegas Edge' && entitlement.owner && entitlement.elite && (rosterReady && rankingContext ? <VegasEdge key={`${leagueId}:${selectedTeamId}`} season={leagueSeason} week={defaultGameWeek} roster={platformPlayers} waivers={platformWaivers} enabled={vegasMode.enabled} onToggle={vegasMode.toggle} onFeed={vegasMode.setFeed} context={rankingContext} onPlayer={p => setSelectedPlayer(p as Player)} onWaivers={() => setView('Waiver Wire')} /> : rosterEmptyState)}
+        {view === 'Vegas Edge' && !entitlement.owner && <div className="page-content"><section className="panel">This page is not available.</section></div>}
         {view === "Team Review" && !entitlement.pro && <ProGate feature="Team Review" onUpgrade={() => setView("Fantasy Hub Pro")} />}
         {view === "Team Review" && entitlement.pro && (rosterReady ? <TeamReview
           key={`${leagueId}:${selectedTeamId}`}
@@ -3874,7 +3897,7 @@ export default function FantasyHub({
       {selectedPlayer && (
         <PlayerPanel
           key={`${selectedPlayer.id}-${leagueId}-${defaultGameWeek}`}
-          player={selectedPlayer}
+          player={vegasMode.adapter.player(selectedPlayer,rankingContext,leagueSeason,defaultGameWeek)}
           leagueId={leagueId}
           week={defaultGameWeek}
           season={selectedConnectedLeague?.season ?? leagueSeason}
@@ -3885,6 +3908,7 @@ export default function FantasyHub({
     </main>
     </PlayerOpenContext.Provider>
     </ProjectionPlatformContext.Provider>
+    </ProjectionSourceContext.Provider>
   );
 }
 
@@ -4108,7 +4132,7 @@ function Glossary({ onNavigate, onStartOnboarding, showOnboarding, owner = false
   const categories = mobileCategoryNav.map((category) => ({
     ...category,
     leadPage: nav.find((item) => item.label === category.lead)!,
-    pages: nav.filter((item) => item.group === category.group),
+    pages: nav.filter((item) => item.group === category.group && (item.label !== 'Vegas Edge' || owner)),
   }));
   return (
     <div className="page-content glossary-page">
@@ -5313,8 +5337,23 @@ function AllLeagues({
   onScansChange: (scans: LeagueScan[]) => void;
 }) {
   const openPlayer = useContext(PlayerOpenContext);
-  const [scans, setScans] = useState<LeagueScan[]>(cachedScans);
-  const [portfolioScores, setPortfolioScores] = useState<Record<string, ScoreboardData | null>>({});
+  const [platformScans, setScans] = useState<LeagueScan[]>(cachedScans);
+  const projectionSource=useProjectionSource();
+  const [rawPortfolioScores, setPortfolioScores] = useState<Record<string, ScoreboardData | null>>({});
+  const portfolioScores=useMemo(()=>Object.fromEntries(Object.entries(rawPortfolioScores).map(([id,data])=>[id,projectionSource.scoreboard(data)])),[rawPortfolioScores,projectionSource]);
+  const scans=useMemo(()=>platformScans.map(scan=>{
+    if(!projectionSource.enabled)return scan;
+    const context=scan.projectionContext ?? projectionSource.contextFor(rawPortfolioScores[scan.league.id]?.league.scoring);
+    const roster=scan.roster.map(p=>projectionSource.player(p,context,scan.league.season ?? '',scan.week));
+    const waivers=scan.waiverPlayers.map(p=>projectionSource.player(p,context,scan.league.season ?? '',scan.week));
+    const opponents=scan.opponentRoster?.map(p=>projectionSource.player(p,context,scan.league.season ?? '',scan.week));
+    const issues=scan.issues.filter(i=>!(i.category==='Lineup'&&i.title.startsWith('Start '))&&i.category!=='Waivers'&&!(i.category==='Role'&&i.title.includes('projects near zero')));
+    startSitDecisions(roster).forEach(d=>{const candidate=d.candidates[0];if(!candidate||candidate.projectionLocked||d.starter.projectionLocked||/out|question|doubt|suspend|injured/i.test(candidate.status))return;const gain=candidate.projection-d.starter.projection;if(gain>=1.5)issues.push({id:`${scan.league.id}:vegas:${d.starter.id}`,severity:gain>=4?'critical':'warning',category:'Lineup',title:`Start ${candidate.name} over ${d.starter.name}`,detail:`${gain.toFixed(1)}-point projected improvement. ${candidate.projectionOrigin==='Platform fallback'||d.starter.projectionOrigin==='Platform fallback'?'Includes platform fallback.':'Vegas Implied Projections.'} Confirm availability and lineup locks before changing.`});});
+    const plan=waivers[0]?waiverAddDropPlan(waivers[0],roster,scan.projectionContext ?? null):null;
+    if(plan?.worthIt&&plan.drop)issues.push({id:`${scan.league.id}:vegas:waiver`,severity:'watch',category:'Waivers',title:`Add ${waivers[0].name} · drop ${plan.drop.name}`,detail:`Modeled roster utility improves ${plan.improvement.toFixed(1)} points using the selected projection source. Check current availability.`});
+    const status=issues.some(i=>i.severity==='critical')?'urgent' as const:issues.some(i=>i.severity==='warning')?'review' as const:'ready' as const;
+    return {...scan,roster,waiverPlayers:waivers,projection:roster.filter(isStartingPlayer).reduce((sum,p)=>sum+p.projection,0),opponentProjection:opponents?opponents.filter(isStartingPlayer).reduce((sum,p)=>sum+p.projection,0):scan.opponentProjection,issues,status:scan.preDraft||scan.status==='unavailable'?scan.status:status};
+  }),[platformScans,projectionSource,rawPortfolioScores]);
   const portfolioScoreKey = scans.filter(scan => !scan.preDraft).map(scan => [scan.league.id, scan.week]).sort().map(pair => pair.join(":")).join("|");
   useEffect(() => {
     const groups = new Map<number, string[]>();
@@ -5699,6 +5738,8 @@ function AllLeagues({
                 : "ready",
             health,
             roster: team.roster,
+            projectionContext: payload.rankingContext,
+            opponentRoster: opponent?.roster,
             waiverPlayers: payload.waiverPlayers ?? [],
             opponentName: opponent?.teamName ?? "Opponent pending",
             opponentProjection,
@@ -6310,7 +6351,9 @@ function AllLeagueScoreboard({
       return null;
     }
   }, [portfolioCacheKey]);
-  const [scores, setScores] = useState<Record<string, ScoreboardData | null>>(() => initialPortfolioSnapshot?.scores ?? {});
+  const projectionSource=useProjectionSource();
+  const [rawScores, setScores] = useState<Record<string, ScoreboardData | null>>(() => initialPortfolioSnapshot?.scores ?? {});
+  const scores=useMemo(()=>Object.fromEntries(Object.entries(rawScores).map(([id,data])=>[id,projectionSource.scoreboard(data)])),[rawScores,projectionSource]);
   const [loading, setLoading] = useState(false);
   const [updatedAt, setUpdatedAt] = useState(() => initialPortfolioSnapshot?.updatedAt ?? "");
   const [expandedNeeds, setExpandedNeeds] = useState<Set<string>>(new Set());
@@ -6892,11 +6935,13 @@ function Scoreboard({
   const [week, setWeek] = useState(
     defaultWeek >= 1 && defaultWeek <= 18 ? defaultWeek : 1,
   );
-  const [data, setData] = useState<ScoreboardData | null>(() =>
+  const projectionSource=useProjectionSource();
+  const [rawData, setData] = useState<ScoreboardData | null>(() =>
     readSessionCache<ScoreboardData>(
       `fantasy-hub-scoreboard:${leagueId}:${defaultWeek >= 1 && defaultWeek <= 18 ? defaultWeek : 1}:all`,
     ),
   );
+  const data=useMemo(()=>projectionSource.scoreboard(rawData),[rawData,projectionSource]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -7086,17 +7131,21 @@ function NflGames({
   season,
   defaultWeek,
   players,
+  projectionContext,
 }: {
   leagueId: string;
   season: string;
   defaultWeek: number;
   players: Player[];
+  projectionContext: RankingContext | null;
 }) {
   const openPlayer = useContext(PlayerOpenContext);
   const [week, setWeek] = useState(
     defaultWeek >= 1 && defaultWeek <= 18 ? defaultWeek : 1,
   );
-  const [data, setData] = useState<NflGameData | null>(null);
+  const projectionSource=useProjectionSource();
+  const [rawData, setData] = useState<NflGameData | null>(null);
+  const data=useMemo(()=>projectionSource.nflGames(rawData,projectionContext),[rawData,projectionSource,projectionContext]);
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -8307,7 +8356,7 @@ function CommandCenter({
           <div className="game-day-pills">
             <b>🔥 Roster ready</b>
             <b>⚡ Lineup edges</b>
-            <b>🎯 {projectionPlatform} projections</b>
+            <b>🎯 {projectionPlatform} Projections</b>
           </div>
         </div>
         <div className="hero-score">
@@ -8643,7 +8692,7 @@ function RosterSection({
                   </span>
                   <span className="roster-player-copy">
                     <strong>{player.name}</strong>
-                    <small>{player.team}</small>
+                    <small>{player.team}{player.projectionOrigin==='Platform fallback'?' · Platform fallback':''}</small>
                   </span>
                 </td>
                 <td>
@@ -11818,7 +11867,9 @@ function HeadToHeadMatchup({
     [leagueId, defaultWeek],
   );
   const [week, setWeek] = useState(defaultWeek);
-  const [data, setData] = useState<ScoreboardData | null>(initialCachedMatchup);
+  const projectionSource=useProjectionSource();
+  const [rawData, setData] = useState<ScoreboardData | null>(initialCachedMatchup);
+  const data=useMemo(()=>projectionSource.scoreboard(rawData),[rawData,projectionSource]);
   const [matchupId, setMatchupId] = useState<number | null>(
     initialMatchupId ??
     initialCachedMatchup?.matchups.find((matchup) => matchup.teams.some((team) => team.isMine))?.matchupId ??
@@ -12733,7 +12784,8 @@ function PlayerPanel({
   const withOpponent = applyOpponent(sourcePlayer, context?.schedule ?? null, week);
   const withWeather = applyWeather(withOpponent, context?.weather ?? null);
   const player = context?.strength ? applyMatchupStrength(withWeather, context.strength) : withWeather;
-  const projectionPlatform = useContext(ProjectionPlatformContext);
+  const activeProjectionPlatform = useContext(ProjectionPlatformContext);
+  const projectionPlatform = player.projectionOrigin==='Platform fallback' ? 'Platform fallback' : activeProjectionPlatform;
   const [liveScore, setLiveScore] = useState<{ player: ScoreboardPlayer; status: string } | undefined>();
   useEffect(() => {
     if (!leagueId) return;

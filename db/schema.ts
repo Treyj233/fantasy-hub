@@ -1,6 +1,13 @@
 import { sql } from "drizzle-orm";
 import { integer, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
+export const vegasEdgeCache = sqliteTable("vegas_edge_cache", {
+  id: text("id").primaryKey(),
+  payload: text("payload").notNull().default('{}'),
+  leaseUntil: integer("lease_until").notNull().default(0),
+  leaseToken: text("lease_token").notNull().default(''),
+});
+
 export const sleeperConnections = sqliteTable("sleeper_connections", {
   userId: text("user_id").primaryKey(),
   email: text("email").notNull(),
