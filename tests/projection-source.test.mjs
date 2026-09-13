@@ -13,6 +13,23 @@ const p={id:'p',name:'Test Receiver',team:'BUF',position:'WR',role:'WR',status:'
 const event={id:'e',home:'BUF',away:'NYJ',startsAt:new Date(now+3600000).toISOString(),updatedAt:new Date(now).toISOString(),locked:false,total:45,homeSpread:-3,players:[{name:p.name,team:'BUF',status:'active',props:[{stat:'receiving_yards',line:80.5,overProbability:.5,books:2},{stat:'receiving_receptions',line:6.5,overProbability:.5,books:2},{stat:'touchdowns',line:.5,overProbability:.5,books:2}]}]};
 const schedule={season:2026,weeks:[{week:1,games:[{date:event.startsAt,home:{abbreviation:'BUF'},away:{abbreviation:'NYJ'}}]}]};
 const on=projectionAdapter(true,[event],schedule,now),off=projectionAdapter(false,[event],schedule,now);
+test('league switches tolerate rostered free agents and retain platform projections',()=>{
+  for(const team of [null,undefined,'','FA']){
+    const freeAgent={...p,team};
+    const result=on.player(freeAgent,context,2026,1);
+    assert.equal(result.projection,p.projection);
+    assert.equal(result.projectionOrigin,'Platform fallback');
+    assert.equal(result.projectionLocked,false);
+    assert.deepEqual(off.player(result,context,2026,1),freeAgent);
+    // The next league's covered player still uses its own scoring context.
+    assert.equal(on.player(p,context,2026,1).projection,18.9);
+  }
+});
+test('missing player and market teams cannot create a false Vegas match',()=>{
+  const unassigned={...event,players:[{...event.players[0],team:null}]};
+  const adapter=projectionAdapter(true,[unassigned],schedule,now);
+  assert.equal(adapter.player({...p,team:null},context,2026,1).projectionOrigin,'Platform fallback');
+});
 test('toggle changes weekly projection and ranges, restores platform exactly',()=>{
   const before=structuredClone(p),changed=on.player(p,context,2026,1);
   assert.ok(changed.projection>p.projection);assert.equal(changed.leagueProjection,changed.projection);

@@ -5,7 +5,10 @@ export type EdgeEvent = { id: string; startsAt: string; home: string; away: stri
 export type EdgeFeed = { configured: boolean; events: EdgeEvent[]; message: string; checkedAt?: string; usage?: number; budget?: number };
 const number = (v: unknown) => v !== null && v !== undefined && v !== '' && Number.isFinite(Number(v)) ? Number(v) : null;
 const median = (values: number[]) => { const v = [...values].sort((a,b)=>a-b); return v.length ? (v[Math.floor((v.length-1)/2)] + v[Math.floor(v.length/2)]) / 2 : null; };
-export const teamCode = (s: string) => ({JAC:'JAX',WSH:'WAS',LA:'LAR'}[s.toUpperCase()] ?? s.toUpperCase());
+export const teamCode = (s: string | null | undefined) => {
+  const code = typeof s === 'string' ? s.trim().toUpperCase() : '';
+  return ({JAC:'JAX',WSH:'WAS',LA:'LAR'}[code] ?? code);
+};
 const nameKey = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/\b(jr|sr|ii|iii|iv)\b/g,'').replace(/[^a-z]/g,'');
 // Narrow alias fallback; exact names always win. Never use last-name-only or
 // initial matching, and never allow an alias to cross NFL teams.
@@ -79,7 +82,10 @@ export function normalizeEvents(raw: unknown, now = Date.now()): EdgeEvent[] {
 }
 export function edgeProjection(player: EdgePlayer, events: EdgeEvent[], context: EdgeContext, now=Date.now()) {
   const baseline = player.leagueProjection ?? player.projection;
-  const candidates=events.flatMap(event=>event.players.filter(p=>teamCode(p.team)===teamCode(player.team)).map(p=>({event,p})));
+  const playerTeam=teamCode(player.team);
+  // Rostered free agents can have null teams in cached league rankings.
+  // Missing identity must neither crash the overlay nor match unassigned props.
+  const candidates=playerTeam?events.flatMap(event=>event.players.filter(p=>teamCode(p.team)===playerTeam).map(p=>({event,p}))):[];
   const exact=candidates.filter(({p})=>[p.name,...(p.aliases ?? [])].some(name=>nameKey(name)===nameKey(player.name)));
   const keys=marketNameKeys(player.name,player.team);
   const matches=exact.length?exact:candidates.filter(({p})=>[p.name,...(p.aliases ?? [])].some(name=>marketNameKeys(name,p.team).some(key=>keys.includes(key))));
