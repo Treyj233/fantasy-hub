@@ -69,14 +69,21 @@ export function rootingInterests(exposures) {
  * Targets are proportional to each player's remaining projection so the output
  * stays attainable-looking without pretending to predict a specific stat line.
  */
+export function remainingPlayerProjection(player) {
+  if (player.gameProgress >= 1) return 0;
+  if (!Number.isFinite(player.projection)) return 0;
+  if (Number.isFinite(player.gameProgress)) return Math.max(0, player.projection) * (1 - Math.max(0, player.gameProgress));
+  return Math.max(0, player.projection - player.points);
+}
+
 export function whatDoINeed({ yourPoints, opponentPoints, opponentRemaining = 0, players = [], scoring = {} }) {
-  const eligible = players.filter((player) => player.projection != null && player.projection > player.points);
+  const eligible = players.filter((player) => remainingPlayerProjection(player) > 0);
   const teamNeed = Math.max(0, opponentPoints + opponentRemaining + 0.01 - yourPoints);
-  const remainingWeight = eligible.reduce((sum, player) => sum + Math.max(1, player.projection - player.points), 0);
+  const remainingWeight = eligible.reduce((sum, player) => sum + remainingPlayerProjection(player), 0);
   if (!eligible.length) return { teamNeed: Number(teamNeed.toFixed(1)), targets: [], message: teamNeed > 0 ? "No remaining projected starters are available to build a target." : "Your current score is above the opponent’s projected finish." };
   if (teamNeed <= 0.05) return { teamNeed: 0, targets: [], message: "Your current score is already above the opponent’s projected finish." };
   const targets = eligible.map((player) => {
-    const share = Math.max(1, player.projection - player.points) / remainingWeight;
+    const share = remainingPlayerProjection(player) / remainingWeight;
     const pointsNeeded = Number((teamNeed * share).toFixed(1));
     const targetTotal = player.points + pointsNeeded;
     return { ...player, pointsNeeded, targetTotal: Number(targetTotal.toFixed(1)), progress: Math.min(100, Math.round(player.points / Math.max(0.1, targetTotal) * 100)), statLine: statLineEquivalent(player.position, pointsNeeded, scoring) };

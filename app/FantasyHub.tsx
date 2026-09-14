@@ -4,7 +4,7 @@ import { commandLineup } from './command-lineups';
 import { Fragment, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type MouseEvent } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
-import { estimatedWinProbability, isProjectedWin, playerLeverage, rootingInterests, whatDoINeed } from "./game-day-model.mjs";
+import { estimatedWinProbability, isProjectedWin, playerLeverage, remainingPlayerProjection, rootingInterests, whatDoINeed } from "./game-day-model.mjs";
 import { classifyFantasyPlay, findConfirmedPlayContext, isSundayPulseEventActive, SUNDAY_PULSE_EVENT_TTL_MS } from "./live-play-alerts.mjs";
 import { sundaySwingsFromGroups } from "./sunday-swings.mjs";
 import { PRE_KICKOFF_VISUALS_ENABLED } from "./pre-kickoff-visuals";
@@ -6444,8 +6444,8 @@ function AllLeagueScoreboard({
         if (!data || !league || !matchup || !mine || !opponent) return;
         const mineStarters = mine.topPlayers.filter((player) => player.isStarter);
         const opponentStarters = opponent.topPlayers.filter((player) => player.isStarter);
-        const mineRemaining = mineStarters.reduce((sum, player) => sum + Math.max(0, (player.projection ?? 0) - player.points), 0);
-        const opponentRemaining = opponentStarters.reduce((sum, player) => sum + Math.max(0, (player.projection ?? 0) - player.points), 0);
+        const mineRemaining = mineStarters.reduce((sum, player) => sum + remainingPlayerProjection(player), 0);
+        const opponentRemaining = opponentStarters.reduce((sum, player) => sum + remainingPlayerProjection(player), 0);
         const status = matchup.status === "Final" ? "final" : matchup.status === "Scheduled" ? "pre" : "live";
         const projectionsAvailable = [...mineStarters, ...opponentStarters].some((player) => player.projection != null);
         const currentOdds = estimatedWinProbability({ yourPoints: mine.points, opponentPoints: opponent.points, yourRemaining: mineRemaining, opponentRemaining, status, projectionsAvailable });
@@ -6540,7 +6540,7 @@ function AllLeagueScoreboard({
       const winProbability = estimatedWinProbability({ yourPoints: mine.points, opponentPoints: opponent.points, yourRemaining: mineRemaining, opponentRemaining, status, projectionsAvailable });
       return [{ league, data, matchup, mine, opponent, mineStarters, opponentStarters, mineRemaining, opponentRemaining, winProbability, status }];
     });
-    const exposures = matchups.flatMap((item) => [...item.mineStarters.map((player) => ({ playerId: player.id, playerName: player.name, position: player.position, nflTeam: player.nflTeam, side: "you", margin: item.mine.points - item.opponent.points, remainingProjection: Math.max(0, (player.projection ?? 0) - player.points), pointsNeeded: Math.max(0, item.opponent.points + item.opponentRemaining - item.mine.points - item.mineRemaining + Math.max(0, (player.projection ?? 0) - player.points)), state: item.status, leagueId: item.league.id, leagueName: item.league.name })), ...item.opponentStarters.map((player) => ({ playerId: player.id, playerName: player.name, position: player.position, nflTeam: player.nflTeam, side: "opponent", margin: item.mine.points - item.opponent.points, remainingProjection: Math.max(0, (player.projection ?? 0) - player.points), pointsNeeded: 0, state: item.status, leagueId: item.league.id, leagueName: item.league.name }))]);
+    const exposures = matchups.flatMap((item) => [...item.mineStarters.filter(player => player.gameProgress !== 1).map((player) => ({ playerId: player.id, playerName: player.name, position: player.position, nflTeam: player.nflTeam, side: "you", margin: item.mine.points - item.opponent.points, remainingProjection: remainingPlayerProjection(player), pointsNeeded: Math.max(0, item.opponent.points + item.opponentRemaining - item.mine.points - item.mineRemaining + remainingPlayerProjection(player)), state: item.status, leagueId: item.league.id, leagueName: item.league.name })), ...item.opponentStarters.filter(player => player.gameProgress !== 1).map((player) => ({ playerId: player.id, playerName: player.name, position: player.position, nflTeam: player.nflTeam, side: "opponent", margin: item.mine.points - item.opponent.points, remainingProjection: remainingPlayerProjection(player), pointsNeeded: 0, state: item.status, leagueId: item.league.id, leagueName: item.league.name }))]);
     const playerGroups = new Map<string, typeof exposures>();
     exposures.forEach((item) => playerGroups.set(item.playerId, [...(playerGroups.get(item.playerId) ?? []), item]));
     const interests = rootingInterests(exposures).slice(0, 5).map((interest) => {
