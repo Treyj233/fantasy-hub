@@ -16,12 +16,23 @@ test('every award is exported with automatic page breaks and safe text bounds',(
   const pdf=new jsPDF({unit:'pt',format:'letter'});
   const original=pdf.text.bind(pdf);
   pdf.text=(text,x,y,...rest)=>{assert.ok(y>=0&&y<=773,`text outside safe area: ${y}`);return original(text,x,y,...rest);};
-  const result=drawLeagueRecap(pdf,fixture,{logo:new Uint8Array(readFileSync('public/fh-blue-app-mark.png'))});
+  const result=drawLeagueRecap(pdf,fixture,{primary:[75,22,76],accent:[255,120,90],deep:[28,8,32],logo:new Uint8Array(readFileSync('public/fh-blue-app-mark.png'))});
   assert.equal(result.awardCount,20);
   assert.ok(result.pageCount>=3);
   const data=pdf.output();
   for(const label of labels) assert.ok(data.includes(label),label);
   if(process.env.RENDER_RECAP){mkdirSync('tmp/pdfs',{recursive:true});writeFileSync('tmp/pdfs/recap-preview.pdf',Buffer.from(pdf.output('arraybuffer')));}
+});
+test('export passes the active theme and retains larger body text',()=>{
+  assert.match(readFileSync('app/league-story-pdf.ts','utf8'),/drawLeagueRecap\(pdf, story, \{ primary, accent, deep, logo \}\)/);
+  const pdf=new jsPDF({unit:'pt',format:'letter'});
+  const colors=[];const fill=pdf.setFillColor.bind(pdf);
+  pdf.setFillColor=(...args)=>{colors.push(args);return fill(...args);};
+  drawLeagueRecap(pdf,fixture,{primary:[75,22,76],accent:[255,120,90],deep:[28,8,32]});
+  assert.ok(colors.some(c=>c.join(',')==='75,22,76'));
+  assert.ok(colors.some(c=>c.join(',')==='28,8,32'));
+  assert.match(pdf.output(),/18 Tf/);
+  assert.match(pdf.output(),/12 Tf/);
 });
 test('shared winners and long names flow without truncating award content',()=>{
   const story=structuredClone(fixture);

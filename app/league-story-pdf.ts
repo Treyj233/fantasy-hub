@@ -81,7 +81,7 @@ export async function generateLeagueStoryPdf(story: LeagueStoryData, request: Le
       const response = await fetch("/fh-blue-app-mark.png");
       if (response.ok) logo = new Uint8Array(await response.arrayBuffer());
     } catch { /* Offline exports keep the Fantasy Hub wordmark. */ }
-    drawLeagueRecap(pdf, story, { logo });
+    drawLeagueRecap(pdf, story, { primary, accent, deep, logo });
     return { blob: pdf.output("blob"), fileName: `${safeFileName(story.league.name)}-week-${story.recap.week}-recap.pdf`, title: `${story.league.name}: Week ${story.recap.week} Recap` };
   }
   const report = reportContent(story, request);
