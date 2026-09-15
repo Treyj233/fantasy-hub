@@ -113,7 +113,7 @@ export async function GET(request: Request) {
   const closest = [...recapGames].sort((a, b) => Math.abs(a.teams[0].points - a.teams[1].points) - Math.abs(b.teams[0].points - b.teams[1].points))[0];
   const widest = [...recapGames].sort((a, b) => Math.abs(b.teams[0].points - b.teams[1].points) - Math.abs(a.teams[0].points - a.teams[1].points))[0];
   const preWeekRank = new Map(standingsFor(Math.max(0, completedWeek - 1)).map((team) => [team.rosterId, team.rank]));
-  const biggestUpset = recapGames.map((game) => {
+  const biggestUpset = recapGames.filter((game) => completedWeek > 1 && game.teams[0].points !== game.teams[1].points).map((game) => {
     const winner = [...game.teams].sort((a, b) => b.points - a.points)[0];
     const loser = game.teams.find((team) => team.rosterId !== winner.rosterId)!;
     return { winner, loser, seedGap: (preWeekRank.get(winner.rosterId) ?? 0) - (preWeekRank.get(loser.rosterId) ?? 0) };
@@ -208,7 +208,7 @@ export async function GET(request: Request) {
   return Response.json({
     league: { name: league.name ?? "League", season: league.season ?? "", currentWeek, completedWeek, provider: "Sleeper" },
     updatedAt: new Date().toISOString(),
-    recap: { available: recapGames.length > 0, week: completedWeek || currentWeek, highScore: sortedScores[0] ?? null, closestGame: closest ?? null, biggestWin: widest ?? null, biggestUpset, lineupOutcomes: lineupOutcomes.slice(0, 3) },
+    recap: { superlatives: leagueSuperlatives(recapGames, allGames.filter((game) => game.week === completedWeek - 1), playerName), available: recapGames.length > 0, week: completedWeek || currentWeek, highScore: sortedScores[0] ?? null, closestGame: closest ?? null, biggestWin: widest ?? null, biggestUpset, lineupOutcomes: lineupOutcomes.slice(0, 3) },
     preview: { week: currentWeek, games: allGames.filter((game) => game.week === currentWeek).map((game) => ({ matchupId: game.matchupId, teams: game.teams.map((team) => ({ rosterId: team.rosterId, teamName: team.teamName, managerName: team.managerName, points: team.points, isMine: team.isMine })) })) },
     powerRankings,
     rivalry,
@@ -232,3 +232,4 @@ export async function GET(request: Request) {
 }
 import { currentFantasyWeek } from '../../current-fantasy-week';
 import { requestedFantasyWeek } from '../../fantasy-week.mjs';
+import { leagueSuperlatives } from "../../league-superlatives.mjs";
