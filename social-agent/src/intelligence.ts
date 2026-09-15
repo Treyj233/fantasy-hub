@@ -104,7 +104,9 @@ export function validateStoryDraft(story: Story, context: PlayerContext | null, 
   if (!context && story.category !== "weather") reasons.push("No fantasy-relevant player resolved");
   if (facts.confidence === "low") reasons.push("Extracted facts are low confidence");
   if (draft.length > 280) reasons.push("Draft exceeds the X character limit");
-  const headline = draft.split(/\n{2,}/)[0] ?? "";
+  const sections = draft.split(/\n{2,}/);
+  const hasHeader = /^(?:🏈 FANTASY PULSE|🚨 INJURY PULSE|📝 ROSTER MOVE|📈 ROLE WATCH|(?:🔥|❄️|📊) PERFORMANCE PULSE|🌧️ WEATHER WATCH)$/.test(sections[0] ?? "");
+  const headline = sections[hasHeader ? 1 : 0] ?? "";
   if (/told reporters\.$|according to (?:a )?source\.$|has a new (?:injury )?update\.$/im.test(draft)) reasons.push("Headline ends before the actionable fact");
   if (/\b(?:updated?|new update|situation develops?)\b/i.test(headline)
     && !/\b(?:returned|cleared|limited|practiced|signed|traded|released|waived|named|ruled|targets?|carries|receptions?|yards?|touchdowns?|snaps?|suspend)\b/i.test(headline)) reasons.push("Headline describes an update without stating what changed");

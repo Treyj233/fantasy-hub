@@ -19,7 +19,7 @@ const context={player:'Michael Wilson',position:'WR',team:'ARI',backups:[],affec
 test('natural AI copy is preserved with credit and no forced impact heading',()=>{
  const body='Michael Wilson practiced in full today. His availability is trending in the right direction, but game status is not confirmed.';
  const draft=composeFantasyPost({...story,tweetText:body},context);
- assert.equal(draft,body+'\n\nReported by @AdamSchefter');
+ assert.equal(draft,'🏈 FANTASY PULSE\n\n'+body+'\n\nReported by @AdamSchefter');
  assert.ok(draft.length<=280);
  assert.equal(validateStoryDraft(story,context,draft,extractStoryFacts(story,context)).approvedForX,true);
 });
@@ -27,6 +27,17 @@ test('news-only fallback invents no beneficiary or forced recommendation',()=>{
  const draft=composeFantasyPost(story,context);
  assert.doesNotMatch(draft,/WHY IT MATTERS|FANTASY IMPACT|target share|waiver|backup/i);
  assert.equal(validateStoryDraft(story,context,draft,extractStoryFacts(story,context)).approvedForX,true);
+});
+test('all categories retain headers and negative performance keeps snow',()=>{
+ for (const [category,header] of [['news','🏈 FANTASY PULSE'],['injury','🚨 INJURY PULSE'],['contract','📝 ROSTER MOVE'],['depth-chart','📈 ROLE WATCH'],['weather','🌧️ WEATHER WATCH'],['performance','❄️ PERFORMANCE PULSE']]) {
+  const draft=composeFantasyPost({...story,category,title:'Michael Wilson struggled.',summary:'Michael Wilson struggled.',tweetText:'Michael Wilson struggled.'},context);
+  assert.ok(draft.startsWith(header+'\n\n'));
+  assert.ok(draft.length<=280);
+ }
+});
+test('headers do not bypass vague headline checks',()=>{
+ const draft='🏈 FANTASY PULSE\n\nMichael Wilson has a new update.';
+ assert.equal(validateStoryDraft(story,context,draft,extractStoryFacts(story,context)).approvedForX,false);
 });
 test('legacy drafts cannot pass validation and historical review still applies',()=>{
  const legacy='News\n\nWHY IT MATTERS: More targets.';

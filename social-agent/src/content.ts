@@ -461,7 +461,11 @@ const specificImpact = (story: Story, context: FantasyPlayerContext | null) => {
 export function composeFantasyPost(story: Story, context: FantasyPlayerContext | null) {
   const reporter = story.reporter || creditedReporters[story.source.toLowerCase()];
   const attribution = reporter ? `\n\nReported by ${reporter}` : story.curator ? `\n\nCurated by ${story.curator}` : "";
+  const header = `${storyLabel(story.category, `${story.title} ${story.summary}`)}\n\n`;
+  const budget = Math.max(0, 280 - header.length - attribution.length);
   // No AI result means factual news only, never an invented generic implication.
-  const body = story.tweetText || expandPlayerNames(summarizeHeadline(story, context, 280 - attribution.length), context);
-  return `${body}${attribution}`;
+  const body = story.tweetText && story.tweetText.length <= budget
+    ? story.tweetText
+    : expandPlayerNames(summarizeHeadline(story, context, budget), context);
+  return `${header}${body}${attribution}`;
 }
