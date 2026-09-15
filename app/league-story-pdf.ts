@@ -88,9 +88,10 @@ export async function generateLeagueStoryPdf(story: LeagueStoryData, request: Le
       if (!/^https:\/\/sleepercdn\.com\/content\/nfl\/players\/\d+\.jpg$/.test(url)) return;
       try {
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 1800);
+        const timeout = setTimeout(() => controller.abort(), 6500);
         try {
-          const response = await fetch(url, { signal: controller.signal });
+          const id = url.match(/\/(\d+)\.jpg$/)?.[1];
+          const response = await fetch(`/api/report-player-photo?id=${id}`, { signal: controller.signal });
           if (response.ok) portraits[url] = new Uint8Array(await response.arrayBuffer());
         } finally { clearTimeout(timeout); }
       } catch { /* Player names and scores remain available without remote images. */ }
