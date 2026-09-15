@@ -8,7 +8,7 @@ type MatchupRow = { roster_id?: number; matchup_id?: number | null; points?: num
 type Roster = { roster_id?: number; owner_id?: string; players?: string[] };
 type Manager = { user_id?: string; display_name?: string; metadata?: { team_name?: string } };
 type Transaction = { transaction_id?: string; type?: string; status?: string; roster_ids?: number[]; adds?: Record<string, number>; drops?: Record<string, number>; created?: number };
-type Player = { full_name?: string; first_name?: string; last_name?: string; position?: string; injury_status?: string | null };
+type Player = { full_name?: string; first_name?: string; last_name?: string; position?: string; fantasy_positions?: string[]; injury_status?: string | null };
 type Draft = { draft_id?: string; status?: string };
 type DraftPick = { player_id?: string; roster_id?: number; round?: number; pick_no?: number; draft_slot?: number };
 
@@ -60,7 +60,7 @@ export async function GET(request: Request) {
     fetch(`https://api.sleeper.app/v1/league/${leagueId}/drafts`, { next: { revalidate: 3600 } }).catch(() => null),
   ]);
   if (!leagueResponse.ok || !rostersResponse.ok || !managersResponse.ok) return Response.json({ error: "League story data is unavailable" }, { status: 502 });
-  const league = await leagueResponse.json() as { name?: string; season?: string; leg?: number; settings?: { playoff_teams?: number; playoff_week_start?: number } };
+  const league = await leagueResponse.json() as { name?: string; season?: string; leg?: number; roster_positions?: string[]; settings?: { playoff_teams?: number; playoff_week_start?: number } };
   const rosters = await rostersResponse.json() as Roster[];
   const managers = await managersResponse.json() as Manager[];
   const players = playersResponse.ok ? await playersResponse.json() as Record<string, Player> : {};
@@ -93,7 +93,7 @@ export async function GET(request: Request) {
   const allGames = weekPayloads.flatMap(({ week, rows }) => {
     const groups = new Map<number, MatchupRow[]>();
     rows.forEach((row, index) => { const key = row.matchup_id ?? 1000 + index; groups.set(key, [...(groups.get(key) ?? []), row]); });
-    return [...groups.entries()].flatMap(([matchupId, paired]) => paired.length < 2 ? [] : [{ week, matchupId, teams: paired.slice(0, 2).map((row) => ({ ...teamByRoster.get(row.roster_id ?? -1), rosterId: row.roster_id ?? -1, points: Number((row.custom_points ?? row.points ?? 0).toFixed(2)), starters: row.starters ?? [], players: row.players ?? [], playerPoints: row.players_points ?? {} })) }]);
+    return [...groups.entries()].flatMap(([matchupId, paired]) => paired.length < 2 ? [] : [{ week, matchupId, teams: paired.slice(0, 2).map((row) => ({ ...teamByRoster.get(row.roster_id ?? -1), rosterId: row.roster_id ?? -1, scoreAvailable: Number.isFinite(row.custom_points ?? row.points), points: Number((row.custom_points ?? row.points ?? 0).toFixed(2)), starters: row.starters ?? [], players: row.players ?? [], playerPoints: row.players_points ?? {} })) }]);
   });
   const standingsFor = (throughWeek: number) => {
     const records = new Map([...teamByRoster.values()].map((team) => [team.rosterId, { ...team, wins: 0, losses: 0, ties: 0, points: 0 }]));
@@ -108,7 +108,7 @@ export async function GET(request: Request) {
   const priorStandings = standingsFor(Math.max(0, completedWeek - 1));
   const priorRank = new Map(priorStandings.map((team) => [team.rosterId, team.rank]));
   const powerRankings = standings.map((team) => ({ ...team, movement: (priorRank.get(team.rosterId) ?? team.rank) - team.rank }));
-  const recapGames = allGames.filter((game) => game.week === completedWeek && game.teams.some((team) => team.points > 0));
+  const recapGames = allGames.filter((game) => game.week === completedWeek && game.teams.every((team) => team.scoreAvailable) && game.teams.some((team) => team.points > 0));
   const sortedScores = recapGames.flatMap((game) => game.teams).sort((a, b) => b.points - a.points);
   const closest = [...recapGames].sort((a, b) => Math.abs(a.teams[0].points - a.teams[1].points) - Math.abs(b.teams[0].points - b.teams[1].points))[0];
   const widest = [...recapGames].sort((a, b) => Math.abs(b.teams[0].points - b.teams[1].points) - Math.abs(a.teams[0].points - a.teams[1].points))[0];
@@ -145,7 +145,7 @@ export async function GET(request: Request) {
       const theirs = game.teams.find((team) => team.rosterId === rivalRosterId)!;
       return { week: game.week, yourPoints: mine.points, rivalPoints: theirs.points, margin: Number((mine.points - theirs.points).toFixed(2)), result: mine.points > theirs.points ? "W" : mine.points < theirs.points ? "L" : "T" };
     });
-    const rivalLatestGame = allGames.find((game) => game.week === completedWeek && game.teams.some((team) => team.rosterId === rivalRosterId));
+    const rivalLatestGame = allGames.find((game) => game.week === completedWeek && game.teams.every((team) => team.scoreAvailable) && game.teams.some((team) => team.rosterId === rivalRosterId));
     const rivalSide = rivalLatestGame?.teams.find((team) => team.rosterId === rivalRosterId);
     const rivalOpponent = rivalLatestGame?.teams.find((team) => team.rosterId !== rivalRosterId);
     const directResult = results.find((result) => result.week === completedWeek);
@@ -208,7 +208,7 @@ export async function GET(request: Request) {
   return Response.json({
     league: { name: league.name ?? "League", season: league.season ?? "", currentWeek, completedWeek, provider: "Sleeper" },
     updatedAt: new Date().toISOString(),
-    recap: { superlatives: leagueSuperlatives(recapGames, allGames.filter((game) => game.week === completedWeek - 1), playerName), available: recapGames.length > 0, week: completedWeek || currentWeek, highScore: sortedScores[0] ?? null, closestGame: closest ?? null, biggestWin: widest ?? null, biggestUpset, lineupOutcomes: lineupOutcomes.slice(0, 3) },
+    recap: { superlatives: leagueSuperlatives(recapGames, allGames.filter((game) => game.week === completedWeek - 1 && game.teams.every((team) => team.scoreAvailable)), playerName, { history: allGames.filter((game) => game.week <= completedWeek && game.teams.every((team) => team.scoreAvailable)), week: completedWeek, transactions: transactionPayloads.find((payload) => payload.week === completedWeek)?.rows ?? [], slots: league.roster_positions ?? [], players }), available: recapGames.length > 0, week: completedWeek || currentWeek, highScore: sortedScores[0] ?? null, closestGame: closest ?? null, biggestWin: widest ?? null, biggestUpset, lineupOutcomes: lineupOutcomes.slice(0, 3) },
     preview: { week: currentWeek, games: allGames.filter((game) => game.week === currentWeek).map((game) => ({ matchupId: game.matchupId, teams: game.teams.map((team) => ({ rosterId: team.rosterId, teamName: team.teamName, managerName: team.managerName, points: team.points, isMine: team.isMine })) })) },
     powerRankings,
     rivalry,

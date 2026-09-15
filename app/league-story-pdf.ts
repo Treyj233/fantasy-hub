@@ -1,4 +1,5 @@
 import type { LeagueStoryData } from "./FantasyHub";
+import { drawLeagueRecap } from "./league-recap-design.mjs";
 
 export type LeagueStoryReportKind = "league" | "rivalry" | "recap" | "trade" | "wrapped";
 
@@ -74,6 +75,15 @@ export async function generateLeagueStoryPdf(story: LeagueStoryData, request: Le
   const primary = rgb(cssColor("--green", "#087443"), [8, 116, 67]);
   const deep = rgb(cssColor("--deep", "#043923"), [4, 57, 35]);
   const accent = rgb(cssColor("--gold", "#e9a928"), [233, 169, 40]);
+  if (request.kind === "recap") {
+    let logo: Uint8Array | undefined;
+    try {
+      const response = await fetch("/fantasy-hub-logo-cropped.png");
+      if (response.ok) logo = new Uint8Array(await response.arrayBuffer());
+    } catch { /* Offline exports keep the Fantasy Hub wordmark. */ }
+    drawLeagueRecap(pdf, story, { primary, accent, logo });
+    return { blob: pdf.output("blob"), fileName: `${safeFileName(story.league.name)}-week-${story.recap.week}-recap.pdf`, title: `${story.league.name}: Week ${story.recap.week} Recap` };
+  }
   const report = reportContent(story, request);
   const width = pdf.internal.pageSize.getWidth();
   const height = pdf.internal.pageSize.getHeight();
