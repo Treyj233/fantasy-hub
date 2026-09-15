@@ -4,7 +4,7 @@ export async function GET(request: Request) {
   if (!id || !/^\d{1,12}$/.test(id)) return new Response(null, { status: 400 });
   try {
     const response = await fetch(`https://sleepercdn.com/content/nfl/players/${id}.jpg`, {
-      redirect: 'error', signal: AbortSignal.timeout(5000), cache: 'no-store',
+      redirect: 'manual', signal: AbortSignal.timeout(5000), cache: 'no-store',
     });
     if (!response.ok) return new Response(null, { status: 404 });
     const bytes = await response.arrayBuffer();
