@@ -1,5 +1,7 @@
 "use client";
 import { commandLineup } from './command-lineups';
+import { fantasyWeek } from './fantasy-week.mjs';
+import WeeklyRecap from './WeeklyRecap';
 
 import { Fragment, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type MouseEvent } from "react";
 import { createPortal } from "react-dom";
@@ -1827,6 +1829,8 @@ export default function FantasyHub({
     document.querySelector<HTMLElement>(".workspace")?.scrollTo({ top: 0, left: 0, behavior: "auto" });
   }, [view]);
   const [platformPlayers, setPlayers] = useState<Player[]>([]);
+  const [loadedProjectionWeek, setLoadedProjectionWeek] = useState<number | null>(null);
+  const [weekLoadError, setWeekLoadError] = useState(false);
   const [leagueId, setLeagueId] = useState("");
   const [leagueName, setLeagueName] = useState("No league selected");
   const [importState, setImportState] = useState<
@@ -1837,10 +1841,12 @@ export default function FantasyHub({
   const [platformTeams, setLeagueTeams] = useState<LeagueTeam[]>([]);
   const [selectedTeamId, setSelectedTeamId] = useState("");
   const [platformRankings, setLeagueRankings] = useState<LeagueRanking[]>([]);
+  const requestedWeekRef = useRef(1);
   useEffect(() => {
     if (!leagueId || importState !== "success" || !["Player Rankings", "Trade Lab"].includes(view)) return;
     return startVisiblePolling(async (signal: AbortSignal) => {
-      const endpoint = `/api/league?id=${encodeURIComponent(leagueId)}`;
+      const pollingWeek = requestedWeekRef.current;
+      const endpoint = `/api/league?id=${encodeURIComponent(leagueId)}&week=${pollingWeek}`;
       let response = await fetchWithTimeout(endpoint, { signal });
       if (!response.ok) return;
       let data = await response.json();
@@ -1849,7 +1855,7 @@ export default function FantasyHub({
         if (!response.ok) return;
         data = await response.json();
       }
-      if (signal.aborted || !Array.isArray(data.rankings) || !data.rankings.length) return;
+      if (signal.aborted || pollingWeek !== requestedWeekRef.current || !Array.isArray(data.rankings) || !data.rankings.length) return;
       const fresh = new Map<string, LeagueRanking>(data.rankings.map((player: LeagueRanking) => [player.id, player]));
       // Preserve matchup/weather context and the current screen while refreshing value evidence.
       setLeagueRankings(current => current.map(player => {
@@ -1872,6 +1878,26 @@ export default function FantasyHub({
   const [leagueSeason, setLeagueSeason] = useState(
     String(new Date().getFullYear()),
   );
+  const [selectedWeek, setSelectedWeek] = useState<number | null>(null);
+  const [calendarNow, setCalendarNow] = useState(() => Date.now());
+  const [seasonSchedule, setSeasonSchedule] = useState<NflScheduleData | null>(null);
+  useEffect(() => {
+    let active = true;
+    void loadScheduleData(leagueSeason).then(schedule => { if (active) setSeasonSchedule(schedule); });
+    return () => { active = false; };
+  }, [leagueSeason]);
+  useEffect(() => {
+    const update = () => setCalendarNow(Date.now());
+    const resume = () => { if (!document.hidden) { setSelectedWeek(null); update(); } };
+    const timer = window.setInterval(update, 60_000);
+    document.addEventListener('visibilitychange', resume);
+    window.addEventListener('pageshow', resume);
+    return () => { window.clearInterval(timer); document.removeEventListener('visibilitychange', resume); window.removeEventListener('pageshow', resume); };
+  }, []);
+  const calendar = useMemo(() => fantasyWeek(seasonSchedule?.season === Number(leagueSeason) ? seasonSchedule.weeks.flatMap(w => w.games.map(g => ({ ...g, week: w.week }))) : [], calendarNow, leagueWeek), [seasonSchedule, leagueSeason, calendarNow, leagueWeek]);
+  const defaultGameWeek = selectedWeek ?? calendar.currentWeek;
+  const projectionWeek = defaultGameWeek;
+  requestedWeekRef.current = defaultGameWeek;
   const [leagueRefreshedAt, setLeagueRefreshedAt] = useState<number | null>(null);
   const [connection, setConnection] = useState<SleeperConnection | null>(cachedAccount?.connection ?? null);
   const [leaguePlatform, setLeaguePlatform] = useState("Sleeper");
@@ -1898,11 +1924,10 @@ export default function FantasyHub({
   const [accountError, setAccountError] = useState("");
   const [entitlement, setEntitlement] = useState<AccountEntitlement>(cachedAccount?.entitlement ?? { plan: "free", status: "inactive", pro: false, elite: false, currentPeriodEnd: null, provider: null, owner: false });
   const vegasMode = useProjectionController(entitlement.elite,accountUser?.email ?? '',leagueSeason);
-  const projectionWeek=Math.max(1,leagueWeek);
-  const players=useMemo(()=>platformPlayers.map(p=>vegasMode.adapter.player(p,rankingContext,leagueSeason,projectionWeek)),[platformPlayers,vegasMode.adapter,rankingContext,leagueSeason,projectionWeek]);
-  const leagueTeams=useMemo(()=>platformTeams.map(t=>({...t,roster:t.roster.map(p=>vegasMode.adapter.player(p,rankingContext,leagueSeason,projectionWeek))})),[platformTeams,vegasMode.adapter,rankingContext,leagueSeason,projectionWeek]);
-  const leagueRankings=useMemo(()=>platformRankings.map(p=>vegasMode.adapter.player(p,rankingContext,leagueSeason,projectionWeek)),[platformRankings,vegasMode.adapter,rankingContext,leagueSeason,projectionWeek]);
-  const waiverPlayers=useMemo(()=>platformWaivers.map(p=>vegasMode.adapter.player(p,rankingContext,leagueSeason,projectionWeek)),[platformWaivers,vegasMode.adapter,rankingContext,leagueSeason,projectionWeek]);
+  const players=useMemo(()=>loadedProjectionWeek === projectionWeek ? platformPlayers.map(p=>vegasMode.adapter.player(p,rankingContext,leagueSeason,projectionWeek)) : [],[platformPlayers,vegasMode.adapter,rankingContext,leagueSeason,projectionWeek,loadedProjectionWeek]);
+  const leagueTeams=useMemo(()=>loadedProjectionWeek === projectionWeek ? platformTeams.map(t=>({...t,roster:t.roster.map(p=>vegasMode.adapter.player(p,rankingContext,leagueSeason,projectionWeek))})) : [],[platformTeams,vegasMode.adapter,rankingContext,leagueSeason,projectionWeek,loadedProjectionWeek]);
+  const leagueRankings=useMemo(()=>loadedProjectionWeek === projectionWeek ? platformRankings.map(p=>vegasMode.adapter.player(p,rankingContext,leagueSeason,projectionWeek)) : [],[platformRankings,vegasMode.adapter,rankingContext,leagueSeason,projectionWeek,loadedProjectionWeek]);
+  const waiverPlayers=useMemo(()=>loadedProjectionWeek === projectionWeek ? platformWaivers.map(p=>vegasMode.adapter.player(p,rankingContext,leagueSeason,projectionWeek)) : [],[platformWaivers,vegasMode.adapter,rankingContext,leagueSeason,projectionWeek,loadedProjectionWeek]);
   const [rivalryWeek, setRivalryWeek] = useState<RivalryWeek | null>(null);
   const [needsOnboarding, setNeedsOnboarding] = useState(cachedAccount?.preferences ? !cachedAccount.preferences.onboardingCompletedAt : false);
   const [onboardingTourOpen, setOnboardingTourOpen] = useState(false);
@@ -2224,9 +2249,7 @@ export default function FantasyHub({
     );
     if (!leagues.length) return;
     let active = true;
-    const week = leagueStatus === "pre_draft" || leagueWeek < 1
-      ? 1
-      : Math.min(18, leagueWeek);
+    const week = defaultGameWeek;
     const stopPolling = subscribeLiveScoreboards(leagues.map(league => league.id), week,
       (results: [string, ScoreboardData | null][]) => {
         if (active) setLiveMatchupCount(results.filter(([, data]) => data?.matchups.some(matchup =>
@@ -2236,7 +2259,7 @@ export default function FantasyHub({
       active = false;
       stopPolling();
     };
-  }, [availableLeagues, hiddenLeagueIds, leagueStatus, leagueWeek]);
+  }, [availableLeagues, hiddenLeagueIds, defaultGameWeek]);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -2550,8 +2573,10 @@ export default function FantasyHub({
     forceRefresh = false,
     silent = false,
   ) {
+    const importWeek = requestedWeekRef.current;
     const requestedLeagueId = idOverride?.trim() || leagueId.trim();
     if (!requestedLeagueId) return;
+    setWeekLoadError(false);
     const requestNumber = ++importRequest.current;
     if (!silent) {
       setImportState("loading");
@@ -2591,7 +2616,7 @@ export default function FantasyHub({
       );
     };
     const applyCachedCore = (data: {
-      league?: { name?: string; platform?: string; status?: string; season?: string; currentWeek?: number };
+      league?: { name?: string; platform?: string; status?: string; season?: string; currentWeek?: number; projectionWeek?: number };
       teams?: LeagueTeam[];
       rankings?: LeagueRanking[];
       waiverPlayers?: WaiverPlayer[];
@@ -2599,9 +2624,9 @@ export default function FantasyHub({
       rankingContext?: RankingContext;
       cache?: { refreshedAt?: string };
     }) => {
-      if (!data.league) return;
+      if (!data.league || data.league.projectionWeek !== importWeek) return;
       const season = data.league.season ?? String(new Date().getFullYear());
-      const currentWeek = Math.max(1, data.league.currentWeek ?? 1);
+      const currentWeek = importWeek;
       const schedule = readCachedScheduleData(season);
       const matchupStrengths = readCachedMatchupStrengths(season, currentWeek);
       const enhancePlayer = (player: Player) =>
@@ -2630,6 +2655,7 @@ export default function FantasyHub({
       });
       setLeagueStatus(data.league.status ?? "unknown");
       setLeagueWeek(data.league.currentWeek ?? 0);
+      setLoadedProjectionWeek(importWeek);
       setLeagueSeason(data.league.season ?? String(new Date().getFullYear()));
       setRankingContext(data.rankingContext ?? null);
       setLeagueRefreshedAt(data.cache?.refreshedAt ? new Date(data.cache.refreshedAt).getTime() : null);
@@ -2645,7 +2671,7 @@ export default function FantasyHub({
     }
     try {
       const response = await fetch(
-        `/api/league?id=${encodeURIComponent(requestedLeagueId)}${forceRefresh ? "&refresh=1" : ""}`,
+        `/api/league?id=${encodeURIComponent(requestedLeagueId)}&week=${importWeek}${forceRefresh ? "&refresh=1" : ""}`,
       );
       if (!response.ok) throw new Error("League not found");
       const data = (await response.json()) as {
@@ -2663,12 +2689,13 @@ export default function FantasyHub({
         rankingContext?: RankingContext;
         cache?: { status?: string; refreshedAt?: string };
       };
+      if (requestNumber !== importRequest.current || requestedWeekRef.current !== importWeek) return;
       cacheActiveLeagueBootstrap(requestedLeagueId, JSON.stringify(data));
       safeLocalStorageSet("fantasy-hub-active-league", requestedLeagueId);
       if (accountUser) void saveAccountPreferences({ activeLeagueId: requestedLeagueId });
       if (requestNumber !== importRequest.current) return;
       const season = data.league.season ?? String(new Date().getFullYear());
-      const currentWeek = Math.max(1, data.league.currentWeek ?? 1);
+      const currentWeek = importWeek;
       const applyLeagueData = (
         weather: WeatherData | null,
         schedule: NflScheduleData | null,
@@ -2707,6 +2734,7 @@ export default function FantasyHub({
         });
         setLeagueStatus(data.league.status ?? "unknown");
         setLeagueWeek(data.league.currentWeek ?? 0);
+        setLoadedProjectionWeek(importWeek);
         setLeagueSeason(season);
         setRankingContext(data.rankingContext ?? null);
         setLeagueRefreshedAt(
@@ -2744,6 +2772,7 @@ export default function FantasyHub({
       applyLeagueData(weather, schedule, matchupStrengths);
     } catch {
       if (requestNumber !== importRequest.current) return;
+      if (requestedWeekRef.current === importWeek) setWeekLoadError(true);
       if (!silent) setImportState("error");
     }
   }
@@ -2993,31 +3022,17 @@ export default function FantasyHub({
   const activeNavGroup = nav.find((item) => item.label === view)?.group ?? "Home";
   const proViews = new Set<View>(["Command Center", "League Analytics", "Simulator", "Team Review"]);
   const eliteViews = new Set<View>(["League Stories", "Manager Report", "Vegas Edge"]);
-  const rosterReady = players.length > 0;
-  const [seasonSchedule, setSeasonSchedule] = useState<NflScheduleData | null>(null);
+  const rosterReady = players.length > 0 && loadedProjectionWeek === defaultGameWeek;
+  const periodLabel = `WEEK ${defaultGameWeek}`;
+  const importedWeek = useRef(defaultGameWeek);
   useEffect(() => {
-    let active = true;
-    void loadScheduleData(leagueSeason).then(schedule => {
-      if (active) setSeasonSchedule(schedule);
-    });
-    return () => { active = false; };
-  }, [leagueSeason]);
-  const startedScheduleWeek = seasonSchedule?.season === Number(leagueSeason)
-    ? Math.max(0, ...seasonSchedule.weeks.filter(item => item.games.some(game => Date.parse(game.date) <= Date.now())).map(item => item.week))
-    : 0;
-  const activeSeasonWeek = Math.max(leagueWeek, startedScheduleWeek);
-  const periodLabel =
-    leagueStatus === "complete"
-      ? "SEASON COMPLETE"
-      : startedScheduleWeek > 0
-        ? `WEEK ${Math.min(18, activeSeasonWeek)}`
-        : leagueStatus === "pre_draft" || leagueWeek < 1
-          ? "PRESEASON"
-          : `WEEK ${leagueWeek}`;
-  const defaultGameWeek =
-    startedScheduleWeek > 0 ? Math.min(18, activeSeasonWeek) : leagueStatus === "pre_draft" || leagueWeek < 1
-      ? 1
-      : Math.min(18, leagueWeek);
+    if (importedWeek.current === defaultGameWeek) return;
+    importedWeek.current = defaultGameWeek;
+    setSelectedPlayer(null);
+    setPortfolioScans([]);
+    setPortfolioScansSavedAt(0);
+    if (leagueId) void importLeague(leagueId, connection?.sleeperUserId, selectedTeamId, false, true);
+  }, [defaultGameWeek]);
   const weekOneWelcomeDay = (() => {
     const today = new Date();
     return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
@@ -3030,6 +3045,7 @@ export default function FantasyHub({
       importState !== "success" ||
       !leagueId ||
       defaultGameWeek !== 1 ||
+      calendar.currentWeek !== 1 ||
       weekOneWelcomeSeenSeason === weekOneWelcomeDay ||
       weekOneWelcomeCheckedSeason.current === weekOneWelcomeDay
     ) return;
@@ -3061,7 +3077,9 @@ export default function FantasyHub({
       setView("Fantasy Hub Pro");
     }
   }
-  const rosterEmptyState = (
+  const rosterEmptyState = loadedProjectionWeek !== defaultGameWeek && platformPlayers.length > 0 ? (
+    <section className="page-content"><div className="panel" role="status"><h3>{weekLoadError ? `Week ${defaultGameWeek} is temporarily unavailable` : `Loading Week ${defaultGameWeek}…`}</h3><p>{weekLoadError ? 'Your league is still connected. Try loading this week again.' : 'Updating projections and matchups for the selected week.'}</p>{weekLoadError && <button type="button" className="primary" onClick={() => void importLeague(leagueId, connection?.sleeperUserId, selectedTeamId, true, true)}>Retry week</button>}</div></section>
+  ) : (
     <EmptyRoster
       leagueSelected={Boolean(leagueId)}
       loading={importState === "loading"}
@@ -3345,7 +3363,7 @@ export default function FantasyHub({
               }}
             ><b>{leagueName}</b><small>League</small><i aria-hidden="true">‹</i></button>
             <span><b>{rankingContext?.scoring ?? "Scoring pending"}</b><small>Format</small></span>
-            <span><b>{periodLabel}</b><small>Season</small></span>
+            <label className="context-week-picker"><select aria-label="Season week for the entire app" value={defaultGameWeek} onChange={event => setSelectedWeek(Number(event.target.value))}>{Array.from({ length: 18 }, (_, index) => <option key={index + 1} value={index + 1}>Week {index + 1}{index + 1 === calendar.currentWeek ? ' · Current' : ''}</option>)}</select><small>Season</small></label>
           </section>
         )}
 
@@ -3599,6 +3617,8 @@ export default function FantasyHub({
           ))}
         {view === "All Leagues" && (
           <AllLeagues
+            key={`portfolio-${defaultGameWeek}`}
+            selectedWeek={defaultGameWeek}
             leagues={visibleLeagues}
             cachedScans={portfolioScans}
             cachedScansSavedAt={portfolioScansSavedAt}
@@ -3619,16 +3639,18 @@ export default function FantasyHub({
         {view === "League Stories" && !entitlement.elite && <ProGate feature="League Stories" tier="Elite" onUpgrade={() => setView("Fantasy Hub Pro")} />}
         {view === "League Stories" && entitlement.elite && (
           <LeagueStories
-            key={leagueId || "no-league"}
+            key={`${leagueId}:${defaultGameWeek}`}
+            week={defaultGameWeek}
             leagueId={leagueId}
             setView={setView}
           />
         )}
         {view === "Manager Report" && !entitlement.elite && <ProGate feature="Manager Report Card" tier="Elite" onUpgrade={() => setView("Fantasy Hub Pro")} />}
-        {view === "Manager Report" && entitlement.elite && <ManagerReport key={leagueId || "no-league"} leagueId={leagueId} />}
+        {view === "Manager Report" && entitlement.elite && <ManagerReport key={`${leagueId}:${selectedWeek ?? calendar.completedWeek}`} leagueId={leagueId} week={selectedWeek ?? Math.max(1, calendar.completedWeek)} />}
         {view === "Scoreboard" && (
           scoreboardScope === "all" ? (
             <AllLeagueScoreboard
+              key={`scoreboards-${defaultGameWeek}`}
               leagues={visibleLeagues}
               defaultWeek={defaultGameWeek}
               onOpenLeague={async (league) => {
@@ -3822,7 +3844,8 @@ export default function FantasyHub({
         {view === "Simulator" && entitlement.pro &&
           (rosterReady ? (
             <Simulator
-              key={`${leagueId}-${selectedTeamId}`}
+              key={`${leagueId}-${selectedTeamId}-${defaultGameWeek}`}
+              week={defaultGameWeek}
               leagueId={leagueId}
               teams={leagueTeams}
               rankings={leagueRankings}
@@ -3890,6 +3913,8 @@ export default function FantasyHub({
           onExit={finishOnboardingTour}
         />
       )}
+
+      <WeeklyRecap key={accountUser?.email ?? 'signed-out'} leagues={availableLeagues} season={leagueSeason} week={calendar.completedWeek} enabled={Boolean(accountUser) && !accountLoading && importState === 'success' && !onboardingTourOpen && !weekOneWelcomeOpen && !selectedPlayer} />
 
       {weekOneWelcomeOpen && (
         <WeekOneWelcome
@@ -5324,6 +5349,7 @@ function flexTimingSwapCandidates(
 }
 
 function AllLeagues({
+  selectedWeek,
   leagues,
   cachedScans,
   cachedScansSavedAt,
@@ -5333,6 +5359,7 @@ function AllLeagues({
   onPersonalize,
   onScansChange,
 }: {
+  selectedWeek: number;
   leagues: ConnectedLeague[];
   cachedScans: LeagueScan[];
   cachedScansSavedAt: number;
@@ -5343,7 +5370,7 @@ function AllLeagues({
   onScansChange: (scans: LeagueScan[]) => void;
 }) {
   const openPlayer = useContext(PlayerOpenContext);
-  const [platformScans, setScans] = useState<LeagueScan[]>(cachedScans);
+  const [platformScans, setScans] = useState<LeagueScan[]>(cachedScans.filter(scan => scan.week === selectedWeek));
   const projectionSource=useProjectionSource();
   const [rawPortfolioScores, setPortfolioScores] = useState<Record<string, ScoreboardData | null>>({});
   const portfolioScores=useMemo(()=>Object.fromEntries(Object.entries(rawPortfolioScores).map(([id,data])=>[id,projectionSource.scoreboard(data)])),[rawPortfolioScores,projectionSource]);
@@ -5389,7 +5416,7 @@ function AllLeagues({
   const [scanCompleted, setScanCompleted] = useState(0);
   const lastAutomaticScan = useRef("");
   const cachedScansRef = useRef(cachedScans);
-  const leagueScanSignature = leagues.map((league) => league.id).sort().join(":");
+  const leagueScanSignature = `${selectedWeek}:` + leagues.map((league) => league.id).sort().join(":");
   const scanIsActive = refreshing || loading || (leagues.length > 0 && scans.length < leagues.length);
   const completedScanProgress =
     (scanCompleted / Math.max(1, leagues.length)) * 100;
@@ -5408,7 +5435,7 @@ function AllLeagues({
     const leagueIds = new Set(leagues.map((league) => league.id));
     const cacheMatches =
       cachedScans.length === leagues.length &&
-      cachedScans.every((scan) => leagueIds.has(scan.league.id));
+      cachedScans.every((scan) => leagueIds.has(scan.league.id) && scan.week === selectedWeek);
     if (!cacheMatches) return;
     const cachedStateTimer = window.setTimeout(() => {
       setScans(cachedScans);
@@ -5424,7 +5451,7 @@ function AllLeagues({
     const cachedAtScanStart = cachedScansRef.current;
     const cacheMatches =
       cachedAtScanStart.length === leagues.length &&
-      cachedAtScanStart.every((scan) => leagueIds.has(scan.league.id));
+      cachedAtScanStart.every((scan) => leagueIds.has(scan.league.id) && scan.week === selectedWeek);
     const cachedScanIsFresh =
       cacheMatches &&
       cachedScansSavedAt > 0 &&
@@ -5463,7 +5490,7 @@ function AllLeagues({
           for (let attempt = 0; attempt < 3; attempt += 1) {
             try {
               leagueResponse = await fetchWithTimeout(
-                `/api/league?id=${encodeURIComponent(league.id)}${refreshKey > 0 || isBackgroundRevalidation ? "&refresh=1" : ""}`,
+                `/api/league?id=${encodeURIComponent(league.id)}&week=${selectedWeek}${refreshKey > 0 || isBackgroundRevalidation ? "&refresh=1" : ""}`,
                 { signal: controller.signal },
                 15_000,
               );
@@ -6182,15 +6209,15 @@ type DecisionReportData = {
   summary: { total: number; startSit: number; waiverMoves: number; trades: number; source: string };
 };
 
-function ManagerReport({ leagueId }: { leagueId: string }) {
+function ManagerReport({ leagueId, week }: { leagueId: string; week: number }) {
   const [data, setData] = useState<DecisionReportData | null>(null);
   const [error, setError] = useState("");
   useEffect(() => {
     if (!leagueId) return;
     const controller = new AbortController();
-    void fetch(`/api/decisions?leagueId=${encodeURIComponent(leagueId)}`, { signal: controller.signal }).then(async (response) => { const payload = await response.json() as DecisionReportData & { error?: string }; if (!response.ok) throw new Error(payload.error ?? "Decision history unavailable"); setData(payload); }).catch((requestError) => { if (!controller.signal.aborted) setError(requestError instanceof Error ? requestError.message : "Decision history unavailable"); });
+    void fetch(`/api/decisions?leagueId=${encodeURIComponent(leagueId)}&week=${week}`, { signal: controller.signal }).then(async (response) => { const payload = await response.json() as DecisionReportData & { error?: string }; if (!response.ok) throw new Error(payload.error ?? "Decision history unavailable"); setData(payload); }).catch((requestError) => { if (!controller.signal.aborted) setError(requestError instanceof Error ? requestError.message : "Decision history unavailable"); });
     return () => controller.abort();
-  }, [leagueId]);
+  }, [leagueId, week]);
   if (!leagueId) return <div className="page-content"><SectionIntro kicker="DECISION MEMORY" title="Choose a league to open your Manager Report Card" text="Recommendations and selections are evaluated separately from their eventual outcomes." /></div>;
   if (error) return <div className="page-content"><SectionIntro kicker="DECISION MEMORY" title="Manager Report is temporarily unavailable" text={error} /></div>;
   if (!data) return <div className="page-content"><SectionIntro kicker="DECISION MEMORY" title="Building your decision ledger…" text="Fantasy Hub is loading recommendations saved for this league." /></div>;
@@ -6212,7 +6239,7 @@ function ManagerReport({ leagueId }: { leagueId: string }) {
   </div>;
 }
 
-function LeagueStories({ leagueId, setView }: { leagueId: string; setView: (view: View) => void }) {
+function LeagueStories({ leagueId, week, setView }: { leagueId: string; week: number; setView: (view: View) => void }) {
   const [story, setStory] = useState<LeagueStoryData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -6231,7 +6258,7 @@ function LeagueStories({ leagueId, setView }: { leagueId: string; setView: (view
   useEffect(() => {
     if (!leagueId) return;
     const controller = new AbortController();
-    void fetch(`/api/league-story?leagueId=${encodeURIComponent(leagueId)}`, { signal: controller.signal })
+    void fetch(`/api/league-story?leagueId=${encodeURIComponent(leagueId)}&week=${week}`, { signal: controller.signal })
       .then(async (response) => {
         const payload = await response.json() as LeagueStoryData & { error?: string };
         if (!response.ok) throw new Error(payload.error ?? "League stories unavailable");
@@ -6269,7 +6296,7 @@ function LeagueStories({ leagueId, setView }: { leagueId: string; setView: (view
       const payload = await response.json() as { error?: string };
       if (!response.ok) throw new Error(payload.error ?? "Unable to save rivals");
       window.dispatchEvent(new CustomEvent("fantasy-hub:rivals-updated", { detail: { leagueId } }));
-      const refreshed = await fetch(`/api/league-story?leagueId=${encodeURIComponent(leagueId)}`);
+      const refreshed = await fetch(`/api/league-story?leagueId=${encodeURIComponent(leagueId)}&week=${week}`);
       const nextStory = await refreshed.json() as LeagueStoryData & { error?: string };
       if (!refreshed.ok) throw new Error(nextStory.error ?? "Unable to refresh rivalry reports");
       setStory(nextStory);
@@ -9724,8 +9751,9 @@ function WeeklyPlayerRankings({
       if (!signal.aborted) setSchedule(next);
     }, 60_000);
   }, [season, week]);
+  const viewingCurrentWeek = week >= fantasyWeek(schedule?.weeks.flatMap(w => w.games.map(g => ({ ...g, week: w.week }))) ?? [], now).currentWeek;
   const hiddenTeams = new Set((schedule?.season === Number(season) ? schedule.weeks.find(item => item.week === week)?.games ?? [] : [])
-    .filter(game => hideFinishedWeeklyGame(game, now))
+    .filter(game => viewingCurrentWeek && hideFinishedWeeklyGame(game, now))
     .flatMap(game => [normalizeNflTeam(game.away.abbreviation), normalizeNflTeam(game.home.abbreviation)]));
   const positionConfig = [
     { position: "QB", limit: 24, label: "Quarterbacks" },
@@ -12503,12 +12531,14 @@ function runLeagueSimulation(
 }
 
 function Simulator({
+  week,
   leagueId,
   teams,
   rankings,
   selectedTeamId,
   context,
 }: {
+  week: number;
   leagueId: string;
   teams: LeagueTeam[];
   rankings: LeagueRanking[];
@@ -12522,7 +12552,7 @@ function Simulator({
   const [running, setRunning] = useState(false);
   useEffect(() => {
     const controller = new AbortController();
-    fetch(`/api/simulation-context?leagueId=${encodeURIComponent(leagueId)}`, {
+    fetch(`/api/simulation-context?leagueId=${encodeURIComponent(leagueId)}&week=${week}`, {
       signal: controller.signal,
     })
       .then(async (response) => {

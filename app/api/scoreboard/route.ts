@@ -7,6 +7,7 @@ import { fetchCachedUpstream } from "../upstream-cache";
 import { getSleeperPlayerDirectory, getSleeperWeeklyProjections, getSleeperWeeklyStats } from "../sleeper-shared-data";
 import { sleeperFantasyPoints } from "../../sleeper-live-scoring.mjs";
 import { getNflGames, type NflDataGame } from "../../highlightly-nfl";
+import { currentFantasyWeek } from "../../current-fantasy-week";
 
 type MatchupRow = { roster_id?: number; matchup_id?: number | null; points?: number; custom_points?: number | null; players?: string[]; starters?: string[]; players_points?: Record<string, number> };
 const SLEEPER_SCOREBOARD_TTL_SECONDS = {
@@ -60,8 +61,9 @@ function withCurrentNflStatus<T extends { status: string }>(
   week: number,
   currentWeek: number,
   nflGameInProgress: boolean,
+  nflWeekFinished = false,
 ) {
-  const status = week < currentWeek
+  const status = week < currentWeek || nflWeekFinished
     ? "Final"
     : week === currentWeek && nflGameInProgress
       ? "Live"
@@ -83,7 +85,10 @@ export async function GET(request: Request) {
     const [record] = await db.select().from(managedLeagues).where(and(eq(managedLeagues.userId, user.userId), eq(managedLeagues.provider, "espn"), eq(managedLeagues.identifier, sourceLeagueId))).limit(1);
     if (!record?.rosterId) return Response.json({ error: "Select your ESPN team in Manage Leagues" }, { status: 409 });
     try {
-      const scoreboard = normalizeEspnScoreboard(await fetchEspnLeagueForUser(user.userId, sourceLeagueId, Number(season)), record.rosterId, requestedWeek);
+      const calendar = await currentFantasyWeek(Number(season));
+      const week = Number.isInteger(requestedWeek) && requestedWeek >= 1 && requestedWeek <= 18 ? requestedWeek : calendar.currentWeek;
+      const scoreboard = normalizeEspnScoreboard(await fetchEspnLeagueForUser(user.userId, sourceLeagueId, Number(season), week), record.rosterId, week);
+      scoreboard.league.currentWeek = calendar.currentWeek;
       const nflGames = await getNflGames({ season: Number(season), week: scoreboard.week, cacheSeconds: 20 }).catch(() => []);
       const nflGameInProgress = nflGames.some((game) => game.state === "in");
       return Response.json({
@@ -96,6 +101,7 @@ export async function GET(request: Request) {
             scoreboard.week,
             scoreboard.league.currentWeek,
             nflGameInProgress,
+            nflGames.length > 0 && nflGames.every(game => game.state === 'post'),
           ),
           gameProgressByTeam(nflGames),
         ),
@@ -118,7 +124,8 @@ export async function GET(request: Request) {
   );
   if (!leagueResponse.ok) return Response.json({ error: "League unavailable" }, { status: 404 });
   const league = await leagueResponse.json() as { name?: string; season?: string; leg?: number; total_rosters?: number; roster_positions?: string[]; scoring_settings?: Record<string, number> };
-  const week = Number.isInteger(requestedWeek) && requestedWeek >= 1 && requestedWeek <= 18 ? requestedWeek : Math.max(1, league.leg ?? 1);
+  const calendar = await currentFantasyWeek(Number(league.season), league.leg);
+  const week = Number.isInteger(requestedWeek) && requestedWeek >= 1 && requestedWeek <= 18 ? requestedWeek : calendar.currentWeek;
   const season = league.season ?? String(new Date().getUTCFullYear());
   const [matchupsResponse, rostersResponse, usersResponse, playerDirectory, statsSnapshot, projectionsSnapshot, nflGames] = await Promise.all([
     fetchCachedUpstream(
@@ -198,8 +205,9 @@ export async function GET(request: Request) {
   const matchups = withCurrentNflStatus(
     scopedGroups.map(([matchupId, rows]) => ({ matchupId, teams: rows.map(teamFromRow).sort((a, b) => Number(b.isMine) - Number(a.isMine)), status: "Scheduled" })).sort((a, b) => Number(b.teams.some((team) => team.isMine)) - Number(a.teams.some((team) => team.isMine))),
     week,
-    league.leg ?? week,
+    calendar.currentWeek,
     nflGameInProgress,
+    nflGames.length > 0 && nflGames.every(game => game.state === 'post'),
   );
-  return Response.json({ league: { id: leagueId, name: league.name ?? "League", season, currentWeek: league.leg ?? week, provider: "Sleeper", projectionSource: "Sleeper Projections", scoring: league.scoring_settings ?? {} }, week, updatedAt: new Date().toISOString(), scoringSource: "sleeper_official", sharedStatsRefreshedAt: statsSnapshot?.refreshedAt ?? null, playerDirectoryRefreshedAt: playerDirectory.refreshedAt, reconciliationIntervalSeconds: SLEEPER_SCOREBOARD_TTL_SECONDS.matchupReconciliation, matchups });
+  return Response.json({ league: { id: leagueId, name: league.name ?? "League", season, currentWeek: calendar.currentWeek, provider: "Sleeper", projectionSource: "Sleeper Projections", scoring: league.scoring_settings ?? {} }, week, updatedAt: new Date().toISOString(), scoringSource: "sleeper_official", sharedStatsRefreshedAt: statsSnapshot?.refreshedAt ?? null, playerDirectoryRefreshedAt: playerDirectory.refreshedAt, reconciliationIntervalSeconds: SLEEPER_SCOREBOARD_TTL_SECONDS.matchupReconciliation, matchups });
 }

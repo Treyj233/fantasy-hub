@@ -60,8 +60,7 @@ function teamName(team: EspnTeam) {
 
 function projection(player: EspnPlayer, week: number) {
   const exact = player.stats?.find((row) => row.statSourceId === 1 && row.scoringPeriodId === week)?.appliedTotal;
-  const fallback = player.stats?.find((row) => row.statSourceId === 1)?.appliedTotal;
-  return Number((exact ?? fallback ?? 0).toFixed(2));
+  return Number((exact ?? 0).toFixed(2));
 }
 
 function actualPoints(player: EspnPlayer, week: number) {
@@ -70,7 +69,7 @@ function actualPoints(player: EspnPlayer, week: number) {
 
 function actualStat(player: EspnPlayer, week: number, statId: number) {
   const rows = player.stats?.filter((row) => row.statSourceId === 0) ?? [];
-  const row = rows.find((item) => item.scoringPeriodId === week) ?? rows[0];
+  const row = rows.find((item) => item.scoringPeriodId === week);
   return Number(row?.stats?.[String(statId)] ?? 0);
 }
 
@@ -78,12 +77,12 @@ function endpoint(season: number, leagueId: string) {
   return `https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/${season}/segments/0/leagues/${encodeURIComponent(leagueId)}?view=mSettings&view=mTeam&view=mRoster&view=mMatchup&view=kona_player_info`;
 }
 
-export async function fetchEspnLeague(leagueId: string, seasonHint?: number) {
+export async function fetchEspnLeague(leagueId: string, seasonHint?: number, week?: number) {
   const current = new Date().getUTCFullYear();
   const seasons = [...new Set([seasonHint, current, current - 1].filter((value): value is number => Boolean(value)))];
   const fantasyFilter = JSON.stringify({ players: { limit: 2000, sortPercOwned: { sortPriority: 1, sortAsc: false } } });
   for (const season of seasons) {
-    const response = await fetch(endpoint(season, leagueId), {
+    const response = await fetch(endpoint(season, leagueId) + (week ? `&scoringPeriodId=${week}` : ''), {
       headers: { Accept: "application/json", "User-Agent": "Fantasy Hub public ESPN league importer", "x-fantasy-filter": fantasyFilter },
       next: { revalidate: 60 },
     }).catch(() => null);
@@ -94,7 +93,7 @@ export async function fetchEspnLeague(leagueId: string, seasonHint?: number) {
   throw new Error("ESPN league not found for the current or previous season.");
 }
 
-export async function fetchEspnLeagueForUser(userId: string, leagueId: string, seasonHint?: number) {
+export async function fetchEspnLeagueForUser(userId: string, leagueId: string, seasonHint?: number, week?: number) {
   const db = await getDb();
   const rows = seasonHint
     ? await db.select().from(espnLeagueSnapshots).where(and(eq(espnLeagueSnapshots.userId, userId), eq(espnLeagueSnapshots.leagueId, leagueId), eq(espnLeagueSnapshots.season, String(seasonHint)))).limit(1)
@@ -102,12 +101,17 @@ export async function fetchEspnLeagueForUser(userId: string, leagueId: string, s
   const snapshot = rows[0];
   if (snapshot) {
     try {
-      return JSON.parse(snapshot.payloadJson) as EspnPayload;
+      const payload = JSON.parse(snapshot.payloadJson) as EspnPayload;
+      if (week && week !== payload.scoringPeriodId) {
+        try { return await fetchEspnLeague(leagueId, seasonHint, week); }
+        catch { /* Private leagues retain their snapshot; missing-week projections stay unavailable. */ }
+      }
+      return payload;
     } catch {
       // Fall through to public league access if an older snapshot is unreadable.
     }
   }
-  return fetchEspnLeague(leagueId, seasonHint);
+  return fetchEspnLeague(leagueId, seasonHint, week);
 }
 
 export function espnLeagueSummary(payload: EspnPayload) {
@@ -124,8 +128,8 @@ export function espnLeagueSummary(payload: EspnPayload) {
   };
 }
 
-export async function normalizeEspnLeague(payload: EspnPayload) {
-  const week = Math.max(1, payload.scoringPeriodId ?? payload.status?.latestScoringPeriod ?? 1);
+export async function normalizeEspnLeague(payload: EspnPayload, requestedWeek?: number) {
+  const week = Math.max(1, requestedWeek ?? payload.scoringPeriodId ?? payload.status?.latestScoringPeriod ?? 1);
   const leagueSeason = Number(payload.seasonId ?? new Date().getUTCFullYear());
   const normalizedScoring = normalizeEspnScoring(payload);
   const receptionPoints = normalizedScoring.rec ?? 0;

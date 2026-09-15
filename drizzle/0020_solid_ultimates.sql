@@ -1,0 +1,1 @@
+ALTER TABLE `user_preferences` ADD `weekly_recap_seen` text;

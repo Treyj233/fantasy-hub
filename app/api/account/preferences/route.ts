@@ -11,7 +11,8 @@ const badgeThemes = new Set([...proBadgeThemeIds,...premiumBadgeThemeIds]);
 export async function POST(request: Request) {
   const user = await getChatGPTUser();
   if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
-  const payload = await request.json() as { colorMode?: string; teamTheme?: string; badgeTheme?: string; leagueOrder?: string[]; hiddenLeagueIds?: string[]; activeLeagueId?: string; acquireTeamTheme?: string; acquireBadgeTheme?: string; completeOnboarding?: boolean; weekOneWelcomeSeenSeason?: string };
+  const payload = await request.json() as { colorMode?: string; teamTheme?: string; badgeTheme?: string; leagueOrder?: string[]; hiddenLeagueIds?: string[]; activeLeagueId?: string; acquireTeamTheme?: string; acquireBadgeTheme?: string; completeOnboarding?: boolean; weekOneWelcomeSeenSeason?: string; weeklyRecapSeen?: string };
+  if (payload.weeklyRecapSeen && !/^\d{4}:(?:[1-9]|1[0-8])$/.test(payload.weeklyRecapSeen)) return Response.json({ error: "Invalid recap week" }, { status: 400 });
   if (payload.colorMode && !["light", "dark"].includes(payload.colorMode)) return Response.json({ error: "Invalid color mode" }, { status: 400 });
   if (payload.teamTheme && !teamIds.has(payload.teamTheme)) return Response.json({ error: "Invalid team theme" }, { status: 400 });
   if (payload.badgeTheme && !badgeThemes.has(payload.badgeTheme)) return Response.json({ error: "Invalid badge theme" }, { status: 400 });
@@ -67,6 +68,7 @@ export async function POST(request: Request) {
     lastActiveAt: payload.activeLeagueId ? now : current?.lastActiveAt ?? now,
     onboardingCompletedAt: payload.completeOnboarding ? current?.onboardingCompletedAt ?? now : current?.onboardingCompletedAt ?? null,
     weekOneWelcomeSeenSeason: payload.weekOneWelcomeSeenSeason ?? current?.weekOneWelcomeSeenSeason ?? null,
+    weeklyRecapSeen: payload.weeklyRecapSeen ?? current?.weeklyRecapSeen ?? null,
     updatedAt: now,
   };
   await db.insert(userPreferences).values(values).onConflictDoUpdate({ target: userPreferences.userId, set: values });

@@ -3,6 +3,8 @@ import { getDb } from "../../../db";
 import { decisionMemory, sleeperConnections } from "../../../db/schema";
 import { getChatGPTUser } from "../../chatgpt-auth";
 import { requirePro } from "../../entitlements";
+import { currentFantasyWeek } from "../../current-fantasy-week";
+import { requestedFantasyWeek } from "../../fantasy-week.mjs";
 
 type DecisionInput = { id?: string; leagueId?: string; week?: number; category?: string; recommendation?: string; alternatives?: unknown[]; information?: Record<string, unknown>; confidence?: number; userSelection?: string | null };
 
@@ -42,16 +44,18 @@ export async function GET(request: Request) {
     fetch("https://api.sleeper.app/v1/players/nfl", { next: { revalidate: 86400 } }).catch(() => null),
   ]);
   if (!leagueResponse?.ok || !rostersResponse?.ok) return Response.json({ error: "Sleeper activity is temporarily unavailable" }, { status: 502 });
-  const league = await leagueResponse.json() as { leg?: number; name?: string };
+  const league = await leagueResponse.json() as { leg?: number; name?: string; season?: string };
   const rosters = await rostersResponse.json() as { roster_id?: number; owner_id?: string }[];
   const players = playersResponse?.ok ? await playersResponse.json().catch(() => ({})) as Record<string, SleeperPlayer> : {};
-  const week = Math.max(1, Math.min(18, league.leg ?? 1));
+  const calendar = await currentFantasyWeek(Number(league.season), league.leg);
+  const week = requestedFantasyWeek(new URL(request.url).searchParams.get('week')) ?? Math.max(1, calendar.completedWeek || calendar.currentWeek);
   const myRosterId = rosters.find((roster) => roster.owner_id === connection.sleeperUserId)?.roster_id;
   if (!myRosterId) return Response.json({ error: "Your Sleeper roster could not be identified in this league" }, { status: 409 });
   const [matchupsResponse, transactionsResponse] = await Promise.all([
     fetch(`https://api.sleeper.app/v1/league/${leagueId}/matchups/${week}`, { next: { revalidate: 30 } }).catch(() => null),
     fetch(`https://api.sleeper.app/v1/league/${leagueId}/transactions/${week}`, { next: { revalidate: 60 } }).catch(() => null),
   ]);
+  if (!matchupsResponse?.ok || !transactionsResponse?.ok) return Response.json({ error: 'Weekly results are temporarily unavailable. Please try again.' }, { status: 502 });
   const matchups = matchupsResponse?.ok ? await matchupsResponse.json().catch(() => []) as Matchup[] : [];
   const transactions = transactionsResponse?.ok ? await transactionsResponse.json().catch(() => []) as Transaction[] : [];
   const myMatchup = matchups.find((row) => row.roster_id === myRosterId);
@@ -60,11 +64,13 @@ export async function GET(request: Request) {
   const playerName = (id: string) => players[id]?.full_name ?? (`${players[id]?.first_name ?? ""} ${players[id]?.last_name ?? ""}`.trim() || `Player ${id}`);
   const safeJson = <T,>(value: string, fallback: T): T => { try { return JSON.parse(value) as T; } catch { return fallback; } };
   let rows = await db.select().from(decisionMemory).where(and(eq(decisionMemory.userId, user.userId), eq(decisionMemory.leagueId, leagueId))).orderBy(desc(decisionMemory.createdAt));
-  const unresolvedWinPaths = rows.filter((row) => row.category === "win_path" && !row.resultJson && row.week < week);
+  const unresolvedWinPaths = rows.filter((row) => row.category === "win_path" && !row.resultJson && row.week <= calendar.completedWeek);
   for (const row of unresolvedWinPaths) {
     const response = await fetch(`https://api.sleeper.app/v1/league/${leagueId}/matchups/${row.week}`, { next: { revalidate: 3600 } }).catch(() => null);
-    const historicalMatchups = response?.ok ? await response.json().catch(() => []) as Matchup[] : [];
-    const points = historicalMatchups.find((matchup) => matchup.roster_id === myRosterId)?.players_points ?? {};
+    if (!response?.ok) continue;
+    const historicalMatchups = await response.json().catch(() => []) as Matchup[];
+    const points = historicalMatchups.find((matchup) => matchup.roster_id === myRosterId)?.players_points;
+    if (!points) continue;
     const targets = safeJson<{ id?: string; name?: string; targetTotal?: number }[]>(row.alternativesJson, []);
     const resolvedPlayers = targets.flatMap((target) => {
       if (!target.id || !target.name || typeof target.targetTotal !== "number") return [];
@@ -102,6 +108,6 @@ export async function GET(request: Request) {
     picksSent: (transaction.draft_picks ?? []).filter((pick) => pick.previous_owner_id === myRosterId).map((pick) => `${pick.season ?? "Future"} Round ${pick.round ?? "—"}`),
     timestamp: transaction.status_updated ?? transaction.created ?? null,
   }));
-  const winPathReports = rows.filter((row) => row.category === "win_path").map((row) => ({ ...row, result: row.resultJson ? safeJson<Record<string, unknown>>(row.resultJson, {}) : null }));
+  const winPathReports = rows.filter((row) => row.category === "win_path" && row.week === week).map((row) => ({ ...row, result: row.resultJson ? safeJson<Record<string, unknown>>(row.resultJson, {}) : null }));
   return Response.json({ league: { name: league.name ?? "Sleeper league", week }, observed: { startSit, waiverMoves, trades }, winPathReports, summary: { total: startSit.length + waiverMoves.length + trades.length, startSit: startSit.length, waiverMoves: waiverMoves.length, trades: trades.length, source: "Sleeper" } });
 }

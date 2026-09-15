@@ -4,6 +4,8 @@ import { managedLeagues, sleeperConnections } from "../../../db/schema";
 import { getChatGPTUser } from "../../chatgpt-auth";
 import { fetchEspnLeagueForUser, normalizeEspnSimulation } from "../espn";
 import { requirePro } from "../../entitlements";
+import { currentFantasyWeek } from '../../current-fantasy-week';
+import { requestedFantasyWeek } from '../../fantasy-week.mjs';
 
 type MatchupRow = { roster_id?: number; matchup_id?: number | null; points?: number; custom_points?: number | null };
 
@@ -13,6 +15,7 @@ export async function GET(request: Request) {
   const paywall = await requirePro(user.userId, user.email);
   if (paywall) return paywall;
   const leagueId = new URL(request.url).searchParams.get("leagueId")?.trim();
+  const selectedWeek = requestedFantasyWeek(new URL(request.url).searchParams.get('week'));
   if (leagueId?.startsWith("espn:")) {
     const [, season, sourceLeagueId] = leagueId.split(":");
     if (!sourceLeagueId) return Response.json({ error: "Select an ESPN league first" }, { status: 400 });
@@ -20,7 +23,10 @@ export async function GET(request: Request) {
     const [record] = await db.select().from(managedLeagues).where(and(eq(managedLeagues.userId, user.userId), eq(managedLeagues.provider, "espn"), eq(managedLeagues.identifier, sourceLeagueId ?? ""))).limit(1);
     if (!record?.rosterId) return Response.json({ error: "Select your ESPN team in Manage Leagues" }, { status: 409 });
     try {
-      return Response.json(normalizeEspnSimulation(await fetchEspnLeagueForUser(user.userId, sourceLeagueId, Number(season))));
+      const calendar = await currentFantasyWeek(Number(season));
+      const simulation = normalizeEspnSimulation(await fetchEspnLeagueForUser(user.userId, sourceLeagueId, Number(season)));
+      simulation.league.currentWeek = selectedWeek ?? calendar.currentWeek;
+      return Response.json(simulation);
     } catch (error) {
       return Response.json({ error: error instanceof Error ? error.message : "ESPN simulation details unavailable" }, { status: 502 });
     }
@@ -46,8 +52,9 @@ export async function GET(request: Request) {
     rows.forEach((row, rowIndex) => { const key = row.matchup_id ?? 1000 + rowIndex; grouped.set(key, [...(grouped.get(key) ?? []), row]); });
     return { week: index + 1, matchups: [...grouped.values()].filter((pair) => pair.length === 2).map((pair) => ({ teams: pair.map((row) => String(row.roster_id ?? "")), points: pair.map((row) => Number((row.custom_points ?? row.points ?? 0).toFixed(2))) })) };
   });
+  const calendar = await currentFantasyWeek(Number(league.season), league.leg);
   return Response.json({
-    league: { name: league.name ?? "League", season: league.season ?? String(new Date().getUTCFullYear()), currentWeek: league.leg ?? 1, totalTeams: league.total_rosters ?? rosters.length, playoffTeams: Math.max(2, Math.min(rosters.length, league.settings?.playoff_teams ?? 6)), playoffWeekStart, regularSeasonWeeks, format: league.settings?.type === 2 ? "Dynasty" : league.settings?.type === 1 ? "Keeper" : "Redraft", starterSlots: (league.roster_positions ?? []).filter((slot) => slot !== "BN" && slot !== "IR" && slot !== "TAXI"), scoringRuleCount: Object.values(league.scoring_settings ?? {}).filter((value) => value !== 0).length },
+    league: { name: league.name ?? "League", season: league.season ?? String(new Date().getUTCFullYear()), currentWeek: selectedWeek ?? calendar.currentWeek, totalTeams: league.total_rosters ?? rosters.length, playoffTeams: Math.max(2, Math.min(rosters.length, league.settings?.playoff_teams ?? 6)), playoffWeekStart, regularSeasonWeeks, format: league.settings?.type === 2 ? "Dynasty" : league.settings?.type === 1 ? "Keeper" : "Redraft", starterSlots: (league.roster_positions ?? []).filter((slot) => slot !== "BN" && slot !== "IR" && slot !== "TAXI"), scoringRuleCount: Object.values(league.scoring_settings ?? {}).filter((value) => value !== 0).length },
     weeks,
   });
 }

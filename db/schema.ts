@@ -45,6 +45,7 @@ export const userPreferences = sqliteTable("user_preferences", {
   lastActiveAt: text("last_active_at"),
   onboardingCompletedAt: text("onboarding_completed_at"),
   weekOneWelcomeSeenSeason: text("week_one_welcome_seen_season"),
+  weeklyRecapSeen: text("weekly_recap_seen"),
   updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });
 

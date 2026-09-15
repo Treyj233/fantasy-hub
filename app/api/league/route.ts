@@ -11,13 +11,15 @@ import { sleeperFantasyPoints } from "../../sleeper-live-scoring.mjs";
 import { assumedSuspensionGames, depthChartRoleAdjustment, rosPerformanceAdjustment, rosUnavailableGames, seasonRankingValue, suspensionReplacementAdjustment } from "../../season-ranking";
 import { seasonEndingPlayerIds } from "../../news-availability";
 import { applyPostgameRankings } from "../../postgame-rankings";
+import { currentFantasyWeek } from "../../current-fantasy-week";
+import { requestedFantasyWeek } from "../../fantasy-week.mjs";
 
 type SourcePlayer = { player_id?: string; full_name?: string; first_name?: string; last_name?: string; position?: string; team?: string; injury_status?: string | null; search_rank?: number; age?: number; status?: string; depth_chart_order?: number | null; depth_chart_position?: string | null };
 type SourceProjection = { player_id?: string; stats?: Record<string, number> };
 type MatchupRow = { roster_id?: number; matchup_id?: number | null };
 type TrendingRow = { player_id?: string; count?: number };
 
-const LEAGUE_PAYLOAD_VERSION = 25;
+const LEAGUE_PAYLOAD_VERSION = 26;
 const LEAGUE_SNAPSHOT_TTL_MS = 5 * 60 * 1000;
 const SHARED_TTL_SECONDS = {
   projections: 15 * 60,
@@ -49,14 +51,16 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const id = url.searchParams.get("id")?.trim();
   const forceRefresh = url.searchParams.get("refresh") === "1";
+  const selectedWeek = requestedFantasyWeek(url.searchParams.get("week"));
   if (!id) return Response.json({ error: "Invalid league ID" }, { status: 400 });
   const db = await getDb();
   if (!forceRefresh) {
     const [snapshot] = await db.select().from(leagueDataSnapshots).where(and(eq(leagueDataSnapshots.userId, userId), eq(leagueDataSnapshots.leagueKey, id))).limit(1);
     if (snapshot) {
       try {
-        const cached = JSON.parse(snapshot.payloadJson) as { payloadVersion?: number };
-        if (cached.payloadVersion === LEAGUE_PAYLOAD_VERSION) {
+        const cached = JSON.parse(snapshot.payloadJson) as { payloadVersion?: number; league?: { season?: string; projectionWeek?: number; currentWeek?: number } };
+        const calendar = await currentFantasyWeek(Number(cached.league?.season), cached.league?.currentWeek);
+        if (cached.payloadVersion === LEAGUE_PAYLOAD_VERSION && cached.league?.projectionWeek === (selectedWeek ?? calendar.currentWeek) && cached.league?.currentWeek === calendar.currentWeek) {
           const fresh = Date.now() - new Date(snapshot.refreshedAt).getTime() < LEAGUE_SNAPSHOT_TTL_MS;
           return Response.json({ ...cached, cache: { status: fresh ? "fresh" : "stale", refreshedAt: snapshot.refreshedAt, revalidateRecommended: !fresh } });
         }
@@ -68,7 +72,10 @@ export async function GET(request: Request) {
     if (!leagueId || !/^\d{4,24}$/.test(leagueId))
       return Response.json({ error: "Invalid ESPN league ID" }, { status: 400 });
     try {
-      const result = await applyPostgameRankings({ ...(await normalizeEspnLeague(await fetchEspnLeagueForUser(userId, leagueId, Number(season)))), payloadVersion: LEAGUE_PAYLOAD_VERSION });
+      const calendar = await currentFantasyWeek(Number(season));
+      const week = selectedWeek ?? calendar.currentWeek;
+      const normalized = await normalizeEspnLeague(await fetchEspnLeagueForUser(userId, leagueId, Number(season), week), week);
+      const result = await applyPostgameRankings({ ...normalized, league: { ...normalized.league, currentWeek: calendar.currentWeek }, payloadVersion: LEAGUE_PAYLOAD_VERSION });
       const refreshedAt = new Date().toISOString();
       const snapshot = { id: crypto.randomUUID(), userId, leagueKey: id, payloadJson: JSON.stringify(result), refreshedAt };
       await db.insert(leagueDataSnapshots).values(snapshot).onConflictDoUpdate({ target: [leagueDataSnapshots.userId, leagueDataSnapshots.leagueKey], set: { payloadJson: snapshot.payloadJson, refreshedAt } });
@@ -96,7 +103,8 @@ export async function GET(request: Request) {
     const tradedPicks = tradedPicksResponse?.ok ? await tradedPicksResponse.json().catch(() => []) as { season?: string; round?: number; roster_id?: number; owner_id?: number; previous_owner_id?: number }[] : [];
     const trendingUpRows = trendingUpResponse?.ok ? await trendingUpResponse.json().catch(() => []) as TrendingRow[] : [];
     const trendingDownRows = trendingDownResponse?.ok ? await trendingDownResponse.json().catch(() => []) as TrendingRow[] : [];
-    const projectionWeek = Math.min(18, Math.max(1, league.leg ?? 1));
+    const calendar = await currentFantasyWeek(Number(league.season), league.leg);
+    const projectionWeek = selectedWeek ?? calendar.currentWeek;
     const scoring = league.scoring_settings ?? {};
     const receptionValue = scoring.rec ?? 1;
     const [projectionResponse, matchupResponse, sleeperAdpResponse, espnAdp, newsFeedResponse] = await Promise.all([
@@ -350,7 +358,7 @@ export async function GET(request: Request) {
       return { id: String(rosterId), ownerId: roster.owner_id, managerName, teamName: owner?.metadata?.team_name ?? `${managerName}'s Team`, matchupId: matchupByRoster.get(rosterId) ?? null, roster: normalized, draftCapital: { score: Number(ownedPicks.reduce((sum, pick) => sum + pick.value, 0).toFixed(1)), picks: ownedPicks } };
     });
     const managers = users.flatMap((user, index) => user.user_id ? [{ id: user.user_id, name: user.display_name ?? `Manager ${index + 1}`, teamName: user.metadata?.team_name ?? `${user.display_name ?? `Manager ${index + 1}`}'s Team`, style: "Neutral" as const }] : []);
-    const result = await applyPostgameRankings({ payloadVersion: LEAGUE_PAYLOAD_VERSION, league: { name: league.name ?? "Imported League", platform: "Sleeper", status: league.status ?? "unknown", teams: league.total_rosters, season: league.season, currentWeek: Math.max(0, league.leg ?? 0), projectionWeek, managers: users.length }, teams, managers, rankingContext: { scoringRules: scoring, format, scoring: receptionLabel, teams: league.total_rosters ?? rosters.length, rosterSlots, positionDemand, tePremium: tePremiumValue, passTouchdown: scoring.pass_td ?? 4, interception: scoring.pass_int ?? -2, bonusRuleCount, scoringRuleCount: Object.values(scoring).filter((value) => value !== 0).length }, rankings: rankingPool, waiverPlayers, waiverTrending });
+    const result = await applyPostgameRankings({ payloadVersion: LEAGUE_PAYLOAD_VERSION, league: { name: league.name ?? "Imported League", platform: "Sleeper", status: league.status ?? "unknown", teams: league.total_rosters, season: league.season, currentWeek: calendar.currentWeek, projectionWeek, managers: users.length }, teams, managers, rankingContext: { scoringRules: scoring, format, scoring: receptionLabel, teams: league.total_rosters ?? rosters.length, rosterSlots, positionDemand, tePremium: tePremiumValue, passTouchdown: scoring.pass_td ?? 4, interception: scoring.pass_int ?? -2, bonusRuleCount, scoringRuleCount: Object.values(scoring).filter((value) => value !== 0).length }, rankings: rankingPool, waiverPlayers, waiverTrending });
     const refreshedAt = new Date().toISOString();
     const snapshot = { id: crypto.randomUUID(), userId, leagueKey: id, payloadJson: JSON.stringify(result), refreshedAt };
     await db.insert(leagueDataSnapshots).values(snapshot).onConflictDoUpdate({ target: [leagueDataSnapshots.userId, leagueDataSnapshots.leagueKey], set: { payloadJson: snapshot.payloadJson, refreshedAt } });

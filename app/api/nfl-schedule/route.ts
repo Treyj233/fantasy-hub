@@ -1,4 +1,5 @@
 import { loadNflSeasonSchedule } from "../../nfl-schedule-data";
+import { fantasyWeek } from "../../fantasy-week.mjs";
 
 export async function GET(request: Request) {
   const requestedSeason = Number(new URL(request.url).searchParams.get("season"));
@@ -9,7 +10,7 @@ export async function GET(request: Request) {
   if (!games.length)
     return Response.json({ error: "NFL schedule unavailable" }, { status: 502 });
   const now = Date.now();
-  const currentWeek = games.find((game) => new Date(game.date).getTime() >= now)?.week ?? games.at(-1)?.week ?? 1;
+  const currentWeek = fantasyWeek(games, now).currentWeek;
   const weeks = Array.from({ length: 18 }, (_, index) => ({
     week: index + 1,
     games: games.filter((game) => game.week === index + 1),

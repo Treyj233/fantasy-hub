@@ -65,8 +65,9 @@ export async function GET(request: Request) {
   const managers = await managersResponse.json() as Manager[];
   const players = playersResponse.ok ? await playersResponse.json() as Record<string, Player> : {};
   const drafts = draftsResponse?.ok ? await draftsResponse.json().catch(() => []) as Draft[] : [];
-  const currentWeek = Math.min(18, Math.max(1, league.leg ?? 1));
-  const completedWeek = Math.max(0, currentWeek - 1);
+  const calendar = await currentFantasyWeek(Number(league.season), league.leg);
+  const currentWeek = requestedFantasyWeek(new URL(request.url).searchParams.get('week')) ?? calendar.currentWeek;
+  const completedWeek = Math.min(calendar.completedWeek, Math.max(0, currentWeek - 1));
   const weeksToLoad = Array.from({ length: currentWeek }, (_, index) => index + 1);
   const [weekPayloads, transactionPayloads] = await Promise.all([
     Promise.all(weeksToLoad.map(async (week) => {
@@ -198,7 +199,7 @@ export async function GET(request: Request) {
   }
   const injuryCount = (myRoster?.players ?? []).filter((id) => players[id]?.injury_status && !["Healthy", ""] .includes(players[id]?.injury_status ?? "")).length;
   const season = league.season ?? "";
-  await db.insert(seasonNarrativeSnapshots).values({ id: `${user.userId}:${leagueId}:${season}:${currentWeek}`, userId: user.userId, leagueId, season, week: currentWeek, playoffProbability, rosterValueIndex, injuryCount, record: `${mineStanding?.wins ?? 0}-${mineStanding?.losses ?? 0}`, pointsFor: mineStanding?.points ?? 0, capturedAt: new Date().toISOString() }).onConflictDoUpdate({ target: [seasonNarrativeSnapshots.userId, seasonNarrativeSnapshots.leagueId, seasonNarrativeSnapshots.season, seasonNarrativeSnapshots.week], set: { playoffProbability, rosterValueIndex, injuryCount, record: `${mineStanding?.wins ?? 0}-${mineStanding?.losses ?? 0}`, pointsFor: mineStanding?.points ?? 0, capturedAt: new Date().toISOString() } });
+  if (currentWeek === calendar.currentWeek) await db.insert(seasonNarrativeSnapshots).values({ id: `${user.userId}:${leagueId}:${season}:${currentWeek}`, userId: user.userId, leagueId, season, week: currentWeek, playoffProbability, rosterValueIndex, injuryCount, record: `${mineStanding?.wins ?? 0}-${mineStanding?.losses ?? 0}`, pointsFor: mineStanding?.points ?? 0, capturedAt: new Date().toISOString() }).onConflictDoUpdate({ target: [seasonNarrativeSnapshots.userId, seasonNarrativeSnapshots.leagueId, seasonNarrativeSnapshots.season, seasonNarrativeSnapshots.week], set: { playoffProbability, rosterValueIndex, injuryCount, record: `${mineStanding?.wins ?? 0}-${mineStanding?.losses ?? 0}`, pointsFor: mineStanding?.points ?? 0, capturedAt: new Date().toISOString() } });
   const snapshots = await db.select().from(seasonNarrativeSnapshots).where(and(eq(seasonNarrativeSnapshots.userId, user.userId), eq(seasonNarrativeSnapshots.leagueId, leagueId), eq(seasonNarrativeSnapshots.season, season))).orderBy(asc(seasonNarrativeSnapshots.week));
   const closeResults = myResults.filter((result) => Math.abs(result.margin) <= 5);
   const turningPoint = [...myResults].sort((a, b) => Math.abs(b.margin) - Math.abs(a.margin))[0] ?? null;
@@ -229,3 +230,5 @@ export async function GET(request: Request) {
     }
   });
 }
+import { currentFantasyWeek } from '../../current-fantasy-week';
+import { requestedFantasyWeek } from '../../fantasy-week.mjs';
