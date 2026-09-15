@@ -34,7 +34,14 @@ export function drawLeagueRecap(pdf, story, { accent=[255,190,38], primary=[19,6
     pdf.setDrawColor(...primary.map(v=>Math.min(255,v+25)));pdf.setLineWidth(.5);
     for(let j=0;j<6;j++)pdf.line(410+j*30,0,230+j*30,300);
     pdf.setFillColor(...bright);pdf.rect(0,0,160,6,"F");
-    if(logo){pdf.addImage(logo,"PNG",M,22,42,42);}
+    if(logo){
+      // Hide the source image's white square corners without modifying the FH artwork.
+      pdf.saveGraphicsState();
+      pdf.roundedRect(M,22,42,42,9,9,null);
+      pdf.clip();pdf.discardPath();
+      pdf.addImage(logo,"PNG",M,22,42,42);
+      pdf.restoreGraphicsState();
+    }
     text("FANTASY HUB",logo?M+54:M,40,17,[255,255,255],true);
     text("THE LEAGUE STORIES EDITION",logo?M+54:M,57,10,bright,true);
     pdf.setFontSize(10);pdf.setTextColor(...bright);pdf.text(`${story.league.season} / WEEK ${String(story.recap.week).padStart(2,"0")}`,W-M,40,{align:"right"});

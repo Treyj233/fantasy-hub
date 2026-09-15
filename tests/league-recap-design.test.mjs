@@ -10,6 +10,8 @@ test('recap uses the exact current iPhone launch logo, not the legacy green logo
   const source=readFileSync('app/league-story-pdf.ts','utf8');
   assert.match(source,/fetch\("\/fh-blue-app-mark.png"\)/);
   assert.ok(!source.includes('fantasy-hub-logo-cropped.png'));
+  const renderer=readFileSync('app/league-recap-design.mjs','utf8');
+  assert.match(renderer,/saveGraphicsState\(\);\s*pdf\.roundedRect\(M,22,42,42,9,9,null\);\s*pdf\.clip\(\);pdf\.discardPath\(\);\s*pdf\.addImage\(logo,"PNG",M,22,42,42\);\s*pdf\.restoreGraphicsState\(\)/);
 });
 const fixture={league:{name:'Sunday Syndicate',season:'2026'},recap:{week:4,highScore:{teamName:'Revenge Tour',points:154.8},closestGame:{teams:[{teamName:'Fourth & Forever',points:118.24},{teamName:'Sunday Scaries',points:117.86}]},biggestWin:{teams:[{teamName:'Revenge Tour',points:154.8},{teamName:'The Underdogs',points:96.1}]},superlatives:labels.map((label,i)=>({id:String(i),label,recipient:i%3===0?'Fourth & Forever':i%3===1?'Revenge Tour':'Sunday Scaries',detail:i%3===0?'118.2 points | Highest-scoring loss':i%3===1?'Ended a 4-game winning streak':'Outscored 9 of 11 other teams and still lost'}))}};
 test('every award is exported with automatic page breaks and safe text bounds',()=>{
