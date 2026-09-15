@@ -2,6 +2,7 @@
 import { commandLineup } from './command-lineups';
 import { fantasyWeek } from './fantasy-week.mjs';
 import WeeklyRecap from './WeeklyRecap';
+import { createWinPathSaver } from './win-path-persistence.mjs';
 
 import { Fragment, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type MouseEvent } from "react";
 import { createPortal } from "react-dom";
@@ -2243,6 +2244,13 @@ export default function FantasyHub({
     };
   }, [leagueDrawerOpen]);
 
+  const winPathAccount = useRef(accountUser?.email);
+  winPathAccount.current = accountUser?.email;
+  const winPathSaver = useMemo(() => createWinPathSaver(async (payload: unknown) => {
+    if (!accountUser?.email || winPathAccount.current !== accountUser.email) throw new Error('Account changed');
+    const response = await fetchWithTimeout('/api/decisions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    if (!response.ok || !(await response.json()).saved) throw new Error('Win-path save not acknowledged');
+  }), [accountUser?.email]);
   useEffect(() => {
     const leagues = availableLeagues.filter(
       (league) => !hiddenLeagueIds.includes(league.id),
@@ -2254,12 +2262,27 @@ export default function FantasyHub({
       (results: [string, ScoreboardData | null][]) => {
         if (active) setLiveMatchupCount(results.filter(([, data]) => data?.matchups.some(matchup =>
           matchup.status === "Live" && matchup.teams.some(team => team.isMine))).length);
+        if (!active || !entitlement.pro || week !== calendar.currentWeek) return;
+        for (const [leagueId, platformData] of results) {
+          const data = vegasMode.adapter.scoreboard(platformData);
+          if (!data || data.week !== week || !/^\d+$/.test(leagueId)) continue;
+          const matchup = data.matchups.find(m => m.teams.some(t => t.isMine));
+          const mine = matchup?.teams.find(t => t.isMine);
+          const opponent = matchup?.teams.find(t => !t.isMine);
+          if (!matchup || !mine || !opponent || matchup.status === 'Final') continue;
+          // Include the breaks between live games, but never capture pregame or historical targets.
+          if (!matchup.teams.some(t => t.topPlayers.some(p => (p.gameProgress ?? 0) > 0))) continue;
+          const opponentRemaining = opponent.topPlayers.filter(p => p.isStarter).reduce((sum,p) => sum + remainingPlayerProjection(p),0);
+          const need = whatDoINeed({ yourPoints: mine.points, opponentPoints: opponent.points, opponentRemaining, players: mine.topPlayers.filter(p => p.isStarter), scoring: data.league.scoring ?? {} });
+          if (!need.targets.length) continue;
+          void winPathSaver({ id: `win-path:${leagueId}:${week}`, leagueId, week, category: 'win_path', recommendation: 'Live win-path targets', alternatives: need.targets.map(t => ({ id: t.id, name: t.name, position: t.position, baselinePoints: t.points, pointsNeeded: t.pointsNeeded, targetTotal: t.targetTotal })), information: { season: data.league.season, rosterId: mine.rosterId, capturedAt: new Date().toISOString(), teamNeed: need.teamNeed }, confidence: 50 });
+        }
       });
     return () => {
       active = false;
       stopPolling();
     };
-  }, [availableLeagues, hiddenLeagueIds, defaultGameWeek]);
+  }, [availableLeagues, hiddenLeagueIds, defaultGameWeek, calendar.currentWeek, entitlement.pro, winPathSaver, vegasMode.adapter]);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -6399,7 +6422,6 @@ function AllLeagueScoreboard({
   const [swingFeed, setSwingFeed] = useState<{ id: string; text: string; delta: number; at: string }[]>([]);
   const [pulseEvents, setPulseEvents] = useState<{ id: string; text: string; impact: "helps" | "hurts"; at: string }[]>([]);
   const previousPulseSnapshot = useRef<Record<string, { points: number; yards: number; touchdowns: number; receptions: number; offensiveTurnovers: number; defensiveTurnovers: number; returnTouchdowns: number; fieldGoals: number }>>({});
-  const savedWinPathPayloads = useRef<Record<string, string>>({});
   const matchupJumpTimers = useRef<number[]>([]);
   useEffect(() => () => {
     matchupJumpTimers.current.forEach((timer) => window.clearTimeout(timer));
@@ -6469,25 +6491,7 @@ function AllLeagueScoreboard({
         const mine = matchup?.teams.find((team) => team.isMine);
         const opponent = matchup?.teams.find((team) => !team.isMine);
         if (!data || !league || !matchup || !mine || !opponent) return;
-        const mineStarters = mine.topPlayers.filter((player) => player.isStarter);
-        const opponentStarters = opponent.topPlayers.filter((player) => player.isStarter);
-        const mineRemaining = mineStarters.reduce((sum, player) => sum + remainingPlayerProjection(player), 0);
-        const opponentRemaining = opponentStarters.reduce((sum, player) => sum + remainingPlayerProjection(player), 0);
         const status = matchup.status === "Final" ? "final" : matchup.status === "Scheduled" ? "pre" : "live";
-        const projectionsAvailable = [...mineStarters, ...opponentStarters].some((player) => player.projection != null);
-        const currentOdds = estimatedWinProbability({ yourPoints: mine.points, opponentPoints: opponent.points, yourRemaining: mineRemaining, opponentRemaining, status, projectionsAvailable });
-        if (status === "live") {
-          const need = whatDoINeed({ yourPoints: mine.points, opponentPoints: opponent.points, opponentRemaining, players: mineStarters, scoring: data.league.scoring ?? {} });
-          if (need.targets.length) {
-            const alternatives = need.targets.slice(0, 8).map((target) => ({ id: target.id, name: target.name, position: target.position, baselinePoints: target.points, pointsNeeded: target.pointsNeeded, targetTotal: target.targetTotal }));
-            const payloadKey = `${leagueId}:${week}`;
-            const payloadHash = JSON.stringify(alternatives);
-            if (savedWinPathPayloads.current[payloadKey] !== payloadHash) {
-              savedWinPathPayloads.current[payloadKey] = payloadHash;
-              void fetchWithTimeout("/api/decisions", { signal: controller.signal, method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ id: `win-path:${week}`, leagueId, week, category: "win_path", recommendation: "Live win-path targets", alternatives, information: { teamNeed: need.teamNeed, yourPoints: mine.points, opponentPoints: opponent.points, opponentRemaining, capturedAt: new Date().toISOString() }, confidence: currentOdds == null ? 50 : Math.max(currentOdds, 100 - currentOdds) }) }).catch(() => undefined);
-            }
-          }
-        }
         matchup.teams.forEach((team) => team.topPlayers.filter((player) => player.isStarter).forEach((player) => {
           const key = `${leagueId}:${team.rosterId}:${player.id}`;
           const previous = previousPulseSnapshot.current[key];

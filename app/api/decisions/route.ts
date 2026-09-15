@@ -1,4 +1,5 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, lt } from "drizzle-orm";
+import { winPathRecordId } from '../../win-path-persistence.mjs';
 import { getDb } from "../../../db";
 import { decisionMemory, sleeperConnections } from "../../../db/schema";
 import { getChatGPTUser } from "../../chatgpt-auth";
@@ -17,6 +18,25 @@ export async function POST(request: Request) {
   if (!body.id || !body.leagueId || !body.category || !body.recommendation || !Number.isInteger(body.week)) return Response.json({ error: "Incomplete decision record" }, { status: 400 });
   const db = await getDb();
   const now = new Date().toISOString();
+  if (body.category === 'win_path') {
+    const season = String(body.information?.season ?? '');
+    const rosterId = String(body.information?.rosterId ?? '');
+    const capturedAt = String(body.information?.capturedAt ?? '');
+    if (!/^\d{4}$/.test(season) || !/^\d+$/.test(rosterId) || body.week! < 1 || body.week! > 18 || !Number.isFinite(Date.parse(capturedAt)) || Date.parse(capturedAt) > Date.now() + 60_000 || !Array.isArray(body.alternatives) || body.alternatives.length > 40)
+      return Response.json({ error: 'Invalid win-path snapshot; refresh the app.' }, { status: 400 });
+    const targets = body.alternatives as { id: string; name: string; targetTotal: number; capturedAt?: string }[];
+    if (!targets.length || targets.some(t => !t || typeof t.id !== 'string' || !t.id || typeof t.name !== 'string' || !Number.isFinite(t.targetTotal) || (t.capturedAt && (!Number.isFinite(Date.parse(t.capturedAt)) || Date.parse(t.capturedAt) > Date.parse(capturedAt)))))
+      return Response.json({ error: 'Invalid win-path targets' }, { status: 400 });
+    // One row per player preserves completed players and avoids read/merge/write
+    // races across devices. Older requests cannot replace newer observations.
+    const writes = targets.map(target => {
+      const observedAt = new Date(target.capturedAt ?? capturedAt).toISOString();
+      const values = { id: winPathRecordId(user.userId, body.leagueId!, body.week!, target.id, season, rosterId), userId: user.userId, leagueId: body.leagueId!, week: body.week!, category: 'win_path', recommendation: body.recommendation!, alternativesJson: JSON.stringify([target]), informationJson: JSON.stringify({ ...body.information, formatVersion: 2, capturedAt: observedAt }), confidence: Math.max(0, Math.min(100, body.confidence ?? 50)), updatedAt: observedAt };
+      return db.insert(decisionMemory).values(values).onConflictDoUpdate({ target: decisionMemory.id, set: { alternativesJson: values.alternativesJson, informationJson: values.informationJson, confidence: values.confidence, resultJson: null, processGrade: null, updatedAt: observedAt }, setWhere: lt(decisionMemory.updatedAt, observedAt) });
+    });
+    await db.batch([writes[0], ...writes.slice(1)]);
+    return Response.json({ saved: true });
+  }
   const id = `${user.userId}:${body.id}`;
   const [existing] = await db.select({ userSelection: decisionMemory.userSelection }).from(decisionMemory).where(and(eq(decisionMemory.id, id), eq(decisionMemory.userId, user.userId))).limit(1);
   const values = { id, userId: user.userId, leagueId: body.leagueId, week: body.week!, category: body.category, recommendation: body.recommendation, alternativesJson: JSON.stringify(body.alternatives ?? []), informationJson: JSON.stringify(body.information ?? {}), confidence: Math.max(0, Math.min(100, body.confidence ?? 50)), userSelection: body.userSelection ?? existing?.userSelection ?? null, updatedAt: now };
@@ -74,12 +94,14 @@ export async function GET(request: Request) {
     const targets = safeJson<{ id?: string; name?: string; targetTotal?: number }[]>(row.alternativesJson, []);
     const resolvedPlayers = targets.flatMap((target) => {
       if (!target.id || !target.name || typeof target.targetTotal !== "number") return [];
-      const actualPoints = Number((points[target.id] ?? 0).toFixed(1));
+      if (!Number.isFinite(points[target.id])) return [];
+      const actualPoints = Number(points[target.id].toFixed(1));
       const targetTotal = Number(target.targetTotal.toFixed(1));
       const difference = Number((actualPoints - targetTotal).toFixed(1));
       return [{ id: target.id, name: target.name, actualPoints, targetTotal, difference, outcome: difference > .05 ? "over" : difference < -.05 ? "short" : "met" }];
     });
-    await db.update(decisionMemory).set({ resultJson: JSON.stringify({ players: resolvedPlayers }), processGrade: "Outcome recorded", updatedAt: new Date().toISOString() }).where(and(eq(decisionMemory.id, row.id), eq(decisionMemory.userId, user.userId)));
+    if (!resolvedPlayers.length) continue;
+    await db.update(decisionMemory).set({ resultJson: JSON.stringify({ players: resolvedPlayers }), processGrade: "Outcome recorded" }).where(and(eq(decisionMemory.id, row.id), eq(decisionMemory.userId, user.userId), eq(decisionMemory.alternativesJson, row.alternativesJson)));
   }
   if (unresolvedWinPaths.length) rows = await db.select().from(decisionMemory).where(and(eq(decisionMemory.userId, user.userId), eq(decisionMemory.leagueId, leagueId))).orderBy(desc(decisionMemory.createdAt));
   const startSit = rows.filter((row) => row.category === "start_sit" && row.week === week).flatMap((row) => {
@@ -108,6 +130,8 @@ export async function GET(request: Request) {
     picksSent: (transaction.draft_picks ?? []).filter((pick) => pick.previous_owner_id === myRosterId).map((pick) => `${pick.season ?? "Future"} Round ${pick.round ?? "—"}`),
     timestamp: transaction.status_updated ?? transaction.created ?? null,
   }));
-  const winPathReports = rows.filter((row) => row.category === "win_path" && row.week === week).map((row) => ({ ...row, result: row.resultJson ? safeJson<Record<string, unknown>>(row.resultJson, {}) : null }));
+  const weekPaths = rows.filter(row => row.category === 'win_path' && row.week === week);
+  const scopedPaths = weekPaths.filter(row => { const info = safeJson<{ formatVersion?: number; rosterId?: string }>(row.informationJson, {}); return info.formatVersion === 2 && String(info.rosterId) === String(myRosterId); });
+  const winPathReports = scopedPaths.length ? [{ id: `win-paths:${leagueId}:${week}`, week, result: { players: scopedPaths.flatMap(row => row.resultJson ? safeJson<{ players?: unknown[] }>(row.resultJson, {}).players ?? [] : []) } }] : weekPaths.map(row => ({ ...row, result: row.resultJson ? safeJson<Record<string, unknown>>(row.resultJson, {}) : null }));
   return Response.json({ league: { name: league.name ?? "Sleeper league", week }, observed: { startSit, waiverMoves, trades }, winPathReports, summary: { total: startSit.length + waiverMoves.length + trades.length, startSit: startSit.length, waiverMoves: waiverMoves.length, trades: trades.length, source: "Sleeper" } });
 }

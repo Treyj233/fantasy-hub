@@ -76,6 +76,10 @@ export function remainingPlayerProjection(player) {
   return Math.max(0, player.projection - player.points);
 }
 
+/**
+ * @template {{id: string, name?: string, position?: string, points: number, projection?: number|null, gameProgress?: number}} T
+ * @param {{yourPoints: number, opponentPoints: number, opponentRemaining?: number, players?: T[], scoring?: Record<string, number>}} input
+ */
 export function whatDoINeed({ yourPoints, opponentPoints, opponentRemaining = 0, players = [], scoring = {} }) {
   const eligible = players.filter((player) => remainingPlayerProjection(player) > 0);
   const teamNeed = Math.max(0, opponentPoints + opponentRemaining + 0.01 - yourPoints);
