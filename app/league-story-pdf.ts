@@ -82,6 +82,10 @@ export async function generateLeagueStoryPdf(story: LeagueStoryData, request: Le
       if (response.ok) logo = new Uint8Array(await response.arrayBuffer());
     } catch { /* Offline exports keep the Fantasy Hub wordmark. */ }
     const portraits: Record<string, Uint8Array> = {};
+    const icons: Record<string, Uint8Array> = {};
+    await Promise.all(['trophy','fire','target','rocket','cry','crown'].map(async name => {
+      try { const r = await fetch(`/recap-icons/${name}.png`); if(r.ok) icons[name] = new Uint8Array(await r.arrayBuffer()); } catch { /* Optional decoration. */ }
+    }));
     const visual = story.recap.visual;
     const imageUrls = [...new Set([...(visual?.starters ?? []), ...(visual?.bench ?? [])].map(p => p.image).filter((url): url is string => !!url))].slice(0, 24);
     await Promise.all(imageUrls.map(async url => {
@@ -96,7 +100,7 @@ export async function generateLeagueStoryPdf(story: LeagueStoryData, request: Le
         } finally { clearTimeout(timeout); }
       } catch { /* Player names and scores remain available without remote images. */ }
     }));
-    drawLeagueRecap(pdf, story, { primary, accent, deep, logo, portraits });
+    drawLeagueRecap(pdf, story, { primary, accent, deep, logo, portraits, icons });
     return { blob: pdf.output("blob"), fileName: `${safeFileName(story.league.name)}-week-${story.recap.week}-recap.pdf`, title: `${story.league.name}: Week ${story.recap.week} Recap` };
   }
   const report = reportContent(story, request);

@@ -26,7 +26,7 @@ test('every award is exported with automatic page breaks and safe text bounds',(
   pdf.text=(text,x,y,...rest)=>{assert.ok(y>=0&&y<=773,`text outside safe area: ${y}`);return original(text,x,y,...rest);};
   const portraits={};
   if(process.env.RECAP_PHOTO){fixture.recap.visual.starters[0].image='allen';portraits.allen=new Uint8Array(readFileSync(process.env.RECAP_PHOTO));}
-  const result=drawLeagueRecap(pdf,fixture,{primary:[75,22,76],accent:[255,120,90],deep:[28,8,32],logo:new Uint8Array(readFileSync('public/fh-blue-app-mark.png')),portraits});
+  const result=drawLeagueRecap(pdf,fixture,{primary:[75,22,76],accent:[255,120,90],deep:[28,8,32],logo:new Uint8Array(readFileSync('public/fh-blue-app-mark.png')),portraits,icons:Object.fromEntries(['trophy','fire','target','rocket','cry','crown'].map(name=>[name,new Uint8Array(readFileSync(`public/recap-icons/${name}.png`))]))});
   assert.equal(result.awardCount,20);
   assert.equal(result.pageCount,3);
   const data=pdf.output();
@@ -34,7 +34,7 @@ test('every award is exported with automatic page breaks and safe text bounds',(
   if(process.env.RENDER_RECAP){mkdirSync('tmp/pdfs',{recursive:true});writeFileSync('tmp/pdfs/recap-preview.pdf',Buffer.from(pdf.output('arraybuffer')));}
 });
 test('export passes the active theme and retains larger body text',()=>{
-  assert.match(readFileSync('app/league-story-pdf.ts','utf8'),/drawLeagueRecap\(pdf, story, \{ primary, accent, deep, logo, portraits \}\)/);
+  assert.match(readFileSync('app/league-story-pdf.ts','utf8'),/drawLeagueRecap\(pdf, story, \{ primary, accent, deep, logo, portraits, icons \}\)/);
   const pdf=new jsPDF({unit:'pt',format:'letter'});
   const colors=[];const fill=pdf.setFillColor.bind(pdf);
   pdf.setFillColor=(...args)=>{colors.push(args);return fill(...args);};
