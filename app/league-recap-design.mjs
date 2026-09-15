@@ -13,9 +13,9 @@ export function recapAwardCards(recap) {
 /** Vector text stays crisp when a recap is zoomed or shared. Every award is paginated.
  * @param {any} pdf
  * @param {any} story
- * @param {{accent?: number[], primary?: number[], deep?: number[], logo?: Uint8Array}} options
+ * @param {{accent?: number[], primary?: number[], deep?: number[], logo?: Uint8Array, portraits?: Record<string, Uint8Array>}} options
  */
-export function drawLeagueRecap(pdf, story, { accent=[255,190,38], primary=[19,67,161], deep=[6,17,39], logo }={}) {
+export function drawLeagueRecap(pdf, story, { accent=[255,190,38], primary=[19,67,161], deep=[6,17,39], logo, portraits={} }={}) {
   const W=612,H=792,M=36,CW=262,GAP=16;
   const luminance=c=>c.map(v=>v/255).map(v=>v<=.04045?v/12.92:((v+.055)/1.055)**2.4).reduce((sum,v,i)=>sum+v*[.2126,.7152,.0722][i],0);
   const darken=(color,max)=>{let c=[...color];while(luminance(c)>max)c=c.map(v=>Math.floor(v*.9));return c;};
@@ -28,7 +28,7 @@ export function drawLeagueRecap(pdf, story, { accent=[255,190,38], primary=[19,6
   const cards=recapAwardCards(story.recap);
   const text=(value,x,y,size,color,bold=false)=>{pdf.setFont("helvetica",bold?"bold":"normal");pdf.setFontSize(size);pdf.setTextColor(...color);pdf.text(clean(value),x,y);};
   const wrap=(value,width,size,bold=false)=>{pdf.setFont("helvetica",bold?"bold":"normal");pdf.setFontSize(size);return pdf.splitTextToSize(clean(value),width);};
-  const base=(cover=false)=>{
+  const base=(cover=false,heading="THE HONOR ROLL")=>{
     pdf.setFillColor(...navy);pdf.rect(0,0,W,H,"F");
     pdf.setFillColor(...primary);pdf.triangle(320,0,W,0,W,340,"F");
     pdf.setDrawColor(...primary.map(v=>Math.min(255,v+25)));pdf.setLineWidth(.5);
@@ -45,7 +45,7 @@ export function drawLeagueRecap(pdf, story, { accent=[255,190,38], primary=[19,6
     text("FANTASY HUB",logo?M+54:M,40,17,[255,255,255],true);
     text("THE LEAGUE STORIES EDITION",logo?M+54:M,57,10,bright,true);
     pdf.setFontSize(10);pdf.setTextColor(...bright);pdf.text(`${story.league.season} / WEEK ${String(story.recap.week).padStart(2,"0")}`,W-M,40,{align:"right"});
-    if(!cover){text("THE HONOR ROLL",M,107,32,[255,255,255],true);pdf.setFillColor(...bright);pdf.rect(M,123,54,4,"F");}
+    if(!cover){text(heading,M,107,28,[255,255,255],true);pdf.setFillColor(...bright);pdf.rect(M,123,54,4,"F");}
   };
   base(true);
   pdf.setFont("helvetica","bolditalic");pdf.setFontSize(44);pdf.setTextColor(255,255,255);pdf.text("WEEK IN THE",M,114);
@@ -63,6 +63,65 @@ export function drawLeagueRecap(pdf, story, { accent=[255,190,38], primary=[19,6
   text(story.recap.highScore?story.recap.highScore.points.toFixed(1):"--",M+20,scoreY,72,[255,255,255],true);
   text("POINTS",M+270,scoreY-6,14,bright,true);
   y+=heroHeight+28;
+  const visual=story.recap.visual;
+  if(visual){
+    const room=(height,title)=>{if(y+height>H-64){pdf.addPage();base(false,title);y=150;}};
+    for(const [title,players] of [["IMPACT STARTERS",visual.starters],["BENCH FIREPOWER",visual.bench]]){
+      if(!players.length)continue;
+      room(180,title);text(title,M,y+12,18,bright,true);y+=32;
+      for(let index=0;index<players.length;index+=2){
+        const row=players.slice(index,index+2).map(p=>({...p,nameLines:wrap(p.name,CW-28,17,true),ownerLines:wrap(p.teamName,CW-28,11)}));
+        const height=Math.max(...row.map(p=>124+p.nameLines.length*20+p.ownerLines.length*14));
+        room(height,title);
+        row.forEach((p,col)=>{
+          const x=M+col*(CW+GAP);
+          pdf.setFillColor(...surface);pdf.rect(x,y,CW,height,"F");
+          pdf.setFillColor(...primary);pdf.circle(x+34,y+33,22,"F");
+          const portrait=portraits[p.image];
+          if(portrait){pdf.saveGraphicsState();pdf.circle(x+34,y+33,22,null);pdf.clip();pdf.discardPath();try{pdf.addImage(portrait,"JPEG",x+12,y+11,44,44);}catch{/* Keep position fallback. */}pdf.restoreGraphicsState();}
+          text(p.position,x+65,y+27,12,bright,true);
+          text(`${p.nflTeam}${p.shared?" / TIED":""}`,x+65,y+45,10,muted);
+          let yy=y+78;
+          p.nameLines.forEach(line=>{text(line,x+14,yy,17,[255,255,255],true);yy+=20;});
+          p.ownerLines.forEach(line=>{text(line,x+14,yy,11,muted);yy+=14;});
+          text(p.points.toFixed(2),x+14,yy+26,26,[255,255,255],true);text("PTS",x+122,yy+25,10,bright,true);
+        });
+        y+=height+12;
+      }
+      y+=14;
+    }
+    if(visual.efficiency.length){
+      pdf.addPage();base(false,"LINEUP EFFICIENCY");y=150;
+      text("Starter points / best legal lineup. Retrospective, not a decision grade.",M,y,11,muted);y+=20;
+      for(const team of visual.efficiency){
+        const names=wrap(team.teamName,W-2*M-100,16,true),height=46+names.length*19;
+        room(height,"LINEUP EFFICIENCY");
+        names.forEach((line,j)=>text(line,M,y+19+j*19,16,[255,255,255],true));
+        pdf.setFontSize(18);pdf.setTextColor(...bright);pdf.text(team.percent===null?"--":`${team.percent.toFixed(1)}%`,W-M,y+19,{align:"right"});
+        const barY=y+names.length*19+10;
+        pdf.setFillColor(...surface);pdf.roundedRect(M,barY,W-2*M,7,3,3,"F");
+        if(team.percent!==null&&team.percent>0){pdf.setFillColor(...bright);pdf.rect(M,barY,(W-2*M)*team.percent/100,7,"F");}
+        text(team.percent===null?"Complete lineup scoring unavailable":`${team.actual.toFixed(2)} of ${team.maximum.toFixed(2)} available points`,M,barY+23,11,muted);
+        y+=height+12;
+      }
+    }
+    if(visual.standings.length){
+      const ladderHeader=()=>{text("TEAM / RECORD",M+32,y,10,bright,true);text("PF",W-166,y,10,bright,true);text("PA",W-85,y,10,bright,true);y+=12;};
+      pdf.addPage();base(false,"THE LEAGUE LADDER");y=150;ladderHeader();
+      for(const team of visual.standings){
+        const names=wrap(team.teamName,290,15,true),height=26+names.length*18;
+        if(y+height>H-64){pdf.addPage();base(false,"THE LEAGUE LADDER");y=150;ladderHeader();}
+        if(team.isMine){pdf.setFillColor(...surface);pdf.rect(M-5,y,W-2*M+10,height,"F");}
+        text(String(team.rank),M,y+20,16,bright,true);
+        names.forEach((line,j)=>text(line,M+32,y+20+j*18,15,[255,255,255],true));
+        const movement=team.movement?` / ${team.movement>0?"UP":"DOWN"} ${Math.abs(team.movement)}`:"";
+        text(`${team.wins}-${team.losses}${team.ties?`-${team.ties}`:""}${movement}${!team.complete?" / Partial data":""}`,M+32,y+20+names.length*18,10,muted);
+        pdf.setFontSize(13);pdf.setTextColor(255,255,255);pdf.text(team.pf.toFixed(2),W-112,y+22,{align:"right"});pdf.text(team.pa.toFixed(2),W-M,y+22,{align:"right"});
+        pdf.setDrawColor(...surface);pdf.line(M,y+height,W-M,y+height);y+=height+2;
+      }
+    }
+    pdf.addPage();base();y=150;
+  }
   text("THE RESULTS. THE REACTIONS. THE RECEIPTS.",M,y-7,11,bright,true);
   // Split unusually long shared-winner panels into readable continuation panels.
   const panels=cards.flatMap((card,index)=>{

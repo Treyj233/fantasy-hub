@@ -6,9 +6,9 @@ import { requirePro } from "../../entitlements";
 
 type MatchupRow = { roster_id?: number; matchup_id?: number | null; points?: number; custom_points?: number | null; starters?: string[]; players?: string[]; players_points?: Record<string, number> };
 type Roster = { roster_id?: number; owner_id?: string; players?: string[] };
-type Manager = { user_id?: string; display_name?: string; metadata?: { team_name?: string } };
+type Manager = { user_id?: string; display_name?: string; avatar?: string; metadata?: { team_name?: string } };
 type Transaction = { transaction_id?: string; type?: string; status?: string; roster_ids?: number[]; adds?: Record<string, number>; drops?: Record<string, number>; created?: number };
-type Player = { full_name?: string; first_name?: string; last_name?: string; position?: string; fantasy_positions?: string[]; injury_status?: string | null };
+type Player = { full_name?: string; first_name?: string; last_name?: string; team?: string; position?: string; fantasy_positions?: string[]; injury_status?: string | null };
 type Draft = { draft_id?: string; status?: string };
 type DraftPick = { player_id?: string; roster_id?: number; round?: number; pick_no?: number; draft_slot?: number };
 
@@ -83,7 +83,7 @@ export async function GET(request: Request) {
   const teamByRoster = new Map(rosters.flatMap((roster) => {
     if (!roster.roster_id) return [];
     const manager = roster.owner_id ? managerById.get(roster.owner_id) : undefined;
-    return [[roster.roster_id, { rosterId: roster.roster_id, ownerId: roster.owner_id ?? "", managerName: manager?.display_name ?? `Manager ${roster.roster_id}`, teamName: manager?.metadata?.team_name ?? `${manager?.display_name ?? `Manager ${roster.roster_id}`}'s Team`, isMine: roster.owner_id === connection.sleeperUserId }]];
+    return [[roster.roster_id, { rosterId: roster.roster_id, avatar: manager?.avatar && /^[a-zA-Z0-9_-]+$/.test(manager.avatar) ? `https://sleepercdn.com/avatars/thumbs/${manager.avatar}` : null, ownerId: roster.owner_id ?? "", managerName: manager?.display_name ?? `Manager ${roster.roster_id}`, teamName: manager?.metadata?.team_name ?? `${manager?.display_name ?? `Manager ${roster.roster_id}`}'s Team`, isMine: roster.owner_id === connection.sleeperUserId }]];
   }));
   const playerName = (id: string) => players[id]?.full_name ?? (`${players[id]?.first_name ?? ""} ${players[id]?.last_name ?? ""}`.trim() || `Player ${id}`);
   const draftPicks = (await Promise.all(drafts.filter((draft) => draft.draft_id).map(async (draft) => {
@@ -208,7 +208,7 @@ export async function GET(request: Request) {
   return Response.json({
     league: { name: league.name ?? "League", season: league.season ?? "", currentWeek, completedWeek, provider: "Sleeper" },
     updatedAt: new Date().toISOString(),
-    recap: { superlatives: leagueSuperlatives(recapGames, allGames.filter((game) => game.week === completedWeek - 1 && game.teams.every((team) => team.scoreAvailable)), playerName, { history: allGames.filter((game) => game.week <= completedWeek && game.teams.every((team) => team.scoreAvailable)), week: completedWeek, transactions: transactionPayloads.find((payload) => payload.week === completedWeek)?.rows ?? [], slots: league.roster_positions ?? [], players }), available: recapGames.length > 0, week: completedWeek || currentWeek, highScore: sortedScores[0] ?? null, closestGame: closest ?? null, biggestWin: widest ?? null, biggestUpset, lineupOutcomes: lineupOutcomes.slice(0, 3) },
+    recap: { visual: weeklyVisuals(recapGames, allGames.filter((game) => game.week <= completedWeek && game.teams.every((team) => team.scoreAvailable)), players, league.roster_positions ?? [], [...teamByRoster.values()], completedWeek), superlatives: leagueSuperlatives(recapGames, allGames.filter((game) => game.week === completedWeek - 1 && game.teams.every((team) => team.scoreAvailable)), playerName, { history: allGames.filter((game) => game.week <= completedWeek && game.teams.every((team) => team.scoreAvailable)), week: completedWeek, transactions: transactionPayloads.find((payload) => payload.week === completedWeek)?.rows ?? [], slots: league.roster_positions ?? [], players }), available: recapGames.length > 0, week: completedWeek || currentWeek, highScore: sortedScores[0] ?? null, closestGame: closest ?? null, biggestWin: widest ?? null, biggestUpset, lineupOutcomes: lineupOutcomes.slice(0, 3) },
     preview: { week: currentWeek, games: allGames.filter((game) => game.week === currentWeek).map((game) => ({ matchupId: game.matchupId, teams: game.teams.map((team) => ({ rosterId: team.rosterId, teamName: team.teamName, managerName: team.managerName, points: team.points, isMine: team.isMine })) })) },
     powerRankings,
     rivalry,
@@ -233,3 +233,4 @@ export async function GET(request: Request) {
 import { currentFantasyWeek } from '../../current-fantasy-week';
 import { requestedFantasyWeek } from '../../fantasy-week.mjs';
 import { leagueSuperlatives } from "../../league-superlatives.mjs";
+import { weeklyVisuals } from "../../league-weekly-visuals.mjs";

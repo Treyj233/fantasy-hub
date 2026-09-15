@@ -81,7 +81,21 @@ export async function generateLeagueStoryPdf(story: LeagueStoryData, request: Le
       const response = await fetch("/fh-blue-app-mark.png");
       if (response.ok) logo = new Uint8Array(await response.arrayBuffer());
     } catch { /* Offline exports keep the Fantasy Hub wordmark. */ }
-    drawLeagueRecap(pdf, story, { primary, accent, deep, logo });
+    const portraits: Record<string, Uint8Array> = {};
+    const visual = story.recap.visual;
+    const imageUrls = [...new Set([...(visual?.starters ?? []), ...(visual?.bench ?? [])].map(p => p.image).filter((url): url is string => !!url))].slice(0, 24);
+    await Promise.all(imageUrls.map(async url => {
+      if (!/^https:\/\/sleepercdn\.com\/content\/nfl\/players\/\d+\.jpg$/.test(url)) return;
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 1800);
+        try {
+          const response = await fetch(url, { signal: controller.signal });
+          if (response.ok) portraits[url] = new Uint8Array(await response.arrayBuffer());
+        } finally { clearTimeout(timeout); }
+      } catch { /* Player names and scores remain available without remote images. */ }
+    }));
+    drawLeagueRecap(pdf, story, { primary, accent, deep, logo, portraits });
     return { blob: pdf.output("blob"), fileName: `${safeFileName(story.league.name)}-week-${story.recap.week}-recap.pdf`, title: `${story.league.name}: Week ${story.recap.week} Recap` };
   }
   const report = reportContent(story, request);

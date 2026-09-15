@@ -15,6 +15,12 @@ test('recap uses the exact current iPhone launch logo, not the legacy green logo
 });
 const fixture={league:{name:'Sunday Syndicate',season:'2026'},recap:{week:4,highScore:{teamName:'Revenge Tour',points:154.8},closestGame:{teams:[{teamName:'Fourth & Forever',points:118.24},{teamName:'Sunday Scaries',points:117.86}]},biggestWin:{teams:[{teamName:'Revenge Tour',points:154.8},{teamName:'The Underdogs',points:96.1}]},superlatives:labels.map((label,i)=>({id:String(i),label,recipient:i%3===0?'Fourth & Forever':i%3===1?'Revenge Tour':'Sunday Scaries',detail:i%3===0?'118.2 points | Highest-scoring loss':i%3===1?'Ended a 4-game winning streak':'Outscored 9 of 11 other teams and still lost'}))}};
 test('every award is exported with automatic page breaks and safe text bounds',()=>{
+  fixture.recap.visual={
+    starters:['QB','RB','WR','TE','DEF'].map((position,i)=>({position,name:['Josh Allen','Jahmyr Gibbs','Justin Jefferson','George Kittle','Seattle'][i],teamName:'Fourth & Forever',nflTeam:'',points:30-i,image:null})),
+    bench:[{position:'QB',name:'Bench Leader',teamName:'Sunday Scaries',nflTeam:'',points:24,image:null}],
+    efficiency:Array.from({length:12},(_,i)=>({teamName:`League Team ${i+1}`,actual:120-i,maximum:150,percent:(120-i)/150*100})),
+    standings:Array.from({length:12},(_,i)=>({rank:i+1,teamName:`League Team ${i+1}`,wins:4,losses:0,ties:0,pf:600-i*10,pa:500,movement:0,complete:true,isMine:i===0}))
+  };
   const pdf=new jsPDF({unit:'pt',format:'letter'});
   const original=pdf.text.bind(pdf);
   pdf.text=(text,x,y,...rest)=>{assert.ok(y>=0&&y<=773,`text outside safe area: ${y}`);return original(text,x,y,...rest);};
@@ -26,7 +32,7 @@ test('every award is exported with automatic page breaks and safe text bounds',(
   if(process.env.RENDER_RECAP){mkdirSync('tmp/pdfs',{recursive:true});writeFileSync('tmp/pdfs/recap-preview.pdf',Buffer.from(pdf.output('arraybuffer')));}
 });
 test('export passes the active theme and retains larger body text',()=>{
-  assert.match(readFileSync('app/league-story-pdf.ts','utf8'),/drawLeagueRecap\(pdf, story, \{ primary, accent, deep, logo \}\)/);
+  assert.match(readFileSync('app/league-story-pdf.ts','utf8'),/drawLeagueRecap\(pdf, story, \{ primary, accent, deep, logo, portraits \}\)/);
   const pdf=new jsPDF({unit:'pt',format:'letter'});
   const colors=[];const fill=pdf.setFillColor.bind(pdf);
   pdf.setFillColor=(...args)=>{colors.push(args);return fill(...args);};

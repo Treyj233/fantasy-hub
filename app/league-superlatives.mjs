@@ -107,14 +107,14 @@ export function leagueSuperlatives(games, previousGames, playerName, context = {
 }
 
 // Maximum-weight bipartite assignment, including FLEX and multi-position players.
-export function isPerfectLineup(team, rosterSlots, directory) {
+export function optimalLineupPoints(team, rosterSlots, directory) {
   const slots = rosterSlots.filter(s=>!["BN","IR","TAXI"].includes(s));
   const flex = { FLEX:["RB","WR","TE"], SUPER_FLEX:["QB","RB","WR","TE"], REC_FLEX:["WR","TE"], WRRB_FLEX:["RB","WR"], IDP_FLEX:["DL","LB","DB","DE","DT","CB","S"] };
-  if(!slots.length || slots.length>24 || team.starters.length!==slots.length || team.starters.includes("0")) return false;
+  if(!slots.length || slots.length>24 || team.starters.length!==slots.length || team.starters.includes("0")) return null;
   const ids=[...new Set(team.players)];
-  if(!ids.length || ids.some(id=>!Number.isFinite(team.playerPoints[id]) || !directory[id]?.position) || team.starters.some(id=>!ids.includes(id)) || new Set(team.starters).size!==slots.length) return false;
+  if(!ids.length || ids.some(id=>!Number.isFinite(team.playerPoints[id]) || !directory[id]?.position) || team.starters.some(id=>!ids.includes(id)) || new Set(team.starters).size!==slots.length) return null;
   const eligible=(id,slot)=> (directory[id].fantasy_positions ?? [directory[id].position]).some(p=>(flex[slot]??[slot]).includes(p));
-  if(team.starters.some((id,i)=>!eligible(id,slots[i]))) return false;
+  if(team.starters.some((id,i)=>!eligible(id,slots[i]))) return null;
   const n=2+ids.length+slots.length, source=n-2,sink=n-1, graph=Array.from({length:n},()=>[]);
   const edge=(a,b,cost)=>{graph[a].push({to:b,rev:graph[b].length,cap:1,cost});graph[b].push({to:a,rev:graph[a].length-1,cap:0,cost:-cost});};
   ids.forEach((id,i)=>{edge(source,i,-team.playerPoints[id]);slots.forEach((s,j)=>{if(eligible(id,s))edge(i,ids.length+j,0);});});
@@ -123,8 +123,13 @@ export function isPerfectLineup(team, rosterSlots, directory) {
   for(let flow=0;flow<slots.length;flow++){
     const dist=Array(n).fill(Infinity), prev=Array(n);dist[source]=0;
     for(let pass=0;pass<n-1;pass++){let changed=false;graph.forEach((edges,a)=>edges.forEach((e,i)=>{if(e.cap && dist[a]+e.cost<dist[e.to]-1e-9){dist[e.to]=dist[a]+e.cost;prev[e.to]=[a,i];changed=true;}}));if(!changed)break;}
-    if(!Number.isFinite(dist[sink]))return false;
+    if(!Number.isFinite(dist[sink]))return null;
     total-=dist[sink];for(let v=sink;v!==source;){const [a,i]=prev[v],e=graph[a][i];e.cap--;graph[v][e.rev].cap++;v=a;}
   }
-  return Math.abs(total-team.starters.reduce((sum,id)=>sum+team.playerPoints[id],0))<.005;
+  return total;
+}
+
+export function isPerfectLineup(team, rosterSlots, directory) {
+  const best=optimalLineupPoints(team,rosterSlots,directory);
+  return best !== null && Math.abs(best-team.starters.reduce((sum,id)=>sum+team.playerPoints[id],0))<.005;
 }
