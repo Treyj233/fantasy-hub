@@ -4,7 +4,14 @@ import {readFileSync} from 'node:fs';
 import ts from 'typescript';
 const compile=path=>ts.transpile(readFileSync(path,'utf8'),{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022});
 const contentUrl=`data:text/javascript;base64,${Buffer.from(compile('social-agent/src/content.ts')).toString('base64')}`;
-const {composeFantasyPost}=await import(contentUrl);
+const {composeFantasyPost,storyLabel}=await import(contentUrl);
+test('performance icons distinguish negative, positive and mixed evidence',()=>{
+ assert.equal(storyLabel('performance','Player struggled, held to 20 yards.'),'❄️ PERFORMANCE PULSE');
+ assert.equal(storyLabel('performance','Player set a career-high in receptions.'),'🔥 PERFORMANCE PULSE');
+ assert.equal(storyLabel('performance','Player was held to 20 yards but saw more targets.'),'📊 PERFORMANCE PULSE');
+ assert.equal(storyLabel('performance','Player targets 1,300 yards this season.'),'📊 PERFORMANCE PULSE');
+ assert.equal(storyLabel('injury','Player struggled.'),'🚨 INJURY PULSE');
+});
 const intelligence=compile('social-agent/src/intelligence.ts').replace('"./content"',JSON.stringify(contentUrl));
 const {validateStoryDraft,extractStoryFacts}=await import(`data:text/javascript;base64,${Buffer.from(intelligence).toString('base64')}`);
 const story={id:'1',title:'Michael Wilson practiced in full today.',summary:'Michael Wilson practiced in full today.',category:'news',source:'@AdamSchefter',url:'https://example.com',publishedAt:'2026-09-15T12:00:00Z'};

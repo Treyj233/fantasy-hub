@@ -181,6 +181,19 @@ const labels: Record<StoryCategory, string> = {
   news: "🏈 FANTASY PULSE",
 };
 
+// Conservative fallback for saved stories: ambiguous box scores are not automatically hot.
+export function performanceEmoji(text: string) {
+  const negative = /\b(?:struggl\w*|disappoint\w*|underperform\w*|held to|limited to|season[- ]low|career[- ]low|inefficient|scoreless|shut out|zero (?:catches|receptions|targets)|no (?:catches|receptions|targets)|losing (?:snaps|targets|touches)|fewer (?:snaps|targets|touches))\b/i.test(text);
+  const positive = /\b(?:breakout|career[- ]high|season[- ]high|dominant|dominates?|explod\w*|outperform\w*|surpassed|surpasses|more (?:snaps|targets|touches))\b/i.test(text);
+  return negative && !positive ? "❄️" : positive && !negative ? "🔥" : "📊";
+}
+
+export const performanceContextInstruction = "For performance news, distinguish positive, negative, and mixed signals for the subject player. Explain the evidence: production versus opportunity, efficiency, targets/touches/snaps, and game setting when supplied. Preserve encouraging usage behind a poor box score and weak usage behind a touchdown; one game alone does not establish a trend. Never invent statistics, comparisons, or role changes. Use ❄️ for clearly negative performance, 🔥 for clearly positive performance, and 📊 for mixed or unclear performance; never celebrate a poor game with fire. A factual box score or future goal alone is not proof of improvement.";
+
+export function storyLabel(category: string, text: string) {
+  return category === "performance" ? `${performanceEmoji(text)} PERFORMANCE PULSE` : labels[category as StoryCategory] || labels.news;
+}
+
 const creditedReporters: Record<string, string> = {
   "@rapsheet": "@RapSheet",
   "@adamschefter": "@AdamSchefter",
