@@ -9,6 +9,7 @@ export type Story = {
   publishedAt: string;
   category: StoryCategory;
   fantasyImpact?: string;
+  tweetText?: string;
   actionNow?: string;
   nextTrigger?: string;
   reporter?: string;
@@ -445,25 +446,9 @@ const specificImpact = (story: Story, context: FantasyPlayerContext | null) => {
 };
 
 export function composeFantasyPost(story: Story, context: FantasyPlayerContext | null) {
-  const isGameDay = story.category === "performance" && gameDayPlay.test(`${story.title} ${story.summary}`) && !isPracticeSetting(`${story.title} ${story.summary}`);
-  const label = isGameDay ? "🏈 SUNDAY PULSE" : labels[story.category];
-  const impact = expandPlayerNames(specificImpact(story, context), context);
   const reporter = story.reporter || creditedReporters[story.source.toLowerCase()];
-  const attribution = reporter
-    ? `\n\nReported by ${reporter}`
-    : story.curator ? `\n\nCurated by ${story.curator}` : "";
-  if (story.fantasyImpact) {
-    // AI-authored X fields are generated as one coordinated package. Reserve
-    // space for the complete source fact, then fit the already concise impact.
-    const headline = expandPlayerNames(summarizeHeadline(story, context, 94), context);
-    const fixed = `${label}\n\n${headline}\n\nWHY IT MATTERS: ${attribution}`;
-    const impactBudget = Math.max(48, 280 - fixed.length);
-    return `${label}\n\n${headline}\n\nWHY IT MATTERS: ${completeImpact(impact, impactBudget)}${attribution}`;
-  }
-  // Deterministic fallbacks retain their fuller context so named beneficiaries
-  // and contingency options are not silently discarded if AI is unavailable.
-  const fixed = `${label}\n\n\n\nWHY IT MATTERS: ${impact}${attribution}`;
-  const headlineBudget = Math.max(42, 275 - fixed.length);
-  const headline = expandPlayerNames(summarizeHeadline(story, context, headlineBudget), context);
-  return `${label}\n\n${headline}\n\nWHY IT MATTERS: ${impact}${attribution}`;
+  const attribution = reporter ? `\n\nReported by ${reporter}` : story.curator ? `\n\nCurated by ${story.curator}` : "";
+  // No AI result means factual news only, never an invented generic implication.
+  const body = story.tweetText || expandPlayerNames(summarizeHeadline(story, context, 280 - attribution.length), context);
+  return `${body}${attribution}`;
 }

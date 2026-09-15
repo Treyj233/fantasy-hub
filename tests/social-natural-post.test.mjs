@@ -1,0 +1,29 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import ts from 'typescript';
+const compile=path=>ts.transpile(readFileSync(path,'utf8'),{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022});
+const contentUrl=`data:text/javascript;base64,${Buffer.from(compile('social-agent/src/content.ts')).toString('base64')}`;
+const {composeFantasyPost}=await import(contentUrl);
+const intelligence=compile('social-agent/src/intelligence.ts').replace('"./content"',JSON.stringify(contentUrl));
+const {validateStoryDraft,extractStoryFacts}=await import(`data:text/javascript;base64,${Buffer.from(intelligence).toString('base64')}`);
+const story={id:'1',title:'Michael Wilson practiced in full today.',summary:'Michael Wilson practiced in full today.',category:'news',source:'@AdamSchefter',url:'https://example.com',publishedAt:'2026-09-15T12:00:00Z'};
+const context={player:'Michael Wilson',position:'WR',team:'ARI',backups:[],affectedPlayers:[]};
+test('natural AI copy is preserved with credit and no forced impact heading',()=>{
+ const body='Michael Wilson practiced in full today. His availability is trending in the right direction, but game status is not confirmed.';
+ const draft=composeFantasyPost({...story,tweetText:body},context);
+ assert.equal(draft,body+'\n\nReported by @AdamSchefter');
+ assert.ok(draft.length<=280);
+ assert.equal(validateStoryDraft(story,context,draft,extractStoryFacts(story,context)).approvedForX,true);
+});
+test('news-only fallback invents no beneficiary or forced recommendation',()=>{
+ const draft=composeFantasyPost(story,context);
+ assert.doesNotMatch(draft,/WHY IT MATTERS|FANTASY IMPACT|target share|waiver|backup/i);
+ assert.equal(validateStoryDraft(story,context,draft,extractStoryFacts(story,context)).approvedForX,true);
+});
+test('legacy drafts cannot pass validation and historical review still applies',()=>{
+ const legacy='News\n\nWHY IT MATTERS: More targets.';
+ assert.equal(validateStoryDraft(story,context,legacy,extractStoryFacts(story,context)).approvedForX,false);
+ const historical={...story,sourceContext:['historical-review-required']};
+ assert.equal(validateStoryDraft(historical,context,composeFantasyPost(historical,context),extractStoryFacts(historical,context)).approvedForX,false);
+});

@@ -104,14 +104,13 @@ export function validateStoryDraft(story: Story, context: PlayerContext | null, 
   if (!context && story.category !== "weather") reasons.push("No fantasy-relevant player resolved");
   if (facts.confidence === "low") reasons.push("Extracted facts are low confidence");
   if (draft.length > 280) reasons.push("Draft exceeds the X character limit");
-  const headline = draft.split(/\n{2,}/)[1] ?? "";
+  const headline = draft.split(/\n{2,}/)[0] ?? "";
   if (/told reporters\.$|according to (?:a )?source\.$|has a new (?:injury )?update\.$/im.test(draft)) reasons.push("Headline ends before the actionable fact");
   if (/\b(?:updated?|new update|situation develops?)\b/i.test(headline)
     && !/\b(?:returned|cleared|limited|practiced|signed|traded|released|waived|named|ruled|targets?|carries|receptions?|yards?|touchdowns?|snaps?|suspend)\b/i.test(headline)) reasons.push("Headline describes an update without stating what changed");
   if (/\b(?:not|and|or|but|with|for|to|during)\.$/im.test(draft)) reasons.push("Headline ends with a dangling word");
-  if (context && headline.toLowerCase().split(context.player.toLowerCase()).length - 1 > 1) reasons.push("Headline repeats the subject name");
   if (story.category === "injury" && facts.diagnosis && !draft.toLowerCase().includes(facts.diagnosis.toLowerCase().replace(/^(?:tweaked)\s+(?:his|her|their)\s+/, ""))) reasons.push("Draft omits the reported injury detail");
-  if (!/(?:WHY IT MATTERS|FANTASY IMPACT):/i.test(draft)) reasons.push("Fantasy impact is missing");
+  if (/(?:WHY IT MATTERS|FANTASY IMPACT):/i.test(draft)) reasons.push("Legacy impact template must be rewritten before posting");
   const impact = draft.match(/(?:WHY IT MATTERS|FANTASY IMPACT):\s*([^\n]+)/i)?.[1]?.trim() ?? "";
   const concreteMechanism = /\b(?:active|inactive|availability|lineup|start|sit|touch(?:es)?|carr(?:y|ies)|target(?:s)?|snap(?:s)?|route(?:s)?|role|workload|backfield|depth chart|goal[- ]line|redraft|dynasty|superflex|2qb|waiver|faab|replacement|passing|rushing|receiving|draft price)\b/i;
   if (impact && (!concreteMechanism.test(impact)
@@ -120,6 +119,6 @@ export function validateStoryDraft(story: Story, context: PlayerContext | null, 
   }
   if (/adjust projections|monitor the depth chart|compare (?:this report )?(?:with )?(?:routes|targets|snaps)|routes, targets and snaps|\bhold on\b|\bawait (?:clarity|resolution|usage|an? update)\b/i.test(draft)) reasons.push("Fantasy impact uses vague boilerplate");
   if (isPracticeSetting(`${story.title} ${story.summary}`)
-    && /(?:WHY IT MATTERS|FANTASY IMPACT):[\s\S]*\b(?:draft|add|waiver|buy|sell|boosts? (?:his )?(?:value|appeal))\b/i.test(draft)) reasons.push("A single practice report cannot trigger an acquisition or value change");
+    && /\b(?:you should (?:draft|add|buy|sell)|must[- ]add|boosts? (?:his )?(?:value|appeal))\b/i.test(draft)) reasons.push("A single practice report cannot trigger an acquisition or value change");
   return { approvedForX: reasons.length === 0, reasons };
 }
