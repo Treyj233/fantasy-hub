@@ -254,14 +254,17 @@
     margin-top: -3px;
   }
   .roster-section .roster-matchup-details {
-    width: min(100%, 180px);
+    /* Use the full matchup row on phones; desktop keeps its compact badge. */
+    width: 100%;
     min-width: 0;
+    justify-self: stretch;
   }
   .roster-section .roster-matchup-details > .roster-weather {
-    overflow: hidden;
+    overflow: visible;
     max-width: 100%;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    text-overflow: clip;
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
 }
 
