@@ -206,31 +206,67 @@ export async function nativeManageSubscriptions() {
   if (isNativeIosApp()) await StoreKit.manageSubscriptions();
 }
 
+const pushTokenKey = "fantasy-hub-push-token";
+const pushOptOutKey = "fantasy-hub-push-opt-out";
+
+export async function nativePushSettings() {
+  const token = localStorage.getItem(pushTokenKey) ?? "";
+  const response = await fetch("/api/account/push", { headers: { "x-push-token": token } });
+  if (!response.ok) throw new Error("Unable to load notification settings");
+  const settings = await response.json();
+  const permission = await PushNotifications.checkPermissions();
+  return { ...settings, enabled: settings.enabled && permission.receive === "granted" };
+}
+
+export async function syncDefaultNativePushNotifications() {
+  if (!isNativeIosApp() || localStorage.getItem(pushOptOutKey) === "true") return;
+  const permission = await PushNotifications.checkPermissions();
+  if (permission.receive === "denied") return;
+  await enableNativePushNotifications();
+}
+
 export async function enableNativePushNotifications() {
   if (!isNativeIosApp()) throw new Error("Push notifications require the iOS app");
   const permission = await PushNotifications.checkPermissions();
   const result = permission.receive === "prompt" ? await PushNotifications.requestPermissions() : permission;
   if (result.receive !== "granted") throw new Error("Notifications are disabled in iOS Settings");
   return await new Promise<void>((resolve, reject) => {
-    const listeners = [
-      PushNotifications.addListener("registration", async ({ value }) => {
+    const listeners: { remove(): Promise<void> }[] = [];
+    let finished = false;
+    const finish = (error?: Error) => {
+      if (finished) return;
+      finished = true;
+      clearTimeout(timeout);
+      void Promise.all(listeners.map((listener) => listener.remove())).catch(() => undefined);
+      if (error) reject(error); else resolve();
+    };
+    const timeout = setTimeout(() => finish(new Error("Notification registration timed out. Please try again.")), 20_000);
+    void (async () => {
+      listeners.push(await PushNotifications.addListener("registration", ({ value }) => {
+        if (finished) return;
+        void (async () => {
         const response = await fetch("/api/account/push", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token: value, platform: "ios" }) });
         const data = await response.json() as { error?: string };
-        await Promise.all((await Promise.all(listeners)).map((listener) => listener.remove()));
-        if (!response.ok) reject(new Error(data.error ?? "Unable to save notification settings"));
-        else resolve();
-      }),
-      PushNotifications.addListener("registrationError", async (error) => {
-        await Promise.all((await Promise.all(listeners)).map((listener) => listener.remove()));
-        reject(new Error(error.error));
-      }),
-    ];
-    void PushNotifications.register();
+        if (!response.ok) throw new Error(data.error ?? "Unable to save notification settings");
+        localStorage.setItem(pushTokenKey, value);
+        localStorage.removeItem(pushOptOutKey);
+        finish();
+        })().catch((error) => finish(error instanceof Error ? error : new Error("Unable to register notifications")));
+      }));
+      listeners.push(await PushNotifications.addListener("registrationError", (error) => finish(new Error(error.error))));
+      if (!finished) await PushNotifications.register();
+      else await Promise.all(listeners.map((listener) => listener.remove()));
+    })().catch((error) => finish(error instanceof Error ? error : new Error("Unable to register notifications")));
   });
 }
 
 export async function disableNativePushNotifications() {
-  await fetch("/api/account/push", { method: "DELETE" });
+  const token = localStorage.getItem(pushTokenKey);
+  if (token) {
+    const response = await fetch("/api/account/push", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token }) });
+    if (!response.ok) throw new Error("Unable to turn notifications off. Please try again.");
+  }
+  localStorage.setItem(pushOptOutKey, "true");
   if (isNativeIosApp()) await PushNotifications.unregister();
 }
 

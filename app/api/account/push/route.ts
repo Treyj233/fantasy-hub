@@ -4,12 +4,12 @@ import { pushDevices, userPreferences } from "../../../../db/schema";
 import { getChatGPTUser } from "../../../chatgpt-auth";
 import { DEFAULT_PUSH_PREFERENCES, parsePushPreferences, sanitizePushPreferences } from "../../../push-preferences";
 
-export async function GET() {
+export async function GET(request: Request) {
   const user = await getChatGPTUser();
   if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
   const db = await getDb();
   const devices = await db.select({ enabled: pushDevices.enabled, platform: pushDevices.platform, lastSeenAt: pushDevices.lastSeenAt })
-    .from(pushDevices).where(eq(pushDevices.userId, user.userId));
+    .from(pushDevices).where(and(eq(pushDevices.userId, user.userId), eq(pushDevices.token, request.headers.get("x-push-token") ?? "")));
   const [saved] = await db.select({ value: userPreferences.pushPreferencesJson }).from(userPreferences).where(eq(userPreferences.userId, user.userId)).limit(1);
   return Response.json({ enabled: devices.some((device) => device.enabled), devices, preferences: parsePushPreferences(saved?.value) });
 }
@@ -31,7 +31,7 @@ export async function POST(request: Request) {
   const user = await getChatGPTUser();
   if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
   const body = await request.json().catch(() => null) as { token?: string; platform?: string } | null;
-  const token = body?.token?.trim() ?? "";
+  const token = typeof body?.token === "string" ? body.token.trim() : "";
   if (!/^[A-Za-z0-9:_-]{20,512}$/.test(token)) return Response.json({ error: "Invalid push token" }, { status: 400 });
   const now = new Date().toISOString();
   const record = { token, userId: user.userId, platform: body?.platform === "ios" ? "ios" : "ios", enabled: true, lastSeenAt: now };
@@ -44,8 +44,8 @@ export async function DELETE(request: Request) {
   const user = await getChatGPTUser();
   if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
   const body = await request.json().catch(() => null) as { token?: string } | null;
+  if (!body?.token || typeof body.token !== "string") return Response.json({ error: "Device token required" }, { status: 400 });
   const db = await getDb();
   if (body?.token) await db.delete(pushDevices).where(and(eq(pushDevices.userId, user.userId), eq(pushDevices.token, body.token)));
-  else await db.delete(pushDevices).where(eq(pushDevices.userId, user.userId));
   return Response.json({ enabled: false });
 }

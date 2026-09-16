@@ -20,7 +20,7 @@ const WEATHER_SOURCE_URL = "https://www.weatherapi.com/";
 const WEATHER_DISCLAIMER = "Weather information is for general informational purposes only. Forecasts may change and should not be used as the sole basis for safety-critical decisions.";
 const normalizeTeam = (team?: string) => ({ JAC: "JAX", WSH: "WAS" }[team ?? ""] ?? team ?? "");
 
-async function forecastFor(date: string, venue: Venue) {
+export async function forecastFor(date: string, venue: Venue) {
   const apiKey = process.env.WEATHERAPI_KEY?.trim();
   if (!apiKey) return null;
   const kickoff = new Date(date);

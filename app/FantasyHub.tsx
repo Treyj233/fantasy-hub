@@ -17,7 +17,7 @@ import { DEFAULT_PUSH_PREFERENCES, type PushAlertKey, type PushPreferences } fro
 import { disableNativePushNotifications, enableNativePushNotifications, initializeNativeRuntime, isNativeIosApp, nativeHapticsEnabled, nativeImpact, nativeLogAppsFlyerEvent, nativeManageSubscriptions, nativePurchase, nativeRefreshPurchases, nativeRestorePurchases, nativeStoreProducts, nativeWriteReview, setNativeHapticsEnabled } from "./native-runtime";
 import { trackNativeScreen } from './native-screen-analytics';
 import { useOverflowAutoScroll } from "./use-overflow-auto-scroll";
-import { nativeOpenLeague } from "./native-runtime";
+import { nativeOpenLeague, nativePushSettings, syncDefaultNativePushNotifications } from "./native-runtime";
 import { injuryTradePenalty } from "./postgame-value.mjs";
 import { hideFinishedWeeklyGame } from "./weekly-ranking-visibility.mjs";
 import { tradeMatchesTarget } from "./trade-target-fit.mjs";
@@ -1981,6 +1981,19 @@ export default function FantasyHub({
   const weekOneWelcomeCheckedSeason = useRef<string | null>(null);
 
   useEffect(() => initializeNativeRuntime(), []);
+
+  const pushSyncedAccount = useRef<string | null>(null);
+  useEffect(() => {
+    if (!accountUser) pushSyncedAccount.current = null;
+    if (!accountUser || accountLoading || importState !== "success" || onboardingTourOpen || weekOneWelcomeOpen) return;
+    const email = accountUser.email;
+    if (pushSyncedAccount.current === email) return;
+    const timer = window.setTimeout(() => {
+      pushSyncedAccount.current = email;
+      void syncDefaultNativePushNotifications().catch(() => { pushSyncedAccount.current = null; });
+    }, 2000);
+    return () => window.clearTimeout(timer);
+  }, [accountUser?.email, accountLoading, importState, onboardingTourOpen, weekOneWelcomeOpen]);
 
   useEffect(() => {
     if (isNativeIosApp()) {
@@ -4385,7 +4398,7 @@ function AccessAccount({ accountUser, entitlement, onPlans }: { accountUser: Acc
 
   useEffect(() => {
     if (!nativeIos) return;
-    void fetch("/api/account/push").then((response) => response.ok ? response.json() : null).then((data: { enabled?: boolean; preferences?: PushPreferences } | null) => {
+    void nativePushSettings().then((data: { enabled?: boolean; preferences?: PushPreferences } | null) => {
       setPushEnabled(Boolean(data?.enabled));
       if (data?.preferences) setPushPreferences(data.preferences);
     }).catch(() => undefined);
