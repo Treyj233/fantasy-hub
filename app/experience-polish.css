@@ -1,0 +1,53 @@
+/* End-user review: reclaim space without hiding data or reducing touch targets. */
+@media (min-width: 1081px) {
+  .league-switcher { padding:12px 16px; gap:16px; }
+  .league-switcher .league-pills {
+    grid-template-columns:none;
+    grid-template-rows:repeat(2,minmax(0,1fr)); grid-auto-flow:column; grid-auto-columns:minmax(170px,1fr);
+    overflow-x:auto; overflow-y:hidden; gap:7px;
+  }
+  .league-switcher .league-pills button { padding-block:8px; min-height:58px; }
+  .team-picker-strip.compact-team-picker { flex-wrap:nowrap; padding-block:10px; }
+  .team-picker-strip.compact-team-picker .team-picker-heading { flex:0 1 auto; order:-2; flex-direction:column; align-items:flex-start; }
+  .team-picker-strip.compact-team-picker select { margin-top:0; min-height:44px; }
+}
+.all-leagues-page .all-leagues-hero { min-height:0; padding:20px 24px; }
+.all-leagues-page .all-league-metrics article { min-height:0; padding:14px 18px; }
+.all-leagues-page .all-league-metrics strong { margin-block:6px 3px; }
+.vegas-edge-page .edge-intro.all-leagues-hero { min-height:0; padding-block:16px; }
+.team-review-page .review-metrics { padding-block:8px; }
+.team-review-page .review-heading { margin-bottom:10px; }
+.team-review-page .review-league-fit { margin-block:4px; }
+
+/* Use readable foreground tokens, not decorative primary colors, on dark cards. */
+html[data-theme="dark"] .team-review-page :is(.review-heading>span,.review-metrics strong,.review-section>header>h3,.review-rooms h4,.review-player,.review-trade-player,.review-fit-toggle,.review-tags>span,.review-settings) {
+  color:var(--text-accent-safe,#d6c7ee)!important;
+}
+html[data-theme="dark"] .team-review-page :is(.review-section>header>span,.review-league-fit summary>span:first-child) { color:var(--muted)!important; }
+html[data-theme="dark"] .team-review-page button:not(.review-generate):not(.review-player):not(.review-trade-player) { color:var(--ink); }
+html[data-theme="dark"] .league-switcher>div:first-child>header>span,
+html[data-theme="dark"] .risk-recommendation>span { color:var(--text-gold-safe,#f4ce72); }
+html[data-theme="dark"] .trade-controls :is(.negotiation-profile-control>span,.style-toggle button:not(.active),p>strong) { color:var(--ink); }
+html[data-theme="dark"] .vegas-edge-page .edge-eyebrow { color:var(--text-accent-safe,#d6c7ee); }
+html[data-theme="dark"] .portfolio-score-rail :is(header b,button>small>em) { color:var(--text-accent-safe,#d6c7ee); }
+html[data-theme="dark"] .position-filters button:not(.active) { color:var(--muted); }
+html[data-theme="dark"] .ranking-detail-row :is(.fantasy-ppg,.hub-rank-score) { color:var(--text-accent-safe,#d6c7ee); }
+
+/* Keep concise labels readable; long descriptive text wraps instead of vanishing. */
+.news-notes-page>.news-notes-intro p { white-space:normal; overflow:visible; text-overflow:clip; }
+.team-review-page :is(.review-heading h2,.review-section h3,.review-rooms h4) { font-family:var(--font-geist-sans),Arial,sans-serif; }
+.team-rankings-page .team-rank-summary .metric>span { font-family:var(--font-geist-sans),Arial,sans-serif; font-weight:650; letter-spacing:.02em; }
+/* Keep every player searchable and keyboard accessible while skipping offscreen paint. */
+@supports (content-visibility:auto) {
+  .ranking-tier-list button.ranking-detail-row,
+  .adp-market-table button.adp-market-row { content-visibility:auto; contain-intrinsic-size:auto 64px; }
+}
+@media (max-width: 700px) {
+  .all-leagues-page .all-leagues-hero { padding:16px; }
+  .all-leagues-page .all-league-metrics article { padding:12px; }
+  .vegas-edge-page .edge-intro.all-leagues-hero { padding-block:12px; }
+  .team-review-page>section.review-section>header>h3 { font-size:14px; line-height:1.35; }
+}
+@media (prefers-reduced-motion:reduce) {
+  .rivalry-week-active:after,.rivalry-week-banner:before { animation:none!important; }
+}

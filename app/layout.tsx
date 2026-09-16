@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
 import "./readability.css";
+import "./experience-polish.css";
 import { getClerkRuntimeKeys } from "./clerk-config";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
@@ -15,8 +16,6 @@ const geistMono = Geist_Mono({
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
   interactiveWidget: "resizes-visual",
   viewportFit: "cover",
   themeColor: "#f4f7f5",

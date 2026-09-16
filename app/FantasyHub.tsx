@@ -2981,7 +2981,9 @@ export default function FantasyHub({
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ provider, identifierType, identifier, rosterId }),
     });
-    const data = (await response.json()) as {
+    const data = (await response.json().catch(() => {
+      throw new Error("We couldn’t connect this league right now. Please try again in a moment.");
+    })) as {
       league?: ManagedLeague;
       teamSelection?: { id: string; name: string; season: string; teams: { id: string; name: string; managerName: string }[] };
       error?: string;
@@ -9635,6 +9637,7 @@ function PlayerRanks({
             <button
               key={value}
               className={position === value ? "active" : ""}
+              aria-pressed={position === value}
               onClick={() => setPosition(value)}
             >
               {value}
@@ -10661,7 +10664,7 @@ function WaiverWire({
                   <b>#{index + 1}</b>
                   <span className={`pos pos-${player.position.toLowerCase()}`}>{player.position}</span>
                   <p><strong>{player.name}</strong><small>{player.team || "FA"}</small></p>
-                  <em>{group.key === "up" ? "+" : "−"}{player.trendCount ?? 0} {group.key === "up" ? "adds" : "drops"}</em>
+                  <em>{group.key === "up" ? "+" : "−"}{(player.trendCount ?? 0).toLocaleString("en-US")} {group.key === "up" ? "adds" : "drops"}</em>
                 </button>
               ))}
               {!trending[group.key].length && <p className="waiver-trend-empty">{group.empty}</p>}
@@ -11753,6 +11756,7 @@ function TradeLab({
                 <button
                   key={style}
                   className={partnerStyle === style ? "active" : ""}
+                  aria-pressed={partnerStyle === style}
                   onClick={() => updateStyle(style)}
                   disabled={!isPro}
                 >

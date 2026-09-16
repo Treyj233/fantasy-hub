@@ -58,7 +58,7 @@ export default function VegasEdge({leagueId,teamId,roster,waivers,context,season
   const signed=(n:number)=>`${n>0?'+':''}${n.toFixed(1)}`;
   const timestamp=(date:string)=>new Date(date).toLocaleString(undefined,{weekday:'short',hour:'numeric',minute:'2-digit'});
   return <div className="page-content vegas-edge-page">
-    <section className="all-leagues-hero edge-intro"><div><h2 className="mission-hub-title">Vegas Edge</h2><p className="mission-hub-subtitle">Your market edge, revealed.</p><span className="edge-preview">ELITE · OWNER PREVIEW</span></div><button type="button" className="edge-refresh" disabled={busy} onClick={()=>setRefresh(n=>n+1)}>{busy?'Refreshing…':'Refresh markets'}</button></section>
+    <section className="all-leagues-hero edge-intro"><div><h2 className="mission-hub-title">Vegas Edge</h2><p className="mission-hub-subtitle">Your market edge, revealed.</p><span className="edge-preview">ELITE</span></div><button type="button" className="edge-refresh" disabled={busy} onClick={()=>setRefresh(n=>n+1)}>{busy?'Refreshing…':'Refresh markets'}</button></section>
     <section className="panel edge-source-toggle"><div><span className="edge-eyebrow">PROJECTION SOURCE</span><h3>{enabled?'Vegas Implied Projections':'Platform projections'}</h3><small>App-wide · This device</small></div><button type="button" role="switch" aria-checked={enabled} aria-label="Use Vegas Implied Projections across the app" onClick={()=>onToggle(!enabled)}><span aria-hidden="true"/>{enabled?'On':'Off'}</button></section>
     <div className="edge-source-note">Actual scores unchanged · Uncovered players use platform projections</div>
     {error && <p className="panel" role="alert">{error} <button onClick={()=>setRefresh(n=>n+1)}>Try again</button></p>}
