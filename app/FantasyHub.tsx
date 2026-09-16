@@ -6,7 +6,7 @@ import "./league-weekly-report.css";
 import WeeklyRecap from './WeeklyRecap';
 import { createWinPathSaver } from './win-path-persistence.mjs';
 
-import { Fragment, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type MouseEvent } from "react";
+import { Fragment, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type MouseEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { estimatedWinProbability, isProjectedWin, playerLeverage, remainingPlayerProjection, rootingInterests, whatDoINeed } from "./game-day-model.mjs";
@@ -776,6 +776,19 @@ type ScoreboardTeam = {
   isMine: boolean;
   topPlayers: ScoreboardPlayer[];
 };
+
+function PortfolioDetailDialog({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    const element = dialog.current;
+    const trigger = document.activeElement as HTMLElement | null;
+    element?.showModal();
+    const previous = document.documentElement.style.overflow;
+    document.documentElement.style.overflow = "hidden";
+    return () => { element?.close(); document.documentElement.style.overflow = previous; trigger?.focus({ preventScroll: true }); };
+  }, []);
+  return createPortal(<dialog ref={dialog} className="portfolio-detail-dialog" aria-label={title} onCancel={(event) => { event.preventDefault(); onClose(); }} onClick={(event) => { if (event.target === event.currentTarget) onClose(); }}><header><h3>{title}</h3><button type="button" onClick={onClose} aria-label="Close details">×</button></header><div className="portfolio-detail-scroll">{children}</div></dialog>, document.body);
+}
 
 function TeamRecord({ team }: { team: ScoreboardTeam }) {
   return team.record ? <span className="team-record" aria-label={`Season record ${team.record}`}>{team.record}</span> : null;
@@ -5438,6 +5451,7 @@ function AllLeagues({
 }) {
   const openPlayer = useContext(PlayerOpenContext);
   const [platformScans, setScans] = useState<LeagueScan[]>(cachedScans.filter(scan => scan.week === selectedWeek));
+  const [exposureOpen, setExposureOpen] = useState(false);
   const projectionSource=useProjectionSource();
   const [rawPortfolioScores, setPortfolioScores] = useState<Record<string, ScoreboardData | null>>({});
   const portfolioScores=useMemo(()=>Object.fromEntries(Object.entries(rawPortfolioScores).map(([id,data])=>[id,projectionSource.scoreboard(data)])),[rawPortfolioScores,projectionSource]);
@@ -5955,7 +5969,7 @@ function AllLeagues({
     return groups;
   }, new Map<string, (typeof prioritizedInbox)[number] & { key: string; members: typeof prioritizedInbox }>()).values());
   const healthyLeagues = scans.filter((scan) => !scan.issues.length && !scan.preDraft);
-  const playerExposure = Array.from(
+  const allPlayerExposure = Array.from(
     scans.reduce<
       Map<string, { player: Player; leagues: LeagueScan[] }>
     >((map, scan) => {
@@ -5969,8 +5983,8 @@ function AllLeagues({
     }, new Map()),
   )
     .map(([, value]) => value)
-    .filter((item) => item.leagues.length > 1)
     .sort((a, b) => b.leagues.length - a.leagues.length);
+  const playerExposure = allPlayerExposure.filter((item) => item.leagues.length > 1);
   const waiverOpportunities = Array.from(
     scans.reduce<Map<string, { player: WaiverPlayer; scans: LeagueScan[] }>>(
       (map, scan) => {
@@ -6117,7 +6131,8 @@ function AllLeagues({
           </section>
           <section className="portfolio-grid">
             <article className="portfolio-section panel">
-              <div className="portfolio-heading"><div><span>PORTFOLIO EXPOSURE</span><h3>Concentration and correlated risk</h3></div><b>{playerExposure.length} repeated</b></div>
+              <div className="portfolio-heading"><div><span>PORTFOLIO EXPOSURE</span><h3>Concentration and correlated risk</h3></div><button type="button" className="portfolio-detail-trigger" aria-haspopup="dialog" onClick={() => setExposureOpen(true)}>{playerExposure.length} repeated <span aria-hidden="true">↗</span></button></div>
+              {exposureOpen && <PortfolioDetailDialog title={`Owned players · ${allPlayerExposure.length}`} onClose={() => setExposureOpen(false)}><div className="exposure-list">{allPlayerExposure.map(({ player, leagues: ownedIn }) => <div key={`${player.name}-${player.position}`}><PlayerHeadshot id={player.id} position={player.position} /><p><button type="button" className="inline-player-link" onClick={() => { setExposureOpen(false); openPlayer(player); }}>{player.name}</button><small>{player.position} · {player.team}</small><small>{ownedIn.map(scan => scan.league.name).join(" · ")}</small></p><b>{ownedIn.length}/{scans.length}</b></div>)}</div>{!allPlayerExposure.length && <p>No owned players are available yet.</p>}</PortfolioDetailDialog>}
               <div className="exposure-list">
                 {playerExposure.slice(0, 6).map(({ player, leagues: playerLeagues }) => <div key={`exposure-${player.id}-${player.name}`}><i>{player.position}</i><p><button className="inline-player-link" onClick={() => openPlayer(player)}>{player.name}</button><small>{player.team} · {player.status} · {playerLeagues.map((scan) => scan.league.name).join(", ")}</small></p><b>{playerLeagues.length}/{scans.length}</b></div>)}
                 {!playerExposure.length && <p className="portfolio-note">No player appears on more than one connected roster.</p>}
@@ -6429,6 +6444,8 @@ function AllLeagueScoreboard({
     [leagues, week],
   );
   const [hotPerformerLimit, setHotPerformerLimit] = useState(5);
+  const [detailList, setDetailList] = useState<"performers" | "interests" | null>(null);
+  const [detailLimit, setDetailLimit] = useState(20);
   useEffect(() => {
     const mobileViewport = window.matchMedia("(max-width: 700px)");
     const ios = isNativeIosApp() || /iPhone|iPad|iPod/i.test(navigator.userAgent);
@@ -6617,7 +6634,7 @@ function AllLeagueScoreboard({
     const exposures = matchups.flatMap((item) => [...item.mineStarters.filter(player => player.gameProgress !== 1).map((player) => ({ playerId: player.id, playerName: player.name, position: player.position, nflTeam: player.nflTeam, side: "you", margin: item.mine.points - item.opponent.points, remainingProjection: remainingPlayerProjection(player), pointsNeeded: Math.max(0, item.opponent.points + item.opponentRemaining - item.mine.points - item.mineRemaining + remainingPlayerProjection(player)), state: item.status, leagueId: item.league.id, leagueName: item.league.name })), ...item.opponentStarters.filter(player => player.gameProgress !== 1).map((player) => ({ playerId: player.id, playerName: player.name, position: player.position, nflTeam: player.nflTeam, side: "opponent", margin: item.mine.points - item.opponent.points, remainingProjection: remainingPlayerProjection(player), pointsNeeded: 0, state: item.status, leagueId: item.league.id, leagueName: item.league.name }))]);
     const playerGroups = new Map<string, typeof exposures>();
     exposures.forEach((item) => playerGroups.set(item.playerId, [...(playerGroups.get(item.playerId) ?? []), item]));
-    const interests = rootingInterests(exposures).slice(0, 5).map((interest) => {
+    const interests = rootingInterests(exposures).map((interest) => {
       const playerExposures = playerGroups.get(interest.playerId) ?? [];
       const helps = playerExposures.filter((item) => item.side === "you").length;
       const hurts = playerExposures.length - helps;
@@ -6662,7 +6679,7 @@ function AllLeagueScoreboard({
       .filter((item) => item.player.points > 0 || isPlayerGameInProgress(item.player))
       .map((item) => ({ ...item, temperature: playerTemperature(item.player, item.status), performanceScore: item.player.points + Math.max(0, item.player.points - (item.player.projection ?? item.player.points)) * .8 }))
       .sort((a, b) => Number(isPlayerGameInProgress(b.player)) - Number(isPlayerGameInProgress(a.player)) || b.player.points - a.player.points || b.performanceScore - a.performanceScore)
-      .slice(0, hotPerformerLimit);
+      ;
     const activePlayers = matchups.flatMap((item) => [...item.mineStarters, ...item.opponentStarters]).filter(isPlayerGameInProgress).length;
     const completedPlayers = matchups.reduce(
       (count, matchup) =>
@@ -6684,7 +6701,6 @@ function AllLeagueScoreboard({
         .filter((item, index, items) => items.findIndex((candidate) => candidate.player.id === item.player.id) === index)
         .filter((item) => (item.player.projection ?? 0) > 0)
         .sort((a, b) => (b.player.projection ?? 0) - (a.player.projection ?? 0))
-        .slice(0, hotPerformerLimit)
         .map((item, index) => {
           const projectedPoints = item.player.projection ?? 0;
           return {
@@ -6911,8 +6927,16 @@ function AllLeagueScoreboard({
         {mostImportantPath ? <><div className="primary-win-path"><div className="win-path-player"><PlayerHeadshot id={mostImportantPath.target.id} position={mostImportantPath.target.position} /><i aria-hidden="true">!</i></div><p><span>MOST IMPORTANT RIGHT NOW</span><button className="inline-player-link" onClick={() => openPlayer(playerShell(mostImportantPath.target))}>{mostImportantPath.target.name}</button><small>{mostImportantPath.need.message} {mostImportantPath.target.name} carries the largest current share of the path.</small><span className="win-path-leagues">{mostImportantLeagues.map((item) => <b key={`${item.league.id}-${item.target.id}`}>{item.league.name} · {item.target.pointsNeeded.toFixed(1)} needed</b>)}</span></p><div><strong>{mostImportantPath.target.pointsNeeded.toFixed(1)}</strong><small>MORE PTS</small><span><i style={{ width: `${mostImportantPath.target.progress}%` }} /></span><em>{mostImportantPath.target.statLine}</em></div></div><div className="league-win-paths">{secondaryWinPaths.map((item) => <article key={`${item.league.id}-${item.target.id}`}><span className={item.status === "live" ? "live" : "upcoming"}>{item.status === "live" ? "● LIVE" : "UP NEXT"}</span><PlayerHeadshot id={item.target.id} position={item.target.position} /><p><strong>{item.league.name}</strong><button className="inline-player-link" onClick={() => openPlayer(playerShell(item.target))}>{item.target.name}</button><small>{item.target.pointsNeeded.toFixed(1)} more points · {item.winProbability ?? "—"}% win chance</small><span className="mini-win-progress"><i style={{ width: `${item.target.progress}%` }} /></span></p><b>{item.target.progress}%</b></article>)}</div></> : <p className="game-day-empty">A portfolio-wide win path will appear when connected matchups have remaining projected starters.</p>}
       </section>
       <section className="on-fire-board panel" data-visual-source={displayedOnFire === preKickoffOnFire && displayedOnFire.length ? "pre-kickoff" : "observed"}>
-        <header><div><span>🔥 ON FIRE</span><h3>Week {week}&apos;s hottest performers</h3></div><b>{gameDay.onFire.some((item) => isPlayerGameInProgress(item.player)) ? "LIVE LEADERS" : gameDay.onFire.length ? "WEEKLY LEADERS" : displayedOnFire.length ? "SUNDAY OUTLOOK" : "WAITING FOR KICKOFF"}</b></header>
-        {displayedOnFire.length ? <div className="on-fire-grid">{displayedOnFire.map((item, index) => {
+        {detailList && <PortfolioDetailDialog title={detailList === "performers" ? "Hottest performers · Weekly leaders & outlook" : "Game-Day Pulse · Rooting interests"} onClose={() => setDetailList(null)}>
+          <div className="portfolio-detail-grid">
+            {detailList === "performers" ? displayedOnFire.slice(0, detailLimit).map((item, index) => <button type="button" className="portfolio-player-tile" key={item.player.id} onClick={() => { setDetailList(null); openPlayer(playerShell(item.player)); }}><small>#{index + 1} · {item.player.position} · {item.player.nflTeam}</small><PlayerHeadshot id={item.player.id} position={item.player.position} /><strong>{item.player.name}</strong><b>{item.player.points.toFixed(1)} <small>{item.status === "Projected" ? "PROJ PTS" : "PTS"}</small></b><small>{item.temperature.label}</small>{item.leagues.map(league => <small key={`${league.id}-${league.side}`}>{league.side === "helps" ? "↑ Helps" : "↓ Hurts"} · {league.name}</small>)}</button>)
+              : gameDay.interests.slice(0, detailLimit).map(interest => <article className="portfolio-player-tile" key={interest.playerId}><small>{interest.sentiment === "cheer" ? "📣 ROOT FOR" : interest.sentiment === "fade" ? "🛑 ROOT AGAINST" : "⚖️ MIXED INTEREST"}</small><PlayerHeadshot id={interest.playerId} position={interest.position} /><strong>{interest.playerName}</strong><small>{interest.position} · {interest.nflTeam}</small><p>{interest.text}</p>{interest.affectedLeagues.map(league => <small key={`${league.id}-${league.impact}`}>{league.impact === "helps" ? "↑ Helps" : "↓ Hurts"} · {league.name}</small>)}</article>)}
+          </div>
+          {(detailList === "performers" ? displayedOnFire.length : gameDay.interests.length) === 0 && <p>No players available yet. Check back when weekly lineups are available.</p>}
+          {(detailList === "performers" ? displayedOnFire.length : gameDay.interests.length) > detailLimit && <button type="button" className="portfolio-detail-trigger portfolio-load-more" onClick={() => setDetailLimit(limit => limit + 10)}>Load next 10 ↓</button>}
+        </PortfolioDetailDialog>}
+        <header><div><span>🔥 ON FIRE</span><h3>Week {week}&apos;s hottest performers</h3></div><button type="button" className="portfolio-detail-trigger" aria-haspopup="dialog" onClick={() => { setDetailLimit(20); setDetailList("performers"); }}>{gameDay.onFire.some((item) => isPlayerGameInProgress(item.player)) ? "LIVE LEADERS" : gameDay.onFire.length ? "WEEKLY LEADERS" : displayedOnFire.length ? "SUNDAY OUTLOOK" : "WAITING FOR KICKOFF"} <span aria-hidden="true">↗</span></button></header>
+        {displayedOnFire.length ? <div className="on-fire-grid">{displayedOnFire.slice(0, hotPerformerLimit).map((item, index) => {
           const helps = item.leagues.filter((league) => league.side === "helps").length;
           const hurts = item.leagues.length - helps;
           const temperatureIndicator = item.temperature.state === "fire" || item.temperature.state === "hot" ? "🔥" : item.temperature.state === "ice" || item.temperature.state === "cold" ? "❄️" : "●";
@@ -6924,7 +6948,7 @@ function AllLeagueScoreboard({
         })}</div> : <p className="game-day-empty">Current weekly leaders will ignite here as players begin scoring.</p>}
       </section>
       <div className="game-day-insights">
-        <section className="panel rooting-interests"><header><div><span>ROOTING INTERESTS</span><h3>Who to cheer—and who to stop</h3></div><b>📣 GAME-DAY PULSE</b></header><div className="insight-scroll-window">{gameDay.interests.length ? gameDay.interests.map((interest) => <article className={`rooting-${interest.sentiment}`} key={interest.playerId}><div className="rooting-visual"><NflTeamLogo team={interest.nflTeam} /><PlayerHeadshot id={interest.playerId} position={interest.position} /><i aria-hidden="true">{interest.sentiment === "cheer" ? "📣" : interest.sentiment === "fade" ? "🛑" : "⚖️"}</i></div><p><span>{interest.sentiment === "cheer" ? "ROOT FOR" : interest.sentiment === "fade" ? "ROOT AGAINST" : "MIXED ROOTING INTEREST"}</span><strong>{interest.playerName}</strong><small>{interest.text}</small><span className="rooting-leagues">{interest.affectedLeagues.map((league) => <b className={league.impact} key={`${interest.playerId}-${league.id}`}>{league.impact === "helps" ? "↑" : "↓"} {league.name}</b>)}</span></p><em><small>{interest.level} impact</small></em></article>) : <p className="game-day-empty">Rooting interests appear when weekly lineups and projections are available.</p>}</div></section>
+        <section className="panel rooting-interests"><header><div><span>ROOTING INTERESTS</span><h3>Who to cheer—and who to stop</h3></div><button type="button" className="portfolio-detail-trigger" aria-haspopup="dialog" onClick={() => { setDetailLimit(20); setDetailList("interests"); }}>📣 GAME-DAY PULSE <span aria-hidden="true">↗</span></button></header><div className="insight-scroll-window">{gameDay.interests.length ? gameDay.interests.slice(0, 5).map((interest) => <article className={`rooting-${interest.sentiment}`} key={interest.playerId}><div className="rooting-visual"><NflTeamLogo team={interest.nflTeam} /><PlayerHeadshot id={interest.playerId} position={interest.position} /><i aria-hidden="true">{interest.sentiment === "cheer" ? "📣" : interest.sentiment === "fade" ? "🛑" : "⚖️"}</i></div><p><span>{interest.sentiment === "cheer" ? "ROOT FOR" : interest.sentiment === "fade" ? "ROOT AGAINST" : "MIXED ROOTING INTEREST"}</span><strong>{interest.playerName}</strong><small>{interest.text}</small><span className="rooting-leagues">{interest.affectedLeagues.map((league) => <b className={league.impact} key={`${interest.playerId}-${league.id}`}>{league.impact === "helps" ? "↑" : "↓"} {league.name}</b>)}</span></p><em><small>{interest.level} impact</small></em></article>) : <p className="game-day-empty">Rooting interests appear when weekly lineups and projections are available.</p>}</div></section>
         <section className="panel sunday-swing" data-visual-source="observed"><header><div><span>SUNDAY SWINGS</span><h3>Big scoring swings</h3></div></header><div className="insight-scroll-window sunday-big-plays">{swingFeed.length ? swingFeed.map((item) => <article key={item.id}><b>+{item.delta.toFixed(1)} pts</b><p><small>{item.text}</small></p><time>{new Date(item.at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</time></article>) : <p className="game-day-empty">Scoring gains above 6 fantasy points appear here, even without play-by-play. They stay until newer updates replace them.</p>}</div></section>
       </div>
       <div className="portfolio-scoreboard-grid" id="league-matchups">
@@ -8480,7 +8504,7 @@ function CommandCenter({
         </section>
         <section className="panel command-scenarios">
           <Header eyebrow="LINEUP APPROACH" title="Choose your scenario" />
-          <small>Start / Sit risk model · Safe 20% · Balanced 50% · Upside 80%</small>
+          <small>Safe 20% · Balanced 50% · Upside 80%</small>
           <div className="command-scenario-toggle" role="group" aria-label="Lineup scenario">
             {(["safe", "balanced", "upside"] as const).map((option) => <button key={option} className={scenario === option ? "active" : ""} onClick={() => setScenario(option)}>{option}</button>)}
           </div>

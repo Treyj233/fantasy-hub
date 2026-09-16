@@ -320,6 +320,32 @@ export function initializeNativeRuntime() {
   const root = document.documentElement;
   root.dataset.nativePlatform = "ios";
 
+  // Constrain automatic focus scaling only while editing. Preserve the normal
+  // viewport (and pinch zoom) as soon as the user leaves the field.
+  const viewport = document.querySelector<HTMLMetaElement>('meta[name="viewport"]');
+  let originalViewport: string | null = null;
+  let restoreTimer: ReturnType<typeof setTimeout> | undefined;
+  const isField = (target: EventTarget | null) => target instanceof HTMLElement && target.matches('input, textarea, select, [contenteditable="true"]');
+  const restoreViewport = () => {
+    if (viewport && originalViewport !== null) viewport.content = originalViewport;
+    originalViewport = null;
+  };
+  const preventFocusZoom = (event: Event) => {
+    if (!viewport || !isField(event.target)) return;
+    clearTimeout(restoreTimer);
+    if (originalViewport === null) originalViewport = viewport.content;
+    viewport.content = originalViewport.split(',').filter(part => !/^\s*maximum-scale\s*=/i.test(part)).join(',') + ', maximum-scale=1';
+  };
+  const finishEditing = () => {
+    clearTimeout(restoreTimer);
+    restoreTimer = setTimeout(() => {
+      if (!isField(document.activeElement)) restoreViewport();
+    }, 350);
+  };
+  document.addEventListener("touchstart", preventFocusZoom, { capture: true, passive: true });
+  document.addEventListener("focusin", preventFocusZoom, true);
+  document.addEventListener("focusout", finishEditing, true);
+
   const subscriptions = [
     App.addListener("appUrlOpen", ({ url }) => {
       try {
@@ -349,6 +375,11 @@ export function initializeNativeRuntime() {
   });
 
   return () => {
+    clearTimeout(restoreTimer);
+    document.removeEventListener("touchstart", preventFocusZoom, true);
+    document.removeEventListener("focusin", preventFocusZoom, true);
+    document.removeEventListener("focusout", finishEditing, true);
+    restoreViewport();
     delete root.dataset.nativePlatform;
     delete root.dataset.appState;
     delete root.dataset.network;

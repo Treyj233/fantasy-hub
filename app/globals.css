@@ -2516,9 +2516,26 @@ html[data-theme="dark"] .on-fire-grid > button:has(.temperature-indicator:is(.co
 .library-look-actions button{background:var(--chalk);color:var(--ink)}
 .library-look-generator .generated-look-status{flex-basis:100%;margin:0;color:var(--ink)}
 .generated-look-status:empty{display:none}
+.portfolio-detail-trigger{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:10px 14px;border:1px solid var(--gold);border-radius:10px;background:var(--gold-light);color:#14202b;font:inherit;font-size:12px;font-weight:800;cursor:pointer;box-shadow:0 3px 0 color-mix(in srgb,var(--gold) 55%,transparent)}
+.portfolio-detail-trigger:hover{filter:brightness(1.06);transform:translateY(-1px)}
+.portfolio-detail-trigger:focus-visible{outline:3px solid var(--gold);outline-offset:3px}
+.portfolio-detail-dialog{box-sizing:border-box;position:fixed;inset:0;width:min(720px,calc(100vw - 32px - env(safe-area-inset-left,0px) - env(safe-area-inset-right,0px)));max-width:none;max-height:calc(100dvh - max(24px,env(safe-area-inset-top,0px)) - max(24px,env(safe-area-inset-bottom,0px)));margin:auto;padding:0;border:1px solid var(--line);border-radius:18px;background:var(--chalk);color:var(--ink);overflow:hidden;box-shadow:0 24px 80px #0006}
+.portfolio-detail-dialog[open]{display:flex;flex-direction:column}
+html[data-native-platform="ios"] .portfolio-detail-dialog{top:max(54px,env(safe-area-inset-top,0px));bottom:max(24px,env(safe-area-inset-bottom,0px));max-height:calc(100dvh - max(54px,env(safe-area-inset-top,0px)) - max(24px,env(safe-area-inset-bottom,0px)));margin-block:auto}
+.portfolio-detail-dialog::backdrop{background:#071222b8;backdrop-filter:blur(5px)}
+.portfolio-detail-dialog>header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-shrink:0;padding:14px 16px;border-bottom:2px solid var(--gold)}
+.portfolio-detail-dialog h3{margin:0;font-size:18px;line-height:1.3}
+.portfolio-detail-dialog>header>button{flex-shrink:0;width:44px;height:44px;border:1px solid var(--line);border-radius:10px;background:var(--cream);color:var(--ink);font-size:25px;cursor:pointer}
+.portfolio-detail-scroll{min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:14px;-webkit-overflow-scrolling:touch}
+.portfolio-detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.portfolio-detail-grid .portfolio-player-tile{min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:7px;padding:12px;border:1px solid var(--line);border-top:3px solid var(--gold);border-radius:12px;background:var(--cream);color:var(--ink);font:inherit;text-align:left;overflow-wrap:anywhere}
+button.portfolio-player-tile{cursor:pointer}
+.portfolio-player-tile strong{font-size:15px;line-height:1.3}
+.portfolio-player-tile small{font-size:11px;line-height:1.4;color:var(--muted)}
+.portfolio-player-tile p{font-size:12px;line-height:1.4;margin:0}
+.portfolio-player-tile>b{font-size:22px}
+.portfolio-detail-scroll .exposure-list p{min-width:0;overflow-wrap:anywhere}
+.portfolio-detail-scroll .exposure-list small{white-space:normal;overflow:visible}
+.portfolio-load-more{width:100%;margin-top:14px}
 .team-record{display:inline-block;margin-inline-start:6px;padding:2px 6px;border:1px solid var(--line);border-radius:6px;color:var(--ink);background:var(--chalk);font-size:12px;font-weight:700;line-height:1.4;white-space:nowrap;vertical-align:middle;font-variant-numeric:tabular-nums}
-/* iOS focus zoom is triggered by form text smaller than 16px. Keep zoom
-   available for accessibility; prevent the unwanted keyboard-triggered zoom. */
-html[data-native-platform="ios"] :is(input,select,textarea){font-size:16px!important}
-@supports (-webkit-touch-callout:none){@media(max-width:1024px){html :is(input,select,textarea){font-size:16px!important}}}
 @media(max-width:560px){.library-look-generator .generate-owned-look{width:100%}.library-look-actions button{flex:1 1 140px}}
