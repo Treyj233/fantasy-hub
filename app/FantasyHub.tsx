@@ -10978,6 +10978,9 @@ function tradePackageValueAdjustment(
   const consolidatedTotal = consolidated.reduce((sum, asset) => sum + asset.value, 0);
   const topConsolidated = Math.max(...consolidated.map((asset) => asset.value));
   const topExpanded = Math.max(...expanded.map((asset) => asset.value));
+  // Fewer pieces alone do not earn a premium: consolidation must acquire
+  // the best asset, not inflate a downgrade (e.g. a better RB plus a throw-in).
+  if (topConsolidated <= topExpanded) return empty;
   const extraPieces = expanded.length - consolidated.length;
   const concentration = topConsolidated / Math.max(1, consolidatedTotal);
   const studFactor = Math.max(0, (topConsolidated - 65) / 34);

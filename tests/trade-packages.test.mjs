@@ -10,6 +10,16 @@ const adjust = new Function(`${extract('tradePackageValueAdjustment', 'tradeAsse
 const preservesDepth = new Function(`${extract('tradePreservesPositionDepth', 'buildTradeSuggestions')}; return tradePreservesPositionDepth;`)();
 const asset = (value, id = String(value), position = 'WR') => ({ value, id, position, name: id, confidence: 'High' });
 
+test('a worse or equal consolidated asset receives no artificial package premium', () => {
+  for (const value of [90, 99]) {
+    const send = [asset(99, 'better-rb', 'RB'), asset(40, 'extra', 'WR')];
+    const receive = [asset(value, 'target-rb', 'RB')];
+    assert.deepEqual(adjust(send, receive, null), { send: 0, receive: 0 });
+    assert.deepEqual(adjust(receive, send, null), { send: 0, receive: 0 });
+    assert.equal(tradeMatchesTarget(send, receive, []), false);
+  }
+});
+
 test('package premium grows beyond the old cap and is symmetric', () => {
   const star = [asset(99)];
   const two = [asset(65), asset(55)];
