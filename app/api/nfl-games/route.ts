@@ -4,7 +4,8 @@ import { sleeperConnections } from "../../../db/schema";
 import { getChatGPTUser } from "../../chatgpt-auth";
 import { sleeperFantasyPoints } from "../../sleeper-live-scoring.mjs";
 import { loadNflSeasonSchedule } from "../../nfl-schedule-data";
-import { getNflGames } from "../../highlightly-nfl";
+import { getScoreboardNflGames as getNflGames } from "../../scoreboard-nfl-games";
+import { kickoffState } from "../../kickoff-status.mjs";
 
 type MatchupRow = {
   roster_id?: number;
@@ -75,7 +76,7 @@ export async function GET(request: Request) {
   const season = league.season ?? String(new Date().getUTCFullYear());
   const seasonNumber = Number(season);
   const [
-    highlightlyGames,
+    liveGames,
     scheduleGames,
     matchupsResponse,
     rostersResponse,
@@ -200,7 +201,7 @@ export async function GET(request: Request) {
     }
     return ties ? `${wins}-${losses}-${ties}` : `${wins}-${losses}`;
   };
-  const providerGames = highlightlyGames.map((game) => {
+  const providerGames = liveGames.map((game) => {
     const scheduleGame = scheduleGames.find((candidate) =>
       candidate.week === week &&
       normalizeTeam(candidate.away.abbreviation) === game.away.abbreviation &&
@@ -237,7 +238,7 @@ export async function GET(request: Request) {
         date: game.date,
         name: `${game.away.name} at ${game.home.name}`,
         status: game.status,
-        state: "pre",
+        state: kickoffState(game),
         clock: "",
         venue: game.venue,
         broadcast: game.broadcast,
@@ -257,7 +258,7 @@ export async function GET(request: Request) {
     league: { id: leagueId, name: league.name ?? "League", season, provider: "Sleeper", projectionSource: "Sleeper Projections", scoring: league.scoring_settings ?? {} },
     week,
     updatedAt: new Date().toISOString(),
-    gameDataSource: fallbackSchedule ? "local-schedule" : "Highlightly",
+    gameDataSource: fallbackSchedule ? "local-schedule" : "ESPN / schedule",
     scoresAvailable: !fallbackSchedule,
     fallbackSchedule,
     fantasyMatchup: {

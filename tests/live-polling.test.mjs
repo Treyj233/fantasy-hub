@@ -131,3 +131,42 @@ test('unchanged scores retain identity but score, status, clock and roster chang
   assert.equal(reconcileScoreboards(previous, [['a', null], ['b', previous.b]]), previous);
   assert.deepEqual(Object.keys(reconcileScoreboards(previous, [['a', data]])), ['a']);
 });
+
+test('fast leagues publish before slow leagues and optional play feed resolves', async t => {
+  setup(t);
+  let finish;
+  const updates = [];
+  t.mock.method(globalThis, 'fetch', async url => {
+    if (url.includes('leagueId=slow')) await new Promise(resolve => { finish = resolve; });
+    return { ok: true, json: async () => ({ matchups: [] }) };
+  });
+  const stop = subscribeLiveScoreboards(['fast', 'slow'], 2, (rows, pending, complete) => updates.push({ rows, complete }), () => new Promise(() => {}));
+  t.after(stop);
+  await flush();
+  assert.equal(updates.length, 1);
+  assert.ok(updates[0].rows[0][1]);
+  assert.equal(updates[0].rows[1][1], null);
+  assert.equal(updates[0].complete, false);
+  finish(); await flush();
+  assert.equal(updates.at(-1).complete, true);
+  assert.ok(updates.at(-1).rows[1][1]);
+  stop();
+});
+
+test('kickoff timer switches existing scores live without waiting for the next poll', async t => {
+  setup(t);
+  let latest;
+  let requests = 0;
+  const date = new Date(Date.now() + 5000).toISOString();
+  t.mock.method(globalThis, 'fetch', async () => {
+    requests++;
+    return { ok: true, json: async () => ({ kickoffGames: [{ date, status: 'Scheduled' }], matchups: [{ status: 'Scheduled' }] }) };
+  });
+  const stop = subscribeLiveScoreboards(['kickoff'], 2, rows => { latest = rows[0][1]; });
+  t.after(stop); await flush();
+  assert.equal(latest.matchups[0].status, 'Scheduled');
+  t.mock.timers.tick(5000); await flush();
+  assert.equal(latest.matchups[0].status, 'Live');
+  assert.equal(requests, 1);
+  stop();
+});

@@ -6,7 +6,8 @@ import { fetchEspnLeagueForUser, normalizeEspnScoreboard } from "../espn";
 import { fetchCachedUpstream } from "../upstream-cache";
 import { getSleeperPlayerDirectory, getSleeperWeeklyProjections, getSleeperWeeklyStats } from "../sleeper-shared-data";
 import { sleeperFantasyPoints } from "../../sleeper-live-scoring.mjs";
-import { getNflGames, type NflDataGame } from "../../highlightly-nfl";
+import type { NflDataGame } from "../../highlightly-nfl";
+import { getScoreboardNflGames as getNflGames } from "../../scoreboard-nfl-games";
 import { currentFantasyWeek } from "../../current-fantasy-week";
 
 type MatchupRow = { roster_id?: number; matchup_id?: number | null; points?: number; custom_points?: number | null; players?: string[]; starters?: string[]; players_points?: Record<string, number> };
@@ -93,6 +94,7 @@ export async function GET(request: Request) {
       const nflGameInProgress = nflGames.some((game) => game.state === "in");
       return Response.json({
         ...scoreboard,
+        kickoffGames: scoreboard.week === calendar.currentWeek ? nflGames : [],
         matchups: withNflGameProgress(
           withCurrentNflStatus(
             requestedScope === "mine"
@@ -209,5 +211,5 @@ export async function GET(request: Request) {
     nflGameInProgress,
     nflGames.length > 0 && nflGames.every(game => game.state === 'post'),
   );
-  return Response.json({ league: { id: leagueId, name: league.name ?? "League", season, currentWeek: calendar.currentWeek, provider: "Sleeper", projectionSource: "Sleeper Projections", scoring: league.scoring_settings ?? {} }, week, updatedAt: new Date().toISOString(), scoringSource: "sleeper_official", sharedStatsRefreshedAt: statsSnapshot?.refreshedAt ?? null, playerDirectoryRefreshedAt: playerDirectory.refreshedAt, reconciliationIntervalSeconds: SLEEPER_SCOREBOARD_TTL_SECONDS.matchupReconciliation, matchups });
+  return Response.json({ kickoffGames: week === calendar.currentWeek ? nflGames : [], league: { id: leagueId, name: league.name ?? "League", season, currentWeek: calendar.currentWeek, provider: "Sleeper", projectionSource: "Sleeper Projections", scoring: league.scoring_settings ?? {} }, week, updatedAt: new Date().toISOString(), scoringSource: "sleeper_official", sharedStatsRefreshedAt: statsSnapshot?.refreshedAt ?? null, playerDirectoryRefreshedAt: playerDirectory.refreshedAt, reconciliationIntervalSeconds: SLEEPER_SCOREBOARD_TTL_SECONDS.matchupReconciliation, matchups });
 }

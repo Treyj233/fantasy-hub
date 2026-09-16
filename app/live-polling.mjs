@@ -1,3 +1,4 @@
+import { activateScheduledScoreboard, kickoffState } from './kickoff-status.mjs';
 // One non-overlapping refresh at a time; stop network work when hidden/unmounted.
 export function startVisiblePolling(refresh, intervalMs = 30_000) {
   let stopped = false;
@@ -44,7 +45,7 @@ export async function fetchLiveJson(url, signal) {
   else signal?.addEventListener('abort', abort, { once: true });
   const timer = setTimeout(abort, 12_000);
   try {
-    const response = await fetch(url, { signal: controller.signal });
+    const response = await fetch(url, { signal: controller.signal, cache: 'no-store' });
     if (!response.ok) throw new Error(`Live request failed (${response.status})`);
     return await response.json();
   } finally {
@@ -60,36 +61,50 @@ export function subscribeLiveScoreboards(leagueIds, week, listener, onRefreshSta
   const key = JSON.stringify([ids, week]);
   let entry = portfolios.get(key);
   if (!entry) {
-    entry = { listeners: new Set(), latest: null, stop: null };
+    entry = { listeners: new Set(), latest: null, stop: null, kickoffTimer: null };
     portfolios.set(key, entry);
   }
   const subscriber = { listener, onRefreshStart };
   entry.listeners.add(subscriber);
   if (entry.latest) listener(entry.latest);
   if (!entry.stop) {
+    const publish = (parallel, complete = false) => {
+      entry.latest = entry.latest.map(([id, data]) => [id, activateScheduledScoreboard(data)]);
+      for (const sub of entry.listeners) sub.listener(entry.latest, parallel?.get(sub), complete);
+      clearTimeout(entry.kickoffTimer);
+      const next = entry.latest.flatMap(([, data]) => data?.kickoffGames ?? [])
+        .filter(game => kickoffState(game) === 'pre' && !/postpon|cancel|suspend|delay/i.test(game.status ?? ''))
+        .map(game => Date.parse(game.date)).filter(time => time > Date.now());
+      if (next.length) entry.kickoffTimer = setTimeout(() => publish(), Math.min(2_147_483_647, Math.max(0, Math.min(...next) - Date.now())));
+    };
     entry.stop = startVisiblePolling(async signal => {
       // Optional parallel work (e.g. play feed) starts alongside scores, not after.
       const parallel = new Map([...entry.listeners].map(sub => [sub, sub.onRefreshStart?.(signal)]));
-      const results = new Array(ids.length);
+      const previous = new Map(entry.latest ?? []);
+      const results = ids.map(id => [id, previous.get(id) ?? null]);
       let cursor = 0;
+      let finished = 0;
       await Promise.all(Array.from({ length: Math.min(3, ids.length) }, async () => {
         while (cursor < ids.length && !signal.aborted) {
           const index = cursor++;
           const id = ids[index];
           try {
             results[index] = [id, await fetchLiveJson(`/api/scoreboard?leagueId=${encodeURIComponent(id)}&week=${week}&scope=mine`, signal)];
-          } catch { results[index] = [id, null]; }
+          } catch { results[index] = [id, previous.get(id) ?? null]; }
+          if (signal.aborted) return;
+          finished++;
+          entry.latest = results.slice();
+          publish(parallel, finished === ids.length);
         }
       }));
       if (signal.aborted) return;
-      entry.latest = results;
-      for (const sub of entry.listeners) sub.listener(results, parallel.get(sub));
     });
   }
   return () => {
     if (!entry.listeners.delete(subscriber)) return;
     if (!entry.listeners.size) {
       entry.stop?.();
+      clearTimeout(entry.kickoffTimer);
       portfolios.delete(key);
     }
   };

@@ -6470,23 +6470,40 @@ function AllLeagueScoreboard({
     let currentScores = initialPortfolioSnapshot?.scores ?? {};
     if (!hasCachedScores) setLoading(true);
     let playController: AbortController | undefined;
+    let availablePlays: LivePlayContext[] = [];
     const pausePlays = () => { if (document.visibilityState !== "visible") playController?.abort(); };
     document.addEventListener("visibilitychange", pausePlays);
     const startPlays = () => {
       playController?.abort();
+      availablePlays = [];
       const controller = new AbortController();
       playController = controller;
       const promise: Promise<LivePlayContext[]> = fetchLiveJson(
         `/api/nfl-plays?season=${encodeURIComponent(leagues[0]?.season ?? String(new Date().getFullYear()))}&week=${week}`,
         controller.signal,
-      ).then((payload: { plays?: LivePlayContext[] }) => payload.plays ?? []).catch(() => []);
+      ).then((payload: { plays?: LivePlayContext[] }) => {
+        if (active && !controller.signal.aborted) availablePlays = payload.plays ?? [];
+        return payload.plays ?? [];
+      }).catch(() => []);
       return { controller, promise };
     };
-    const refresh = async (results: [string, ScoreboardData | null][], pending = startPlays()) => {
-      if (!hasCachedScores) setLoading(true);
-      const { controller, promise } = pending;
-      const livePlays = await promise;
-      if (!active || controller.signal.aborted) return;
+    const refresh = (results: [string, ScoreboardData | null][], complete = false) => {
+      if (!active) return;
+      const nextScores = reconcileScoreboards(currentScores, results);
+      const nextUpdatedAt = new Date().toISOString();
+      const changed = nextScores !== currentScores;
+      currentScores = nextScores;
+      if (changed) {
+        setScores(nextScores);
+        setUpdatedAt(nextUpdatedAt);
+        safeLocalStorageSet(portfolioCacheKey, JSON.stringify({ scores: nextScores, updatedAt: nextUpdatedAt }));
+      }
+      hasCachedScores = true;
+      setLoading(false);
+      // Render each league immediately, but group cross-league scoring stories once per cycle.
+      if (!complete) return;
+      const livePlays = availablePlays;
+      if (!active) return;
       const hadPulseBaseline = Object.keys(previousPulseSnapshot.current).length > 0;
       const nextSnapshot: typeof previousPulseSnapshot.current = { ...previousPulseSnapshot.current };
       const scoringEvents: { dedupeKey: string; description: string; confirmedPlay?: string; leagueName: string; impact: "helps" | "hurts"; at: string; delta: number }[] = [];
@@ -6529,27 +6546,9 @@ function AllLeagueScoreboard({
       if (bigPlays.length) setSwingFeed((current) => [...bigPlays, ...current.filter((event) => !bigPlays.some((play) => play.id === event.id))].slice(0, 10));
       if (condensedScoringEvents.length) setPulseEvents((current) => [...condensedScoringEvents.sort((a, b) => b.delta - a.delta), ...current].filter((event) => isSundayPulseEventActive(event.at)).slice(0, 12));
       else if (!hadPulseBaseline) setPulseEvents([]);
-      const nextScores = reconcileScoreboards(currentScores, results);
-      const nextUpdatedAt = new Date().toISOString();
-      const changed = nextScores !== currentScores;
-      currentScores = nextScores;
-      if (changed) {
-        setScores(nextScores);
-        setUpdatedAt(nextUpdatedAt);
-      }
-      hasCachedScores = true;
-      try {
-        if (changed) safeLocalStorageSet(portfolioCacheKey, JSON.stringify({
-          scores: nextScores,
-          updatedAt: nextUpdatedAt,
-        }));
-      } catch {
-        // Storage limits and private browsing must not interrupt scoreboard use.
-      }
-      setLoading(false);
     };
     const stopPolling = subscribeLiveScoreboards(leagues.map(league => league.id), week,
-      (results: [string, ScoreboardData | null][], pending?: ReturnType<typeof startPlays>) => { void refresh(results, pending); }, startPlays);
+      (results: [string, ScoreboardData | null][], _pending: unknown, complete: boolean) => { refresh(results, complete); }, startPlays);
     return () => {
       active = false;
       playController?.abort();
