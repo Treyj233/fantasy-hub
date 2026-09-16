@@ -2553,5 +2553,8 @@ button.portfolio-player-tile{cursor:pointer}
 .tool-context-bar small{line-height:1.15}
 .tool-context-bar .context-week-picker select{min-height:0;height:18px;line-height:18px;margin:0;padding-block:0}
 @media(max-width:700px){.tool-context-bar,.tool-context-bar.home-context{margin-top:5px}.tool-context-bar>.context-league-button,.tool-context-bar>span,.tool-context-bar>.context-week-picker{padding:4px 6px}.tool-context-bar>.context-league-button{padding-right:17px}}
-.team-record{display:inline-block;margin-inline-start:6px;padding:2px 6px;border:1px solid var(--line);border-radius:6px;color:var(--ink);background:var(--chalk);font-size:12px;font-weight:700;line-height:1.4;white-space:nowrap;vertical-align:middle;font-variant-numeric:tabular-nums}
+.team-record{display:inline-block;margin-inline-start:6px;padding:0;border:0;border-radius:0;color:inherit;background:transparent;font-size:12px;font-weight:700;line-height:1.4;white-space:nowrap;vertical-align:middle;font-variant-numeric:tabular-nums}
+.head-to-head-team>header .matchup-team-title{display:flex;align-items:baseline;gap:6px;max-width:100%;min-width:0}
+.head-to-head-team>header .matchup-team-name{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:inherit;font:inherit;letter-spacing:inherit}
+.head-to-head-team>header .team-record{display:inline-block;flex:none;margin:0;color:inherit;font-size:12px;font-weight:700;letter-spacing:normal;background:transparent}
 @media(max-width:560px){.library-look-generator .generate-owned-look{width:100%}.library-look-actions button{flex:1 1 140px}}

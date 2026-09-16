@@ -12145,7 +12145,7 @@ function HeadToHeadMatchup({
       <section className={`head-to-head-team ${team.isMine ? "mine" : ""}`}>
         <header>
           <span>{team.isMine ? "YOUR TEAM" : side}</span>
-          <h3>{team.teamName} <TeamRecord team={team} /></h3>
+          <h3 className="matchup-team-title"><span className="matchup-team-name">{team.teamName}</span><TeamRecord team={team} /></h3>
           <small>{team.managerName}</small>
           {leaderId === team.rosterId && <i>LEADING</i>}
         </header>
