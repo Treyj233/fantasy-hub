@@ -9,6 +9,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         configureAppsFlyer(launchOptions: launchOptions)
+        let defaults = UserDefaults.standard
+        if defaults.object(forKey: "fh.review.firstUse") == nil { defaults.set(Date(), forKey: "fh.review.firstUse") }
+        defaults.set(defaults.integer(forKey: "fh.review.sessions") + 1, forKey: "fh.review.sessions")
 
         return true
     }

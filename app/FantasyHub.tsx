@@ -14,7 +14,8 @@ import { classifyFantasyPlay, findConfirmedPlayContext, isSundayPulseEventActive
 import { sundaySwingsFromGroups } from "./sunday-swings.mjs";
 import { PRE_KICKOFF_VISUALS_ENABLED } from "./pre-kickoff-visuals";
 import { DEFAULT_PUSH_PREFERENCES, type PushAlertKey, type PushPreferences } from "./push-preferences";
-import { disableNativePushNotifications, enableNativePushNotifications, initializeNativeRuntime, isNativeIosApp, nativeHapticsEnabled, nativeImpact, nativeLogAppsFlyerEvent, nativeManageSubscriptions, nativePurchase, nativeRefreshPurchases, nativeRestorePurchases, nativeStoreProducts, setNativeHapticsEnabled } from "./native-runtime";
+import { disableNativePushNotifications, enableNativePushNotifications, initializeNativeRuntime, isNativeIosApp, nativeHapticsEnabled, nativeImpact, nativeLogAppsFlyerEvent, nativeManageSubscriptions, nativePurchase, nativeRefreshPurchases, nativeRestorePurchases, nativeStoreProducts, nativeWriteReview, setNativeHapticsEnabled } from "./native-runtime";
+import { trackNativeScreen } from './native-screen-analytics';
 import { useOverflowAutoScroll } from "./use-overflow-auto-scroll";
 import { nativeOpenLeague } from "./native-runtime";
 import { injuryTradePenalty } from "./postgame-value.mjs";
@@ -1786,18 +1787,8 @@ export default function FantasyHub({
   const [reviewTradeDraft, setReviewTradeDraft] = useState<(ReviewTradeDraft & { leagueId: string; teamId: string }) | null>(null);
   useEffect(() => { if (view !== "Trade Lab") setReviewTradeDraft(null); }, [view]);
   const [playerRankingMode, setPlayerRankingMode] = useState<"season" | "weekly">("season");
-  useEffect(() => {
-    const screenName = view
-      .toLowerCase()
-      .replace(/&/g, "and")
-      .replace(/\//g, "_")
-      .replace(/[^a-z0-9]+/g, "_")
-      .replace(/^_|_$/g, "");
-    void nativeLogAppsFlyerEvent("af_screen_view", {
-      screen_name: screenName,
-      screen_title: view,
-    });
-  }, [view]);
+  const analyticsSection = view === 'Player Rankings' ? playerRankingMode : '';
+  useEffect(() => trackNativeScreen(view, analyticsSection), [view, analyticsSection]);
   const [draftStylesReady, setDraftStylesReady] = useState(false);
   const [tradeStylesReady, setTradeStylesReady] = useState(false);
   const [tradeStylesFailed, setTradeStylesFailed] = useState(false);
@@ -4465,12 +4456,15 @@ function AccessAccount({ accountUser, entitlement, onPlans }: { accountUser: Acc
   }
 
   async function restoreAppStorePurchases() {
+    void nativeLogAppsFlyerEvent('fh_restore_started');
     setBillingBusy(true);
     setBillingError("");
     try {
-      await nativeRestorePurchases();
+      const active = await nativeRestorePurchases();
+      void nativeLogAppsFlyerEvent('fh_restore_completed', { active });
       window.location.reload();
     } catch (error) {
+      void nativeLogAppsFlyerEvent('fh_restore_failed');
       setBillingError(error instanceof Error ? error.message : "Purchases could not be restored");
     } finally {
       setBillingBusy(false);
@@ -4522,6 +4516,7 @@ function AccessAccount({ accountUser, entitlement, onPlans }: { accountUser: Acc
       <div><span>DEVICE FEEDBACK</span><h3>Vibrations</h3><p>Use subtle haptic feedback when navigating, opening trays, and selecting Fantasy Hub controls.</p></div>
       <button type="button" role="switch" aria-checked={vibrationsEnabled} className={vibrationsEnabled ? "enabled" : ""} onClick={toggleVibrations}><i aria-hidden="true" /><span>{vibrationsEnabled ? "On" : "Off"}</span></button>
     </section>}
+    {nativeIos && <section className="panel account-security-card"><div><span>APP STORE</span><h3>Rate Fantasy Hub</h3><p>Share your experience with other fantasy managers.</p></div><button type="button" onClick={() => void nativeWriteReview()}>Write a review</button></section>}
     <section className="account-settings-grid">
       <article className="panel account-profile-card"><header><span>{accountUser.displayName.slice(0,1).toUpperCase()}</span><div><small>ACCOUNT PROFILE</small><h3>{accountUser.displayName}</h3><p>{accountUser.email}</p></div></header><dl><div><dt>Sign-in provider</dt><dd>{accountUser.provider === "clerk" ? "Fantasy Hub account" : "ChatGPT"}</dd></div><div><dt>Membership</dt><dd>{entitlement.elite ? "Fantasy Hub Elite" : entitlement.pro ? "Fantasy Hub Pro" : "Fantasy Hub Free"}</dd></div></dl><p className="account-edit-note">Name, email, password, and connected sign-in methods are securely managed by your authentication provider.</p></article>
       <article className="panel account-plan-card"><header><div><small>MEMBERSHIP & BILLING</small><h3>{entitlement.elite ? "Elite is active" : entitlement.pro ? "Pro is active" : "Free plan"}</h3></div><b className={entitlement.pro ? "active" : "free"}>{entitlement.elite ? "ELITE" : entitlement.pro ? "PRO" : "FREE"}</b></header><p>{entitlement.pro ? recurringBilling ? `Your membership is billed through ${billingProvider === "stripe" ? "Fantasy Hub billing" : "the App Store"}.` : `Your account has ${entitlement.elite ? "Elite" : "Pro"} access without a recurring subscription.` : "Upgrade for advanced intelligence, simulations, stories, and customization."}</p><div className="account-plan-actions"><button onClick={onPlans}>{entitlement.pro ? "View plan benefits" : "Explore plans"}</button>{entitlement.pro && recurringBilling && <button disabled={billingBusy} onClick={() => void openSubscriptionManagement()}>{billingBusy ? "Opening…" : "Manage billing"}</button>}</div>{nativeIos && <button className="restore-purchases-link" type="button" disabled={billingBusy} onClick={() => void restoreAppStorePurchases()}>{billingBusy ? "Checking purchases…" : "Restore App Store purchases"}</button>}{billingError && <p className="billing-error" role="alert">{billingError}</p>}</article>

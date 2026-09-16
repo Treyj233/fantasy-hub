@@ -4,11 +4,11 @@ const config: CapacitorConfig = {
   appId: "com.fantasyhubapp.ios",
   appName: "Fantasy Hub",
   webDir: "native-shell",
-  backgroundColor: "#f4f7f5",
+  backgroundColor: "#001f47",
   appendUserAgent: " FantasyHub-iOS/1.0",
   loggingBehavior: "production",
   ios: {
-    backgroundColor: "#f4f7f5",
+    backgroundColor: "#001f47",
     contentInset: "never",
     allowsLinkPreview: false,
     scrollEnabled: true,

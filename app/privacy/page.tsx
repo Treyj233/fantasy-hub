@@ -15,6 +15,7 @@ const sections = [
       "Preferences and activity needed to provide the service, including theme choices, saved leagues, decision history, simulation inputs, subscription status, and notification preferences.",
       "Device and diagnostic information, such as push-notification tokens, app version, device platform, network status, and error details used to operate and secure the service.",
       "Purchase information from Apple or our payment processor. Fantasy Hub does not receive or store your complete payment-card number.",
+      "In-app usage analytics, including pages visited, time spent with the app in the foreground, device class, app version, and purchase-flow outcomes. Purchase confirmations may include product identifiers, transaction identifiers, price, currency, and whether the purchase used Apple's testing environment.",
     ],
   },
   {
@@ -28,6 +29,7 @@ const sections = [
     title: "When information is shared",
     body: [
       "Information may be processed by service providers that help us deliver Fantasy Hub, including authentication, hosting, database, payment, app-distribution, notification, and error-diagnostic providers.",
+      "AppsFlyer processes app usage and purchase analytics to help us understand feature usage and improve the purchase experience. These analytics events do not include your email address, league names, roster contents, or payment-card details.",
       "When you connect a league, Fantasy Hub communicates with the selected fantasy platform to retrieve the information needed to provide requested features. Those platforms process information under their own privacy policies.",
       "We may disclose information when required by law, to protect users or the service, or as part of a business transfer subject to appropriate safeguards.",
     ],
@@ -62,7 +64,7 @@ export default function PrivacyPolicyPage() {
       <header>
         <span>FANTASY HUB</span>
         <h1>Privacy Policy</h1>
-        <p>Effective August 11, 2026</p>
+        <p>Effective September 16, 2026</p>
       </header>
       <section className="legal-intro">
         <p>This policy explains how Fantasy Hub collects, uses, shares, and protects information when you use our website, iPhone app, and related services.</p>

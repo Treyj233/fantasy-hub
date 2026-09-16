@@ -6,6 +6,50 @@ import ClerkKit
 import StoreKit
 import WebKit
 
+@objc(FantasyHubReviewPlugin)
+class FantasyHubReviewPlugin: CAPPlugin, CAPBridgedPlugin {
+    let identifier = "FantasyHubReviewPlugin"
+    let jsName = "FantasyHubReview"
+    let pluginMethods: [CAPPluginMethod] = [
+        CAPPluginMethod(name: "request", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "openStore", returnType: CAPPluginReturnPromise),
+    ]
+
+    @objc func request(_ call: CAPPluginCall) {
+        Task { @MainActor in
+            let defaults = UserDefaults.standard
+            let now = Date()
+            let first = defaults.object(forKey: "fh.review.firstUse") as? Date ?? now
+            let last = defaults.object(forKey: "fh.review.lastRequest") as? Date ?? .distantPast
+            let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
+            guard now.timeIntervalSince(first) >= 7 * 86400,
+                  defaults.integer(forKey: "fh.review.sessions") >= 3,
+                  now.timeIntervalSince(last) >= 120 * 86400,
+                  defaults.string(forKey: "fh.review.version") != version,
+                  let scene = self.bridge?.viewController?.viewIfLoaded?.window?.windowScene,
+                  scene.activationState == .foregroundActive,
+                  self.bridge?.viewController?.presentedViewController == nil else {
+                call.resolve(["requested": false]); return
+            }
+            defaults.set(now, forKey: "fh.review.lastRequest")
+            defaults.set(version, forKey: "fh.review.version")
+            AppStore.requestReview(in: scene)
+            // Apple does not report whether the sheet appeared or a review was submitted.
+            call.resolve(["requested": true])
+        }
+    }
+
+    @objc func openStore(_ call: CAPPluginCall) {
+        guard let appID = Bundle.main.object(forInfoDictionaryKey: "AppsFlyerAppleAppID") as? String,
+              let url = URL(string: "https://apps.apple.com/app/id\(appID)?action=write-review") else {
+            call.reject("App Store link unavailable"); return
+        }
+        DispatchQueue.main.async {
+            UIApplication.shared.open(url) { opened in call.resolve(["opened": opened]) }
+        }
+    }
+}
+
 @objc(FantasyHubLeagueLinksPlugin)
 class FantasyHubLeagueLinksPlugin: CAPPlugin, CAPBridgedPlugin {
     let identifier = "FantasyHubLeagueLinksPlugin"
@@ -49,7 +93,10 @@ class FantasyHubAnalyticsPlugin: CAPPlugin, CAPBridgedPlugin {
             return
         }
 
-        let values = call.getObject("values") ?? [:]
+        var values = call.getObject("values") ?? [:]
+        values["app_version"] = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
+        values["app_build"] = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? ""
+        values["device_class"] = UIDevice.current.userInterfaceIdiom == .pad ? "ipad" : "iphone"
         AppsFlyerLib.shared().logEvent(name: name, values: values) { response, error in
             if let error {
                 call.reject("AppsFlyer could not record the event", nil, error)
@@ -217,6 +264,7 @@ class FantasyHubStoreKitPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "restore", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "finish", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "manageSubscriptions", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "recordVerifiedPurchase", returnType: CAPPluginReturnPromise),
     ]
 
     private let productIds = [
@@ -235,6 +283,39 @@ class FantasyHubStoreKitPlugin: CAPPlugin, CAPBridgedPlugin {
         "com.fantasyhubapp.pro.season",
         "com.fantasyhubapp.elite.season",
     ]
+
+    @objc func recordVerifiedPurchase(_ call: CAPPluginCall) {
+        guard let transactionID = call.getString("transactionId") else { call.reject("Transaction required"); return }
+        Task { @MainActor in
+            let key = "fh.analytics.purchase.\(transactionID)"
+            if UserDefaults.standard.bool(forKey: key) { call.resolve(["recorded": false]); return }
+            for await result in Transaction.all {
+                guard case .verified(let transaction) = result,
+                      String(transaction.id) == transactionID,
+                      productIds.contains(transaction.productID), transaction.revocationDate == nil else { continue }
+                var values: [String: Any] = [
+                    "af_content_id": transaction.productID,
+                    "af_order_id": transactionID,
+                    "af_customer_event_id": "apple-\(transactionID)",
+                    "af_content_type": transaction.productID.contains(".theme.") ? "theme" : "subscription",
+                    "product_tier": transaction.productID.split(separator: ".").dropFirst(2).first.map(String.init) ?? "",
+                    "product_option": transaction.productID.split(separator: ".").last.map(String.init) ?? "",
+                    "store_environment": String(describing: transaction.environment),
+                    "app_build": Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "",
+                ]
+                if #available(iOS 17.2, *) {
+                    if let price = transaction.price { values["af_price"] = NSDecimalNumber(decimal: price) }
+                    if let currency = transaction.currency { values["af_currency"] = currency.identifier }
+                }
+                // Non-revenue confirmation avoids double counting ROI360/server revenue.
+                // Reserve before SDK submission; AppsFlyer owns offline event queuing.
+                UserDefaults.standard.set(true, forKey: key)
+                AppsFlyerLib.shared().logEvent(name: "fh_purchase_verified", values: values, completionHandler: nil)
+                call.resolve(["recorded": true]); return
+            }
+            call.resolve(["recorded": false])
+        }
+    }
 
     private func validateProduct(_ product: Product) throws {
         guard seasonProductIds.contains(product.id) else { return }
@@ -442,6 +523,7 @@ class FantasyHubBridgeViewController: CAPBridgeViewController {
         bridge?.registerPluginInstance(FantasyHubAppleAuthPlugin())
         bridge?.registerPluginInstance(FantasyHubAnalyticsPlugin())
         bridge?.registerPluginInstance(FantasyHubLeagueLinksPlugin())
+        bridge?.registerPluginInstance(FantasyHubReviewPlugin())
         guard let webView = bridge?.webView else { return }
         webView.scrollView.showsVerticalScrollIndicator = false
         webView.scrollView.showsHorizontalScrollIndicator = false

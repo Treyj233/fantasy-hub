@@ -27,7 +27,25 @@ const StoreKit = registerPlugin<{
   restore(): Promise<{ transactions: NativeTransaction[] }>;
   finish(options: { transactionId: string }): Promise<{ finished: boolean }>;
   manageSubscriptions(): Promise<void>;
+  recordVerifiedPurchase(options: { transactionId: string }): Promise<{ recorded: boolean }>;
 }>("FantasyHubStoreKit");
+
+const NativeReview = registerPlugin<{
+  request(): Promise<{ requested: boolean }>;
+  openStore(): Promise<{ opened: boolean }>;
+}>("FantasyHubReview");
+
+export async function nativeRequestReview() {
+  if (!isNativeIosApp()) return;
+  const result = await NativeReview.request().catch(() => ({ requested: false }));
+  if (result.requested) void nativeLogAppsFlyerEvent('fh_review_requested');
+}
+
+export async function nativeWriteReview() {
+  if (!isNativeIosApp()) return;
+  const result = await NativeReview.openStore().catch(() => ({ opened: false }));
+  if (result.opened) void nativeLogAppsFlyerEvent('fh_review_store_opened');
+}
 
 const AppleAuth = registerPlugin<{
   signIn(): Promise<{ authenticated?: boolean; cancelled?: boolean; redirect?: string }>;
@@ -69,7 +87,7 @@ export async function nativeStoreProducts() {
   return isNativeIosApp() ? (await StoreKit.products()).products : [];
 }
 
-async function verifyNativeTransaction(transaction: NativeTransaction) {
+async function verifyNativeTransaction(transaction: NativeTransaction, trackPurchase = false) {
   if (!transaction.transactionId) return false;
   const response = await fetch("/api/billing/apple", {
     method: "POST",
@@ -79,6 +97,9 @@ async function verifyNativeTransaction(transaction: NativeTransaction) {
   const result = await response.json() as { active?: boolean; error?: string };
   if (!response.ok) throw new Error(result.error ?? "App Store verification failed");
   await StoreKit.finish({ transactionId: transaction.transactionId });
+  if (result.active && trackPurchase) {
+    void StoreKit.recordVerifiedPurchase({ transactionId: transaction.transactionId }).catch(() => undefined);
+  }
   return Boolean(result.active);
 }
 
@@ -98,7 +119,7 @@ function isAlreadySubscribedError(message: string) {
   return duplicateSubscriptionHints.some((hint) => normalized.includes(hint));
 }
 
-export async function nativePurchase(productId: string) {
+async function performNativePurchase(productId: string) {
   if (!isNativeIosApp()) throw new Error("App Store purchasing requires the iOS app");
   try {
     let transaction = await StoreKit.purchase({ productId });
@@ -111,7 +132,7 @@ export async function nativePurchase(productId: string) {
     }
     if (transaction.status === "cancelled") return "cancelled";
     if (transaction.status === "pending") return "pending";
-    if (await verifyNativeTransaction(transaction)) return "active";
+    if (await verifyNativeTransaction(transaction, true)) return "active";
 
     // StoreKit can replay an unfinished transaction before presenting a new
     // purchase sheet. This commonly happens in TestFlight after server-side
@@ -126,7 +147,7 @@ export async function nativePurchase(productId: string) {
       if (transaction.status === "cancelled") return "cancelled";
       if (transaction.status === "pending") return "pending";
       if (transaction.status !== "verified") return "inactive";
-      return await verifyNativeTransaction(transaction) ? "active" : "inactive";
+      return await verifyNativeTransaction(transaction, true) ? "active" : "inactive";
     }
     return "inactive";
   } catch (error) {
@@ -135,6 +156,20 @@ export async function nativePurchase(productId: string) {
       const hasActivePurchase = await nativeRefreshPurchases().catch(() => false);
       if (hasActivePurchase) return "active";
     }
+    throw error;
+  }
+}
+
+export async function nativePurchase(productId: string) {
+  const parts = productId.split('.');
+  const values = { af_content_id: productId, product_category: productId.includes('.theme.') ? 'theme' : 'subscription', product_tier: parts[2] ?? '', product_option: parts[3] ?? '' };
+  void nativeLogAppsFlyerEvent('af_initiated_checkout', values);
+  try {
+    const status = await performNativePurchase(productId);
+    void nativeLogAppsFlyerEvent(`fh_purchase_${status}`, values);
+    return status;
+  } catch (error) {
+    void nativeLogAppsFlyerEvent('fh_purchase_failed', values);
     throw error;
   }
 }
@@ -262,6 +297,7 @@ export function initializeNativeRuntime() {
     }),
     App.addListener("appStateChange", ({ isActive }) => {
       root.dataset.appState = isActive ? "active" : "background";
+      window.dispatchEvent(new Event("fantasyhub:native-state"));
       if (isActive) window.dispatchEvent(new Event("fantasyhub:native-resume"));
     }),
     Network.addListener("networkStatusChange", ({ connected }) => {
