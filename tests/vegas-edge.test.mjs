@@ -10,6 +10,29 @@ const player={id:'1',name:'Test Receiver',team:'BUF',position:'WR',role:'WR',sta
 const context={scoring:'PPR',tePremium:0,passTouchdown:4,interception:-2,rosterSlots:['WR','FLEX'],scoringRules:{pass_yd:.04,rush_yd:.1,rec_yd:.1,rec:1,rush_td:6,rec_td:6,pass_td:4,pass_int:-2}};
 const props=[{stat:'receiving_yards',line:80.5,overProbability:.5,books:2},{stat:'receptions',line:6.5,overProbability:.5,books:2},{stat:'touchdowns',line:.5,overProbability:.5,books:2}];
 const event={id:'e',startsAt:'2026-09-13T17:00:00Z',home:'BUF',away:'MIA',locked:false,updatedAt:new Date(now).toISOString(),total:48,homeSpread:-3,players:[{name:player.name,team:'BUF',status:'active',props}]};
+test('QB estimates respect interception scoring and include priced rushing TDs',()=>{
+  const qb={...player,name:'Jayden Daniels',position:'QB'};
+  const markets=['passing_yards','passing_touchdowns','rushing_yards','touchdowns'].map((stat,i)=>({stat,line:[240.5,1.5,45.5,.5][i],overProbability:.5,books:2}));
+  const feed=[{...event,players:[{...event.players[0],name:qb.name,props:markets}]}];
+  // Four props are not necessarily complete: never invent a scored interception market.
+  assert.equal(edgeProjection(qb,feed,context,now).projection,null);
+  const noInts={...context,scoringRules:{...context.scoringRules,pass_int:0}};
+  const row=edgeProjection(qb,feed,noInts,now);
+  assert.equal(row.usable,true);
+  const withoutTD=[{...feed[0],players:[{...feed[0].players[0],props:markets.slice(0,3)}]}];
+  assert.ok(row.projection>edgeProjection(qb,withoutTD,noInts,now).projection);
+});
+test('interception yes/no fair markets normalize into an expected count',()=>{
+  const raw={eventID:'e',status:{startsAt:event.startsAt},players:{P:{name:'Jayden Daniels'}},odds:{
+    'passing_interceptions-P-game-yn-yes':{statID:'passing_interceptions',statEntityID:'P',periodID:'game',betTypeID:'yn',sideID:'yes',fairOddsAvailable:true,fairOdds:-120,byBookmaker:{a:{available:true}}},
+    'passing_interceptions-P-game-yn-no':{fairOddsAvailable:true,fairOdds:120}
+  }};
+  const market=normalizeEvents([raw],now)[0].players[0].props[0];
+  assert.equal(market.stat,'passing_interceptions');
+  assert.ok(countExpectation(market)>0);
+  raw.odds['passing_interceptions-P-game-yn-no'].fairOddsAvailable=false;
+  assert.equal(normalizeEvents([raw],now)[0].players[0].props.length,0);
+});
 test('roster retains last pregame estimate during live and final without recommending locked players',()=>{
   const expected=edgeProjection(player,[event],context,now).projection;
   for(const time of [Date.parse(event.startsAt),now+3*86400000]){

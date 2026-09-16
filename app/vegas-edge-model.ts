@@ -58,14 +58,14 @@ export function normalizeEvents(raw: unknown, now = Date.now()): EdgeEvent[] {
     const gameLine = (id: string, field: string) => median(activeBooks(odds[id]).flatMap(([,b]: any)=>{const n=number(b[field]);return n===null?[]:[n];}));
     return [{ id:e.eventID, startsAt:e.status.startsAt, home:team(e.teams?.home?.teamID), away:team(e.teams?.away?.teamID), locked:Boolean(e.status.started || e.status.ended || e.status.cancelled || e.status.delayed || e.status.live), updatedAt:new Date(now).toISOString(), total:gameLine('points-all-game-ou-over','overUnder'),homeSpread:gameLine('points-home-game-sp-home','spread'), players:Object.entries(e.players ?? {}).map(([id,p]: any)=>({name:p.name ?? `${p.firstName ?? ''} ${p.lastName ?? ''}`.trim(),aliases:p.firstName&&p.lastName?[`${p.firstName} ${p.lastName}`]:[],team:team(p.teamID),status:p.status ?? '',props:Object.values(odds).flatMap((o: any): EdgeProp[]=>{
       if(o.statEntityID!==id || typeof o.statID!=='string' || o.periodID!=='game' || o.started || o.ended || o.cancelled) return [];
-      if(o.statID==='touchdowns' && o.betTypeID==='yn' && o.sideID==='yes') {
-        const no=odds[o.opposingOddID] ?? odds[`touchdowns-${id}-game-yn-no`];
+      if(['touchdowns','passing_interceptions'].includes(o.statID) && o.betTypeID==='yn' && o.sideID==='yes') {
+        const no=odds[o.opposingOddID] ?? odds[`${o.statID}-${id}-game-yn-no`];
         const yesP=impliedProbability(o.fairOdds),noP=impliedProbability(no?.fairOdds);
         const books=activeBooks(o).length;
         // Sportsbooks commonly offer only Yes. Use provider's explicit fair
         // consensus pair, never mistake raw one-sided book odds for fair odds.
         if(books && o.fairOddsAvailable===true && no?.fairOddsAvailable===true && !no.started && !no.ended && !no.cancelled && yesP!==null && noP!==null)
-          return [{stat:'touchdowns',line:.5,overProbability:yesP/(yesP+noP),books,source:'provider-fair'}];
+          return [{stat:o.statID,line:.5,overProbability:yesP/(yesP+noP),books,source:'provider-fair'}];
         return [];
       }
       if(o.betTypeID!=='ou' || o.sideID!=='over')return [];
@@ -100,12 +100,12 @@ export function edgeProjection(player: EdgePlayer, events: EdgeEvent[], context:
   // conversion is an explicit approximation; never present it as a direct prop.
   const expectedTd=countExpectation(td);
   const qb=player.position==='QB';
-  const complete=qb ? py!==undefined && pt!==undefined && pi!==undefined : ['RB','WR','TE'].includes(player.position) && (player.position==='RB'?ry!==undefined:cy!==undefined) && cy!==undefined && c!==undefined && expectedTd!==undefined && weights.rush_td===weights.rec_td;
+  const complete=qb ? (weights.pass_yd===0 || py!==undefined) && (weights.pass_td===0 || pt!==undefined) && (weights.pass_int===0 || pi!==undefined) && props.length>0 : ['RB','WR','TE'].includes(player.position) && (player.position==='RB'?ry!==undefined:cy!==undefined) && cy!==undefined && c!==undefined && expectedTd!==undefined && weights.rush_td===weights.rec_td;
   const unavailable=/^(out|ir|injured reserve|suspend|doubt|pup|nfi|inactive)/i.test(player.status) || /^(out|ir|suspend|doubt)/i.test(match?.p.status ?? '') || player.opponent?.toUpperCase()==='BYE';
   const questionable=/question/i.test(player.status+' '+(match?.p.status ?? ''));
   const locked=Boolean(match && (match.event.locked || Date.parse(match.event.startsAt)<=now));
   const stale=Boolean(match && now-Date.parse(match.event.updatedAt)>refreshInterval(match.event.startsAt,now)*1.5);
-  const points=qb ? (py??0)*weights.pass_yd+(pt??0)*weights.pass_td+(pi??0)*weights.pass_int+(ry??0)*weights.rush_yd : (ry??0)*weights.rush_yd+(cy??0)*weights.rec_yd+(c??0)*(weights.rec+(player.position==='TE'?context.tePremium:0))+(expectedTd??0)*weights.rush_td;
+  const points=qb ? (py??0)*weights.pass_yd+(pt??0)*weights.pass_td+(pi??0)*weights.pass_int+(ry??0)*weights.rush_yd+(expectedTd??0)*weights.rush_td : (ry??0)*weights.rush_yd+(cy??0)*weights.rec_yd+(c??0)*(weights.rec+(player.position==='TE'?context.tePremium:0))+(expectedTd??0)*weights.rush_td;
   const scoringKnown=Boolean(context.scoringRules && Object.keys(context.scoringRules).length);
   const usable=Boolean(complete && !locked && !stale && !unavailable && scoringKnown);
   // Platform projections are comparison-only. No platform contribution is
