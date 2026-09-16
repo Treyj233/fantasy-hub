@@ -3,6 +3,28 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import postcss from 'postcss';
 
+test('every honors card has a theme-colored award header', () => {
+  const css = postcss.parse(readFileSync('app/league-weekly-report.css', 'utf8'));
+  const values = {};
+  css.walkRules('.lw-report .lw-honors>article>header', rule => {
+    rule.walkDecls(d => { values[d.prop] = d.value; });
+  });
+  assert.equal(values.background, 'var(--deep)');
+  assert.equal(values['border-bottom'], '2px solid var(--gold)');
+  assert.equal(values.color, '#fff');
+});
+
+test('manager moments labels and details share a flexible column beside the score', () => {
+  const css = postcss.parse(readFileSync('app/league-weekly-report.css', 'utf8'));
+  const values = {};
+  css.walkRules('.league-stories-page .manager-moments>article', rule => {
+    rule.walkDecls(d => { values[d.prop] = d.value; });
+  });
+  assert.equal(values['grid-template-columns'], 'minmax(0,1fr) auto');
+  assert.equal(values['grid-template-areas'], '"label score" "details score"');
+  assert.equal(values.padding, '8px 0');
+});
+
 test('efficiency and ladder use themed cards with separate mobile score positions', () => {
   const css = postcss.parse(readFileSync('app/league-weekly-report.css', 'utf8'));
   const rules = new Map();
