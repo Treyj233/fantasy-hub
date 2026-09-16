@@ -16,6 +16,9 @@ test('mobile My Team matchup uses the full row and wraps complete weather', () =
   const matchup = styles('.roster-section .roster-matchup-details');
   assert.equal(matchup.width, '100%');
   assert.equal(matchup['min-width'], '0');
+  const badge = styles('.roster-section .roster-matchup-details > .matchup-team');
+  assert.equal(badge.width, 'calc(100% - 99px)');
+  assert.equal(badge['justify-self'], 'start');
   const weather = styles('.roster-section .roster-matchup-details > .roster-weather');
   assert.equal(weather['white-space'], 'normal');
   assert.equal(weather['text-overflow'], 'clip');

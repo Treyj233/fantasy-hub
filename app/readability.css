@@ -259,6 +259,11 @@
     min-width: 0;
     justify-self: stretch;
   }
+  .roster-section .roster-matchup-details > .matchup-team {
+    /* Stop at the slot column: reserve its 48px, the 44px score, and their 7px gap. */
+    width: calc(100% - 99px);
+    justify-self: start;
+  }
   .roster-section .roster-matchup-details > .roster-weather {
     overflow: visible;
     max-width: 100%;
