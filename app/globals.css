@@ -2537,5 +2537,21 @@ button.portfolio-player-tile{cursor:pointer}
 .portfolio-detail-scroll .exposure-list p{min-width:0;overflow-wrap:anywhere}
 .portfolio-detail-scroll .exposure-list small{white-space:normal;overflow:visible}
 .portfolio-load-more{width:100%;margin-top:14px}
+.portfolio-detail-trigger{box-shadow:0 3px 0 color-mix(in srgb,var(--gold) 55%,transparent),0 5px 14px #0002;transition:box-shadow .18s ease,transform .18s ease}
+.portfolio-detail-trigger:hover{box-shadow:0 4px 0 color-mix(in srgb,var(--gold) 55%,transparent),0 8px 20px #0003}
+.portfolio-detail-dialog .portfolio-detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;overflow:visible}
+.portfolio-detail-dialog .on-fire-grid>button{width:auto;min-width:0;align-content:start}
+.portfolio-detail-dialog .on-fire-grid>button>p>strong,.portfolio-detail-dialog .fire-leagues b{white-space:normal;overflow-wrap:anywhere}
+.portfolio-detail-dialog .rooting-interests article{grid-template-columns:minmax(0,1fr);align-content:start;margin:0;padding:12px}
+.portfolio-detail-dialog .rooting-interests article>em{grid-column:auto;justify-self:start}
+.portfolio-detail-dialog .rooting-leagues>b{white-space:normal;overflow-wrap:anywhere}
+.portfolio-detail-dialog .portfolio-detail-paths{grid-template-columns:minmax(0,1fr);margin:0}
+.portfolio-detail-dialog .league-win-paths p strong,.portfolio-detail-dialog .league-win-paths p button,.portfolio-detail-dialog .league-win-paths p small{white-space:normal;overflow-wrap:anywhere}
+/* Compact shared league context without inflating it to the select's height. */
+.tool-context-bar{margin-top:6px}
+.tool-context-bar>.context-league-button,.tool-context-bar>span,.tool-context-bar>.context-week-picker{box-sizing:border-box;min-height:44px;padding:5px 10px;gap:0;align-content:center}
+.tool-context-bar small{line-height:1.15}
+.tool-context-bar .context-week-picker select{min-height:0;height:18px;line-height:18px;margin:0;padding-block:0}
+@media(max-width:700px){.tool-context-bar,.tool-context-bar.home-context{margin-top:5px}.tool-context-bar>.context-league-button,.tool-context-bar>span,.tool-context-bar>.context-week-picker{padding:4px 6px}.tool-context-bar>.context-league-button{padding-right:17px}}
 .team-record{display:inline-block;margin-inline-start:6px;padding:2px 6px;border:1px solid var(--line);border-radius:6px;color:var(--ink);background:var(--chalk);font-size:12px;font-weight:700;line-height:1.4;white-space:nowrap;vertical-align:middle;font-variant-numeric:tabular-nums}
 @media(max-width:560px){.library-look-generator .generate-owned-look{width:100%}.library-look-actions button{flex:1 1 140px}}
