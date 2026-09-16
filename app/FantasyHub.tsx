@@ -3049,6 +3049,7 @@ export default function FantasyHub({
   const eliteViews = new Set<View>(["League Stories", "Manager Report", "Vegas Edge"]);
   const rosterReady = players.length > 0 && loadedProjectionWeek === defaultGameWeek;
   const periodLabel = `WEEK ${defaultGameWeek}`;
+  const showWeekOneWelcome = weekOneWelcomeOpen && defaultGameWeek === 1 && calendar.currentWeek === 1;
   const importedWeek = useRef(defaultGameWeek);
   useEffect(() => {
     if (importedWeek.current === defaultGameWeek) return;
@@ -3069,6 +3070,7 @@ export default function FantasyHub({
       onboardingTourOpen ||
       importState !== "success" ||
       !leagueId ||
+      seasonSchedule?.season !== Number(leagueSeason) ||
       defaultGameWeek !== 1 ||
       calendar.currentWeek !== 1 ||
       weekOneWelcomeSeenSeason === weekOneWelcomeDay ||
@@ -3085,7 +3087,7 @@ export default function FantasyHub({
       void nativeLogAppsFlyerEvent("week_one_welcome_view", { season: leagueSeason, week: 1 });
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [accountLoading, accountUser, defaultGameWeek, importState, leagueId, leagueSeason, onboardingTourOpen, weekOneWelcomeDay, weekOneWelcomeSeenSeason]);
+  }, [accountLoading, accountUser, defaultGameWeek, calendar.currentWeek, seasonSchedule, importState, leagueId, leagueSeason, onboardingTourOpen, weekOneWelcomeDay, weekOneWelcomeSeenSeason]);
 
   function closeWeekOneWelcome(action: "rankings" | "pro" | "dismiss") {
     setWeekOneWelcomeOpen(false);
@@ -3939,9 +3941,9 @@ export default function FantasyHub({
         />
       )}
 
-      <WeeklyRecap key={accountUser?.email ?? 'signed-out'} leagues={availableLeagues} season={leagueSeason} week={calendar.completedWeek} enabled={Boolean(accountUser) && !accountLoading && importState === 'success' && !onboardingTourOpen && !weekOneWelcomeOpen && !selectedPlayer} />
+      <WeeklyRecap key={accountUser?.email ?? 'signed-out'} leagues={availableLeagues} season={leagueSeason} week={calendar.completedWeek} enabled={Boolean(accountUser) && !accountLoading && importState === 'success' && !onboardingTourOpen && !showWeekOneWelcome && !selectedPlayer} />
 
-      {weekOneWelcomeOpen && (
+      {showWeekOneWelcome && (
         <WeekOneWelcome
           isPro={entitlement.pro}
           onRankings={() => closeWeekOneWelcome("rankings")}

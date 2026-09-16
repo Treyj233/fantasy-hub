@@ -2,6 +2,7 @@
 import {createContext,useCallback,useContext,useEffect,useMemo,useState} from 'react';
 import {projectionAdapter,type ProjectionSchedule} from './projection-source';
 import type {EdgeFeed} from './vegas-edge-model';
+import {fetchLiveJson,startVisiblePolling} from './live-polling.mjs';
 const off=projectionAdapter(false,[],null);
 export const ProjectionSourceContext=createContext(off);
 export const useProjectionSource=()=>useContext(ProjectionSourceContext);
@@ -15,22 +16,16 @@ export function useProjectionController(allowed:boolean,account:string,season:st
   const toggle=useCallback((on:boolean)=>{if(!allowed)return;setPreference({account,enabled:on});try{localStorage.setItem(`fantasy-hub:vegas-projections:v1:${account}`,on?'on':'off');}catch{}},[allowed,account]);
   useEffect(()=>{
     if(!enabled)return;
-    const controller=new AbortController();
-    const refresh=async()=>{
-      if(document.visibilityState==='hidden')return;
+    const refresh=async(signal:AbortSignal)=>{
       setNow(Date.now());
       try{
-        const [f,s]=await Promise.all([fetch('/api/vegas-edge',{signal:controller.signal}),fetch(`/api/nfl-schedule?season=${encodeURIComponent(season)}`,{signal:controller.signal})]);
-        if(!f.ok||!s.ok)return;
-        const [feed,schedule]=await Promise.all([f.json(),s.json()]);
-        if(!controller.signal.aborted){setFeed(feed);setSchedule(schedule);}
+        const [feed,schedule]=await Promise.all([fetchLiveJson('/api/vegas-edge',signal),fetchLiveJson(`/api/nfl-schedule?season=${encodeURIComponent(season)}`,signal)]);
+        if(!signal.aborted){setFeed(feed);setSchedule(schedule);}
       }catch{}
     };
-    void refresh();const timer=setInterval(refresh,600000);
+    const stop=startVisiblePolling(refresh,600000);
     const tick=setInterval(()=>{if(document.visibilityState==='visible')setNow(Date.now());},60000);
-    const visible=()=>{if(document.visibilityState==='visible')void refresh();};
-    document.addEventListener('visibilitychange',visible);
-    return()=>{controller.abort();clearInterval(timer);clearInterval(tick);document.removeEventListener('visibilitychange',visible);};
+    return()=>{stop();clearInterval(tick);};
   },[enabled,season]);
   const adapter=useMemo(()=>projectionAdapter(enabled,feed?.events??[],schedule,now),[enabled,feed,schedule,now]);
   return {adapter,enabled,toggle,setFeed};

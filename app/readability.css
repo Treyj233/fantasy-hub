@@ -656,6 +656,16 @@ html[data-theme="dark"] .mission-tour-card > footer { background: #20242c; }
   from { opacity: 0; transform: translateY(5px) scale(.98); }
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
+/* News labels and player chips must remain readable at narrow widths. */
+.news-notes-page .news-card-body>header>div { min-width:0; flex-wrap:wrap; }
+.news-notes-page .news-card-body>header>b { flex-shrink:0; }
+.news-notes-page .news-related-players button { max-width:100%; white-space:normal; flex-wrap:wrap; }
+.news-notes-page .news-card-body :is(h3,footer span) { overflow-wrap:anywhere; }
+.news-notes-page .news-feed-card.news-cold { --news-accent:#236ea8; }
+html[data-theme="dark"] .news-notes-page .news-feed-card.news-cold { --news-accent:#82b9ff; }
+.news-refresh-warning { margin:0; padding:10px 12px; color:var(--ink); background:var(--chalk); border:1px solid var(--line); border-left:3px solid var(--gold); border-radius:8px; font-size:12px; }
+.news-notes-page button:focus-visible { outline:2px solid var(--gold); outline-offset:3px; }
+
 @keyframes mission-tour-target-pulse {
   0%,100% { outline-color: var(--gold-light); }
   50% { outline-color: var(--gold); box-shadow: 0 0 0 9px rgb(var(--brand-secondary-rgb,241 180 50) / .14),0 10px 26px rgb(0 0 0 / .2); }

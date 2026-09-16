@@ -1,6 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { startVisiblePolling } from "./live-polling.mjs";
+import { createNewsFeedRequest } from "./news-feed-request.mjs";
 
 type NewsItem = {
   id: string;
@@ -28,8 +30,6 @@ export type RelatedPlayer = {
   relationship: "subject" | "beneficiary" | "backup";
 };
 
-type NewsPayload = { items?: NewsItem[]; updatedAt?: string | null; error?: string };
-
 const filters = [
   ["all", "All updates"],
   ["news", "Fantasy Pulse"],
@@ -43,8 +43,8 @@ const filters = [
 const teamHashtag = /#(?=(?:49ers|Bears|Bengals|Bills|Broncos|Browns|Buccaneers|Bucs|Cardinals|Chargers|Chiefs|Colts|Commanders|Cowboys|Dolphins|Eagles|Falcons|Giants|Jaguars|Jags|Jets|Lions|Packers|Panthers|Patriots|Pats|Raiders|Rams|Ravens|Saints|Seahawks|Steelers|Texans|Titans|Vikings)\b)/gi;
 const cleanTeamHashtags = (value: string) => value.replace(teamHashtag, "");
 
-const timeAgo = (value: string) => {
-  const elapsed = Date.now() - Date.parse(value);
+const timeAgo = (value: string, now: number) => {
+  const elapsed = now - Date.parse(value);
   if (!Number.isFinite(elapsed)) return "Recently";
   const minutes = Math.max(1, Math.round(elapsed / 60_000));
   if (minutes < 60) return `${minutes}m ago`;
@@ -60,48 +60,47 @@ export default function NewsAndNotes({ onOpenPlayer }: { onOpenPlayer?: (player:
   const [error, setError] = useState("");
   const [manualRefreshState, setManualRefreshState] = useState<"idle" | "refreshing" | "updated">("idle");
   const [visibleCount, setVisibleCount] = useState(10);
+  const [updatedAt, setUpdatedAt] = useState(Date.now);
+  const request = useMemo(() => createNewsFeedRequest(), []);
+  const feedbackTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const mounted = useRef(false);
 
   const loadFeed = useCallback(async (signal?: AbortSignal) => {
-    setLoading(true);
-    try {
-      const response = await fetch(`/api/news-notes?refresh=${Date.now()}`, {
-        cache: "no-store",
-        headers: { accept: "application/json" },
-        signal,
-      });
-      const payload = await response.json() as NewsPayload;
-      if (!response.ok) throw new Error(payload.error || "News feed unavailable");
-      setItems(Array.isArray(payload.items) ? payload.items : []);
+    const result = await request.load(signal);
+    if (!mounted.current || result.status === "cancelled") return false;
+    if (result.status === "success") {
+      setItems(result.items);
+      setUpdatedAt(Date.now());
       setError("");
-    } catch (requestError) {
-      if (requestError instanceof DOMException && requestError.name === "AbortError") return;
-      setError(requestError instanceof Error ? requestError.message : "News feed unavailable");
-    } finally {
-      if (!signal?.aborted) setLoading(false);
+    } else {
+      setError("Couldn’t refresh the news. Please try again.");
     }
-  }, []);
+    setLoading(false);
+    return result.status === "success";
+  }, [request]);
 
   const refreshNow = useCallback(async () => {
     setManualRefreshState("refreshing");
-    const startedAt = Date.now();
-    await loadFeed();
-    const remainingFeedbackTime = Math.max(0, 500 - (Date.now() - startedAt));
-    window.setTimeout(() => {
-      setManualRefreshState("updated");
-      window.setTimeout(() => setManualRefreshState("idle"), 1_800);
-    }, remainingFeedbackTime);
+    clearTimeout(feedbackTimer.current);
+    const success = await loadFeed();
+    if (!mounted.current) return;
+    setManualRefreshState(success ? "updated" : "idle");
+    if (success) feedbackTimer.current = setTimeout(() => setManualRefreshState("idle"), 1_800);
   }, [loadFeed]);
 
   useEffect(() => {
-    const controller = new AbortController();
-    const initialRefresh = window.setTimeout(() => void loadFeed(controller.signal), 0);
-    const interval = window.setInterval(() => void loadFeed(), 120_000);
+    mounted.current = true;
+    const stop = startVisiblePolling(loadFeed, 120_000);
+    const cancelHiddenRequest = () => { if (document.visibilityState !== "visible") request.cancel(); };
+    document.addEventListener("visibilitychange", cancelHiddenRequest);
     return () => {
-      controller.abort();
-      window.clearTimeout(initialRefresh);
-      window.clearInterval(interval);
+      mounted.current = false;
+      stop();
+      request.cancel();
+      clearTimeout(feedbackTimer.current);
+      document.removeEventListener("visibilitychange", cancelHiddenRequest);
     };
-  }, [loadFeed]);
+  }, [loadFeed, request]);
 
   const filteredItems = useMemo(
     () => filter === "all" ? items : items.filter((item) => item.category === filter),
@@ -134,11 +133,12 @@ export default function NewsAndNotes({ onOpenPlayer }: { onOpenPlayer?: (player:
 
       <div className="news-filter-row" role="group" aria-label="Filter news">
         {filters.map(([value, label]) => (
-          <button key={value} type="button" className={filter === value ? "active" : ""} onClick={() => { setFilter(value); setVisibleCount(10); }}>{label}</button>
+          <button key={value} type="button" aria-pressed={filter === value} className={filter === value ? "active" : ""} onClick={() => { setFilter(value); setVisibleCount(10); }}>{label}</button>
         ))}
       </div>
 
       {loading && !items.length && <div className="news-feed-skeleton" aria-label="Loading news"><i /><i /><i /></div>}
+      {error && !!items.length && <p className="news-refresh-warning" role="status">Showing your last loaded updates. {error}</p>}
       {error && !items.length && (
         <section className="panel news-empty"><span>📡</span><h3>The wire is reconnecting</h3><p>{error}</p><button type="button" onClick={() => void loadFeed()}>Try again</button></section>
       )}
@@ -147,15 +147,15 @@ export default function NewsAndNotes({ onOpenPlayer }: { onOpenPlayer?: (player:
       )}
 
       <div className="news-feed" aria-label={`${filteredItems.length} fantasy news updates`}>
-        {visibleItems.map((item, index) => {
+        {visibleItems.map((item) => {
           const steps = item.nextSteps.length ? item.nextSteps : [item.impact];
           return (
-            <article className={`news-feed-card category-${item.category}`} key={item.id}>
+            <article className={`news-feed-card category-${item.category}${item.emoji.includes("❄") ? " news-cold" : ""}`} key={item.id}>
               <aside><span>{item.emoji}</span><i /></aside>
               <div className="news-card-body">
                 <header>
-                  <div><span>{item.title}</span><small>{timeAgo(item.publishedAt)}</small></div>
-                  {index === 0 && <b>NEW</b>}
+                  <div><span>{item.title}</span><small>{timeAgo(item.publishedAt, updatedAt)}</small></div>
+                  {updatedAt - Date.parse(item.publishedAt) >= 0 && updatedAt - Date.parse(item.publishedAt) < 3_600_000 && <b>NEW</b>}
                 </header>
                 <h3>{cleanTeamHashtags(item.headline)}</h3>
                 {item.summary && item.summary !== item.headline && <p className="news-story-summary">{cleanTeamHashtags(item.summary)}</p>}
@@ -174,7 +174,7 @@ export default function NewsAndNotes({ onOpenPlayer }: { onOpenPlayer?: (player:
                   <span>YOUR NEXT MOVE</span>
                   <ul>{steps.map((step, stepIndex) => <li key={`${item.id}-${stepIndex}`}>{cleanTeamHashtags(step)}</li>)}</ul>
                 </section>
-                <footer>{item.reporter && <>Reported by <b>{item.reporter}</b></>}{(item.sourceCount ?? 1) > 1 && <span>Confirmed by {item.sourceCount} sources</span>}{item.confidence && <span className={`confidence-${item.confidence}`}>{item.confidence} confidence</span>}</footer>
+                <footer>{item.reporter && <span>Reported by <b>{item.reporter}</b></span>}{(item.sourceCount ?? 1) > 1 && <span>Confirmed by {item.sourceCount} sources</span>}{item.confidence && <span className={`confidence-${item.confidence}`}>{item.confidence} confidence</span>}</footer>
               </div>
             </article>
           );
@@ -182,7 +182,7 @@ export default function NewsAndNotes({ onOpenPlayer }: { onOpenPlayer?: (player:
       </div>
       {visibleCount < filteredItems.length && (
         <button type="button" className="news-load-more" onClick={() => setVisibleCount((count) => count + 10)}>
-          Show 10 older updates <span>{filteredItems.length - visibleCount} remaining</span>
+          Show {Math.min(10, filteredItems.length - visibleCount)} older updates <span>{filteredItems.length - visibleCount} remaining</span>
         </button>
       )}
     </div>
