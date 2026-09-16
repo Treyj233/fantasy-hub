@@ -9,6 +9,7 @@ import { sleeperFantasyPoints } from "../../sleeper-live-scoring.mjs";
 import type { NflDataGame } from "../../highlightly-nfl";
 import { getScoreboardNflGames as getNflGames } from "../../scoreboard-nfl-games";
 import { currentFantasyWeek } from "../../current-fantasy-week";
+import { formatTeamRecord } from "../../team-record.mjs";
 
 type MatchupRow = { roster_id?: number; matchup_id?: number | null; points?: number; custom_points?: number | null; players?: string[]; starters?: string[]; players_points?: Record<string, number> };
 const SLEEPER_SCOREBOARD_TTL_SECONDS = {
@@ -149,7 +150,7 @@ export async function GET(request: Request) {
   ]);
   if (!matchupsResponse.ok || !rostersResponse.ok || !usersResponse.ok) return Response.json({ error: "Weekly scores unavailable" }, { status: 502 });
   const matchupRows = await matchupsResponse.json() as MatchupRow[];
-  const rosters = await rostersResponse.json() as { roster_id?: number; owner_id?: string }[];
+  const rosters = await rostersResponse.json() as { roster_id?: number; owner_id?: string; settings?: { wins?: number; losses?: number; ties?: number } }[];
   const users = await usersResponse.json() as { user_id?: string; display_name?: string; metadata?: { team_name?: string } }[];
   const players = playerDirectory.value;
   const statsByPlayer = statsSnapshot?.value ?? new Map<string, Record<string, number>>();
@@ -193,7 +194,7 @@ export async function GET(request: Request) {
     // can lag or omit scoring settings, so never reconstruct the score shown on
     // a fantasy matchup card from those stats.
     const points = officialPoints;
-    return { rosterId: String(row.roster_id ?? ""), ownerId: roster?.owner_id ?? null, managerName: manager?.display_name ?? `Roster ${row.roster_id ?? ""}`, teamName: manager?.metadata?.team_name ?? `${manager?.display_name ?? `Roster ${row.roster_id ?? ""}`}'s Team`, points, officialPoints, isMine: roster?.owner_id === connection.sleeperUserId, topPlayers };
+    return { rosterId: String(row.roster_id ?? ""), record: formatTeamRecord(roster?.settings), ownerId: roster?.owner_id ?? null, managerName: manager?.display_name ?? `Roster ${row.roster_id ?? ""}`, teamName: manager?.metadata?.team_name ?? `${manager?.display_name ?? `Roster ${row.roster_id ?? ""}`}'s Team`, points, officialPoints, isMine: roster?.owner_id === connection.sleeperUserId, topPlayers };
   };
   const grouped = new Map<number, MatchupRow[]>();
   matchupRows.forEach((row, index) => { const key = row.matchup_id ?? 1000 + index; grouped.set(key, [...(grouped.get(key) ?? []), row]); });

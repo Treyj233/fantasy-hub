@@ -768,6 +768,7 @@ function isPlayerGameInProgress(player: Pick<ScoreboardPlayer, "gameProgress">) 
   return typeof player.gameProgress === "number" && player.gameProgress > 0 && player.gameProgress < 1;
 }
 type ScoreboardTeam = {
+  record?: string | null;
   rosterId: string;
   managerName: string;
   teamName: string;
@@ -775,6 +776,10 @@ type ScoreboardTeam = {
   isMine: boolean;
   topPlayers: ScoreboardPlayer[];
 };
+
+function TeamRecord({ team }: { team: ScoreboardTeam }) {
+  return team.record ? <span className="team-record" aria-label={`Season record ${team.record}`}>{team.record}</span> : null;
+}
 
 function projectedTeamTotal(team: ScoreboardTeam) {
   const projectedStarters = team.topPlayers.filter(
@@ -5468,6 +5473,7 @@ function AllLeagues({
       mine: portfolioProjectedFinish(mine, matchup?.status),
       opponent: portfolioProjectedFinish(opponent, matchup?.status),
       final: matchup?.status === "Final",
+      record: mine?.record,
     };
   };
   const [loading, setLoading] = useState(
@@ -6105,7 +6111,7 @@ function AllLeagues({
             <article className="portfolio-section panel">
               <div className="portfolio-heading"><div><span>LIVE PORTFOLIO</span><h3>This week’s matchup board</h3></div></div>
               <div className="portfolio-matchups">
-                {scans.map((scan) => scan.preDraft ? <button key={`matchup-${scan.league.id}`} className="pre-draft-matchup" onClick={() => void onOpen(scan.league, "Player Ranks")}><span><strong>{scan.teamName}</strong><small>Draft preparation is open</small></span><b>DRAFT</b><em>View rankings →</em></button> : (() => { const live = livePortfolio(scan); const edge = live.mine != null && live.opponent != null ? live.mine - live.opponent : null; return <button key={`matchup-${scan.league.id}`} onClick={() => void onOpen(scan.league, "Scoreboard")}><span><strong>{scan.teamName}</strong><small>vs {scan.opponentName}</small></span><b className={edge == null ? "" : edge >= 0 ? "positive" : "negative"}>{edge != null ? `${edge >= 0 ? "+" : ""}${edge.toFixed(1)}` : "—"}</b><em>{live.mine?.toFixed(1) ?? "—"}–{live.opponent?.toFixed(1) ?? "—"}<small>{live.final ? "FINAL" : "LIVE PROJ"}</small></em></button>; })())}
+                {scans.map((scan) => scan.preDraft ? <button key={`matchup-${scan.league.id}`} className="pre-draft-matchup" onClick={() => void onOpen(scan.league, "Player Ranks")}><span><strong>{scan.teamName}</strong><small>{scan.league.name}</small><small>Draft preparation is open</small></span><b>DRAFT</b><em>View rankings →</em></button> : (() => { const live = livePortfolio(scan); const edge = live.mine != null && live.opponent != null ? live.mine - live.opponent : null; return <button key={`matchup-${scan.league.id}`} onClick={() => void onOpen(scan.league, "Scoreboard")}><span><strong>{scan.teamName}{live.record && <span className="team-record" aria-label={`Season record ${live.record}`}>{live.record}</span>}</strong><small>{scan.league.name}</small><small>vs {scan.opponentName}</small></span><b className={edge == null ? "" : edge >= 0 ? "positive" : "negative"}>{edge != null ? `${edge >= 0 ? "+" : ""}${edge.toFixed(1)}` : "—"}</b><em>{live.mine?.toFixed(1) ?? "—"}–{live.opponent?.toFixed(1) ?? "—"}<small>{live.final ? "FINAL" : "LIVE PROJ"}</small></em></button>; })())}
               </div>
             </article>
           </section>
@@ -6856,8 +6862,8 @@ function AllLeagueScoreboard({
             const urgency = matchup.status === "live" && margin <= 12 ? "urgent" : matchup.status === "live" ? "live" : matchup.status;
             return <button className={`${urgency}${mobileOverflowClass}`} type="button" key={league.id} onClick={() => scrollToLeagueScore(league.id)}>
               <span><i /> {matchup.status === "live" ? "LIVE" : matchup.status === "final" ? "FINAL" : `WEEK ${week}`} · {league.name}</span>
-              <p><b>{matchup.mine.teamName}</b><ScoreWithProjection team={matchup.mine} precision={1} /></p>
-              <p><b>{matchup.opponent.teamName}</b><ScoreWithProjection team={matchup.opponent} precision={1} /></p>
+              <p><b>{matchup.mine.teamName} <TeamRecord team={matchup.mine} /></b><ScoreWithProjection team={matchup.mine} precision={1} /></p>
+              <p><b>{matchup.opponent.teamName} <TeamRecord team={matchup.opponent} /></b><ScoreWithProjection team={matchup.opponent} precision={1} /></p>
               <small><em>{matchup.winProbability == null ? "WIN ODDS —" : `${matchup.winProbability}% WIN`}</em>{margin <= 12 && matchup.status === "live" ? "ONE-PLAY RANGE" : null}</small>
             </button>;
           })}
@@ -6886,7 +6892,7 @@ function AllLeagueScoreboard({
       </dialog>
       {featured && <section className="sunday-spotlight panel">
         <div className="spotlight-kicker"><span>{featured.status === "live" ? "● LIVE" : featured.status === "final" ? "FINAL" : "UP NEXT"}</span><small>MOST IMPORTANT MATCHUP</small><b title={featured.league.name}>{featured.league.name}</b></div>
-        <div className="spotlight-team"><small>YOU</small><strong>{featured.mine.teamName}</strong><b>{featured.mine.points.toFixed(2)}</b></div>
+        <div className="spotlight-team"><small>YOU</small><strong>{featured.mine.teamName} <TeamRecord team={featured.mine} /></strong><b>{featured.mine.points.toFixed(2)}</b></div>
         <div className="spotlight-versus spotlight-win-scale" aria-label={featured.winProbability == null ? "Estimated win probability unavailable" : `Estimated win probability ${featured.winProbability}%`}>
           <span>WIN PROBABILITY</span>
           <i role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={featured.winProbability ?? undefined}>
@@ -6894,7 +6900,7 @@ function AllLeagueScoreboard({
           </i>
           <small><em>YOU</em><strong>{featured.winProbability == null ? "—" : `${featured.winProbability}%`}</strong><em>OPP</em></small>
         </div>
-        <div className="spotlight-team opponent"><small>OPPONENT</small><strong>{featured.opponent.teamName}</strong><b>{featured.opponent.points.toFixed(2)}</b></div>
+        <div className="spotlight-team opponent"><small>OPPONENT</small><strong>{featured.opponent.teamName} <TeamRecord team={featured.opponent} /></strong><b>{featured.opponent.points.toFixed(2)}</b></div>
         <div className="spotlight-footer">
           <div className="spotlight-story"><strong>{Math.abs((featured.winProbability ?? 50) - 50) <= 10 ? "One play can swing this matchup." : (featured.winProbability ?? 0) >= 50 ? "Protect the lead as the late window develops." : "Your comeback path is still alive."}</strong><small>{featured.mineRemaining.toFixed(1)} of your projected points and {featured.opponentRemaining.toFixed(1)} opponent points remain.</small></div>
           <button type="button" onClick={() => void onOpenLeague(featured.league)}>Watch matchup →</button>
@@ -6961,7 +6967,7 @@ function AllLeagueScoreboard({
                   {[mine, opponent].map((team) => (
                     <div className={team.isMine ? "mine" : ""} key={team.rosterId}>
                       <span>{team.teamName.slice(0, 3).toUpperCase()}</span>
-                      <p><strong>{team.teamName}</strong><small>{team.managerName}{team.isMine ? " · YOU" : ""}{leader === team.rosterId && <em className="score-leader"> · LEADING</em>}</small></p>
+                      <p><strong>{team.teamName} <TeamRecord team={team} /></strong><small>{team.managerName}{team.isMine ? " · YOU" : ""}{leader === team.rosterId && <em className="score-leader"> · LEADING</em>}</small></p>
                       <ScoreWithProjection team={team} />
                     </div>
                   ))}
@@ -7138,7 +7144,7 @@ function Scoreboard({
                   >
                     <span>{team.teamName.slice(0, 3).toUpperCase()}</span>
                     <p>
-                      <strong>{team.teamName}</strong>
+                      <strong>{team.teamName} <TeamRecord team={team} /></strong>
                       <small>
                         {team.managerName}
                         {team.isMine ? " · YOU" : ""}
@@ -12106,7 +12112,7 @@ function HeadToHeadMatchup({
       <section className={`head-to-head-team ${team.isMine ? "mine" : ""}`}>
         <header>
           <span>{team.isMine ? "YOUR TEAM" : side}</span>
-          <h3>{team.teamName}</h3>
+          <h3>{team.teamName} <TeamRecord team={team} /></h3>
           <small>{team.managerName}</small>
           {leaderId === team.rosterId && <i>LEADING</i>}
         </header>
