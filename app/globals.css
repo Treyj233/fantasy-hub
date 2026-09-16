@@ -2503,3 +2503,17 @@ html[data-theme="dark"] .on-fire-grid > button:has(.temperature-indicator:is(.co
 .weekly-result.result-W{background:#157647;color:white}.weekly-result.result-L{background:#a93640;color:white}
 .weekly-recap-dialog footer{display:grid;gap:12px;margin-top:16px}
 .weekly-recap-dialog footer button{width:100%;min-height:44px}
+
+.library-look-generator{display:flex;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:18px;padding:14px;border:1px solid var(--line);border-left:4px solid var(--gold);border-radius:12px;background:color-mix(in srgb,var(--gold) 10%,var(--chalk));color:var(--ink)}
+.library-look-generator>div:first-child{flex:1 1 220px;min-width:0}
+.library-look-generator strong{font-size:16px}
+.library-look-generator p{margin:5px 0 0;font-size:13px;line-height:1.45;color:var(--muted)}
+.library-look-generator button{min-height:44px;padding:10px 14px;border:1px solid var(--line);border-radius:10px;font:inherit;font-size:13px;font-weight:750;cursor:pointer;white-space:normal}
+.library-look-generator .generate-owned-look{background:var(--gold-light);color:#14202b;border-color:var(--gold);box-shadow:0 3px 0 color-mix(in srgb,var(--gold) 55%,transparent)}
+.library-look-generator .generate-owned-look:disabled{opacity:.55;cursor:not-allowed;box-shadow:none}
+.library-look-generator button:focus-visible{outline:3px solid var(--gold);outline-offset:3px}
+.library-look-actions{display:flex;flex-wrap:wrap;gap:8px;width:100%}
+.library-look-actions button{background:var(--chalk);color:var(--ink)}
+.library-look-generator .generated-look-status{flex-basis:100%;margin:0;color:var(--ink)}
+.generated-look-status:empty{display:none}
+@media(max-width:560px){.library-look-generator .generate-owned-look{width:100%}.library-look-actions button{flex:1 1 140px}}

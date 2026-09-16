@@ -18,6 +18,7 @@ import { disableNativePushNotifications, enableNativePushNotifications, initiali
 import { trackNativeScreen } from './native-screen-analytics';
 import { useOverflowAutoScroll } from "./use-overflow-auto-scroll";
 import { nativeOpenLeague, nativePushSettings, syncDefaultNativePushNotifications } from "./native-runtime";
+import { randomOwnedLook } from "./random-owned-look.mjs";
 import { injuryTradePenalty } from "./postgame-value.mjs";
 import { hideFinishedWeeklyGame } from "./weekly-ranking-visibility.mjs";
 import { tradeMatchesTarget } from "./trade-target-fit.mjs";
@@ -3894,6 +3895,11 @@ export default function FantasyHub({
             teamTheme={effectiveTeamTheme}
             onTeamThemeChange={(value) => { setTeamTheme(value); void saveAccountPreferences({ teamTheme: value }); }}
             badgeTheme={effectiveBadgeTheme}
+            onGenerateLook={(theme, badge) => {
+              setTeamTheme(theme);
+              setBadgeTheme(badge);
+              void saveAccountPreferences({ teamTheme: theme, badgeTheme: badge });
+            }}
             onBadgeThemeChange={(value) => { setBadgeTheme(value); void saveAccountPreferences({ badgeTheme: value }); }}
             isPro={entitlement.pro}
             isElite={entitlement.elite}
@@ -4712,6 +4718,7 @@ function ProPlans({ entitlement }: { entitlement: AccountEntitlement }) {
 }
 
 function ThemeStore({
+  onGenerateLook,
   teamTheme,
   onTeamThemeChange,
   badgeTheme,
@@ -4724,6 +4731,7 @@ function ThemeStore({
   onPurchaseConfirmed,
   onUpgrade,
 }: {
+  onGenerateLook: (theme: string, badge: BadgeTheme) => void;
   teamTheme: string;
   onTeamThemeChange: (team: string) => void;
   badgeTheme: BadgeTheme;
@@ -4737,6 +4745,7 @@ function ThemeStore({
   onUpgrade: () => void;
 }) {
   const [tab, setTab] = useState<"library" | "store">("store");
+  const [generatedLookMessage, setGeneratedLookMessage] = useState("");
   const nativeIos = useSyncExternalStore(() => () => undefined, isNativeIosApp, () => false);
   const [packPrices, setPackPrices] = useState<Record<string, string>>({});
   const [packBusy, setPackBusy] = useState("");
@@ -4754,6 +4763,8 @@ function ThemeStore({
   const proBadgePacks = badgeThemeOptions.filter((pack) => !premiumBadgeThemeIds.has(pack.id));
   const libraryTeams = nflThemes.filter((team) => ownedTeamThemes.includes(team.id) || (isPro && !team.premium) || (isOwner && Boolean(team.premium)));
   const libraryBadges = badgeThemeOptions.filter((pack) => ownedBadgeThemes.includes(pack.id) || (isPro && !premiumBadgeThemeIds.has(pack.id)) || (isOwner && premiumBadgeThemeIds.has(pack.id)));
+  // LAC/arcade are the free starter look, not a purchased custom collection.
+  const hasCustomThemes = isPro || isElite || isOwner || libraryTeams.some((theme) => theme.id !== "LAC");
   const premiumLibraryThemes = libraryTeams.filter((team) => team.premium);
   const nflLibraryThemes = libraryTeams.filter((team) => !team.premium);
   const premiumLibraryBadges = libraryBadges.filter((pack) => premiumBadgeThemeIds.has(pack.id));
@@ -4815,6 +4826,20 @@ function ThemeStore({
     </section>
     <nav className="theme-store-tabs" role="tablist" aria-label="Theme Locker sections"><button role="tab" aria-selected={tab === "store"} className={tab === "store" ? "active" : ""} onClick={()=>setTab("store")}><span>STORE {hasNewStoreItems && <em className="theme-tab-new">NEW</em>}</span><small>Discover new looks</small></button><button role="tab" aria-selected={tab === "library"} className={tab === "library" ? "active" : ""} onClick={()=>setTab("library")}><span>MY LIBRARY</span><small>Apply themes you own</small></button></nav>
     {tab === "library" ? <section className="appearance-panel theme-store-catalog panel" role="tabpanel">
+      <div className="library-look-generator">
+        <div><strong>Mix up your Hub</strong><p>{!hasCustomThemes || libraryTeams.length === 0
+          ? "Add Pro or Elite access, or purchase themes from the Theme Store to build your custom look."
+          : libraryBadges.length === 0 ? "Add an icon pack from the Theme Store to complete your custom look."
+          : "Randomly pair a theme and icon pack from your library."}</p></div>
+        <button type="button" className="generate-owned-look" disabled={!hasCustomThemes || !libraryTeams.length || !libraryBadges.length} onClick={() => {
+          const look = randomOwnedLook(libraryTeams, libraryBadges, teamTheme, badgeTheme);
+          if (!look) return;
+          onGenerateLook(look.theme.id, look.badge.id);
+          setGeneratedLookMessage(`${look.theme.name} + ${look.badge.name} applied.`);
+        }}><span aria-hidden="true">⤨</span> Generate Custom Theme</button>
+        {(!hasCustomThemes || !libraryTeams.length || !libraryBadges.length) && <div className="library-look-actions"><button type="button" onClick={onUpgrade}>Explore Pro &amp; Elite</button><button type="button" onClick={() => setTab("store")}>Browse Theme Store</button></div>}
+        <p className="generated-look-status" role="status" aria-live="polite">{generatedLookMessage}</p>
+      </div>
       <div className="panel-header"><div><span>MY THEME LIBRARY</span><h3>Choose an owned team palette</h3></div><label>Team<select value={teamTheme} onChange={(event) => onTeamThemeChange(event.target.value)}>{libraryTeams.map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}</select></label></div>
       <div className="selected-team-theme"><i style={{background:`linear-gradient(135deg, ${selectedNflTheme.primary} 0 50%, ${selectedNflTheme.secondary} 50%)`}}/><span><strong>{selectedNflTheme.name}</strong><small>{selectedNflTheme.primary} · {selectedNflTheme.secondary}</small></span><b>ACTIVE THEME</b></div>
       {premiumLibraryThemes.length > 0 && <section className="library-standalone"><header><span>PREMIUM THEMES</span><strong>Your standalone theme releases</strong></header>{renderThemeButtons(premiumLibraryThemes, "Owned premium themes")}</section>}
