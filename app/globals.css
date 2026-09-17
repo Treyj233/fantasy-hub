@@ -2567,10 +2567,10 @@ button.portfolio-player-tile{cursor:pointer}
 .tool-context-bar small{line-height:1.15}
 .tool-context-bar .context-week-picker select{min-height:0;height:18px;line-height:18px;margin:0;padding-block:0}
 @media(max-width:700px){.tool-context-bar,.tool-context-bar.home-context{margin-top:5px}.tool-context-bar>.context-league-button,.tool-context-bar>span,.tool-context-bar>.context-week-picker{padding:4px 6px}.tool-context-bar>.context-league-button{padding-right:17px}}
-/* Let extreme matchup markers paint above the badge instead of clipping. */
-.roster-section .matchup-team:not(.neutral):not(.bye){overflow:visible}
-.roster-section .matchup-team>span{overflow:visible}
-.roster-section .matchup-team>span>i{z-index:2;left:clamp(6px,var(--matchup-position),calc(100% - 6px));pointer-events:none}
+/* Shared across every opponent-strength badge, including compact matchup cards. */
+.matchup-team:not(.neutral):not(.bye){overflow:visible}
+.matchup-team:not(.neutral):not(.bye)>span{overflow:visible}
+.matchup-team>span>i{z-index:2;left:clamp(6px,var(--matchup-position),calc(100% - 6px));pointer-events:none}
 .team-record{display:inline-block;margin-inline-start:6px;padding:0;border:0;border-radius:0;color:inherit;background:transparent;font-size:12px;font-weight:700;line-height:1.4;white-space:nowrap;vertical-align:middle;font-variant-numeric:tabular-nums}
 .head-to-head-team>header .matchup-team-title{display:flex;align-items:baseline;gap:6px;max-width:100%;min-width:0}
 .head-to-head-team>header .matchup-team-name{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:inherit;font:inherit;letter-spacing:inherit}

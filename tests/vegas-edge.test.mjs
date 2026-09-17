@@ -14,8 +14,14 @@ test('QB estimates respect interception scoring and include priced rushing TDs',
   const qb={...player,name:'Jayden Daniels',position:'QB'};
   const markets=['passing_yards','passing_touchdowns','rushing_yards','touchdowns'].map((stat,i)=>({stat,line:[240.5,1.5,45.5,.5][i],overProbability:.5,books:2}));
   const feed=[{...event,players:[{...event.players[0],name:qb.name,props:markets}]}];
-  // Four props are not necessarily complete: never invent a scored interception market.
-  assert.equal(edgeProjection(qb,feed,context,now).projection,null);
+  // Missing INTs no longer hide the available-market subtotal or imply zero INTs.
+  const partial=edgeProjection(qb,feed,context,now);
+  assert.ok(partial.projection>0);
+  assert.equal(partial.label,'Partial estimate');
+  assert.equal(partial.usable,false);
+  assert.equal(partial.delta,null);
+  assert.deepEqual(edgeSuggestions([partial],[]),{swaps:[],targets:[]});
+  assert.equal(edgeProjection({...qb,projection:99},feed,context,now).projection,partial.projection);
   const noInts={...context,scoringRules:{...context.scoringRules,pass_int:0}};
   const row=edgeProjection(qb,feed,noInts,now);
   assert.equal(row.usable,true);

@@ -73,6 +73,7 @@ export default function VegasEdge({leagueId,teamId,roster,waivers,context,season
 
     <dialog ref={marketDialog} className="edge-market-dialog" aria-labelledby="edge-market-title" onCancel={()=>setMarketPlayer(null)} onClose={()=>setMarketPlayer(null)}>
       <header><div><span>PROP MARKETS</span><h3 id="edge-market-title">{selectedMarket?.player.name ?? 'Player markets'}</h3></div><button type="button" aria-label="Close prop markets" onClick={()=>setMarketPlayer(null)}>×</button></header>
+      {selectedMarket?.partial&&<p className="edge-market-meta">Available-market subtotal only. Missing markets, including interception deductions, are not estimated. Excluded from lineup recommendations and app-wide projection overrides.</p>}
       <div className="edge-market-body">{selectedMarket&&<><p className="edge-market-meta">{selectedMarket.player.position} · {selectedMarket.player.team} · {selectedMarket.label}</p><div className="edge-market-list">{selectedMarket.props.map(p=><article key={p.stat}><div><b>{p.stat.replaceAll('_',' ')}</b><small>{p.source==='provider-fair'?'Fair consensus':`${p.books} books`} · Over {p.line}: {(p.overProbability*100).toFixed(1)}%</small><small>Modeled estimate: {marketExpectation(p)?.toFixed(2) ?? '—'} · Odds-adjusted approximation</small></div><strong>{p.line}</strong></article>)}</div>{selectedMarket.event&&<footer><span>Snapshot <b>{timestamp(selectedMarket.event.updatedAt)}</b></span><span>Kickoff <b>{timestamp(selectedMarket.event.startsAt)}</b></span></footer>}</>}</div>
     </dialog>
   </div>;

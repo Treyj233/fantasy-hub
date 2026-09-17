@@ -25,7 +25,7 @@ export function projectionAdapter(enabled:boolean,events:EdgeEvent[],schedule:Pr
     const projectionLocked=Boolean(scheduleGame&&Date.parse(scheduleGame.date)<=now);
     const evaluationTime=game?Math.min(now,Date.parse(game.startsAt)-1):now;
     const result=context?edgeProjection(p,relevant,context,evaluationTime):null;
-    if(result?.projection==null)return {...p,projectionOrigin:'Platform fallback',projectionLocked};
+    if(result?.projection==null || !result.usable)return {...p,projectionOrigin:'Platform fallback',projectionLocked};
     const base=p.leagueProjection ?? p.projection;
     const ratio=base>0?result.projection/base:1;
     return {...p,platformSnapshot:{projection:p.projection,leagueProjection:p.leagueProjection,floor:p.floor,ceiling:p.ceiling},projection:result.projection,leagueProjection:result.projection,floor:p.floor===undefined?undefined:Math.round(p.floor*ratio*10)/10,ceiling:p.ceiling===undefined?undefined:Math.round(p.ceiling*ratio*10)/10,projectionOrigin:VEGAS_PROJECTION_LABEL,projectionLocked};
