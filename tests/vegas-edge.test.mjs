@@ -19,7 +19,7 @@ test('QB estimates respect interception scoring and include priced rushing TDs',
   assert.ok(partial.projection>0);
   assert.equal(partial.label,'Partial estimate');
   assert.equal(partial.usable,false);
-  assert.equal(partial.delta,null);
+  assert.equal(partial.delta,Math.round((partial.projection-qb.projection)*10)/10);
   assert.deepEqual(edgeSuggestions([partial],[]),{swaps:[],targets:[]});
   assert.equal(edgeProjection({...qb,projection:99},feed,context,now).projection,partial.projection);
   const noInts={...context,scoringRules:{...context.scoringRules,pass_int:0}};

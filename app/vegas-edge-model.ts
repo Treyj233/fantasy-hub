@@ -112,11 +112,12 @@ export function edgeProjection(player: EdgePlayer, events: EdgeEvent[], context:
   // added to the odds-derived estimate, including for unmodeled scoring stats.
   // Core yardage coverage can support a displayed subtotal even when a TD,
   // reception, or interception market is absent. Never treat that subtotal as
-  // a complete projection for comparisons, recommendations, or app overrides.
+  // a complete projection for recommendations or app overrides. Displayed
+  // comparisons retain the partial label so missing markets remain explicit.
   const coreCoverage=qb?py!==undefined&&pt!==undefined:player.position==='RB'?ry!==undefined:['WR','TE'].includes(player.position)&&cy!==undefined;
   const partial=Boolean(!complete && coreCoverage && props.length>=2 && !locked && !stale && !unavailable && scoringKnown);
   const projection=usable||partial?Math.round(points*10)/10:null;
-  return {player,baseline,projection,partial,delta:!usable?null:Math.round((projection!-baseline)*10)/10,props,event:match?.event,usable,questionable,locked,stale,label:locked?'Locked':unavailable?'Unavailable':!scoringKnown?'Refresh league scoring':stale?'Stale lines':usable?'Odds implied':partial?'Partial estimate':props.length?'Partial coverage':'Awaiting props',modeledTd:td?.line===.5};
+  return {player,baseline,projection,partial,delta:projection===null?null:Math.round((projection-baseline)*10)/10,props,event:match?.event,usable,questionable,locked,stale,label:locked?'Locked':unavailable?'Unavailable':!scoringKnown?'Refresh league scoring':stale?'Stale lines':usable?'Odds implied':partial?'Partial estimate':props.length?'Partial coverage':'Awaiting props',modeledTd:td?.line===.5};
 }
 // Display the saved pregame estimate after kickoff without unlocking advice.
 export function edgeRosterProjection(player: EdgePlayer, events: EdgeEvent[], context: EdgeContext, now=Date.now()) {

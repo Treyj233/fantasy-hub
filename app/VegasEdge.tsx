@@ -49,11 +49,13 @@ export default function VegasEdge({leagueId,teamId,roster,waivers,context,season
   const rows=useMemo(()=>roster.map(p=>edgeRosterProjection(p,events,context,clock)),[roster,events,context,clock]);
   const waiverRows=useMemo(()=>waivers.filter(p=>!roster.some(r=>r.id===p.id)).map(p=>edgeProjection(p,events,context,clock)),[waivers,roster,events,context,clock]);
   const {swaps,targets}=useMemo(()=>edgeSuggestions(rows,waiverRows),[rows,waiverRows]);
-  const covered=rows.filter(r=>r.usable).length;
+  // Coverage describes available prop markets, not recommendation eligibility.
+  const hasCoverage=(r:typeof rows[number])=>r.props.length>0;
+  const covered=rows.filter(hasCoverage).length;
   const starters=rows.filter(r=>!isReserve(r.player.role));
   const coveredStarters=starters.filter(r=>r.usable);
   const delta=coveredStarters.reduce((sum,r)=>sum+(r.delta ?? 0),0);
-  const visible=rows.filter(r=>filter==='All'||filter==='Starters'&&!isReserve(r.player.role)||filter==='Bench'&&isReserve(r.player.role)||filter==='Covered'&&r.usable);
+  const visible=rows.filter(r=>filter==='All'||filter==='Starters'&&!isReserve(r.player.role)||filter==='Bench'&&isReserve(r.player.role)||filter==='Covered'&&hasCoverage(r));
   const selectedMarket=rows.find(r=>r.player.id===marketPlayer);
   const signed=(n:number)=>`${n>0?'+':''}${n.toFixed(1)}`;
   const timestamp=(date:string)=>new Date(date).toLocaleString(undefined,{weekday:'short',hour:'numeric',minute:'2-digit'});
@@ -63,7 +65,7 @@ export default function VegasEdge({leagueId,teamId,roster,waivers,context,season
     <div className="edge-source-note">Actual scores unchanged · Uncovered players use platform projections</div>
     {error && <p className="panel" role="alert">{error} <button onClick={()=>setRefresh(n=>n+1)}>Try again</button></p>}
     <div className="edge-connection" role="status"><span className={feed?.configured?'edge-live-dot is-ready':'edge-live-dot'}/><b>{!feed?'Connecting…':feed.configured?'Markets connected':'Connection needed'}</b>{feed?.checkedAt&&<small>Checked {timestamp(feed.checkedAt)}</small>}</div>
-    <div className="edge-metrics"><section className="panel"><small>COVERED</small><strong>{covered}<em> / {rows.length}</em></strong><span>players with fresh lines</span></section><section className="panel"><small>STARTER EDGE</small><strong>{coveredStarters.length?signed(delta):'—'}</strong><span>{coveredStarters.length} of {starters.length} covered starters</span></section><section className="panel"><small>UPGRADES</small><strong>{swaps.length}</strong><span>lineup moves</span></section></div>
+    <div className="edge-metrics"><section className="panel"><small>COVERED</small><strong>{covered}<em> / {rows.length}</em></strong><span>full or partial prop coverage</span></section><section className="panel"><small>STARTER EDGE</small><strong>{coveredStarters.length?signed(delta):'—'}</strong><span>{coveredStarters.length} of {starters.length} fully covered starters</span></section><section className="panel"><small>UPGRADES</small><strong>{swaps.length}</strong><span>lineup moves</span></section></div>
     <section className="panel edge-board"><header><div><h3>Roster outlook</h3><p>Week {week} · {context.scoring}</p></div><div className="edge-filters" aria-label="Roster filters">{['All','Starters','Bench','Covered'].map(f=><button key={f} aria-pressed={filter===f} onClick={()=>setFilter(f)}>{f}</button>)}</div></header>
       <div className="edge-table-wrap"><table><colgroup><col className="edge-name-col"/><col className="edge-slot-col"/><col className="edge-matchup-col"/><col/><col/><col className="edge-props-cell"/><col/></colgroup><thead><tr><th>Player</th><th>Slot</th><th>Matchup</th><th>Fantasy points</th><th>Vegas</th><th className="edge-props-cell">Props</th><th>Edge</th></tr></thead><tbody>{visible.map(r=>{const score=myTeamScore(r.baseline,livePlayers.get(r.player.id));return <tr key={r.player.id}>{renderRosterColumns(r.player)}<td data-score-label={score.label === "PROJ" ? "PLATFORM" : score.label} className={score.label === "PROJ" ? "edge-score" : "edge-score is-actual"}>{score.value?.toFixed(1) ?? "—"}<small className="edge-score-status">{score.label}</small></td><td className="edge-projection">{r.projection?.toFixed(1) ?? '—'}<small className="edge-coverage-label">{r.label}</small></td><td className="edge-props-cell">{r.props.length>0&&<button type="button" className="edge-market-trigger" aria-haspopup="dialog" aria-label={`View prop markets for ${r.player.name}`} onClick={()=>setMarketPlayer(r.player.id)}>{r.props.length} props ↗</button>}</td><td data-direction={(r.delta ?? 0)>0?'up':(r.delta ?? 0)<0?'down':'flat'}>{r.delta===null?'—':signed(r.delta)}</td></tr>})}</tbody></table></div>
       {!visible.length&&<p className="edge-empty">No players match this filter yet.</p>}
