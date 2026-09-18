@@ -2493,7 +2493,18 @@ html[data-theme="dark"] .on-fire-grid > button:has(.temperature-indicator:is(.co
 .team-picker-strip .team-picker-heading .projection-mode-notice button:focus-visible{outline:2px solid #fff;outline-offset:2px;box-shadow:0 0 0 4px #202630}
 .team-picker-strip .team-picker-heading .projection-mode-notice button span{color:inherit;letter-spacing:normal}
 .command-full-lineup{display:grid;gap:4px;margin-top:12px}.command-full-lineup button{display:grid;grid-template-columns:48px minmax(0,1fr) 44px;align-items:center;gap:8px;padding:9px;border:1px solid var(--line);border-radius:7px;background:var(--chalk);color:var(--ink);text-align:left;font:inherit;font-size:12px}.command-full-lineup button>span{font-size:10px;color:var(--muted)}.command-full-lineup button>b{text-align:right;font-variant-numeric:tabular-nums}.command-full-lineup small{display:block;color:var(--green);font-size:9px;margin-top:3px}.command-full-lineup .scenario-difference{border-left:3px solid var(--lime);background:color-mix(in srgb,var(--lime) 12%,var(--chalk))}
-@media(max-width:700px){.roster-section tbody tr{grid-template-areas:"player slot projection" "player slot status" "matchup matchup matchup";row-gap:4px}.roster-section tbody td:nth-child(2){align-self:start}.roster-section tbody td:nth-child(3){width:100%;justify-self:stretch}.roster-section tbody td:nth-child(5){align-self:start;margin-top:8px}}
+/* Keep health beside matchup details instead of reserving another full header row. */
+@media(max-width:700px){
+  .roster-section tbody tr{grid-template-columns:minmax(0,1fr) 44px 62px;grid-template-areas:"player slot projection" "matchup matchup status";align-items:start;column-gap:6px;row-gap:5px;padding:7px 4px}
+  .roster-section td.roster-player-cell{align-self:center}
+  .roster-section tbody td:nth-child(2){align-self:center;width:44px}
+  .roster-section tbody td:nth-child(3){width:100%;justify-self:stretch}
+  .roster-section tbody td:nth-child(4){width:auto}
+  .roster-section tbody td:nth-child(5){align-self:start;max-width:100%;margin-top:3px;text-align:right}
+  .roster-section .status,.roster-section .empty-slot-status{display:inline-block;max-width:100%;padding:3px 4px;white-space:normal;overflow-wrap:anywhere}
+  .roster-section .roster-weather{margin-top:3px}
+  .roster-section>header{padding:10px 12px 9px}
+}
 /* Global week navigation and the account's Tuesday recap. */
 .tool-context-bar .context-week-picker{display:flex;flex:1;flex-direction:column;justify-content:center;min-width:0;gap:1px;padding:8px 11px;background:color-mix(in srgb,var(--chalk) 96%,var(--green));color:var(--ink)}
 .context-week-picker select{width:100%;max-width:100%;min-height:22px;padding:0 16px 0 0;border:0;background:transparent;color:inherit;font:inherit;font-size:12px;font-weight:700;cursor:pointer}

@@ -4578,28 +4578,39 @@ function AccessAccount({ accountUser, entitlement, onPlans }: { accountUser: Acc
   </div>;
 }
 
+const membershipOfferSeen = new Map<string,string>();
 function DailyMembershipOffer({account,entitlement,ready,onLearnMore}:{account:string;entitlement:AccountEntitlement;ready:boolean;onLearnMore:()=>void}) {
   const [open,setOpen]=useState(false);
-  const shownForOpening=useRef('');
+  const normalizedAccount=account.trim().toLowerCase();
   const eligible=Boolean(account&&!entitlement.pro&&!entitlement.elite&&!entitlement.owner);
-  useEffect(()=>{shownForOpening.current='';},[account]);
+  const markSeen=()=>{
+    const now=new Date(),day=`${now.getFullYear()}-${now.getMonth()+1}-${now.getDate()}`;
+    const key=`fh-membership-offer:daily:${normalizedAccount}`;
+    membershipOfferSeen.set(key,day);
+    try{localStorage.setItem(key,day);}catch{/* Session and memory still suppress repeats. */}
+    try{sessionStorage.setItem(key,day);}catch{/* Memory still suppresses repeats. */}
+  };
+  const dismiss=()=>{markSeen();setOpen(false);};
   useEffect(()=>{
     if(!eligible||!ready){setOpen(false);return;}
     const check=()=>{
-      if(document.visibilityState==='hidden'){shownForOpening.current='';return;}
       if(document.visibilityState!=='visible'||document.querySelector('dialog[open]'))return;
-      if(shownForOpening.current===account)return;
       const now=new Date(),day=`${now.getFullYear()}-${now.getMonth()+1}-${now.getDate()}`;
-      const key=`fh-membership-offer:daily:${account.toLowerCase()}`;
-      try {if(localStorage.getItem(key)===day)return;localStorage.setItem(key,day);}catch{return;}
-      shownForOpening.current=account;
+      const key=`fh-membership-offer:daily:${normalizedAccount}`;
+      if(membershipOfferSeen.get(key)===day)return;
+      try {
+        if(localStorage.getItem(key)===day||sessionStorage.getItem(key)===day){membershipOfferSeen.set(key,day);return;}
+        // Persist before opening; if storage is unavailable, do not interrupt the user.
+        localStorage.setItem(key,day);
+        sessionStorage.setItem(key,day);
+      }catch{return;}
+      membershipOfferSeen.set(key,day);
       setOpen(true);
     };
     const timer=window.setTimeout(check,1200);
-    document.addEventListener('visibilitychange',check);
-    return()=>{window.clearTimeout(timer);document.removeEventListener('visibilitychange',check);};
-  },[account,eligible,ready]);
-  return open&&eligible&&ready?<PortfolioDetailDialog title="Fantasy Hub membership offer" hideHeader onClose={()=>setOpen(false)}><ProPlans entitlement={entitlement} offer onDismiss={()=>setOpen(false)} onLearnMore={()=>{setOpen(false);onLearnMore();}}/></PortfolioDetailDialog>:null;
+    return()=>{window.clearTimeout(timer);};
+  },[normalizedAccount,eligible,ready]);
+  return open&&eligible&&ready?<PortfolioDetailDialog title="Fantasy Hub membership offer" hideHeader onClose={dismiss}><ProPlans entitlement={entitlement} offer onDismiss={dismiss} onLearnMore={()=>{dismiss();onLearnMore();}}/></PortfolioDetailDialog>:null;
 }
 
 function ProPlans({ entitlement,offer=false,onDismiss,onLearnMore }: { entitlement: AccountEntitlement;offer?:boolean;onDismiss?:()=>void;onLearnMore?:()=>void }) {

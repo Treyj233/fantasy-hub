@@ -11,10 +11,13 @@ test('public offer excludes existing members and owner access',()=>{
 test('daily account/device limit persists on presentation and resumes on opening',()=>{
  assert.match(gate,/localStorage.getItem\(key\)===day/);
  assert.ok(gate.indexOf('localStorage.setItem(key,day)')<gate.indexOf('setOpen(true)'));
- assert.match(gate,/account.toLowerCase/);
- assert.match(gate,/visibilitychange/);
+ assert.match(gate,/account.trim\(\).toLowerCase/);
+ assert.doesNotMatch(gate,/addEventListener\('visibilitychange'/);
  assert.doesNotMatch(gate,/ownerPreviewOnly/);
- assert.match(gate,/if\(shownForOpening.current===account\)return/);
+ assert.match(gate,/membershipOfferSeen.get\(key\)===day/);
+ assert.match(gate,/sessionStorage.getItem\(key\)===day/);
+ assert.match(gate,/onClose=\{dismiss\}/);
+ assert.match(gate,/onDismiss=\{dismiss\}/);
 });
 test('offer directly invokes shared checkout for both plans with clear renewal terms',()=>{
  assert.match(offer,/openBilling\('\/api\/billing\/checkout','monthly'\)/);
