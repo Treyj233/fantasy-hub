@@ -2410,6 +2410,12 @@ html[data-theme="dark"] .command-action-queue span em{color:#ff9c88}
   .roster-section td[data-score-label]{text-align:center}
   .roster-section th:nth-child(4){text-align:center}
 }
+@media(min-width:1025px){
+  /* Add 10px on either side without scaling labels or changing mobile rows. */
+  .roster-section .roster-matchup-details>.matchup-team{padding-inline:18px;min-width:170px}
+  .roster-section .roster-matchup-details>.roster-weather{width:calc(100% + 20px);margin-inline:-10px}
+  .roster-section .roster-temperature{width:calc(100% + 20px);min-width:205px;max-width:250px;position:relative;left:50%;margin-inline:0;transform:translateX(-50%)}
+}
 @media(max-width:700px){.roster-section .roster-matchup-details{display:flex;flex:1;min-width:0;width:100%;align-items:flex-start;flex-direction:column}.roster-section .roster-matchup-details>.matchup-team{box-sizing:border-box;width:100%;max-width:100%;margin-left:0;margin-right:0;text-align:left}.roster-section .roster-weather{box-sizing:border-box;overflow:visible;width:100%;max-width:none;margin-top:5px;margin-left:0;margin-right:0;text-align:left;line-height:1.25;text-overflow:clip;white-space:normal}}
 
 /* One-time, account-aware Week 1 kickoff prompt. */
