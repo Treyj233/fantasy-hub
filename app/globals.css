@@ -2608,6 +2608,12 @@ button.portfolio-player-tile{cursor:pointer}
 .head-to-head-player .matchup-player-name-line>.inline-player-link{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .head-to-head-player .matchup-player-name-line+small{display:block;margin-top:1px}
 .stack-monitor{padding:12px}
+/* Match the vertical rhythm of the adjacent Command Center cards. */
+.command-center-page>.metric-grid{margin-bottom:15px}
+.command-center-page>.stack-monitor{margin-bottom:15px}
+@media(max-width:700px){
+  .command-center-page>.metric-grid,.command-center-page>.stack-monitor{margin-bottom:9px}
+}
 .stack-widget-legend{display:flex;flex-wrap:wrap;gap:12px;color:var(--muted);font-size:11px;margin:6px 0}
 .stack-monitor-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(240px,100%),1fr));gap:6px;margin:8px 0}
 .stack-monitor .stack-widget-row{display:grid;grid-template-columns:28px minmax(0,1fr) auto;align-items:center;gap:8px;padding:9px;border:1px solid var(--line);border-left:3px solid var(--stack-ring);border-radius:10px;background:color-mix(in srgb,var(--green) 4%,var(--chalk));color:var(--ink)}
