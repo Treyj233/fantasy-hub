@@ -778,7 +778,7 @@ type ScoreboardTeam = {
   topPlayers: ScoreboardPlayer[];
 };
 
-function PortfolioDetailDialog({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+function PortfolioDetailDialog({ title, onClose, children, hideHeader=false }: { title: string; onClose: () => void; children: ReactNode; hideHeader?:boolean }) {
   const dialog = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     const element = dialog.current;
@@ -788,7 +788,7 @@ function PortfolioDetailDialog({ title, onClose, children }: { title: string; on
     document.documentElement.style.overflow = "hidden";
     return () => { element?.close(); document.documentElement.style.overflow = previous; trigger?.focus({ preventScroll: true }); };
   }, []);
-  return createPortal(<dialog ref={dialog} className="portfolio-detail-dialog" aria-label={title} onCancel={(event) => { event.preventDefault(); onClose(); }} onClick={(event) => { if (event.target === event.currentTarget) onClose(); }}><header><h3>{title}</h3><button type="button" onClick={onClose} aria-label="Close details">×</button></header><div className="portfolio-detail-scroll">{children}</div></dialog>, document.body);
+  return createPortal(<dialog ref={dialog} className="portfolio-detail-dialog" aria-label={title} onCancel={(event) => { event.preventDefault(); onClose(); }} onClick={(event) => { if (event.target === event.currentTarget) onClose(); }}>{!hideHeader&&<header><h3>{title}</h3><button type="button" onClick={onClose} aria-label="Close details">×</button></header>}<div className="portfolio-detail-scroll">{children}</div></dialog>, document.body);
 }
 
 function TeamRecord({ team }: { team: ScoreboardTeam }) {
@@ -4604,7 +4604,7 @@ function DailyMembershipOffer({account,entitlement,ready,onLearnMore}:{account:s
     document.addEventListener('visibilitychange',check);
     return()=>{window.clearTimeout(timer);document.removeEventListener('visibilitychange',check);};
   },[account,eligible,ready]);
-  return open&&eligible&&ready?<PortfolioDetailDialog title="Give your lineup an edge" onClose={()=>setOpen(false)}><ProPlans entitlement={entitlement} offer onDismiss={()=>setOpen(false)} onLearnMore={()=>{setOpen(false);onLearnMore();}}/></PortfolioDetailDialog>:null;
+  return open&&eligible&&ready?<PortfolioDetailDialog title="Fantasy Hub membership offer" hideHeader onClose={()=>setOpen(false)}><ProPlans entitlement={entitlement} offer onDismiss={()=>setOpen(false)} onLearnMore={()=>{setOpen(false);onLearnMore();}}/></PortfolioDetailDialog>:null;
 }
 
 function ProPlans({ entitlement,offer=false,onDismiss,onLearnMore }: { entitlement: AccountEntitlement;offer?:boolean;onDismiss?:()=>void;onLearnMore?:()=>void }) {
