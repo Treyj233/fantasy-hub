@@ -4580,11 +4580,8 @@ function AccessAccount({ accountUser, entitlement, onPlans }: { accountUser: Acc
 
 function DailyMembershipOffer({account,entitlement,ready,onLearnMore}:{account:string;entitlement:AccountEntitlement;ready:boolean;onLearnMore:()=>void}) {
   const [open,setOpen]=useState(false);
-  // Switch off only when the public rollout is approved: restores daily limits
-  // and excludes all existing members, including owners with membership access.
-  const ownerPreviewOnly=true;
   const shownForOpening=useRef('');
-  const eligible=Boolean(account&&(ownerPreviewOnly?entitlement.owner:!entitlement.pro&&!entitlement.elite));
+  const eligible=Boolean(account&&!entitlement.pro&&!entitlement.elite&&!entitlement.owner);
   useEffect(()=>{shownForOpening.current='';},[account]);
   useEffect(()=>{
     if(!eligible||!ready){setOpen(false);return;}
@@ -4594,9 +4591,7 @@ function DailyMembershipOffer({account,entitlement,ready,onLearnMore}:{account:s
       if(shownForOpening.current===account)return;
       const now=new Date(),day=`${now.getFullYear()}-${now.getMonth()+1}-${now.getDate()}`;
       const key=`fh-membership-offer:daily:${account.toLowerCase()}`;
-      if(!ownerPreviewOnly){
-        try {if(localStorage.getItem(key)===day)return;localStorage.setItem(key,day);}catch{return;}
-      }
+      try {if(localStorage.getItem(key)===day)return;localStorage.setItem(key,day);}catch{return;}
       shownForOpening.current=account;
       setOpen(true);
     };
@@ -4751,7 +4746,7 @@ function ProPlans({ entitlement,offer=false,onDismiss,onLearnMore }: { entitleme
     ? <strong>ELITE IS ACTIVE</strong>
     : <button disabled={Boolean(billingBusy)} onClick={() => void openBilling("/api/billing/checkout", plan)}>{billingBusy === plan ? "Opening secure checkout…" : entitlement.pro ? `Upgrade · ${label}` : label}</button>;
   if(offer)return <div className="membership-offer">
-    <header className="membership-promo-hero"><FHLogo label="Fantasy Hub"/><div><span className="membership-preview">OWNER PREVIEW · YOUR NEXT UPGRADE</span><h2>Bring your A-game. 🏆</h2><p>Big decisions. Better tools. Your edge.</p></div></header>
+    <header className="membership-promo-hero"><FHLogo label="Fantasy Hub"/><div><span className="membership-preview">YOUR NEXT UPGRADE</span><h2>Bring your A-game. 🏆</h2><p>Big decisions. Better tools. Your edge.</p></div></header>
     <div className="membership-offer-grid">
       <article><span>⚡ PRO · 7 DAYS FREE*</span><h3>Win the week.</h3><ul><li>🧠 Team reviews & smarter lineups</li><li>🤝 Trade ideas & playoff sims</li><li>🎨 Team themes & icon packs</li></ul><button disabled={Boolean(billingBusy||pendingPlan)||(nativeIos&&!nativePrices['com.fantasyhubapp.pro.monthly'])} onClick={()=>void openBilling('/api/billing/checkout','monthly')}>{billingBusy==='monthly'?'Opening checkout…':'⚡ Unlock my 7-day trial'}</button><small>*Eligible new subscribers. Then {monthlyPrice}/month. Renews until canceled; eligibility confirmed at checkout.</small></article>
       <article className="membership-offer-elite"><span>👑 ELITE · THE WHOLE PLAYBOOK</span><h3>Go all in.</h3><ul><li>⚡ Everything in Pro</li><li>📈 Vegas Edge projections</li><li>🏆 League stories & manager reports</li><li>💎 Premium draft tools & every theme</li></ul><button disabled={Boolean(billingBusy||pendingPlan)||(nativeIos&&!nativePrices['com.fantasyhubapp.elite.monthly'])} onClick={()=>void openBilling('/api/billing/checkout','elite_monthly')}>{billingBusy==='elite_monthly'?'Opening checkout…':`👑 Go Elite · ${appStorePrice('elite','monthly',eliteMonthlyPrice)}/mo`}</button><small>Billed monthly. Renews until canceled.</small></article>
