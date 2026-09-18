@@ -8814,7 +8814,7 @@ function RosterSection({
                   </span>
                   <span className="roster-player-copy">
                     <strong>{player.name}</strong>
-                    <small>{player.team}{player.projectionOrigin==='Platform fallback'?' · Platform fallback':''}</small>
+                    <small>{player.team}</small>
                   </span>
                 </td>
                 <td>
