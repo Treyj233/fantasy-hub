@@ -4587,7 +4587,7 @@ function DailyMembershipOffer({account,entitlement,ready,onLearnMore}:{account:s
     const check=()=>{
       if(document.visibilityState!=='visible'||document.querySelector('dialog[open]'))return;
       const now=new Date(),day=`${now.getFullYear()}-${now.getMonth()+1}-${now.getDate()}`;
-      const key=`fh-membership-offer:owner-v1:${account.toLowerCase()}`;
+      const key=`fh-membership-offer:owner-v2:${account.toLowerCase()}`;
       try {if(localStorage.getItem(key)===day)return;localStorage.setItem(key,day);}catch{return;}
       setOpen(true);
     };
@@ -4742,11 +4742,10 @@ function ProPlans({ entitlement,offer=false,onDismiss,onLearnMore }: { entitleme
     ? <strong>ELITE IS ACTIVE</strong>
     : <button disabled={Boolean(billingBusy)} onClick={() => void openBilling("/api/billing/checkout", plan)}>{billingBusy === plan ? "Opening secure checkout…" : entitlement.pro ? `Upgrade · ${label}` : label}</button>;
   if(offer)return <div className="membership-offer">
-    <span className="membership-preview">OWNER PREVIEW</span>
-    <p className="membership-offer-intro">Less second-guessing. More game-day confidence.</p>
+    <header className="membership-promo-hero"><FHLogo label="Fantasy Hub"/><div><span className="membership-preview">OWNER PREVIEW · YOUR NEXT UPGRADE</span><h2>Bring your A-game. 🏆</h2><p>Big decisions. Better tools. Your edge.</p></div></header>
     <div className="membership-offer-grid">
-      <article><span>FANTASY HUB PRO</span><h3>Your weekly advantage</h3><ul><li>Team Reviews & Command Center</li><li>Advanced Start/Sit & trade suggestions</li><li>Playoff simulations & team themes</li></ul><button disabled={Boolean(billingBusy||pendingPlan)||(nativeIos&&!nativePrices['com.fantasyhubapp.pro.monthly'])} onClick={()=>void openBilling('/api/billing/checkout','monthly')}>{billingBusy==='monthly'?'Opening checkout…':'Start 7-day Pro trial'}</button><small>Eligible new subscribers: 7 days free, then {monthlyPrice}/month. Renews until canceled. Trial eligibility confirmed at checkout.</small></article>
-      <article className="membership-offer-elite"><span>FANTASY HUB ELITE</span><h3>The full playbook</h3><ul><li>Everything in Pro</li><li>Vegas Edge odds-implied projections</li><li>League Stories & Manager Reports</li><li>Premium draft intelligence & all themes</li></ul><button disabled={Boolean(billingBusy||pendingPlan)||(nativeIos&&!nativePrices['com.fantasyhubapp.elite.monthly'])} onClick={()=>void openBilling('/api/billing/checkout','elite_monthly')}>{billingBusy==='elite_monthly'?'Opening checkout…':`Get Elite · ${appStorePrice('elite','monthly',eliteMonthlyPrice)}/month`}</button><small>Monthly subscription. Renews until canceled.</small></article>
+      <article><span>⚡ PRO · 7 DAYS FREE*</span><h3>Win the week.</h3><ul><li>🧠 Team reviews & smarter lineups</li><li>🤝 Trade ideas & playoff sims</li><li>🎨 Team themes & icon packs</li></ul><button disabled={Boolean(billingBusy||pendingPlan)||(nativeIos&&!nativePrices['com.fantasyhubapp.pro.monthly'])} onClick={()=>void openBilling('/api/billing/checkout','monthly')}>{billingBusy==='monthly'?'Opening checkout…':'⚡ Unlock my 7-day trial'}</button><small>*Eligible new subscribers. Then {monthlyPrice}/month. Renews until canceled; eligibility confirmed at checkout.</small></article>
+      <article className="membership-offer-elite"><span>👑 ELITE · THE WHOLE PLAYBOOK</span><h3>Go all in.</h3><ul><li>⚡ Everything in Pro</li><li>📈 Vegas Edge projections</li><li>🏆 League stories & manager reports</li><li>💎 Premium draft tools & every theme</li></ul><button disabled={Boolean(billingBusy||pendingPlan)||(nativeIos&&!nativePrices['com.fantasyhubapp.elite.monthly'])} onClick={()=>void openBilling('/api/billing/checkout','elite_monthly')}>{billingBusy==='elite_monthly'?'Opening checkout…':`👑 Go Elite · ${appStorePrice('elite','monthly',eliteMonthlyPrice)}/mo`}</button><small>Billed monthly. Renews until canceled.</small></article>
     </div>
     {billingError&&<p role="alert" className="billing-error">{billingError}</p>}
     {pendingPlan&&<p role="status">Purchase pending approval.</p>}
