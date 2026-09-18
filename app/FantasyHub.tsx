@@ -4580,15 +4580,24 @@ function AccessAccount({ accountUser, entitlement, onPlans }: { accountUser: Acc
 
 function DailyMembershipOffer({account,entitlement,ready,onLearnMore}:{account:string;entitlement:AccountEntitlement;ready:boolean;onLearnMore:()=>void}) {
   const [open,setOpen]=useState(false);
-  // Explicit owner preview bypasses membership suppression; never shown publicly.
-  const eligible=Boolean(account&&entitlement.owner);
+  // Switch off only when the public rollout is approved: restores daily limits
+  // and excludes all existing members, including owners with membership access.
+  const ownerPreviewOnly=true;
+  const shownForOpening=useRef('');
+  const eligible=Boolean(account&&(ownerPreviewOnly?entitlement.owner:!entitlement.pro&&!entitlement.elite));
+  useEffect(()=>{shownForOpening.current='';},[account]);
   useEffect(()=>{
     if(!eligible||!ready){setOpen(false);return;}
     const check=()=>{
+      if(document.visibilityState==='hidden'){shownForOpening.current='';return;}
       if(document.visibilityState!=='visible'||document.querySelector('dialog[open]'))return;
+      if(shownForOpening.current===account)return;
       const now=new Date(),day=`${now.getFullYear()}-${now.getMonth()+1}-${now.getDate()}`;
-      const key=`fh-membership-offer:owner-v2:${account.toLowerCase()}`;
-      try {if(localStorage.getItem(key)===day)return;localStorage.setItem(key,day);}catch{return;}
+      const key=`fh-membership-offer:daily:${account.toLowerCase()}`;
+      if(!ownerPreviewOnly){
+        try {if(localStorage.getItem(key)===day)return;localStorage.setItem(key,day);}catch{return;}
+      }
+      shownForOpening.current=account;
       setOpen(true);
     };
     const timer=window.setTimeout(check,1200);
