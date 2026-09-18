@@ -105,6 +105,17 @@ html[data-theme="dark"] .trade-lab-status>b{color:var(--ink);background:#252a33;
 .trade-create-button{display:block;margin:0 0 18px auto;min-height:50px;padding:13px 24px;border:2px solid var(--gold);border-radius:12px;background:linear-gradient(135deg,#fff3c4,var(--gold-light));color:#10251c;font:inherit;font-size:16px;font-weight:850;box-shadow:0 5px 0 color-mix(in srgb,var(--gold) 65%,var(--deep)),0 9px 22px rgb(0 0 0 / .18);cursor:pointer}
 .trade-create-button:focus-visible{outline:3px solid var(--green);outline-offset:5px}.trade-create-button:active{transform:translateY(2px);box-shadow:0 3px 0 color-mix(in srgb,var(--gold) 65%,var(--deep))}
 .trade-lab-action-row{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:18px 24px;margin:18px 0 24px}
+/* One spacing owner prevents stacked margins and touching section cards.
+   Scope to the page, not the calculator backdrop which shares trade-lab-page. */
+.page-content.trade-lab-page{display:grid;gap:15px}
+.page-content.trade-lab-page>:is(.section-intro,.trade-lab-action-row,.trade-controls,.trade-recommendation-picker,.trade-suggestions-paywall){margin-block:0;min-width:0}
+.page-content.trade-lab-page>.trade-lab-action-row{gap:12px 18px}
+.page-content.trade-lab-page .trade-partner-grid,.page-content.trade-lab-page .suggestion-tabs{gap:10px}
+@media(max-width:700px){
+  .page-content.trade-lab-page{gap:9px}
+  .page-content.trade-lab-page>.trade-lab-action-row{gap:12px}
+  .page-content.trade-lab-page .trade-partner-grid,.page-content.trade-lab-page .suggestion-tabs{gap:7px}
+}
 .trade-lab-action-row>.trade-lab-status{margin:0;gap:8px}
 .trade-lab-action-row>.trade-create-button{flex-shrink:0;margin:0 0 0 auto}
 @media(max-width:700px){.trade-lab-action-row{display:flex;flex-direction:column;align-items:stretch;gap:18px;margin:12px 0 24px}.trade-lab-action-row>.trade-lab-status{width:100%;gap:4px}.trade-lab-action-row>.trade-create-button{width:100%;margin:0}}
