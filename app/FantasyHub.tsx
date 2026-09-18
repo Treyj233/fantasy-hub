@@ -8307,13 +8307,11 @@ function startSitDecision(players: Player[]) {
 }
 
 function StackBadges({player,own,opponents,opponentSide=false}:{player:StackPlayer;own:StackPlayer[];opponents:StackPlayer[];opponentSide?:boolean}) {
-  const [expanded,setExpanded]=useState<string|null>(null);
   if(!stackStarter(player))return null;
   const partners=stackPartners(player,own),split=stackPartners(player,opponents);
-  return <span className="stack-badges">{[[partners,opponentSide?'Opponent Stack':'Your Stack',opponentSide?'opponent':'own'],[split,'Split Stack','split']].map(([items,label,kind])=>{
-    const people=items as StackPlayer[];
-    return people.length?<span className={`stack-badge stack-${kind}`} key={String(kind)}><button type="button" aria-expanded={expanded===kind} onClick={()=>setExpanded(expanded===kind?null:String(kind))}>🥞 {String(label)}</button>{expanded===kind&&<span>{player.name} ↔ {people.map(p=>p.name).join(', ')}<small>{kind==='split'?(player.position==='QB'?(opponentSide?'Their QB → Your receiver':'Your QB → Their receiver'):(opponentSide?'Your QB → Their receiver':'Their QB → Your receiver')):'Shared NFL passing-game exposure'}</small></span>}</span>:null;
-  })}</span>;
+  if(!partners.length&&!split.length)return null;
+  const description=[partners.length?`${opponentSide?'Opponent':'Your'} stack: ${partners.map(p=>p.name).join(', ')}`:'',split.length?`Split stack: ${split.map(p=>p.name).join(', ')}`:''].filter(Boolean).join(' · ');
+  return <span role="img" aria-label={description} title={description} className={`stack-pancake ${partners.length?(opponentSide?'ring-opponent':'ring-own'):''} ${split.length?'ring-split':''}`}><span aria-hidden="true">🥞</span></span>;
 }
 
 function CommandCenter({
@@ -8512,11 +8510,11 @@ function CommandCenter({
         <div className="opponent"><span>OPPONENT</span><strong>{opponentTeam?.teamName ?? "Awaiting opponent"}</strong><b>{opponentProjection?.toFixed(1) ?? "—"}</b></div>
       </section>
       <section className="panel stack-monitor">
-        <Header eyebrow="CONNECTED SCORING" title="🥞 Stack Monitor" />
-        <div className="stack-monitor-grid">{stackConnections(players,opponentTeam?.roster??[]).map((s,i)=><article className={`stack-${s.kind==='Split Stack'?'split':s.kind==='Your Stack'?'own':'opponent'}`} key={`${s.kind}-${s.qb.id}-${s.receiver.id}-${i}`}><small>{s.kind} · {s.qb.team}</small><strong>{s.qb.name} + {s.receiver.name}</strong><span>{s.direction}</span></article>)}</div>
-        {!stackConnections(players,opponentTeam?.roster??[]).length&&<p>No active QB–WR/TE stacks in this matchup.</p>}
-        {bench.filter(p=>!p.projectionLocked&&!/out|ir|suspend|doubt|inactive/i.test(p.status)&&p.opponent!=='BYE'&&stackPartners(p,players).length>0).map(p=><p key={p.id}>🥞 Bench connection: <button className="inline-player-link" onClick={()=>openPlayer(p)}>{p.name}</button> + {stackPartners(p,players).map(q=>q.name).join(', ')}</p>)}
-        <small>Upside scenarios favor stacks only in close calls. Split stacks share scoring with your opponent—not an automatic advantage.</small>
+        <Header eyebrow="🥞 STACKS" title="Stack Monitor" />
+        <div className="stack-widget-legend"><span>🟢 Yours</span><span>🔴 Opponent</span><span>🟡 Split</span></div>
+        <div className="stack-monitor-grid">{stackConnections(players,opponentTeam?.roster??[]).map((s,i)=><article className={`stack-widget-row ${s.kind==='Split Stack'?'ring-split':s.kind==='Your Stack'?'ring-own':'ring-opponent'}`} key={`${s.kind}-${s.qb.id}-${s.receiver.id}-${i}`} aria-label={`${s.kind}: ${s.direction}`}><span className={`stack-pancake ${s.kind==='Split Stack'?'ring-split':s.kind==='Your Stack'?'ring-own':'ring-opponent'}`} aria-hidden="true"><span>🥞</span></span><div><button className="inline-player-link" onClick={()=>openPlayer(s.qb as Player)}>{s.qb.name}</button><button className="inline-player-link" onClick={()=>openPlayer(s.receiver as Player)}>{s.receiver.name}</button></div><b>{s.qb.team}<small>QB + {s.receiver.position}</small></b></article>)}</div>
+        {!stackConnections(players,opponentTeam?.roster??[]).length&&<p>No active stacks</p>}
+        <div className="stack-bench-chips">{bench.filter(p=>!p.projectionLocked&&!/out|ir|suspend|doubt|inactive/i.test(p.status)&&p.opponent!=='BYE'&&stackPartners(p,players).length>0).map(p=><button key={p.id} onClick={()=>openPlayer(p)} title={stackPartners(p,players).map(q=>q.name).join(', ')}><small>BENCH</small> {p.name}</button>)}</div>
       </section>
       <section className="panel command-action-queue">
         <Header eyebrow="NEXT BEST ACTIONS" title="Your league-specific game plan" action="Open team" onClick={() => setView("My Team")} />
@@ -12130,6 +12128,7 @@ function HeadToHeadMatchup({
         <article className={`head-to-head-player ${temperature.state === "fire" ? "temperature-card-fire" : temperature.state === "ice" ? "temperature-card-ice" : ""}`} key={player.id}>
           <PlayerHeadshot id={player.id} position={player.position} />
           <p>
+            <span className="matchup-player-name-line">
             <button
               className="inline-player-link"
               onClick={() => openPlayer(playerShell(player))}
@@ -12137,6 +12136,7 @@ function HeadToHeadMatchup({
               {player.name}
             </button>
             <StackBadges player={toStack(player)} own={ownStacks} opponents={opposingStacks} opponentSide={!team.isMine}/>
+            </span>
             <small>
               {formatRosterSlot(player.lineupSlot)} · {player.nflTeam} · {liveStatSummary(player, matchup?.status ?? "")}
             </small>
