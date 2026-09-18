@@ -9330,7 +9330,7 @@ function TeamRankings({
         title="See where every roster has an edge"
         text={`Overall rank blends league-adjusted starters, usable depth, and positional balance${isDynasty ? ", plus roster runway and calibrated three-year draft capital" : " using this league’s lineup and scoring settings"}. Single-starter rooms emphasize the starter with a small platoon bonus for an elite backup; Superflex counts the second quarterback as required.`}
       />
-      <div className={`team-rank-summary ${isDynasty ? "with-draft-capital" : ""}`}>
+      <div className="team-rank-summary">
         <Metric
           label="Your overall rank"
           value={`#${overallRanks.get(selectedTeamId) ?? "—"}`}
@@ -9363,13 +9363,6 @@ function TeamRankings({
           detail={depthRank == null ? "Select your roster" : `of ${teams.length} · Top-five bench strength`}
           tone={depthRank != null && depthRank <= 3 ? "good" : "warn"}
         />
-        {isDynasty && (
-          <Metric
-            label="Draft capital"
-            value={`#${draftRanks.get(selectedTeamId) ?? "—"}`}
-            detail={`${myTeam?.draftCapital?.picks.length ?? 0} picks across three classes`}
-          />
-        )}
       </div>
       <section className="panel team-rank-table">
         <header className="team-rank-board-head">
