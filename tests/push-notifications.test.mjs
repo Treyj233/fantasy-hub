@@ -11,8 +11,9 @@ test("notification preferences cover the complete game-day alert set", async () 
   assert.match(accountUi, /15 minutes to kickoff/);
   assert.match(accountUi, /Big plays · 5\+ points/);
   assert.match(accountUi, /Matchup won or lost/);
-  assert.match(accountUi, /Close matchup/);
-  assert.match(accountUi, /Path to victory/);
+  assert.doesNotMatch(accountUi, /\["closeGame",/);
+  assert.doesNotMatch(accountUi, /\["pathToVictory",/);
+  assert.doesNotMatch(accountUi, /\["slateStarted",/);
   assert.match(accountUi, /Inclement weather/);
   assert.match(accountUi, /<details className="notification-options">/);
   assert.match(accountUi, /Optional notification types/);
