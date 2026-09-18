@@ -1,5 +1,6 @@
 "use client";
 import { commandLineup } from './command-lineups';
+import { simulationInsights, playoffByeCount } from './simulation-insights.mjs';
 import { stackConnections, stackPartners, stackPick, stackStarter, type StackPlayer } from './stacks';
 import { fantasyWeek } from './fantasy-week.mjs';
 import LeagueWeeklyReport, { type WeeklyVisualReport } from "./LeagueWeeklyReport";
@@ -12596,11 +12597,7 @@ function runLeagueSimulation(
     userWins.push(standings.get(selectedTeamId)?.wins ?? 0);
     if (userSeed >= 0 && userSeed < simulation.league.playoffTeams)
       playoffs += 1;
-    const byeCount = Math.max(
-      0,
-      2 ** Math.ceil(Math.log2(simulation.league.playoffTeams)) -
-        simulation.league.playoffTeams,
-    );
+    const byeCount = playoffByeCount(simulation.league.playoffTeams);
     if (userSeed >= 0 && userSeed < byeCount) byes += 1;
     const qualifiers = seeded.slice(0, simulation.league.playoffTeams);
     if (simulateBracket(qualifiers) === selectedTeamId) titles += 1;
@@ -12627,7 +12624,10 @@ function runLeagueSimulation(
     [...starterStrengths.entries()]
       .sort((a, b) => b[1] - a[1])
       .findIndex(([id]) => id === selectedTeamId) + 1;
-  const lowOpportunity = starters.filter((player) => player.projection < 2);
+  const insights = simulationInsights({
+    strengthRank, teamCount: teams.length, starters,
+    bench: yourTeam?.roster.filter(player => player.role === "Bench") ?? [],
+  });
   return {
     playoffOdds: (playoffs / volume) * 100,
     byeOdds: (byes / volume) * 100,
@@ -12644,19 +12644,13 @@ function runLeagueSimulation(
       value: percentile(Number(value)),
     })),
     seed,
-    topDrivers: starters
+    topDrivers: [...insights.topDrivers, ...starters
       .slice(0, 3)
       .map(
         (player) =>
           `${player.name} anchors the lineup at ${player.projection.toFixed(1)} projected points.`,
-      ),
-    riskDrivers: [
-      `Projected starter strength ranks ${formatOrdinal(strengthRank)} of ${teams.length} teams.`,
-      lowOpportunity.length
-        ? `${lowOpportunity.length} starting slot${lowOpportunity.length === 1 ? " has" : "s have"} under 2.0 expected points.`
-        : "No current starter is below the 2.0-point opportunity threshold.",
-      "Weekly variance includes a player-availability shock in 3.5% of team-weeks.",
-    ],
+      )],
+    riskDrivers: insights.riskDrivers,
   };
 }
 
@@ -12829,8 +12823,8 @@ function Simulator({
             />
             <Metric
               label="First-round bye"
-              value={`${result.byeOdds.toFixed(1)}%`}
-              detail="Based on actual playoff field"
+              value={playoffByeCount(simulation.league.playoffTeams) ? `${result.byeOdds.toFixed(1)}%` : "N/A"}
+              detail={playoffByeCount(simulation.league.playoffTeams) ? `${playoffByeCount(simulation.league.playoffTeams)} first-round bye spots` : "No byes in this playoff format"}
             />
             <Metric
               label="Title odds"
@@ -12855,7 +12849,7 @@ function Simulator({
         <>
           <section className="sim-outlook panel">
             <div className="sim-outlook-ring" style={{ "--sim-odds": `${result.playoffOdds * 3.6}deg` } as CSSProperties}><span><strong>{result.playoffOdds.toFixed(0)}%</strong><small>PLAYOFFS</small></span></div>
-            <div><span>SEASON OUTLOOK</span><h3>{outcomeLabel}</h3><p>The median path finishes with <b>{result.medianWins} wins</b>. A first-round bye appears in <b>{result.byeOdds.toFixed(1)}%</b> of seasons, and this roster wins the league in <b>{result.titleOdds.toFixed(1)}%</b>.</p></div>
+<div><span>SEASON OUTLOOK</span><h3>{outcomeLabel}</h3><p>The median path finishes with <b>{result.medianWins} wins</b>. {playoffByeCount(simulation.league.playoffTeams) ? <>A first-round bye appears in <b>{result.byeOdds.toFixed(1)}%</b> of seasons.</> : <>This playoff format has no first-round byes.</>} This roster wins the league in <b>{result.titleOdds.toFixed(1)}%</b>.</p></div>
             <aside><small>SIMULATION ID</small><b>#{result.seed.toString(16).toUpperCase()}</b><span>10K paths</span></aside>
           </section>
           <section className="win-distribution panel">
@@ -12895,12 +12889,13 @@ function Simulator({
               <div className="panel-header">
                 <div>
                   <span>RISK DRIVERS</span>
-                  <h3>What holds the team back</h3>
+                  <h3>{result.riskDrivers.length ? "Where your roster needs cover" : "No major roster weakness flagged"}</h3>
                 </div>
               </div>
               {result.riskDrivers.map((driver) => (
                 <p key={driver}>{driver}</p>
               ))}
+              {!result.riskDrivers.length && <p>Your starters and projected bench coverage clear the current checks. Keep monitoring availability; no lineup is risk-free.</p>}
             </section>
           </div>
         </>
