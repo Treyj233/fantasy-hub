@@ -2576,3 +2576,18 @@ button.portfolio-player-tile{cursor:pointer}
 .head-to-head-team>header .matchup-team-name{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:inherit;font:inherit;letter-spacing:inherit}
 .head-to-head-team>header .team-record{display:inline-block;flex:none;margin:0;color:inherit;font-size:12px;font-weight:700;letter-spacing:normal;background:transparent}
 @media(max-width:560px){.library-look-generator .generate-owned-look{width:100%}.library-look-actions button{flex:1 1 140px}}
+.stack-badges{display:inline-flex;flex-wrap:wrap;gap:4px;margin:2px 4px;vertical-align:middle}
+.stack-badge{font-size:11px;color:var(--green);border:1px solid currentColor;border-radius:8px;padding:2px 6px;max-width:100%;box-shadow:0 2px 5px #0002}
+.stack-badge button{cursor:pointer;font:inherit;font-weight:700;color:inherit;background:transparent;border:0;padding:0}
+.stack-badge>span{display:block;white-space:normal;overflow-wrap:anywhere;padding:5px 0}
+.stack-badge small{display:block}
+.stack-opponent{border-color:var(--gold);color:var(--gold)}
+.stack-split{border-color:var(--green) var(--gold);border-width:2px}
+.stack-monitor{padding:16px}
+.stack-monitor-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(240px,100%),1fr));gap:8px;margin:10px 0}
+.stack-monitor article{display:grid;gap:4px;padding:10px;border:1px solid var(--green);border-radius:10px;color:inherit}
+.stack-monitor article.stack-opponent{border-color:var(--gold)}
+.stack-monitor article.stack-split{border-color:var(--green) var(--gold);border-width:2px}
+.stack-monitor article small{color:var(--green);font-weight:700}
+.stack-monitor p{margin:8px 0}
+.stack-inline{display:block;color:var(--green);font-weight:700}

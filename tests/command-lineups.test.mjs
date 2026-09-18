@@ -3,9 +3,16 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import ts from 'typescript';
 import {gameLineRange} from '../app/game-line-range.mjs';
-const source=ts.transpile(readFileSync(new URL('../app/command-lineups.ts',import.meta.url),'utf8'),{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022});
+const stacks=ts.transpile(readFileSync(new URL('../app/stacks.ts',import.meta.url),'utf8'),{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022});
+const source=ts.transpile(readFileSync(new URL('../app/command-lineups.ts',import.meta.url),'utf8').replace("'./stacks'",JSON.stringify(`data:text/javascript;base64,${Buffer.from(stacks).toString('base64')}`)),{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022});
 const {commandLineup}=await import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`);
 const p=(id,position,role,floor,projection,ceiling)=>({id,position,role,floor,projection,ceiling,status:'Healthy'});
+test('upside stack tiebreaker uses the selected lineup without duplicates',()=>{
+ const roster=[{...p('q','QB','QB',15,22,30),name:'QB',team:'WAS'},{...p('a','WR','WR',10,15,20),name:'A',team:'BUF'},{...p('b','WR','Bench',10,14.5,20),name:'B',team:'WAS'}];
+ const ids=r=>r.map(x=>x.player.id);
+ assert.deepEqual(new Set(ids(commandLineup(roster,['QB','WR'],'projection',80))),new Set(['q','b']));
+ assert.deepEqual(new Set(ids(commandLineup(roster,['QB','WR'],'projection',50))),new Set(['q','a']));
+});
 // Exercise the exact model used by Start / Sit, not a test-only approximation.
 const hub=readFileSync(new URL('../app/FantasyHub.tsx',import.meta.url),'utf8');
 const ast=ts.createSourceFile('hub.tsx',hub,ts.ScriptTarget.Latest,true,ts.ScriptKind.TSX);
@@ -18,7 +25,7 @@ test('real Start / Sit risk model changes scenarios despite proportional stored 
  assert.equal(pick(50),'stable');
  assert.equal(pick(80),'volatile');
  assert.match(hub,/safe:commandLineup\(candidates,context\?\.rosterSlots,p=>aggressionScore\(p,20\)\)/);
- assert.match(hub,/upside:commandLineup\(candidates,context\?\.rosterSlots,p=>aggressionScore\(p,80\)\)/);
+ assert.match(hub,/upside:commandLineup\(candidates,context\?\.rosterSlots,p=>aggressionScore\(p,80\),80\)/);
 });
 test('same optimal lineup is retained when one player dominates every risk level',()=>{
  const roster=[{...p('star','WR','WR',0,25,0),trend:0},{...p('backup','WR','Bench',0,5,0),trend:0}];

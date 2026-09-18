@@ -1,5 +1,6 @@
 "use client";
 import { commandLineup } from './command-lineups';
+import { stackConnections, stackPartners, stackPick, stackStarter, type StackPlayer } from './stacks';
 import { fantasyWeek } from './fantasy-week.mjs';
 import LeagueWeeklyReport, { type WeeklyVisualReport } from "./LeagueWeeklyReport";
 import "./league-weekly-report.css";
@@ -8305,6 +8306,16 @@ function startSitDecision(players: Player[]) {
     : null;
 }
 
+function StackBadges({player,own,opponents,opponentSide=false}:{player:StackPlayer;own:StackPlayer[];opponents:StackPlayer[];opponentSide?:boolean}) {
+  const [expanded,setExpanded]=useState<string|null>(null);
+  if(!stackStarter(player))return null;
+  const partners=stackPartners(player,own),split=stackPartners(player,opponents);
+  return <span className="stack-badges">{[[partners,opponentSide?'Opponent Stack':'Your Stack',opponentSide?'opponent':'own'],[split,'Split Stack','split']].map(([items,label,kind])=>{
+    const people=items as StackPlayer[];
+    return people.length?<span className={`stack-badge stack-${kind}`} key={String(kind)}><button type="button" aria-expanded={expanded===kind} onClick={()=>setExpanded(expanded===kind?null:String(kind))}>🥞 {String(label)}</button>{expanded===kind&&<span>{player.name} ↔ {people.map(p=>p.name).join(', ')}<small>{kind==='split'?(player.position==='QB'?(opponentSide?'Their QB → Your receiver':'Your QB → Their receiver'):(opponentSide?'Your QB → Their receiver':'Their QB → Your receiver')):'Shared NFL passing-game exposure'}</small></span>}</span>:null;
+  })}</span>;
+}
+
 function CommandCenter({
   players,
   waiverPlayers,
@@ -8385,7 +8396,7 @@ function CommandCenter({
     return {
       safe:commandLineup(candidates,context?.rosterSlots,p=>aggressionScore(p,20)),
       balanced:commandLineup(candidates,context?.rosterSlots,p=>aggressionScore(p,50)),
-      upside:commandLineup(candidates,context?.rosterSlots,p=>aggressionScore(p,80)),
+      upside:commandLineup(candidates,context?.rosterSlots,p=>aggressionScore(p,80),80),
     };
   },[players,context]);
   const selectedLineup=scenarioLineups[scenario];
@@ -8499,6 +8510,13 @@ function CommandCenter({
         <div><span>THIS WEEK</span><strong>{selectedTeam?.teamName ?? "Your team"}</strong><b>{totals.projection.toFixed(1)}</b></div>
         <i><small>{projectedMargin == null ? "MATCHUP PENDING" : `${projectedMargin >= 0 ? "+" : ""}${projectedMargin.toFixed(1)} PROJECTED`}</small><em style={{ left: `${100 - (winProbability ?? 50)}%` }} /></i>
         <div className="opponent"><span>OPPONENT</span><strong>{opponentTeam?.teamName ?? "Awaiting opponent"}</strong><b>{opponentProjection?.toFixed(1) ?? "—"}</b></div>
+      </section>
+      <section className="panel stack-monitor">
+        <Header eyebrow="CONNECTED SCORING" title="🥞 Stack Monitor" />
+        <div className="stack-monitor-grid">{stackConnections(players,opponentTeam?.roster??[]).map((s,i)=><article className={`stack-${s.kind==='Split Stack'?'split':s.kind==='Your Stack'?'own':'opponent'}`} key={`${s.kind}-${s.qb.id}-${s.receiver.id}-${i}`}><small>{s.kind} · {s.qb.team}</small><strong>{s.qb.name} + {s.receiver.name}</strong><span>{s.direction}</span></article>)}</div>
+        {!stackConnections(players,opponentTeam?.roster??[]).length&&<p>No active QB–WR/TE stacks in this matchup.</p>}
+        {bench.filter(p=>!p.projectionLocked&&!/out|ir|suspend|doubt|inactive/i.test(p.status)&&p.opponent!=='BYE'&&stackPartners(p,players).length>0).map(p=><p key={p.id}>🥞 Bench connection: <button className="inline-player-link" onClick={()=>openPlayer(p)}>{p.name}</button> + {stackPartners(p,players).map(q=>q.name).join(', ')}</p>)}
+        <small>Upside scenarios favor stacks only in close calls. Split stacks share scoring with your opponent—not an automatic advantage.</small>
       </section>
       <section className="panel command-action-queue">
         <Header eyebrow="NEXT BEST ACTIONS" title="Your league-specific game plan" action="Open team" onClick={() => setView("My Team")} />
@@ -10217,16 +10235,10 @@ function StartSit({
   const customPlayers = customPlayerIds
     .map((id) => customCandidates.find((player) => player.id === id))
     .filter((player): player is Player => Boolean(player));
-  const customRecommendation = [...customPlayers].sort(
-    (a, b) => scorePlayer(b) - scorePlayer(a),
-  )[0];
+  const customRecommendation = stackPick(customPlayers,startSitPlayers,aggressiveness,scorePlayer);
   const rememberedStartSit = useMemo(() => decisions.map((decision) => {
     const options = [decision.starter, ...decision.candidates];
-    const recommended = [...options].sort((a, b) => {
-      const aScore = aggressionScore(a, aggressiveness);
-      const bScore = aggressionScore(b, aggressiveness);
-      return bScore - aScore;
-    })[0];
+    const recommended = stackPick(options,startSitPlayers,aggressiveness,p=>aggressionScore(p,aggressiveness))!;
     const confidence = Math.min(95, Math.max(50, Math.round(55 + Math.abs(recommended.projection - options.find((item) => item.id !== recommended.id)!.projection) * 4)));
     return { id: `start-sit:${week}:${decision.starter.id}`, leagueId, week, category: "start_sit", recommendation: recommended.name, alternatives: options.map((player) => { const range = matchupAdjustedRange(player); return { id: player.id, name: player.name, position: player.position, projection: player.projection, floor: range.floor, ceiling: range.ceiling }; }), information: { aggressiveness, recommendedAggression, teamProjection, opponentProjection, projectionSource: projectionPlatform, scoring: context?.scoring ?? null }, confidence };
   }), [aggressiveness, context?.scoring, decisions, leagueId, opponentProjection, projectionPlatform, recommendedAggression, teamProjection, week]);
@@ -10348,9 +10360,7 @@ function StartSit({
           const optionRanges = new Map(
             options.map((player) => [player.id, matchupAdjustedRange(player)]),
           );
-          const recommendedPlayer = [...options].sort(
-            (a, b) => scorePlayer(b) - scorePlayer(a),
-          )[0];
+          const recommendedPlayer = stackPick(options,startSitPlayers,aggressiveness,scorePlayer)!;
           const storedChoice = selectedBySlot[decision.starter.id];
           const activeChoice = options.some((player) => player.name === storedChoice)
             ? storedChoice
@@ -10386,6 +10396,8 @@ function StartSit({
               </div>
               <MatchupBadge player={player} />
               <h3>{player.name}</h3>
+                {stackPartners(player,startSitPlayers.filter(p=>!options.some(o=>o.id===p.id))).length>0&&<small className="stack-inline">🥞 Stack option</small>}
+                {stackPartners(player,opponentTeam?.roster??[]).length>0&&<small className="stack-inline">🥞 Split Stack · {stackPartners(player,opponentTeam?.roster??[]).map(p=>p.name).join(', ')}</small>}
               <div className="range-bar">
                 <i
                   style={{
@@ -10430,6 +10442,7 @@ function StartSit({
             <section className="insight-box">
               <span>FANTASY HUB VERDICT · {formatRosterSlot(decision.starter.role)}</span>
               <h3>Start {recommendedPlayer.name}</h3>
+              {stackPartners(recommendedPlayer,startSitPlayers.filter(p=>!options.some(o=>o.id===p.id))).length>0&&<p>🥞 {aggressiveness>65?'Stack-aware upside pick':'Stack option'} with {stackPartners(recommendedPlayer,startSitPlayers.filter(p=>!options.some(o=>o.id===p.id))).map(p=>p.name).join(', ')}. Projections unchanged.</p>}
               <p>
                 At {aggressiveness}% aggressiveness, this recommendation weighs {aggressiveness > 65 ? "ceiling and game-breaking outcomes" : aggressiveness < 35 ? "floor, role certainty, and downside protection" : "floor, median, and ceiling more evenly"}. Every alternative shown is eligible for this lineup slot.
               </p>
@@ -10516,7 +10529,8 @@ function StartSit({
               <section className="insight-box custom-start-sit-verdict">
                 <span>FANTASY HUB CUSTOM VERDICT</span>
                 <h3>Start {customRecommendation.name}</h3>
-                <p>At {aggressiveness}% aggressiveness, {customRecommendation.name} has the strongest risk-adjusted profile among your selected players.</p>
+                <p>At {aggressiveness}% aggressiveness, {customRecommendation.name} is the model pick, using risk-adjusted scores{aggressiveness>65?' and a stack tiebreaker for similar projections':''}.</p>
+                {stackPartners(customRecommendation,startSitPlayers.filter(p=>!customPlayers.some(o=>o.id===p.id))).length>0&&<p>🥞 Connected starter: {stackPartners(customRecommendation,startSitPlayers.filter(p=>!customPlayers.some(o=>o.id===p.id))).map(p=>p.name).join(', ')}. Projections unchanged.</p>}
               </section>
             )}
           </>
@@ -12105,6 +12119,9 @@ function HeadToHeadMatchup({
     if (!team) return <section className="head-to-head-team empty">Team pending</section>;
     const starters = team.topPlayers.filter((player) => player.isStarter);
     const bench = team.topPlayers.filter((player) => !player.isStarter);
+    const toStack=(p:ScoreboardPlayer):StackPlayer=>({id:p.id,name:p.name,team:p.nflTeam,position:p.position,role:p.isStarter?p.position:'Bench',projection:p.projection??0});
+    const ownStacks=team.topPlayers.map(toStack);
+    const opposingStacks=orderedTeams.filter(t=>t.rosterId!==team.rosterId).flatMap(t=>t.topPlayers.map(toStack));
     const renderPlayers = (players: ScoreboardPlayer[]) =>
       players.map((player) => {
         const enriched = matchupPlayer(player);
@@ -12119,6 +12136,7 @@ function HeadToHeadMatchup({
             >
               {player.name}
             </button>
+            <StackBadges player={toStack(player)} own={ownStacks} opponents={opposingStacks} opponentSide={!team.isMine}/>
             <small>
               {formatRosterSlot(player.lineupSlot)} · {player.nflTeam} · {liveStatSummary(player, matchup?.status ?? "")}
             </small>
