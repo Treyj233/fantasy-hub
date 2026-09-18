@@ -2610,7 +2610,7 @@ button.portfolio-player-tile{cursor:pointer}
 .membership-offer-grid button:not(:disabled):hover{transform:translateY(-2px)}.membership-offer-grid button:not(:disabled):active{transform:translateY(2px)}.membership-offer button:focus-visible{outline:3px solid var(--gold);outline-offset:3px}
 .membership-offer-grid small{font-size:11px;line-height:1.5;color:var(--muted)}
 .membership-offer button:disabled{opacity:.55;cursor:wait}
-.membership-learn,.membership-dismiss{padding:10px;background:transparent;color:var(--ink);border:1px solid var(--line);border-radius:9px;font-size:13px}.membership-learn{text-decoration:underline}.membership-dismiss{font-weight:700}
+.membership-learn,.membership-dismiss{padding:10px;background:transparent;color:var(--ink);border:1px solid var(--line);border-radius:9px;font-size:13px}.membership-learn{text-decoration:underline}.membership-dismiss{font-weight:700;background:color-mix(in srgb,var(--gold) 12%,var(--chalk));border-color:color-mix(in srgb,var(--gold) 35%,var(--line))}.membership-dismiss:hover{background:color-mix(in srgb,var(--gold) 20%,var(--chalk))}
 @media(max-width:600px){.membership-offer-grid{grid-template-columns:1fr;gap:10px}.membership-offer-grid article{padding:12px;gap:6px}.membership-offer-grid ul{line-height:1.5}.membership-offer-grid h3{font-size:18px}}
 @media(max-width:600px){.membership-promo-hero{padding:14px;gap:10px}.membership-promo-hero .fh-theme-logo{width:52px;height:52px}.membership-offer-grid small{margin-top:5px}}
 @media(prefers-reduced-motion:reduce){.membership-offer-grid button{transition:none}}

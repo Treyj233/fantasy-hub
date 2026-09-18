@@ -4750,7 +4750,7 @@ function ProPlans({ entitlement,offer=false,onDismiss,onLearnMore }: { entitleme
     {billingError&&<p role="alert" className="billing-error">{billingError}</p>}
     {pendingPlan&&<p role="status">Purchase pending approval.</p>}
     <button className="membership-learn" onClick={onLearnMore}>Explore all membership benefits</button>
-    <button className="membership-dismiss" onClick={onDismiss}>No thanks, I’ll risk last place 🏈</button>
+    <button className="membership-dismiss" onClick={onDismiss}>💩 No, I’d rather lose my league</button>
     <nav className="account-legal-links"><a href="/terms">Terms</a><a href="/privacy">Privacy</a></nav>
   </div>;
   return <div className="page-content pro-plans-page">
