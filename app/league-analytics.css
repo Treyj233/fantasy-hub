@@ -1,0 +1,43 @@
+/* League Analytics uses the shared app typography and theme surfaces. */
+.dynasty-page{display:grid;gap:12px;font-family:var(--font-geist-sans),Arial,sans-serif;color:var(--ink)}
+.dynasty-page>*{min-width:0}
+.dynasty-page .dynasty-hero{align-items:center;padding:20px;border:1px solid var(--line);border-top:3px solid var(--gold);border-bottom:1px solid var(--line);border-radius:var(--card-radius,16px);background:var(--chalk);color:var(--ink)}
+.dynasty-page .dynasty-hero:after{display:none}
+.dynasty-page .dynasty-hero h2{margin:8px 0;font-size:26px;font-weight:750;line-height:1.15;letter-spacing:-.025em}
+.dynasty-page .dynasty-hero>div:first-child>span{color:var(--muted);font-size:11px;letter-spacing:.1em}
+.dynasty-page .dynasty-hero p{color:var(--muted)}
+.dynasty-page .window-score{flex-shrink:0;padding:14px 18px;background:color-mix(in srgb,var(--gold) 10%,var(--chalk));border:1px solid var(--line);border-radius:12px}
+.dynasty-page .window-score strong{color:var(--ink);font-size:34px;font-weight:750}
+.dynasty-page .window-score :is(small,span,b),.dynasty-page .window-score strong>i{color:var(--muted);white-space:normal}
+.dynasty-page :is(.dynasty-metrics,.dynasty-main,.dynasty-lists,.window-context){margin:0;gap:12px}
+.dynasty-page :is(.dynasty-main,.dynasty-lists){grid-template-columns:repeat(2,minmax(0,1fr))}
+.dynasty-page .panel,.dynasty-page .metric{min-width:0;background:var(--chalk);border:1px solid var(--line);border-radius:var(--card-radius,16px);box-shadow:0 3px 12px rgb(0 0 0 / .04)}
+.dynasty-page .panel{padding:16px;border-top:3px solid color-mix(in srgb,var(--gold) 55%,var(--line))}
+.dynasty-page .metric{padding:14px;border-top:3px solid color-mix(in srgb,var(--green) 55%,var(--line))}
+.dynasty-page .panel-header{margin:0 0 12px;padding:0 0 10px;border-bottom:1px solid var(--line);background:transparent}
+.dynasty-page .panel-header span{color:var(--muted);font-size:10px;font-weight:750;letter-spacing:.1em}
+.dynasty-page .panel-header h3{margin-top:5px;font-family:var(--font-geist-sans),Arial,sans-serif;font-size:18px;font-weight:700;line-height:1.25;letter-spacing:-.02em;white-space:normal;overflow:visible}
+.dynasty-page .dynasty-metrics .metric strong{font-size:28px;font-weight:750}
+.dynasty-page :is(.allocation-grid article>span,.allocation-grid article>small,.dynasty-player-list p small,.dynasty-player-list button>b small,.model-caveat,.dynasty-trajectory>p){color:var(--muted)}
+.dynasty-page :is(.analytics-route-card strong,.analytics-route-card em,.allocation-grid article>span,.allocation-grid article>small){white-space:normal;line-height:1.4}
+.dynasty-page .allocation-grid{gap:8px;margin-top:0}
+.dynasty-page .allocation-grid article,.dynasty-page .allocation-grid .asset-allocation-toggle{padding:10px;background:color-mix(in srgb,var(--gold) 5%,var(--chalk));border:1px solid var(--line);border-radius:10px}
+.dynasty-page .allocation-grid article{grid-template-columns:38px minmax(0,1fr)}
+.dynasty-page .dynasty-player-list{margin-top:8px}
+.dynasty-page .dynasty-player-list>button{grid-template-columns:30px minmax(0,1fr) auto auto;padding:10px 4px;color:var(--ink);border-color:var(--line)}
+.dynasty-page .dynasty-player-list>button:hover{background:color-mix(in srgb,var(--gold) 8%,var(--chalk));border-radius:8px}
+.dynasty-page .dynasty-player-list p strong{font-size:14px;font-weight:700}
+.dynasty-page .dynasty-player-list button>b{font-size:15px;font-weight:750}
+.dynasty-page .dynasty-player-list button>b small{font-size:10px;font-weight:500}
+.dynasty-page .dynasty-plan>div{margin-top:0;gap:10px}
+.dynasty-page .dynasty-plan .analytics-route-card{padding:12px;background:color-mix(in srgb,var(--gold) 5%,var(--chalk));border-color:var(--line)}
+.dynasty-page .dynasty-plan .analytics-route-card strong{font-size:14px;font-weight:700}
+.dynasty-page .dynasty-plan .analytics-route-card p{font-size:12px}
+.dynasty-page button:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
+@media(max-width:1100px){.dynasty-page :is(.dynasty-main,.dynasty-lists){grid-template-columns:1fr}.dynasty-page .dynasty-plan>div{grid-template-columns:1fr}}
+@media(max-width:600px){
+ .dynasty-page{gap:10px}.dynasty-page .panel{padding:12px}.dynasty-page .dynasty-hero{display:grid;gap:12px;padding:14px}.dynasty-page .dynasty-hero h2{font-size:22px}.dynasty-page .window-score{width:100%;box-sizing:border-box;padding:12px}.dynasty-page .window-score strong{font-size:30px}
+ .dynasty-page .dynasty-metrics{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.dynasty-page .metric{padding:11px}.dynasty-page .panel-header h3{font-size:16px}
+ .dynasty-page .dynasty-player-list>button{grid-template-columns:28px minmax(0,1fr) auto;gap:7px}.dynasty-page .dynasty-player-list em{grid-column:2/-1;justify-self:start;font-size:10px;padding:3px 6px}.dynasty-page .dynasty-player-list p strong{white-space:normal;font-size:13px}
+ .dynasty-page .redraft-range-labels{gap:5px;flex-wrap:wrap}.dynasty-page .window-bars{gap:10px;padding-inline:0}
+}

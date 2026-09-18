@@ -44,6 +44,7 @@ import { lineupReadiness } from "./lineup-readiness";
 import { weeklyProjectionValue } from "./weekly-projection";
 import { evaluateReviewTeam, type ReviewPlayer, type TeamReviewReport } from "./team-review-model";
 import "./team-review.css";
+import "./league-analytics.css";
 import dynamic from 'next/dynamic';
 import { ProjectionSourceContext, useProjectionController, useProjectionSource } from './use-projection-source';
 import { VEGAS_PROJECTION_LABEL } from './projection-source';
@@ -3449,7 +3450,7 @@ export default function FantasyHub({
         {leagueDrawerOpen && createPortal(
           <div className="league-drawer-layer" role="presentation">
             <button className="league-drawer-scrim" type="button" aria-label="Close league switcher" onClick={() => setLeagueDrawerOpen(false)} />
-            <aside className="league-drawer" role="dialog" aria-modal="true" aria-label="Switch leagues" data-preserve-page-scroll>
+            <aside className="league-drawer" role="dialog" aria-modal="true" aria-label="Switch leagues">
               <header>
                 <div><small>MY LEAGUES</small><strong>Choose your league</strong></div>
                 <button type="button" aria-label="Close league switcher" onClick={() => setLeagueDrawerOpen(false)}>×</button>
@@ -4003,7 +4004,6 @@ export default function FantasyHub({
 }
 
 function WeekOneWelcome({ isPro, onRankings, onPro, onDismiss }: { isPro: boolean; onRankings: () => void; onPro: () => void; onDismiss: () => void }) {
-  useOverlayGuard();
   useEffect(() => {
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") onDismiss();
@@ -7722,12 +7722,19 @@ function RedraftAnalytics({ players, rankings, context, setSelectedPlayer }: { p
   const ceiling = ranges.reduce((sum, item) => sum + item.range.ceiling, 0);
   const injuryRisks = players.filter((player) => !/healthy/i.test(player.status));
   const usableDepth = bench.filter((player) => player.projection >= 5 && !/out|suspended/i.test(player.status));
-  const rankingById = new Map(rankings.map((player) => [player.id, player]));
+  const positionCounts = new Map<string, number>();
+  const rankingById = new Map(
+    [...rankings].sort((a, b) => a.overallRank - b.overallRank).map((player) => {
+      const positionRank = (positionCounts.get(player.position) ?? 0) + 1;
+      positionCounts.set(player.position, positionRank);
+      return [player.id, { ...player, positionRank }] as const;
+    }),
+  );
   const positions = ["QB", "RB", "WR", "TE"];
   const roomAnalytics = positions.map((position) => {
     const room = players.filter((player) => player.position === position).sort((a, b) => b.projection - a.projection);
     const projected = room.reduce((sum, player) => sum + player.projection, 0);
-    const bestRank = Math.min(...room.map((player) => rankingById.get(player.id)?.overallRank ?? 9999));
+    const bestRank = Math.min(...room.map((player) => rankingById.get(player.id)?.positionRank ?? 9999));
     return { position, room, projected, bestRank };
   });
   const strengths = [...starters].sort((a, b) => b.projection - a.projection).slice(0, 6);
@@ -7738,7 +7745,7 @@ function RedraftAnalytics({ players, rankings, context, setSelectedPlayer }: { p
   return <div className="page-content dynasty-page league-analytics-redraft">
     <section className="dynasty-hero"><div><span>REDRAFT ANALYTICS</span><h2>{posture}</h2></div><div className="window-score"><small>LINEUP MEDIAN</small><strong>{projection.toFixed(1)}</strong><span>{floor.toFixed(1)} floor · {ceiling.toFixed(1)} ceiling</span></div></section>
     <div className="dynasty-metrics"><Metric label="Starting projection" value={projection.toFixed(1)} detail={`${starters.length} active lineup players`} tone="good"/><Metric label="Playable depth" value={String(usableDepth.length)} detail="Bench players projected for 5+ points" tone={usableDepth.length >= 3 ? "good" : "warn"}/><Metric label="Availability flags" value={String(injuryRisks.length)} detail="Injury or suspension designations" tone={injuryRisks.length ? "warn" : "good"}/><Metric label="Empty starters" value={String(emptySlots)} detail="Unfilled required lineup slots" tone={emptySlots ? "warn" : "good"}/></div>
-    <div className="dynasty-main"><section className="panel dynasty-trajectory"><Header eyebrow="WEEKLY OUTCOME RANGE" title="How wide is this lineup’s path?"/><div className="redraft-range"><span style={{ width: `${Math.min(100, (floor / Math.max(ceiling, 1)) * 100)}%` }}/><i style={{ left: `${Math.min(96, (projection / Math.max(ceiling, 1)) * 100)}%` }}/></div><div className="redraft-range-labels"><b>Floor {floor.toFixed(1)}</b><b>Median {projection.toFixed(1)}</b><b>Ceiling {ceiling.toFixed(1)}</b></div><p>A wider range creates comeback upside but increases the chance of a low weekly result. Start/Sit aggressiveness decides which part of this distribution matters most.</p></section><section className="panel dynasty-allocation"><Header eyebrow="POSITION ROOMS" title="Where this roster’s points live"/><div className="allocation-grid">{roomAnalytics.map((room) => <article key={room.position}><strong>{room.position}</strong><span>{room.room.length} players · {room.bestRank < 9999 ? `best asset #${room.bestRank}` : "rank pending"}</span><div><i className="prime" style={{ width: `${Math.min(100, room.projected * 2)}%` }}/></div><small>{room.projected.toFixed(1)} combined projected points</small></article>)}</div></section></div>
+<div className="dynasty-main"><section className="panel dynasty-trajectory"><Header eyebrow="WEEKLY OUTCOME RANGE" title="How wide is this lineup’s path?"/><div className="redraft-range"><span style={{ width: `${Math.min(100, (floor / Math.max(ceiling, 1)) * 100)}%` }}/><i style={{ left: `${Math.min(96, (projection / Math.max(ceiling, 1)) * 100)}%` }}/></div><div className="redraft-range-labels"><b>Floor {floor.toFixed(1)}</b><b>Median {projection.toFixed(1)}</b><b>Ceiling {ceiling.toFixed(1)}</b></div><p>A wider range creates comeback upside but increases the chance of a low weekly result. Start/Sit aggressiveness decides which part of this distribution matters most.</p></section><section className="panel dynasty-allocation"><Header eyebrow="POSITION ROOMS" title="Where this roster’s points live"/><div className="allocation-grid">{roomAnalytics.map((room) => <article key={room.position}><strong>{room.position}</strong><span>{room.room.length} players · {room.bestRank < 9999 ? `Best: ${room.position} ${room.bestRank}` : room.room.length ? "Rank pending" : "No players"}</span><div><i className="prime" style={{ width: `${Math.min(100, room.projected * 2)}%` }}/></div><small>{room.projected.toFixed(1)} combined projected points</small></article>)}</div></section></div>
     <div className="dynasty-lists"><section className="panel"><Header eyebrow="WEEKLY FOUNDATIONS" title="Players carrying the median"/><p className="model-caveat">These are the largest current contributors to the connected platform’s weekly lineup projection.</p><div className="dynasty-player-list">{strengths.map((player) => <button key={player.id} onClick={() => setSelectedPlayer(player)}><span className={`pos pos-${player.position.toLowerCase()}`}>{player.position}</span><p><strong>{player.name}</strong><small>{player.team} · {formatRosterSlot(player.role)}</small></p><b>{player.projection.toFixed(1)}<small>Projected points</small></b><em className="core">Foundation</em></button>)}</div></section><section className="panel"><Header eyebrow="VOLATILITY WATCH" title="Players who can swing the week"/><p className="model-caveat">Large floor-to-ceiling ranges can help an underdog and hurt a favorite. This is role variance, not a recommendation to bench the player.</p><div className="dynasty-player-list">{volatilityWatch.map(({ player, range }) => <button key={player.id} onClick={() => setSelectedPlayer(player)}><span className={`pos pos-${player.position.toLowerCase()}`}>{player.position}</span><p><strong>{player.name}</strong><small>{range.floor.toFixed(1)} floor · {range.ceiling.toFixed(1)} ceiling</small></p><b>{(range.ceiling - range.floor).toFixed(1)}<small>Point range</small></b><em className="watch">Monitor</em></button>)}</div></section></div>
     <section className="panel dynasty-plan"><Header eyebrow="SEASON PLAYBOOK" title="Three redraft management priorities"/><div><article className="analytics-route-card"><b>01</b><span><strong>{emptySlots ? "Fill every active lineup slot" : "Keep the weekly lineup optimized"}</strong><p>{emptySlots ? `${emptySlots} required starter slot${emptySlots === 1 ? " is" : "s are"} currently empty.` : "Revisit close calls as projections, injuries, weather, and matchup strength update."}</p></span><em>Before kickoff</em></article><article className="analytics-route-card"><b>02</b><span><strong>{injuryRisks.length ? "Build an availability contingency" : "Preserve healthy depth"}</strong><p>{injuryRisks.length ? `${injuryRisks.length} roster players carry a current availability flag. Avoid waiting until kickoff windows close.` : "No current availability flags require an emergency move; maintain flexible bench coverage."}</p></span><em>This week</em></article><article className="analytics-route-card"><b>03</b><span><strong>{usableDepth.length < 3 ? "Upgrade playable depth" : "Use depth to attack weaknesses"}</strong><p>{usableDepth.length < 3 ? "The bench has limited credible weekly replacements. Prioritize waivers with immediate roles." : "Your bench can absorb normal volatility. Explore trades that consolidate depth into stronger starters."}</p></span><em>Ongoing</em></article></div></section>
   </div>;
@@ -9076,18 +9083,18 @@ function TeamReview({ teams, selectedTeamId, rankings, context, waivers, onNavig
   const renderReportText = (text: string) => reportNamePattern ? text.split(reportNamePattern).map((part, i) =>
     reportNameSet.has(part) ? <strong className="report-player-name" key={i}>{part}</strong> : part) : text;
   return <div className="page-content team-review-page">
-    <header className="review-heading"><div><span>TEAM REVIEW</span><h2>{selected.teamName}</h2><p>{context.format} · {context.scoring} · {report.leagueSize} teams</p></div><button className="review-generate" aria-haspopup="dialog" disabled={tradesLoading || writing} onClick={() => void generateReport()}>{writing ? 'Preparing report…' : tradesLoading ? 'Checking roster moves…' : 'Generate Team Report'} <span aria-hidden="true">↗</span></button></header>
+    <header className="review-heading panel"><div><span>TEAM REVIEW</span><h2>{selected.teamName}</h2><p>{context.format} · {context.scoring} · {report.leagueSize} teams</p></div><button className="review-generate" aria-haspopup="dialog" disabled={tradesLoading || writing} onClick={() => void generateReport()}>{writing ? 'Preparing report…' : tradesLoading ? 'Checking roster moves…' : 'Generate Team Report'} <span aria-hidden="true">↗</span></button></header>
     <section className="review-verdict panel">
       <div><span>YOUR TEAM VERDICT</span><h3>{report.verdict}</h3><p><b>{report.strengths[0].position}</b> leads your roster. {report.vacancies ? report.vacancies + ' starting spots need coverage.' : report.targetPositions.length ? 'Prioritize ' + report.targetPositions.join(' and ') + '.' : 'Protect your starting advantage.'}</p></div>
       <div className="review-rank"><strong>#{report.overallRank}</strong><span>overall team rank<br />of {report.leagueSize} teams</span></div>
     </section>
     <div className="review-metrics">{[['Starter strength', report.starterRank], ['Lineup balance', report.balanceRank], ['Usable depth', report.depthRank]].map(([label, rank]) => <div className="panel" key={label}><span>{label}</span><strong>#{rank}</strong><small>in your league</small></div>)}</div>
-    <details className="review-league-fit"><summary><span>LEAGUE FIT</span><strong>{structure.deep >= .5 ? 'Build through balanced depth' : 'Prioritize difference-making starters'}</strong><span className="review-fit-toggle">Details</span></summary>
+    <details className="review-league-fit panel"><summary><span>LEAGUE FIT</span><strong>{structure.deep >= .5 ? 'Build through balanced depth' : 'Prioritize difference-making starters'}</strong><span className="review-fit-toggle">Details</span></summary>
       <p className="review-settings">{slotSummary}</p>
       <p>{structure.deep >= .5 ? 'Protect your flex depth. Upgrade weak starting spots without leaving another hole.' : 'Prioritize stronger starters and QB/TE advantages over extra bench depth.'}</p>
       <div className="review-tags">{structure.superflex && <span>Superflex · Protect your second QB</span>}{context.tePremium > 0 && <span>TE premium · Preserve your edge</span>}{structure.unsupported.length > 0 && <span>Offensive roster review</span>}</div>
     </details>
-    <section className="review-section review-profile"><header><span>STRENGTHS & GAPS</span><h3>Your positional profile</h3></header>
+    <section className="review-section review-profile panel"><header><span>STRENGTHS & GAPS</span><h3>Your positional profile</h3></header>
       <div className="review-rooms">{report.rooms.map(room => <article data-room-status={room.score < room.leagueAverage * .9 ? 'attention' : room.rank <= Math.ceil(report.leagueSize / 3) ? 'strength' : 'competitive'} key={room.position}><header><h4>{room.position}</h4><b>#{room.rank} / {report.leagueSize}</b></header><strong>{room.score < room.leagueAverage * .9 ? 'Needs attention' : room.rank <= Math.ceil(report.leagueSize / 3) ? 'Strength' : 'Competitive'}</strong><p>{room.starters.length ? room.starters.map((p, i) => <Fragment key={p.id}>{i > 0 && ', '}<button className="review-player" onClick={() => open(p)}>{p.name}</button></Fragment>) : 'No available starter.'}</p><small>{room.backups.length ? room.backups.length + ' backups · ' + room.backups[0].name : 'No backup coverage'}</small></article>)}</div>
     </section>
     <section id="review-availability" className="review-section review-availability panel"><header><span>WATCH LIST</span><h3>Lineup & availability</h3></header>
@@ -10360,17 +10367,6 @@ function StartSit({
                 ? "Shoot for upside"
                 : "Balanced"}
           </strong>
-          <p>
-            {!isPro
-              ? "Free accounts use a fixed balanced model. Upgrade to Pro to adapt floor and ceiling weighting to your matchup and preferred risk level."
-              : opponentProjection == null
-              ? "The league has not posted a weekly opponent yet, so Fantasy Hub defaults to a balanced posture without inventing a matchup total."
-              : matchupGap > 3
-                ? `You project ${matchupGap.toFixed(1)} points behind. Accept more variance to improve your upset path.`
-                : matchupGap < -3
-                  ? `You project ${Math.abs(matchupGap).toFixed(1)} points ahead. Protect the favorite outcome with dependable volume.`
-                  : "The matchup is close enough to favor balanced median outcomes."}
-          </p>
           {isPro ? <button onClick={() => setProAggressiveness(recommendedAggression)}>Use recommended</button> : <button onClick={onUpgrade}>Unlock matchup strategy</button>}
         </div>
       </section>
@@ -10468,15 +10464,6 @@ function StartSit({
                   Ceiling <b>{adjustedRange.ceiling}</b>
                 </span>
               </div>
-              <p>
-                {player.matchupStrength
-                  ? `${player.matchupStrength.label} ${player.position} matchup (defense rank #${player.matchupStrength.rank}) ${adjustedRange.edge >= 0 ? "expands upside" : "adds downside risk"}. ${aggressiveness > 65 ? "Ceiling" : aggressiveness < 35 ? "Floor" : "Balanced tails"} drive a ${scorePlayer(player).toFixed(1)} risk-adjusted score.`
-                  : aggressiveness > 65
-                  ? `Ceiling carries more weight at this setting. Risk-adjusted score: ${scorePlayer(player).toFixed(1)}.`
-                  : aggressiveness < 35
-                    ? `Floor and role certainty carry more weight. Risk-adjusted score: ${scorePlayer(player).toFixed(1)}.`
-                    : `Median projection leads the decision. Risk-adjusted score: ${scorePlayer(player).toFixed(1)}.`}
-              </p>
               <strong className="select-label">
                 {currentlyStarting
                   ? `CURRENT ${formatRosterSlot(player.role)}`
@@ -10489,9 +10476,6 @@ function StartSit({
               <span>FANTASY HUB VERDICT · {formatRosterSlot(decision.starter.role)}</span>
               <h3>Start {recommendedPlayer.name}</h3>
               {stackPartners(recommendedPlayer,startSitPlayers.filter(p=>!options.some(o=>o.id===p.id))).length>0&&<p>🥞 {aggressiveness>65?'Stack-aware upside pick':'Stack option'} with {stackPartners(recommendedPlayer,startSitPlayers.filter(p=>!options.some(o=>o.id===p.id))).map(p=>p.name).join(', ')}. Projections unchanged.</p>}
-              <p>
-                At {aggressiveness}% aggressiveness, this recommendation weighs {aggressiveness > 65 ? "ceiling and game-breaking outcomes" : aggressiveness < 35 ? "floor, role certainty, and downside protection" : "floor, median, and ceiling more evenly"}. Every alternative shown is eligible for this lineup slot.
-              </p>
             </section>
           </section>;
         }) : <section className="panel decision-empty"><strong>No automatic close calls found</strong><p>Your lineup has no close starter-versus-bench decisions, but you can still compare any players with the custom tool below.</p></section>}
@@ -10501,7 +10485,6 @@ function StartSit({
           <div>
             <span>CUSTOM COMPARISON</span>
             <h2>Choose up to four players</h2>
-            <p>Build your own side-by-side decision using the same projection, floor, ceiling, matchup, and risk model.</p>
           </div>
           <small>{customPlayers.length}/4 selected</small>
         </header>
@@ -10575,7 +10558,6 @@ function StartSit({
               <section className="insight-box custom-start-sit-verdict">
                 <span>FANTASY HUB CUSTOM VERDICT</span>
                 <h3>Start {customRecommendation.name}</h3>
-                <p>At {aggressiveness}% aggressiveness, {customRecommendation.name} is the model pick, using risk-adjusted scores{aggressiveness>65?' and a stack tiebreaker for similar projections':''}.</p>
                 {stackPartners(customRecommendation,startSitPlayers.filter(p=>!customPlayers.some(o=>o.id===p.id))).length>0&&<p>🥞 Connected starter: {stackPartners(customRecommendation,startSitPlayers.filter(p=>!customPlayers.some(o=>o.id===p.id))).map(p=>p.name).join(', ')}. Projections unchanged.</p>}
               </section>
             )}

@@ -1,9 +1,7 @@
-.team-review-page{max-width:1440px;margin-inline:auto;color:var(--ink);display:grid;grid-template-columns:minmax(0,1fr);column-gap:16px;align-items:start}
+.team-review-page{max-width:1440px;margin-inline:auto;color:var(--ink);display:grid;grid-template-columns:minmax(0,1fr);gap:12px;align-items:start}
 .team-review-page>*{min-width:0;grid-column:1/-1}
 .team-review-page .review-league-fit{padding:10px 0;margin-bottom:14px;border-bottom:1px solid var(--line)}
 .review-league-fit summary{display:flex;align-items:center;gap:10px;min-height:44px;cursor:pointer;list-style:none}.review-league-fit summary::-webkit-details-marker{display:none}.review-league-fit summary>span:first-child{font-size:10px;letter-spacing:.08em;color:var(--muted);font-weight:800;flex-shrink:0}.review-league-fit summary strong{font-size:13px;line-height:1.4}.review-fit-toggle{margin-left:auto;font-size:12px;color:var(--green)}.review-fit-toggle::after{content:' +';font-weight:800}.review-league-fit[open] .review-fit-toggle::after{content:' −'}.review-league-fit p{font-size:13px;line-height:1.5;margin:7px 0}.review-league-fit .review-tags:empty{display:none}
-.team-review-page>section.review-section.review-moves-section.panel{background:transparent;box-shadow:none;border:0;padding:0;margin-top:4px;margin-bottom:18px}
-.team-review-page>section.review-section.review-moves-section>header{margin:0 0 10px;padding:8px 0;background:none;border-radius:0;border-bottom:1px solid var(--line)}
 .team-review-page>section.review-profile .review-rooms article[data-room-status]{border-left:0;border-top-color:var(--room-accent);background:linear-gradient(180deg,color-mix(in srgb,var(--room-accent) 8%,var(--chalk)),var(--chalk) 75%)}
 .review-rooms [data-room-status="strength"]{--room-accent:#23865a}.review-rooms [data-room-status="attention"]{--room-accent:#ce8330}.review-rooms [data-room-status="competitive"]{--room-accent:#758597}
 .team-review-page .review-all-clear{padding:10px;border-left:3px solid #23865a;background:color-mix(in srgb,#23865a 8%,var(--chalk));border-radius:6px}
@@ -120,6 +118,34 @@
 .review-trade-sides{display:grid;gap:10px;margin:12px 0}.review-trade-sides>div{min-width:0;padding:9px;border-radius:8px;background:color-mix(in srgb,var(--green) 5%,var(--chalk))}
 .team-review-page .review-trade-player{display:flex;align-items:center;gap:8px;width:100%;padding:6px 0;min-height:44px;border:0;background:transparent;text-align:left}.review-trade-player strong{font-size:13px;overflow-wrap:anywhere}.review-trade-player i{font-style:normal;flex-shrink:0}.review-trade-note{display:block;margin-top:10px}
 @media(max-width:700px){.team-review-page .review-section.panel{padding:14px 12px}.team-review-page .review-metrics{gap:7px}.team-review-page .review-metrics>div{padding:11px 9px}.review-trades,.review-waivers{grid-template-columns:1fr}}
+/* Unified page cards: no floating section headings or negative header margins. */
+.team-review-page>header.review-heading.panel,
+.team-review-page>details.review-league-fit.panel,
+.team-review-page>section.review-section.panel{margin:0;padding:16px;border:1px solid var(--line);border-radius:var(--radius-card,14px);background:var(--chalk);box-shadow:0 5px 18px rgb(0 0 0 / .05)}
+.team-review-page>header.review-heading.panel{border-top:3px solid var(--gold);background:linear-gradient(115deg,color-mix(in srgb,var(--gold) 9%,var(--chalk)),var(--chalk) 65%)}
+.team-review-page>header.review-heading.panel h2{font-size:26px;line-height:1.2;letter-spacing:-.025em}
+.team-review-page>section.review-section.panel>header{display:flex;flex-direction:column;align-items:flex-start;gap:4px;margin:0 0 12px;padding:0 0 11px;border:0;border-bottom:1px solid var(--line);border-radius:0;background:none}
+.team-review-page>section.review-section.panel>header>span{padding:0;border:0;border-radius:0;background:none;color:var(--muted);font-size:10px;letter-spacing:.1em;line-height:1.3}
+.team-review-page>section.review-section.panel>header>h3{margin:0;font-family:var(--font-geist-sans),Arial,sans-serif;font-size:18px;font-weight:700;color:var(--ink)}
+.team-review-page>section.review-section.panel{border-top:3px solid color-mix(in srgb,var(--gold) 65%,var(--line))}
+.team-review-page>section.review-verdict.panel{margin:0}
+.team-review-page>div.review-metrics{margin:0;padding:0;gap:12px}
+.team-review-page>div.review-metrics>div.panel{margin:0;border-top:3px solid color-mix(in srgb,var(--green) 45%,var(--line));background:var(--chalk)}
+.team-review-page>details.review-league-fit.panel summary{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px}
+.team-review-page>details.review-league-fit.panel[open] summary{padding-bottom:10px;border-bottom:1px solid var(--line);margin-bottom:10px}
+.team-review-page>section.review-section.panel>button{margin-top:10px}
+.team-review-page>section.review-section.panel .review-trades{align-items:stretch}
+.team-review-page>section.review-section.panel .review-open-trade{margin-top:auto!important}
+@media(max-width:700px){
+  .team-review-page{gap:10px}
+  .team-review-page>header.review-heading.panel,.team-review-page>details.review-league-fit.panel,.team-review-page>section.review-section.panel{padding:12px}
+  .team-review-page>header.review-heading.panel h2{font-size:22px}
+  .team-review-page>div.review-metrics{gap:7px}
+  .team-review-page>details.review-league-fit.panel summary{grid-template-columns:minmax(0,1fr) auto;gap:4px 10px}
+  .team-review-page>details.review-league-fit.panel summary>span:first-child{grid-column:1}
+  .team-review-page>details.review-league-fit.panel summary>strong{grid-column:1;grid-row:2}
+  .team-review-page>details.review-league-fit.panel summary>.review-fit-toggle{grid-column:2;grid-row:1/3;align-self:center}
+}
 .review-heading{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:18px}
 .review-heading span,.review-section>header>span,.review-verdict>div>span{font-size:11px;font-weight:850;letter-spacing:.12em;color:var(--green)}
 .review-heading h2{margin:5px 0;font-size:28px;overflow-wrap:anywhere}.review-heading p{margin:0;color:var(--muted);font-size:13px}
