@@ -10,15 +10,16 @@ import NativeSessionReset from "./native-session-reset";
 export default async function SignInPage({ searchParams }: { searchParams: Promise<{ native?: string; reset?: string }> }) {
   const params = await searchParams;
   const nativeIos = params.native === "ios";
+  const nativeApp = nativeIos || params.native === "android";
   const forceNativeReset = nativeIos && params.reset === "1";
   const [{ userId }, cookieStore] = await Promise.all([auth(), cookies()]);
   const nativeSignedOut = nativeIos && cookieStore.get("fh_native_signed_out")?.value === "1";
   if (userId && (nativeSignedOut || forceNativeReset)) return <NativeSessionReset />;
-  if (userId) redirect(nativeIos ? "/native-auth-return" : "/");
-  const emailSignIn = <SignIn routing="path" path="/sign-in" signUpUrl={nativeIos ? "/sign-up?native=ios" : "/sign-up"} forceRedirectUrl={nativeIos ? "/native-auth-return" : "/"} appearance={nativeIos ? nativeEmailOnlyClerkAppearance : chargersClerkAppearance} />;
+  if (userId) redirect(nativeApp ? "/native-auth-return" : "/");
+  const emailSignIn = <SignIn routing="path" path="/sign-in" signUpUrl={nativeApp ? `/sign-up?native=${params.native}` : "/sign-up"} forceRedirectUrl={nativeApp ? "/native-auth-return" : "/"} appearance={nativeApp ? nativeEmailOnlyClerkAppearance : chargersClerkAppearance} />;
   return <main className="clerk-auth-shell chargers-entry-shell">
     <Link className="clerk-auth-brand" href="/" aria-label="Fantasy Hub home">FH</Link>
     {nativeIos ? <div className="native-auth-card-stack"><NativeAppleSignIn />{emailSignIn}</div> : emailSignIn}
-    {!nativeIos ? <a className="clerk-chatgpt-option" href="/signin-with-chatgpt?return_to=/">Prefer ChatGPT? Continue here</a> : null}
+    {!nativeApp ? <a className="clerk-chatgpt-option" href="/signin-with-chatgpt?return_to=/">Prefer ChatGPT? Continue here</a> : null}
   </main>;
 }

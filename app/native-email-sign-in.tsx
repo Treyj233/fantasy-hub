@@ -4,7 +4,7 @@ import { useClerk } from "@clerk/nextjs";
 import { FormEvent, useState } from "react";
 import { NATIVE_AUTH_EMAIL_KEY } from "./native-auth-intent";
 
-export default function NativeEmailSignIn() {
+export default function NativeEmailSignIn({ platform = "ios" }: { platform?: "ios" | "android" }) {
   const { client, signOut } = useClerk();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -29,7 +29,7 @@ export default function NativeEmailSignIn() {
       // Remove both authentication layers before trying another identifier.
       // Otherwise Clerk's multi-session state or the native cookie can restore
       // the previously used Gmail account when this identifier is unavailable.
-      const resetResponse = await fetch("/api/native-auth/session?native=ios", {
+      const resetResponse = await fetch(`/api/native-auth/session?native=${platform}`, {
         method: "DELETE",
         cache: "no-store",
         credentials: "include",
@@ -103,6 +103,6 @@ export default function NativeEmailSignIn() {
     <input id="native-email-password" name="password" type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required />
     <button type="submit" disabled={working}>{working ? "Signing in…" : "Sign in with email"}</button>
     {error ? <p className="native-sign-in-error" role="alert">{error}</p> : null}
-    <a href="/sign-up?native=ios">Create an account</a>
+    <a href={`/sign-up?native=${platform}`}>Create an account</a>
   </form>;
 }

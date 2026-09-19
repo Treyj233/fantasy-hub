@@ -14,8 +14,8 @@ test("native Apple authentication returns from the web flow to the iOS app", asy
   const runtime = await readFile(new URL("../app/native-runtime.ts", import.meta.url), "utf8");
   assert.match(hub, /const nativeIos = isNativeIosApp\(\)/);
   assert.match(hub, /const signInHref = nativeIos \? "\/native-sign-in" : "\/sign-in"/);
-  assert.match(signIn, /forceRedirectUrl=\{nativeIos \? "\/native-auth-return" : "\/"\}/);
-  assert.match(signUp, /forceRedirectUrl=\{nativeIos \? "\/native-auth-return" : "\/"\}/);
+  assert.match(signIn, /forceRedirectUrl=\{nativeApp \? "\/native-auth-return" : "\/"\}/);
+  assert.match(signUp, /forceRedirectUrl=\{nativeApp \? "\/native-auth-return" : "\/"\}/);
   assert.match(signUp, /<NativeAppleSignIn mode="sign-up" \/>/);
   assert.match(signUp, /nativeEmailOnlyClerkAppearance/);
   assert.match(callback, /<NativeAuthReturnClient \/>/);
@@ -39,7 +39,7 @@ test("native Apple authentication returns from the web flow to the iOS app", asy
   assert.match(nativeEmailSignIn, /new FormData\(event\.currentTarget\)/);
   assert.match(nativeEmailSignIn, /formData\.get\("email"\)/);
   assert.match(nativeEmailSignIn, /const \{ client, signOut \} = useClerk\(\)/);
-  assert.match(nativeEmailSignIn, /fetch\("\/api\/native-auth\/session\?native=ios"/);
+  assert.match(nativeEmailSignIn, /fetch\(`\/api\/native-auth\/session\?native=\$\{platform\}`/);
   assert.match(nativeEmailSignIn, /signOut\(\{ sessionId: session\.id \}\)/);
   assert.match(nativeEmailSignIn, /client\.resetSignIn\(\)/);
   assert.match(nativeEmailSignIn, /name="email"/);

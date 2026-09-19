@@ -1,0 +1,10 @@
+.native-google-sign-in > button {
+  background: #fff;
+  color: #1f1f1f;
+  border: 1px solid #747775;
+  font-weight: 600;
+}
+.native-google-sign-in > button:hover:not(:disabled) { background: #f0f4f9; }
+.native-google-sign-in > button:focus-visible { outline: 3px solid #4285f4; outline-offset: 3px; }
+.native-google-sign-in > button > span { color: #4285f4; font-size: 22px; font-weight: 800; }
+.native-google-sign-in > p[role="status"] { margin-top: 12px; font-size: 13px; }

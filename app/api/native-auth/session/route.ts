@@ -8,7 +8,7 @@ export async function DELETE(request: Request) {
   const headers = new Headers({ "Cache-Control": "no-store" });
   headers.append("Set-Cookie", `fh_native_selected_session=; ${cookieBase}; Max-Age=0`);
   headers.append("Set-Cookie", `fh_native_session=; ${cookieBase}; Max-Age=0`);
-  if (new URL(request.url).searchParams.get("native") === "ios") {
+  if (["ios", "android"].includes(new URL(request.url).searchParams.get("native") ?? "")) {
     // This durable tombstone prevents a stale Clerk WebView cookie from
     // restoring authentication after the native app is force-closed.
     headers.append("Set-Cookie", `fh_native_signed_out=${Math.floor(Date.now() / 1000)}; ${cookieBase}; Max-Age=31536000`);

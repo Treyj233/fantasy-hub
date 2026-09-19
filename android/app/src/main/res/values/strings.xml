@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Fantasy Hub</string>
+    <string name="title_activity_main">Fantasy Hub</string>
+    <string name="package_name">com.fantasyhubapp.android</string>
+    <string name="custom_url_scheme">com.fantasyhubapp.android</string>
+</resources>

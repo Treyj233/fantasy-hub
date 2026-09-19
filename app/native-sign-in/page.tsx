@@ -1,9 +1,16 @@
 "use client";
 
 import { useClerk, useSessionList } from "@clerk/nextjs";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import Link from "next/link";
 import NativeEmailSignIn from "../native-email-sign-in";
 import NativeAppleSignIn from "../sign-in/[[...sign-in]]/native-apple-sign-in";
+import NativeGoogleSignIn from "../native-google-sign-in";
+import { Capacitor } from "@capacitor/core";
+
+const subscribePlatform = () => () => {};
+const readPlatform = () => Capacitor.getPlatform();
+const serverPlatform = () => "web";
 
 export default function NativeSignInPage() {
   const { isLoaded, sessions } = useSessionList();
@@ -11,6 +18,7 @@ export default function NativeSignInPage() {
   const resetRequested = useRef(false);
   const [resetComplete, setResetComplete] = useState(false);
   const [resetError, setResetError] = useState(false);
+  const platform = useSyncExternalStore(subscribePlatform, readPlatform, serverPlatform);
 
   useEffect(() => {
     if (!isLoaded || resetRequested.current) return;
@@ -41,10 +49,10 @@ export default function NativeSignInPage() {
   </main>;
 
   return <main className="clerk-auth-shell chargers-entry-shell">
-    <a className="clerk-auth-brand" href="/" aria-label="Fantasy Hub home">FH</a>
+    <Link className="clerk-auth-brand" href="/" aria-label="Fantasy Hub home">FH</Link>
     <div className="native-auth-card-stack">
-      <NativeAppleSignIn />
-      <NativeEmailSignIn />
+      {platform === "ios" ? <NativeAppleSignIn /> : platform === "android" ? <NativeGoogleSignIn /> : null}
+      <NativeEmailSignIn platform={platform === "android" ? "android" : "ios"} />
     </div>
   </main>;
 }
