@@ -2647,3 +2647,10 @@ button.portfolio-player-tile{cursor:pointer}
 .simulator-live .sim-results .metric{color:var(--ink);background:var(--chalk)}
 .simulator-live .sim-results .metric strong{color:var(--ink)}
 .simulator-live .sim-results .metric :is(span,small){color:var(--muted)}
+
+/* Show membership requirements at the start of the page, not mid-viewport. */
+.page-content.pro-gate-page {
+  min-height: 0;
+  align-content: start;
+  align-items: start;
+}
