@@ -2,7 +2,6 @@
 
 import { useClerk, useSessionList } from "@clerk/nextjs";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import Link from "next/link";
 import NativeEmailSignIn from "../native-email-sign-in";
 import NativeAppleSignIn from "../sign-in/[[...sign-in]]/native-apple-sign-in";
 import NativeGoogleSignIn from "../native-google-sign-in";
@@ -49,7 +48,9 @@ export default function NativeSignInPage() {
   </main>;
 
   return <main className="clerk-auth-shell chargers-entry-shell">
-    <Link className="clerk-auth-brand" href="/" aria-label="Fantasy Hub home">FH</Link>
+    {/* Preserve the existing full-page navigation for the iOS auth shell. */}
+    {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
+    <a className="clerk-auth-brand" href="/" aria-label="Fantasy Hub home">FH</a>
     <div className="native-auth-card-stack">
       {platform === "ios" ? <NativeAppleSignIn /> : platform === "android" ? <NativeGoogleSignIn /> : null}
       <NativeEmailSignIn platform={platform === "android" ? "android" : "ios"} />
