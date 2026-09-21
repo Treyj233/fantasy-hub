@@ -1,7 +1,9 @@
 import { blockProvider, takeProviderToken } from '../refresh-coordinator';
 import { REFRESH } from '../refresh-policy.mjs';
 
-const pending = new Map<string, Promise<Response>>();
+type BufferedResponse = { body: string; status: number; headers: Record<string, string> };
+const pending = new Map<string, Promise<BufferedResponse>>();
+const restore = (value: BufferedResponse) => new Response(value.body, { status: value.status, headers: value.headers });
 const recent = new Map<string, { body: string; until: number }>();
 export async function providerFetch(input: string | URL | Request, init: RequestInit & { cf?: { cacheTtl?: number } } = {}): Promise<Response> {
   const url = new URL(typeof input === 'string' ? input : input instanceof URL ? input.href : input.url);
@@ -20,16 +22,16 @@ export async function providerFetch(input: string | URL | Request, init: Request
   const saved = recent.get(key);
   if (saved && saved.until > now && init.cache !== 'reload') return new Response(saved.body, { headers: { 'content-type': 'application/json' } });
   const existing = pending.get(key);
-  if (existing) return (await existing).clone();
-  const request = (async () => {
+  if (existing) return restore(await existing);
+  const request = (async (): Promise<BufferedResponse> => {
     const cache = (globalThis.caches as CacheStorage & { default?: Cache } | undefined)?.default;
     const cacheRequest = new Request(url.href);
     if (cache && init.cache !== 'reload') {
       const cached = await cache.match(cacheRequest).catch(() => undefined);
-      if (cached) return cached;
+      if (cached) return { body: await cached.text(), status: cached.status, headers: { 'content-type': 'application/json' } };
     }
     if (!await takeProviderToken(sleeper ? 'sleeper' : 'espn', sleeper ? REFRESH.sleeperPerMinute : 30)) {
-      return new Response('Provider refresh budget busy', { status: 429, headers: { 'retry-after': '60' } });
+      return { body: 'Provider refresh budget busy', status: 429, headers: { 'retry-after': '60' } };
     }
     // The wrapper owns cache policy. Cloudflare rejects Next's no-store together
     // with a positive cf.cacheTtl, and does not support browser reload mode.
@@ -41,22 +43,22 @@ export async function providerFetch(input: string | URL | Request, init: Request
       const seconds = Number(response.headers.get('retry-after'));
       await blockProvider(sleeper ? 'sleeper' : 'espn', Math.min(3600, Math.max(60, Number.isFinite(seconds) ? seconds : 60)) * 1000);
     }
+    const body = await response.text();
     if (response.ok) {
       if (cache && ttl > 0) {
-        const cached = new Response(response.clone().body, { headers: {
+        const cached = new Response(body, { headers: {
           'content-type': 'application/json', 'cache-control': `public, max-age=${ttl}`,
         } });
         await cache.put(cacheRequest, cached).catch(() => {});
       }
-      const body = await response.clone().text();
       // The large directory stays in the edge cache, not a per-isolate map.
       if (body.length < 500_000) {
         recent.set(key, { body, until: now + ttl * 1000 });
-        while (recent.size > 64) recent.delete(recent.keys().next().value!);
+        while (recent.size > 16) recent.delete(recent.keys().next().value!);
       }
     }
-    return response;
+    return { body, status: response.status, headers: { 'content-type': 'application/json', 'retry-after': response.headers.get('retry-after') ?? '60' } };
   })();
   pending.set(key, request);
-  try { return (await request).clone(); } finally { pending.delete(key); }
+  try { return restore(await request); } finally { pending.delete(key); }
 }

@@ -38,7 +38,8 @@ export async function refreshActiveLeagueSnapshots(request: Request, cronSecret:
     let refreshed = 0, failed = 0;
     let cursor = 0;
     const batch = due.slice(0, REFRESH.jobsPerTick);
-    await Promise.all(Array.from({ length: 3 }, async () => {
+    // Full roster models are memory-heavy; serialize them within each tick.
+    await Promise.all(Array.from({ length: 1 }, async () => {
       while (cursor < batch.length && Date.now() - now < 40_000) {
         const item = batch[cursor++];
         const done = await claimRefresh(`league:${item.record.userId}:${item.key}`);
