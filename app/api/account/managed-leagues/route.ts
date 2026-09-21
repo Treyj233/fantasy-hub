@@ -35,13 +35,16 @@ export async function POST(request: Request) {
   }
   const validationError = validate(provider, identifierType, identifier);
   if (validationError) return Response.json({ error: validationError }, { status: 400 });
+  let leagueName: string | null = null;
+  let season: string | null = null;
   if (provider === "sleeper" && identifierType === "league_id") {
     const sleeperResponse = await fetch(`https://api.sleeper.app/v1/league/${encodeURIComponent(identifier)}`);
     if (!sleeperResponse.ok) return Response.json({ error: "Sleeper league not found" }, { status: 404 });
+    const metadata = await sleeperResponse.json() as { name?: string; season?: string };
+    leagueName = metadata.name?.trim() || null;
+    season = metadata.season || null;
   }
   const rosterId = payload.rosterId?.trim() || null;
-  let leagueName: string | null = null;
-  let season: string | null = null;
   if (provider === "espn") {
     if (identifierType !== "league_id")
       return Response.json({ error: "ESPN currently connects through a public league ID" }, { status: 400 });
@@ -63,7 +66,7 @@ export async function POST(request: Request) {
   const db = await getDb();
   await db.insert(managedLeagues).values(league).onConflictDoUpdate({
     target: [managedLeagues.userId, managedLeagues.provider, managedLeagues.identifierType, managedLeagues.identifier],
-    set: { rosterId, leagueName, season, status, updatedAt: now },
+    set: { rosterId, ...(leagueName ? { leagueName } : {}), ...(season ? { season } : {}), status, updatedAt: now },
   });
   const [saved] = await db.select().from(managedLeagues).where(and(eq(managedLeagues.userId, user.userId), eq(managedLeagues.provider, provider), eq(managedLeagues.identifierType, identifierType), eq(managedLeagues.identifier, identifier))).limit(1);
   return Response.json({ league: saved });

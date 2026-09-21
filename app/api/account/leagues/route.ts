@@ -1,4 +1,5 @@
 import { providerFetch as fetch } from "../../provider-fetch";
+import { repairLeagueNames } from "../../../repair-league-names";
 import { and, eq } from "drizzle-orm";
 import { getDb } from "../../../../db";
 import { managedLeagues, sleeperConnections } from "../../../../db/schema";
@@ -13,6 +14,7 @@ export async function GET(request: Request) {
   const db = await getDb();
   const [connection] = await db.select().from(sleeperConnections).where(eq(sleeperConnections.userId, user.userId)).limit(1);
   const savedRecords = await db.select().from(managedLeagues).where(eq(managedLeagues.userId, user.userId));
+  await repairLeagueNames(db, savedRecords);
   const forceRefresh = new URL(request.url).searchParams.get("refresh") === "1";
   const savedSleeper = savedRecords.filter((record) => record.provider === "sleeper" && record.status === "live" && record.identifierType === "league_id");
   const savedEspn = savedRecords.filter((record) => record.provider === "espn" && record.status === "live");

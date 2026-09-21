@@ -5540,6 +5540,8 @@ function AllLeagues({
   const [rawPortfolioScores, setPortfolioScores] = useState<Record<string, ScoreboardData | null>>({});
   const portfolioScores=useMemo(()=>Object.fromEntries(Object.entries(rawPortfolioScores).map(([id,data])=>[id,projectionSource.scoreboard(data)])),[rawPortfolioScores,projectionSource]);
   const scans=useMemo(()=>platformScans.map(scan=>{
+    const currentLeague = leagues.find(league => league.id === scan.league.id);
+    if (currentLeague) scan = { ...scan, league: currentLeague };
     if(!projectionSource.enabled)return scan;
     const context=scan.projectionContext ?? projectionSource.contextFor(rawPortfolioScores[scan.league.id]?.league.scoring);
     const roster=scan.roster.map(p=>projectionSource.player(p,context,scan.league.season ?? '',scan.week));
@@ -5551,7 +5553,7 @@ function AllLeagues({
     if(plan?.worthIt&&plan.drop)issues.push({id:`${scan.league.id}:vegas:waiver`,severity:'watch',category:'Waivers',title:`Add ${waivers[0].name} · drop ${plan.drop.name}`,detail:`Modeled roster utility improves ${plan.improvement.toFixed(1)} points using the selected projection source. Check current availability.`});
     const status=issues.some(i=>i.severity==='critical')?'urgent' as const:issues.some(i=>i.severity==='warning')?'review' as const:'ready' as const;
     return {...scan,roster,waiverPlayers:waivers,projection:roster.filter(isStartingPlayer).reduce((sum,p)=>sum+p.projection,0),opponentProjection:opponents?opponents.filter(isStartingPlayer).reduce((sum,p)=>sum+p.projection,0):scan.opponentProjection,issues,status:scan.preDraft||scan.status==='unavailable'?scan.status:status};
-  }),[platformScans,projectionSource,rawPortfolioScores]);
+  }),[platformScans,projectionSource,rawPortfolioScores,leagues]);
   const portfolioScoreKey = scans.filter(scan => !scan.preDraft).map(scan => [scan.league.id, scan.week]).sort().map(pair => pair.join(":")).join("|");
   useEffect(() => {
     if (!active) return;
