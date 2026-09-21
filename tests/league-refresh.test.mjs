@@ -13,5 +13,5 @@ test('explicit discovery refresh also imports the active roster with cache bypas
   assert.match(importer, /setPlayers\(ownedTeam.roster\)/);
   const route = readFileSync(new URL('../app/api/league/route.ts', import.meta.url), 'utf8');
   assert.match(route, /if \(!forceRefresh\)/);
-  assert.match(route, /rosters`, \{ cache: "no-store" \}/);
+  assert.match(route, /rosters`, \{ cache: forceRefresh && user \? "reload" : "no-store" \}/);
 });

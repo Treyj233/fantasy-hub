@@ -1,5 +1,6 @@
 import { getChatGPTUser } from "../../chatgpt-auth";
 import { getNflGames, getNflMatch } from "../../highlightly-nfl";
+import { fetchCachedUpstream } from "../upstream-cache";
 
 type Venue = { name?: string; city?: string; state?: string; indoor?: boolean };
 type WeatherApiHour = {
@@ -30,7 +31,7 @@ export async function forecastFor(date: string, venue: Venue) {
   if (!place) return null;
   const days = Math.max(1, Math.min(14, Math.ceil(Math.max(0, hoursAway) / 24) + 1));
   const params = new URLSearchParams({ key: apiKey, q: place, days: String(days), aqi: "no", alerts: "no" });
-  const response = await fetch(`${WEATHER_API_URL}?${params}`, { next: { revalidate: 3600 } });
+  const response = await fetchCachedUpstream(`${WEATHER_API_URL}?${params}`, 3600);
   if (!response.ok) return null;
   const data = await response.json() as WeatherApiResponse;
   const hours = data.forecast?.forecastday?.flatMap((day) => day.hour ?? []) ?? [];

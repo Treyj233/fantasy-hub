@@ -1,3 +1,4 @@
+import { providerFetch as fetch } from "../../provider-fetch";
 import { and, eq, inArray } from "drizzle-orm";
 import { getDb } from "../../../../db";
 import { espnLeagueSnapshots, leagueDataSnapshots, managedLeagues, pushAlertDeliveries, pushAlertStates, pushDevices, userPreferences } from "../../../../db/schema";
@@ -11,14 +12,13 @@ import { fetchEspnLeague, normalizeEspnScoreboard, type EspnPayload } from "../.
 import { fetchCachedUpstream } from "../../upstream-cache";
 import { forecastFor } from "../../weather/route";
 import { consolidateAlerts } from "../../../push-alert-digest.mjs";
+import { refreshActiveLeagueSnapshots } from "../../../background-league-refresh";
 
 type Alert = { key: string; preference: PushAlertKey; category: ApplePushCategory; title: string; body: string; path?: string; urgent?: boolean; leagueName?: string; sourceKeys?: string[] };
 type LeaguePayload = { league?: { currentWeek?: number }; teams?: { id?: string; matchupId?: number | null; teamName?: string; roster?: { id: string; name: string; team: string; role: string; projection?: number }[] }[] };
 type Matchup = { roster_id?: number; matchup_id?: number | null; points?: number; custom_points?: number | null; players_points?: Record<string, number>; starters?: string[] };
 type AlertPlayer = { id: string; name: string; team: string; status?: string };
 type AlertState = { playerPoints?: Record<string, number>; initialized?: boolean; period?: string };
-const ACTIVE_ACCOUNT_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
-const BACKGROUND_REFRESH_INTERVAL_MS = 30 * 60 * 1000;
 
 async function secret() {
   let env: Record<string, unknown> = process.env as Record<string, unknown>;
@@ -36,38 +36,6 @@ function authorized(request: Request, expected: string) {
 
 const normalizeTeam = (team?: string) => ({ JAC: "JAX", WSH: "WAS", LA: "LAR" })[team ?? ""] ?? team ?? "";
 const score = (row?: Matchup) => Number((row?.custom_points ?? row?.points ?? 0).toFixed(2));
-
-async function refreshActiveLeagueSnapshots(request: Request, cronSecret: string) {
-  const db = await getDb();
-  const [preferences, snapshots] = await Promise.all([
-    db.select({ userId: userPreferences.userId, activeLeagueId: userPreferences.activeLeagueId, lastActiveAt: userPreferences.lastActiveAt }).from(userPreferences),
-    db.select({ userId: leagueDataSnapshots.userId, leagueKey: leagueDataSnapshots.leagueKey, refreshedAt: leagueDataSnapshots.refreshedAt }).from(leagueDataSnapshots),
-  ]);
-  const refreshedAt = new Map(snapshots.map((snapshot) => [`${snapshot.userId}:${snapshot.leagueKey}`, new Date(snapshot.refreshedAt).getTime()]));
-  const due = preferences.filter((preference) => {
-    if (!preference.activeLeagueId || !preference.lastActiveAt) return false;
-    if (Date.now() - new Date(preference.lastActiveAt).getTime() > ACTIVE_ACCOUNT_WINDOW_MS) return false;
-    return Date.now() - (refreshedAt.get(`${preference.userId}:${preference.activeLeagueId}`) ?? 0) >= BACKGROUND_REFRESH_INTERVAL_MS;
-  });
-  let refreshed = 0;
-  let failed = 0;
-  for (let index = 0; index < due.length; index += 3) {
-    const batch = due.slice(index, index + 3);
-    const results = await Promise.all(batch.map(async (preference) => {
-      const url = new URL("/api/league", request.url);
-      url.searchParams.set("id", preference.activeLeagueId!);
-      url.searchParams.set("refresh", "1");
-      const response = await fetch(url, {
-        headers: { authorization: `Bearer ${cronSecret}`, "x-fantasy-hub-sync-user": preference.userId },
-      });
-      await response.body?.cancel();
-      return response.ok;
-    }).map((result) => result.catch(() => false)));
-    refreshed += results.filter(Boolean).length;
-    failed += results.filter((result) => !result).length;
-  }
-  return { due: due.length, refreshed, failed };
-}
 
 async function deliver(userId: string, devices: (typeof pushDevices.$inferSelect)[], preferencesJson: string | undefined, alert: Alert) {
   const preferences = parsePushPreferences(preferencesJson);

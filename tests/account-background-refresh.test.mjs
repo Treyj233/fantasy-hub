@@ -18,15 +18,17 @@ test("active league state follows the account and bootstraps its saved snapshot"
 });
 
 test("league snapshots use stale-while-revalidate and the cron prewarms active accounts", async () => {
-  const [league, evaluator, cron] = await Promise.all([
+  const [league, evaluator, cron, refresh] = await Promise.all([
     readFile(new URL("../app/api/league/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/notifications/run/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../push-cron/wrangler.jsonc", import.meta.url), "utf8"),
+    readFile(new URL("../app/background-league-refresh.ts", import.meta.url), "utf8"),
   ]);
   assert.match(league, /fresh \? "fresh" : "stale"/);
   assert.match(league, /revalidateRecommended: !fresh/);
   assert.match(evaluator, /refreshActiveLeagueSnapshots/);
-  assert.match(evaluator, /BACKGROUND_REFRESH_INTERVAL_MS/);
-  assert.match(evaluator, /x-fantasy-hub-sync-user/);
+  assert.match(refresh, /accountRefreshInterval/);
+  assert.match(refresh, /x-fantasy-hub-sync-user/);
+  assert.match(refresh, /REFRESH.jobsPerTick/);
   assert.match(cron, /"crons": \["\* \* \* \* \*"\]/);
 });

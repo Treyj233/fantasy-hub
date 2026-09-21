@@ -25,7 +25,7 @@ function positionMarket(position:string,stat:string) {
   return ['RB','WR','TE'].includes(position)&&skill.includes(stat);
 }
 export function impliedProbability(value: unknown) { const n = number(value); return n === null || Math.abs(n) < 100 ? null : n < 0 ? -n / (-n + 100) : 100 / (n + 100); }
-export function refreshInterval(startsAt: string, now = Date.now()) { const left = Date.parse(startsAt)-now; return left <= 0 ? Infinity : left <= 2*3600000 ? 600000 : left <= 86400000 ? 7200000 : 43200000; }
+export function refreshInterval(startsAt: string, now = Date.now()) { const left = Date.parse(startsAt)-now; return left <= 0 ? Infinity : left <= 2*3600000 ? 1800000 : left <= 86400000 ? 21600000 : 43200000; }
 // Invert a Poisson tail for discrete TD/INT props. A line of 1.5 with
 // P(over)=0.33 is not an expected 1.5 touchdowns. This is an approximation.
 export function countExpectation(prop:EdgeProp|undefined) {

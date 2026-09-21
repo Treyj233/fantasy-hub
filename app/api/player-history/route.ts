@@ -1,3 +1,4 @@
+import { providerFetch as fetch } from "../provider-fetch";
 import { loadSnapProfiles, snapProfileFor } from "../../snap-data";
 
 type PlayerDirectoryEntry = { player_id?: string; full_name?: string; age?: number; years_exp?: number; college?: string; height?: string; weight?: string };

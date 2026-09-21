@@ -25,11 +25,11 @@ test("portfolio scans preserve saved results while weather requests use a bounde
   assert.match(source, /lastAutomaticScan/);
   assert.match(source, /cachedScansRef/);
   assert.match(source, /Showing saved results/);
-  assert.match(source, /const isBackgroundRevalidation = refreshKey === 0 && cacheMatches/);
+  assert.match(source, /const isBackgroundRevalidation = refreshKey === 0 && cachedAtScanStart.length > 0/);
   assert.match(source, /if \(refreshKey === 0 && cachedScanIsFresh\)/);
   assert.match(source, /\{scanIsActive && \(/);
   assert.match(source, /\{scans\.length > 0 && \(\s*<section className="league-scan-list">/);
-  assert.match(source, /refreshKey > 0 \|\| isBackgroundRevalidation/);
+  assert.match(source, /refreshKey > 0 \? "&refresh=1"/);
   assert.match(source, /if \(savedScan\) return \{ \.\.\.savedScan, league \}/);
 });
 
@@ -46,16 +46,17 @@ test("launch traffic is bounded and public provider data is edge cached", async 
   assert.match(client, /document\.visibilityState === "visible"/);
   assert.match(scoreboard, /fetchCachedUpstream/);
   assert.match(league, /fetchCachedUpstream/);
-  assert.match(league, /LEAGUE_SNAPSHOT_TTL_MS = 6 \* 60 \* 60 \* 1000/);
+  assert.match(league, /LEAGUE_SNAPSHOT_TTL_MS = 15 \* 60 \* 1000/);
   assert.match(scoreboard, /leagueConfiguration: 6 \* 60 \* 60/);
-  assert.match(scoreboard, /matchupReconciliation: 15 \* 60/);
+  assert.match(scoreboard, /matchupReconciliation: 30/);
   assert.match(scoreboard, /rosterOwners: 60 \* 60/);
   assert.match(scoreboard, /leagueUsers: 60 \* 60/);
   assert.match(scoreboard, /sleeperFantasyPoints/);
   assert.match(scoreboard, /getSleeperWeeklyStats/);
   assert.match(scoreboard, /requestedScope === "mine"/);
   assert.match(scoreboard, /scopedGroups\.map/);
-  assert.equal((client.match(/scope=mine/g) ?? []).length, 3);
+  const polling = await readFile(new URL('../app/live-polling.mjs', import.meta.url), 'utf8');
+  assert.match(polling, /scope=mine/);
   assert.match(client, /function Scoreboard[\s\S]+\/api\/scoreboard\?leagueId=\$\{encodeURIComponent\(leagueId\)\}\$\{query\}/);
   assert.match(sharedSleeper, /stats\/nfl\/regular\/\$\{season\}\/\$\{week\}`/);
   assert.match(sharedSleeper, /weeklyStatsRequest/);
@@ -70,7 +71,7 @@ test("launch traffic is bounded and public provider data is edge cached", async 
 test("initial league scan retries transient failures before showing a result", async () => {
   const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
   assert.match(source, /for \(let attempt = 0; attempt < 3; attempt \+= 1\)/);
-  assert.match(source, /refreshing \|\| loading \|\| \(leagues\.length > 0 && scans\.length < leagues\.length\)/);
+  assert.match(source, /loading \|\| \(refreshing && refreshKey > 0\)/);
   assert.doesNotMatch(source, /League could not be scanned/);
 });
 
@@ -94,7 +95,7 @@ test("league scans expose truthful determinate progress", async () => {
 
 test("Mission Hub scans are not aborted by equivalent league-array renders", async () => {
   const source = await readFile(new URL("../app/FantasyHub.tsx", import.meta.url), "utf8");
-  assert.match(source, /const leagueScanSignature = leagues\.map\(\(league\) => league\.id\)\.sort\(\)\.join\(":"\)/);
-  assert.match(source, /\[leagueScanSignature, refreshKey, onScansChange, cachedScansSavedAt\]/);
+  assert.match(source, /const leagueScanSignature = `\$\{selectedWeek\}:` \+ leagues\.map/);
+  assert.match(source, /\[leagueScanSignature, refreshKey, backgroundTick, onScansChange\]/);
   assert.doesNotMatch(source, /\[leagues, refreshKey, onScansChange\]/);
 });

@@ -14,7 +14,7 @@ import { formatTeamRecord } from "../../team-record.mjs";
 type MatchupRow = { roster_id?: number; matchup_id?: number | null; points?: number; custom_points?: number | null; players?: string[]; starters?: string[]; players_points?: Record<string, number> };
 const SLEEPER_SCOREBOARD_TTL_SECONDS = {
   leagueConfiguration: 6 * 60 * 60,
-  matchupReconciliation: 20,
+  matchupReconciliation: 30,
   rosterOwners: 60 * 60,
   leagueUsers: 60 * 60,
 } as const;

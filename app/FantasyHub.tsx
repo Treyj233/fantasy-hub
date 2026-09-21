@@ -40,6 +40,7 @@ import { sundayPulseOutlooks } from "./sunday-pulse-outlook.mjs";
 import { gameLineRange, gameLineSummary } from "./game-line-range.mjs";
 import type { GameLines } from "./nfl-schedule-data";
 import { cacheActiveLeagueBootstrap, readSessionCache, safeLocalStorageSet, writeSessionCache } from "./local-storage";
+import { rememberLeaguePage, readLeaguePage } from "./league-page-cache.mjs";
 import { teamPositionStrength } from "./team-position-strength";
 import { lineupReadiness } from "./lineup-readiness";
 import { weeklyProjectionValue } from "./weekly-projection";
@@ -2594,16 +2595,12 @@ export default function FantasyHub({
   useEffect(() => {
     if (!accountUser || !portfolioScans.length) return;
     const cacheKey = `fantasy-hub-portfolio-scans:${connection?.sleeperUserId ?? accountUser.email}`;
-    if (portfolioScans.some((scan) => scan.status === "unavailable")) {
-      window.localStorage.removeItem(cacheKey);
-      return;
-    }
     safeLocalStorageSet(cacheKey, JSON.stringify({
       version: PORTFOLIO_CACHE_VERSION,
-      savedAt: Date.now(),
-      scans: portfolioScans,
+      savedAt: portfolioScansSavedAt,
+      scans: portfolioScans.filter(scan => scan.status !== "unavailable"),
     }));
-  }, [accountUser, connection, portfolioScans]);
+  }, [accountUser, connection, portfolioScans, portfolioScansSavedAt]);
 
   const totals = useMemo(
     () => ({
@@ -2713,7 +2710,7 @@ export default function FantasyHub({
       setImportState("success");
     };
     try {
-      const cached = JSON.parse(
+      const cached = readLeaguePage(accountUser?.email ?? '', requestedLeagueId, importWeek) ?? JSON.parse(
         window.localStorage.getItem(`fantasy-hub-league-bootstrap:${requestedLeagueId}`) ?? "null",
       ) as Parameters<typeof applyCachedCore>[0] | null;
       if (cached) applyCachedCore(cached);
@@ -2742,6 +2739,7 @@ export default function FantasyHub({
       };
       if (requestNumber !== importRequest.current || requestedWeekRef.current !== importWeek) return;
       cacheActiveLeagueBootstrap(requestedLeagueId, JSON.stringify(data));
+      rememberLeaguePage(accountUser?.email ?? '', requestedLeagueId, importWeek, data);
       safeLocalStorageSet("fantasy-hub-active-league", requestedLeagueId);
       if (accountUser) void saveAccountPreferences({ activeLeagueId: requestedLeagueId });
       if (requestNumber !== importRequest.current) return;
@@ -3045,7 +3043,7 @@ export default function FantasyHub({
     // Swap from the local/server snapshot without clearing the current page or
     // showing a loading refresh, then reconcile fresh provider data quietly.
     await importLeague(league.id, connection?.sleeperUserId, league.rosterId, false, true);
-    void importLeague(league.id, connection?.sleeperUserId, league.rosterId, true, true);
+    // importLeague revalidates stale snapshots itself; switching is not a force refresh.
   }
 
   function selectLeagueTeam(teamId: string) {
@@ -3079,6 +3077,23 @@ export default function FantasyHub({
   const periodLabel = `WEEK ${defaultGameWeek}`;
   const showWeekOneWelcome = weekOneWelcomeOpen && defaultGameWeek === 1 && calendar.currentWeek === 1;
   const importedWeek = useRef(defaultGameWeek);
+  const backgroundImport = useRef(importLeague);
+  useEffect(() => { backgroundImport.current = importLeague; });
+  useEffect(() => {
+    if (!accountUser || !leagueId) return;
+    let running = false;
+    const refresh = async () => {
+      if (running || document.visibilityState !== 'visible') return;
+      running = true;
+      try { await backgroundImport.current(leagueId, connection?.sleeperUserId, undefined, false, true); }
+      finally { running = false; }
+    };
+    // Read the prewarmed server snapshot when entering a page, without clearing it.
+    const first = window.setTimeout(() => void refresh(), 250);
+    const timer = window.setInterval(() => void refresh(), MISSION_HUB_SCAN_TTL_MS);
+    document.addEventListener('visibilitychange', refresh);
+    return () => { window.clearTimeout(first); window.clearInterval(timer); document.removeEventListener('visibilitychange', refresh); };
+  }, [accountUser?.email, leagueId, view, defaultGameWeek, connection?.sleeperUserId]);
   useEffect(() => {
     if (importedWeek.current === defaultGameWeek) return;
     importedWeek.current = defaultGameWeek;
@@ -3670,9 +3685,11 @@ export default function FantasyHub({
           ) : (
             rosterEmptyState
           ))}
-        {view === "All Leagues" && (
+        {accountUser && (
           <AllLeagues
-            key={`portfolio-${defaultGameWeek}`}
+            key={`portfolio-${accountUser.email}-${defaultGameWeek}`}
+            active={view === "All Leagues"}
+            cacheIdentity={accountUser.email}
             selectedWeek={defaultGameWeek}
             leagues={visibleLeagues}
             cachedScans={portfolioScans}
@@ -5476,6 +5493,8 @@ function flexTimingSwapCandidates(
 }
 
 function AllLeagues({
+  active,
+  cacheIdentity,
   selectedWeek,
   leagues,
   cachedScans,
@@ -5486,6 +5505,8 @@ function AllLeagues({
   onPersonalize,
   onScansChange,
 }: {
+  active: boolean;
+  cacheIdentity: string;
   selectedWeek: number;
   leagues: ConnectedLeague[];
   cachedScans: LeagueScan[];
@@ -5517,6 +5538,7 @@ function AllLeagues({
   }),[platformScans,projectionSource,rawPortfolioScores]);
   const portfolioScoreKey = scans.filter(scan => !scan.preDraft).map(scan => [scan.league.id, scan.week]).sort().map(pair => pair.join(":")).join("|");
   useEffect(() => {
+    if (!active) return;
     const groups = new Map<number, string[]>();
     for (const scan of scans) if (!scan.preDraft) groups.set(scan.week, [...(groups.get(scan.week) ?? []), scan.league.id]);
     setPortfolioScores({});
@@ -5525,7 +5547,7 @@ function AllLeagues({
         ...previous, ...reconcileScoreboards(Object.fromEntries(ids.map(id => [id, previous[id]])), results),
       }))));
     return () => stops.forEach(stop => stop());
-  }, [portfolioScoreKey]);
+  }, [portfolioScoreKey, active]);
   const livePortfolio = (scan: LeagueScan) => {
     const matchup = portfolioScores[scan.league.id]?.matchups.find(item => item.teams.some(team => team.isMine));
     const mine = matchup?.teams.find(team => team.isMine);
@@ -5542,11 +5564,12 @@ function AllLeagues({
   );
   const [refreshing, setRefreshing] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [backgroundTick, setBackgroundTick] = useState(0);
   const [scanCompleted, setScanCompleted] = useState(0);
   const lastAutomaticScan = useRef("");
-  const cachedScansRef = useRef(cachedScans);
+  const cachedScansRef = useRef(cachedScans.filter(scan => scan.week === selectedWeek));
   const leagueScanSignature = `${selectedWeek}:` + leagues.map((league) => league.id).sort().join(":");
-  const scanIsActive = refreshing || loading || (leagues.length > 0 && scans.length < leagues.length);
+  const scanIsActive = loading || (refreshing && refreshKey > 0) || (leagues.length > 0 && scans.length === 0);
   const completedScanProgress =
     (scanCompleted / Math.max(1, leagues.length)) * 100;
   const visibleScanProgress = Math.round(Math.min(100, completedScanProgress));
@@ -5556,8 +5579,21 @@ function AllLeagues({
   );
 
   useEffect(() => {
-    cachedScansRef.current = cachedScans;
-  }, [cachedScans]);
+    cachedScansRef.current = cachedScans.filter(scan => scan.week === selectedWeek);
+  }, [cachedScans, selectedWeek]);
+
+  useEffect(() => {
+    const refreshIfDue = () => {
+      if (document.visibilityState !== 'visible') return;
+      if (Date.now() - cachedScansSavedAt >= MISSION_HUB_SCAN_TTL_MS) {
+        lastAutomaticScan.current = '';
+        setBackgroundTick(tick => tick + 1);
+      }
+    };
+    const timer = window.setInterval(refreshIfDue, MISSION_HUB_SCAN_TTL_MS);
+    document.addEventListener('visibilitychange', refreshIfDue);
+    return () => { window.clearInterval(timer); document.removeEventListener('visibilitychange', refreshIfDue); };
+  }, [cachedScansSavedAt]);
 
   useEffect(() => {
     if (!leagues.length || !cachedScans.length) return;
@@ -5594,7 +5630,7 @@ function AllLeagues({
     }
     if (refreshKey === 0 && lastAutomaticScan.current === leagueScanSignature) return;
     lastAutomaticScan.current = leagueScanSignature;
-    const isBackgroundRevalidation = refreshKey === 0 && cacheMatches;
+    const isBackgroundRevalidation = refreshKey === 0 && cachedAtScanStart.length > 0;
     // A complete portfolio snapshot is rendered immediately, then refreshed
     // without putting the Mission Hub back into its initial loading state.
     if (isBackgroundRevalidation) {
@@ -5604,7 +5640,7 @@ function AllLeagues({
     }
     const controller = new AbortController();
     setRefreshing(true);
-    const loadingTimer = cacheMatches && refreshKey === 0
+    const loadingTimer = cachedAtScanStart.length > 0
       ? undefined
       : window.setTimeout(() => {
           setScanCompleted(0);
@@ -5619,7 +5655,7 @@ function AllLeagues({
           for (let attempt = 0; attempt < 3; attempt += 1) {
             try {
               leagueResponse = await fetchWithTimeout(
-                `/api/league?id=${encodeURIComponent(league.id)}&week=${selectedWeek}${refreshKey > 0 || isBackgroundRevalidation ? "&refresh=1" : ""}`,
+                `/api/league?id=${encodeURIComponent(league.id)}&week=${selectedWeek}${refreshKey > 0 ? "&refresh=1" : ""}`,
                 { signal: controller.signal },
                 15_000,
               );
@@ -5643,6 +5679,8 @@ function AllLeagues({
             waiverPlayers?: WaiverPlayer[];
             rankingContext?: RankingContext;
           };
+          // Preload the same raw snapshot used by My Team, Start / Sit and reviews.
+          rememberLeaguePage(cacheIdentity, league.id, selectedWeek, payload);
           const week = Math.min(
             18,
             Math.max(
@@ -5908,9 +5946,7 @@ function AllLeagues({
             issues: ordered,
           };
         } catch {
-          const savedScan = isBackgroundRevalidation
-            ? cachedAtScanStart.find((scan) => scan.league.id === league.id)
-            : undefined;
+          const savedScan = cachedAtScanStart.find((scan) => scan.league.id === league.id && scan.week === selectedWeek);
           if (savedScan) return { ...savedScan, league };
           return {
             league,
@@ -5968,7 +6004,7 @@ function AllLeagues({
     // League objects can be re-created during unrelated account renders. The
     // stable ID signature prevents those renders from aborting an active scan.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [leagueScanSignature, refreshKey, onScansChange, cachedScansSavedAt]);
+  }, [leagueScanSignature, refreshKey, backgroundTick, onScansChange]);
 
   const issueCount = scans.reduce((sum, scan) => sum + scan.issues.length, 0);
   const urgentCount = scans.reduce(
@@ -6067,6 +6103,7 @@ function AllLeagues({
         : category === "Exposure"
           ? "Matchups"
           : "Command Center";
+  if (!active) return null;
   if (!leagues.length)
     return (
       <div className="page-content">

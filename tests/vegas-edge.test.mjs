@@ -58,8 +58,8 @@ test('roster never presents post-kickoff markets or absent props as a pregame es
 });
 test('refresh cadence stops at kickoff and accelerates near game',()=>{
   assert.equal(refreshInterval(new Date(now).toISOString(),now),Infinity);
-  assert.equal(refreshInterval(event.startsAt,now),600000);
-  assert.equal(refreshInterval(new Date(now+8*3600000).toISOString(),now),7200000);
+  assert.equal(refreshInterval(event.startsAt,now),1800000);
+  assert.equal(refreshInterval(new Date(now+8*3600000).toISOString(),now),21600000);
   assert.equal(refreshInterval(new Date(now+48*3600000).toISOString(),now),43200000);
 });
 test('paired available odds are required and vig removed',()=>{
@@ -131,7 +131,7 @@ test('discrete TD projection accounts for price, rather than using the line as t
 });
 test('locked, stale, and unavailable players are not recommended',()=>{
   assert.equal(edgeProjection(player,[event],context,now+3600001).projection,null);
-  assert.equal(edgeProjection(player,[event],context,now+16*60000).stale,true);
+  assert.equal(edgeProjection(player,[event],context,now+46*60000).stale,true);
   assert.equal(edgeProjection({...player,status:'Out'},[event],context,now).projection,null);
   assert.equal(edgeProjection(player,[{...event,locked:true}],context,now).projection,null);
 });

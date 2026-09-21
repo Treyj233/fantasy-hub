@@ -148,6 +148,13 @@
       "when": 1789479078062,
       "tag": "0020_solid_ultimates",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "6",
+      "when": 1789954827057,
+      "tag": "0021_new_darkhawk",
+      "breakpoints": true
     }
   ]
 }

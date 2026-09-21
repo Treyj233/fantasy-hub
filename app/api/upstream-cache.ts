@@ -1,3 +1,4 @@
+import { providerFetch } from './provider-fetch';
 type CloudflareRequestInit = RequestInit & {
   cf?: {
     cacheEverything?: boolean;
@@ -29,5 +30,5 @@ export function fetchCachedUpstream(
       },
     },
   };
-  return fetch(url, options);
+  return providerFetch(url, options);
 }

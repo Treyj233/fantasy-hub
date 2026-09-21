@@ -1,6 +1,21 @@
 import { sql } from "drizzle-orm";
 import { integer, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
+// Small durable coordination records; no private provider payloads or credentials.
+export const refreshJobs = sqliteTable("refresh_jobs", {
+  id: text("id").primaryKey(),
+  leaseUntil: integer("lease_until").notNull().default(0),
+  nextAttempt: integer("next_attempt").notNull().default(0),
+  failures: integer("failures").notNull().default(0),
+  token: text("token").notNull().default(""),
+});
+export const providerBudgets = sqliteTable("provider_budgets", {
+  id: text("id").primaryKey(),
+  windowStart: integer("window_start").notNull(),
+  used: integer("used").notNull().default(0),
+  blockedUntil: integer("blocked_until").notNull().default(0),
+});
+
 export const vegasEdgeCache = sqliteTable("vegas_edge_cache", {
   id: text("id").primaryKey(),
   payload: text("payload").notNull().default('{}'),

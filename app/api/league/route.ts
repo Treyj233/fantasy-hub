@@ -1,3 +1,4 @@
+import { providerFetch as fetch } from "../provider-fetch";
 import { loadCurrentSnapProfiles, snapProfileFor } from "../../snap-data";
 import { loadBlendedPlayerSeasonProfiles, loadBlendedTeamOffenseProfiles, playerSeasonProfileFor } from "../../season-history";
 import { fetchEspnLeagueForUser, normalizeEspnLeague } from "../espn";
@@ -13,6 +14,7 @@ import { seasonEndingPlayerIds } from "../../news-availability";
 import { applyPostgameRankings } from "../../postgame-rankings";
 import { currentFantasyWeek } from "../../current-fantasy-week";
 import { requestedFantasyWeek } from "../../fantasy-week.mjs";
+import { applyRosterSnapshot } from '../../roster-snapshot.mjs';
 
 type SourcePlayer = { player_id?: string; full_name?: string; first_name?: string; last_name?: string; position?: string; team?: string; injury_status?: string | null; search_rank?: number; age?: number; status?: string; depth_chart_order?: number | null; depth_chart_position?: string | null };
 type SourceProjection = { player_id?: string; stats?: Record<string, number> };
@@ -20,7 +22,7 @@ type MatchupRow = { roster_id?: number; matchup_id?: number | null };
 type TrendingRow = { player_id?: string; count?: number };
 
 const LEAGUE_PAYLOAD_VERSION = 26;
-const LEAGUE_SNAPSHOT_TTL_MS = 5 * 60 * 1000;
+const LEAGUE_SNAPSHOT_TTL_MS = 15 * 60 * 1000;
 const SHARED_TTL_SECONDS = {
   projections: 15 * 60,
   adp: 12 * 60 * 60,
@@ -62,7 +64,14 @@ export async function GET(request: Request) {
         const calendar = await currentFantasyWeek(Number(cached.league?.season), cached.league?.currentWeek);
         if (cached.payloadVersion === LEAGUE_PAYLOAD_VERSION && cached.league?.projectionWeek === (selectedWeek ?? calendar.currentWeek) && cached.league?.currentWeek === calendar.currentWeek) {
           const fresh = Date.now() - new Date(snapshot.refreshedAt).getTime() < LEAGUE_SNAPSHOT_TTL_MS;
-          return Response.json({ ...cached, cache: { status: fresh ? "fresh" : "stale", refreshedAt: snapshot.refreshedAt, revalidateRecommended: !fresh } });
+          let current = cached;
+          if (/^\d{6,24}$/.test(id) && cached.league?.projectionWeek === calendar.currentWeek) {
+            try {
+              const rosters = await fetchCachedUpstream(`https://api.sleeper.app/v1/league/${id}/rosters`, 300);
+              if (rosters.ok) current = applyRosterSnapshot(cached, await rosters.json());
+            } catch { /* A temporary roster failure must not erase the snapshot. */ }
+          }
+          return Response.json({ ...current, cache: { status: fresh ? "fresh" : "stale", refreshedAt: snapshot.refreshedAt, revalidateRecommended: !fresh } });
         }
       } catch { /* Refresh malformed or outdated snapshots. */ }
     }
@@ -88,7 +97,7 @@ export async function GET(request: Request) {
   try {
     const [leagueResponse, rostersResponse, usersResponse, playersResponse, tradedPicksResponse, trendingUpResponse, trendingDownResponse] = await Promise.all([
       fetch(`https://api.sleeper.app/v1/league/${id}`, { cache: "no-store" }),
-      fetch(`https://api.sleeper.app/v1/league/${id}/rosters`, { cache: "no-store" }),
+      fetch(`https://api.sleeper.app/v1/league/${id}/rosters`, { cache: forceRefresh && user ? "reload" : "no-store" }),
       fetch(`https://api.sleeper.app/v1/league/${id}/users`, { cache: "no-store" }),
       fetchCachedUpstream("https://api.sleeper.app/v1/players/nfl", 300),
       fetch(`https://api.sleeper.app/v1/league/${id}/traded_picks`, { cache: "no-store" }).catch(() => null),

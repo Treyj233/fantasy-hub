@@ -1,4 +1,5 @@
 import { formatTeamRecord } from "../team-record.mjs";
+import { providerFetch as fetch } from './provider-fetch';
 type EspnMember = { id?: string; displayName?: string; firstName?: string; lastName?: string };
 type EspnPlayer = {
   id?: number;
