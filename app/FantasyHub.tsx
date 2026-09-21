@@ -41,6 +41,7 @@ import { gameLineRange, gameLineSummary } from "./game-line-range.mjs";
 import type { GameLines } from "./nfl-schedule-data";
 import { cacheActiveLeagueBootstrap, readSessionCache, safeLocalStorageSet, writeSessionCache } from "./local-storage";
 import { rememberLeaguePage, readLeaguePage } from "./league-page-cache.mjs";
+import { portfolioStorage } from "./portfolio-storage.mjs";
 import { teamPositionStrength } from "./team-position-strength";
 import { lineupReadiness } from "./lineup-readiness";
 import { weeklyProjectionValue } from "./weekly-projection";
@@ -1928,6 +1929,24 @@ export default function FantasyHub({
   const [managedLeagues, setManagedLeagues] = useState<ManagedLeague[]>(cachedAccount?.leagues ?? []);
   const [portfolioScans, setPortfolioScans] = useState<LeagueScan[]>(initialPortfolioCache?.scans ?? []);
   const [portfolioScansSavedAt, setPortfolioScansSavedAt] = useState(initialPortfolioCache?.savedAt ?? 0);
+  const [portfolioRestoredFor, setPortfolioRestoredFor] = useState<string | null>(null);
+  const portfolioCacheReady = portfolioRestoredFor === accountUser?.email;
+  useEffect(() => {
+    const identity = accountUser?.email;
+    if (!identity) return;
+    let active = true;
+    void portfolioStorage(identity).then((stored: CachedPortfolioScans | null) => {
+      if (!active) return;
+      const cached = stored?.version === PORTFOLIO_CACHE_VERSION ? stored :
+        cachedPortfolioScans(identity) ?? cachedPortfolioScans(cachedAccount?.connection?.sleeperUserId);
+      if (cached?.scans?.length) {
+        setPortfolioScans(cached.scans);
+        setPortfolioScansSavedAt(cached.savedAt ?? 0);
+      }
+      setPortfolioRestoredFor(identity);
+    });
+    return () => { active = false; };
+  }, [accountUser?.email]);
   const updatePortfolioScans = useCallback((nextScans: LeagueScan[]) => {
     setPortfolioScans(nextScans);
     setPortfolioScansSavedAt(Date.now());
@@ -2593,14 +2612,13 @@ export default function FantasyHub({
   }
 
   useEffect(() => {
-    if (!accountUser || !portfolioScans.length) return;
-    const cacheKey = `fantasy-hub-portfolio-scans:${connection?.sleeperUserId ?? accountUser.email}`;
-    safeLocalStorageSet(cacheKey, JSON.stringify({
+    if (!accountUser || !portfolioCacheReady || !portfolioScans.length) return;
+    void portfolioStorage(accountUser.email, {
       version: PORTFOLIO_CACHE_VERSION,
       savedAt: portfolioScansSavedAt,
       scans: portfolioScans.filter(scan => scan.status !== "unavailable"),
-    }));
-  }, [accountUser, connection, portfolioScans, portfolioScansSavedAt]);
+    });
+  }, [accountUser, portfolioCacheReady, portfolioScans, portfolioScansSavedAt]);
 
   const totals = useMemo(
     () => ({
@@ -3690,6 +3708,7 @@ export default function FantasyHub({
             key={`portfolio-${accountUser.email}-${defaultGameWeek}`}
             active={view === "All Leagues"}
             cacheIdentity={accountUser.email}
+            cacheReady={portfolioCacheReady}
             selectedWeek={defaultGameWeek}
             leagues={visibleLeagues}
             cachedScans={portfolioScans}
@@ -5495,6 +5514,7 @@ function flexTimingSwapCandidates(
 function AllLeagues({
   active,
   cacheIdentity,
+  cacheReady,
   selectedWeek,
   leagues,
   cachedScans,
@@ -5507,6 +5527,7 @@ function AllLeagues({
 }: {
   active: boolean;
   cacheIdentity: string;
+  cacheReady: boolean;
   selectedWeek: number;
   leagues: ConnectedLeague[];
   cachedScans: LeagueScan[];
@@ -5569,7 +5590,7 @@ function AllLeagues({
   const lastAutomaticScan = useRef("");
   const cachedScansRef = useRef(cachedScans.filter(scan => scan.week === selectedWeek));
   const leagueScanSignature = `${selectedWeek}:` + leagues.map((league) => league.id).sort().join(":");
-  const scanIsActive = loading || (refreshing && refreshKey > 0) || (leagues.length > 0 && scans.length === 0);
+  const scanIsActive = cacheReady && (loading || (refreshing && refreshKey > 0) || (leagues.length > 0 && scans.length === 0));
   const completedScanProgress =
     (scanCompleted / Math.max(1, leagues.length)) * 100;
   const visibleScanProgress = Math.round(Math.min(100, completedScanProgress));
@@ -5598,12 +5619,12 @@ function AllLeagues({
   useEffect(() => {
     if (!leagues.length || !cachedScans.length) return;
     const leagueIds = new Set(leagues.map((league) => league.id));
+    const matchingScans = cachedScans.filter(scan => leagueIds.has(scan.league.id) && scan.week === selectedWeek);
     const cacheMatches =
-      cachedScans.length === leagues.length &&
-      cachedScans.every((scan) => leagueIds.has(scan.league.id) && scan.week === selectedWeek);
+      matchingScans.length === leagues.length;
     if (!cacheMatches) return;
     const cachedStateTimer = window.setTimeout(() => {
-      setScans(cachedScans);
+      setScans(matchingScans);
       setScanCompleted(leagues.length);
       setLoading(false);
     }, 0);
@@ -5611,9 +5632,9 @@ function AllLeagues({
   }, [leagueScanSignature, cachedScans, leagues]);
 
   useEffect(() => {
-    if (!leagues.length) return;
+    if (!cacheReady || !leagues.length) return;
     const leagueIds = new Set(leagues.map((league) => league.id));
-    const cachedAtScanStart = cachedScansRef.current;
+    const cachedAtScanStart = cachedScansRef.current.filter(scan => leagueIds.has(scan.league.id));
     const cacheMatches =
       cachedAtScanStart.length === leagues.length &&
       cachedAtScanStart.every((scan) => leagueIds.has(scan.league.id) && scan.week === selectedWeek);
@@ -5625,6 +5646,8 @@ function AllLeagues({
     // recent account snapshot when it mounts again instead of force-resyncing
     // every league on each return. The explicit refresh control bypasses this.
     if (refreshKey === 0 && cachedScanIsFresh) {
+      setScans(cachedAtScanStart);
+      setLoading(false);
       lastAutomaticScan.current = leagueScanSignature;
       return;
     }
@@ -6004,7 +6027,7 @@ function AllLeagues({
     // League objects can be re-created during unrelated account renders. The
     // stable ID signature prevents those renders from aborting an active scan.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [leagueScanSignature, refreshKey, backgroundTick, onScansChange]);
+  }, [leagueScanSignature, refreshKey, backgroundTick, onScansChange, cacheReady]);
 
   const issueCount = scans.reduce((sum, scan) => sum + scan.issues.length, 0);
   const urgentCount = scans.reduce(

@@ -38,7 +38,7 @@ test('Mission Hub scan lifetime is account/week scoped, not navigation scoped', 
   assert.match(src, /key=\{`portfolio-\$\{accountUser.email\}-\$\{defaultGameWeek\}`\}/);
   assert.match(src, /active=\{view === "All Leagues"\}/);
   const scan = src.slice(src.indexOf('function AllLeagues'), src.indexOf('const issueCount = scans.reduce'));
-  assert.match(scan, /\[leagueScanSignature, refreshKey, backgroundTick, onScansChange\]/);
+  assert.match(scan, /\[leagueScanSignature, refreshKey, backgroundTick, onScansChange, cacheReady\]/);
   assert.match(scan, /savedScan = cachedAtScanStart.find/);
   assert.doesNotMatch(scan, /cacheActiveLeagueBootstrap\(/);
 });
