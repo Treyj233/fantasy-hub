@@ -31,7 +31,10 @@ export async function providerFetch(input: string | URL | Request, init: Request
     if (!await takeProviderToken(sleeper ? 'sleeper' : 'espn', sleeper ? REFRESH.sleeperPerMinute : 30)) {
       return new Response('Provider refresh budget busy', { status: 429, headers: { 'retry-after': '60' } });
     }
-    const response = await fetch(url.href, { ...init, signal: init.signal ?? AbortSignal.timeout(15_000),
+    // The wrapper owns cache policy. Cloudflare rejects Next's no-store together
+    // with a positive cf.cacheTtl, and does not support browser reload mode.
+    const { cache: _cache, next: _next, ...upstreamInit } = init;
+    const response = await fetch(url.href, { ...upstreamInit, signal: init.signal ?? AbortSignal.timeout(15_000),
       cf: { cacheEverything: true, cacheTtl: init.cache === 'reload' ? 0 : ttl, cacheTtlByStatus: { '200-299': init.cache === 'reload' ? 0 : ttl, '400-599': 0 } },
     } as RequestInit);
     if (response.status === 429) {
