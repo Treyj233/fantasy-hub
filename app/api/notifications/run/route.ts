@@ -1,5 +1,5 @@
 import { providerFetch as fetch } from "../../provider-fetch";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { getDb } from "../../../../db";
 import { espnLeagueSnapshots, leagueDataSnapshots, managedLeagues, pushAlertDeliveries, pushAlertStates, pushDevices, userPreferences } from "../../../../db/schema";
 import { sendApplePush, type ApplePushCategory } from "../../../apns";
@@ -102,10 +102,9 @@ export async function POST(request: Request) {
   const devices = await db.select().from(pushDevices).where(eq(pushDevices.enabled, true));
   const userIds = [...new Set(devices.map((device) => device.userId))];
   if (!userIds.length) return Response.json({ ok: true, users: 0, sent: 0, failed: 0, backgroundRefresh });
-  const [preferences, leagues, snapshots] = await Promise.all([
+  const [preferences, leagues] = await Promise.all([
     db.select().from(userPreferences).where(inArray(userPreferences.userId, userIds)),
     db.select().from(managedLeagues).where(and(inArray(managedLeagues.userId, userIds), eq(managedLeagues.status, "live"))),
-    db.select().from(leagueDataSnapshots).where(inArray(leagueDataSnapshots.userId, userIds)),
   ]);
   const testEmail = String((await request.json().catch(() => ({})) as { testEmail?: unknown }).testEmail ?? "").trim().toLowerCase();
   if (testEmail) {
@@ -149,7 +148,10 @@ export async function POST(request: Request) {
     for (const record of leagues.filter((league) => league.userId === userId && ["sleeper", "espn"].includes(league.provider) && league.identifierType === "league_id" && (!league.season || Number(league.season) === season))) {
       const live = await (record.provider === 'espn' ? evaluateEspnLeague(record, season, week) : evaluateSleeperLeague(record, week)).catch(() => null);
       if (!live?.mine || !live.opponent) continue;
-      const snapshotRow = snapshots.find((item) => item.userId === userId && item.leagueKey === record.identifier);
+      // Never load every account's full rankings payload into the notification worker.
+      // Alerts only need roster context, one league at a time.
+      const [snapshotRow] = await db.select({ payloadJson: sql<string>`json_object('teams', json_extract(${leagueDataSnapshots.payloadJson}, '$.teams'))` })
+        .from(leagueDataSnapshots).where(and(eq(leagueDataSnapshots.userId, userId), eq(leagueDataSnapshots.leagueKey, record.identifier))).limit(1);
       let payload: LeaguePayload = {};
       try { payload = JSON.parse(snapshotRow?.payloadJson ?? "{}") as LeaguePayload; } catch { /* no cached roster */ }
       const myTeam = payload.teams?.find((team) => team.id === record.rosterId);
