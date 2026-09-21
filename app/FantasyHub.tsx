@@ -34,7 +34,7 @@ import NewsAndNotes from "./NewsAndNotes";
 import DraftDashboard from "./DraftDashboard";
 import ScoreboardSectionNav from "./ScoreboardSectionNav";
 import ScrollingLeagueName from "./ScrollingLeagueName";
-import { myTeamScore } from "./my-team-score.mjs";
+import { myTeamScore, playerPanelScore } from "./my-team-score.mjs";
 import { portfolioProjectedFinish, matchupProjectionStatus, matchupTeamForecast } from "./portfolio-live-projection.mjs";
 import { sundayPulseOutlooks } from "./sunday-pulse-outlook.mjs";
 import { gameLineRange, gameLineSummary } from "./game-line-range.mjs";
@@ -12996,25 +12996,27 @@ function PlayerPanel({
   const player = context?.strength ? applyMatchupStrength(withWeather, context.strength) : withWeather;
   const activeProjectionPlatform = useContext(ProjectionPlatformContext);
   const projectionPlatform = player.projectionOrigin==='Platform fallback' ? 'Platform fallback' : activeProjectionPlatform;
-  const [liveScore, setLiveScore] = useState<{ player: ScoreboardPlayer; status: string } | undefined>();
+  const liveScoreKey = `${leagueId}:${season}:${week}:${player.id}`;
+  const [liveScoreSnapshot, setLiveScore] = useState<{ key: string; player: { points?: number | null; gameProgress?: number }; status: string } | undefined>();
+  const liveScore = liveScoreSnapshot?.key === liveScoreKey ? liveScoreSnapshot : undefined;
   useEffect(() => {
     if (!leagueId) return;
     let active = true;
-    const stop = subscribeLiveScoreboards([leagueId], week,
-      (results: [string, ScoreboardData | null][]) => {
+    const stop = startVisiblePolling(async signal => {
+        const data = await fetchLiveJson(`/api/scoreboard?leagueId=${encodeURIComponent(leagueId)}&week=${week}&scope=league&playerId=${encodeURIComponent(player.id)}`, signal);
         if (!active) return;
-        const data = results.find(([id]) => id === leagueId)?.[1];
         if (!data) return;
         for (const matchup of data.matchups) {
-          const candidate = matchup.teams.flatMap(team => team.topPlayers).find(item => item.id === player.id);
+          const candidate = matchup.teams.flatMap((team: ScoreboardTeam) => team.topPlayers).find((item: ScoreboardPlayer) => item.id === player.id);
           if (candidate) {
-            setLiveScore({ player: candidate, status: matchup.status });
+            setLiveScore({ key: liveScoreKey, player: candidate, status: matchup.status });
             return;
           }
         }
+        if (data.playerScore?.id === player.id) setLiveScore({ key: liveScoreKey, player: data.playerScore, status: data.playerScore.gameProgress >= 1 ? 'Final' : 'Scheduled' });
       });
     return () => { active = false; stop(); };
-  }, [leagueId, week, player.id]);
+  }, [leagueId, week, player.id, liveScoreKey]);
   const platformProjection =
     typeof player.leagueProjection === "number" && player.leagueProjection > 0
       ? player.leagueProjection
@@ -13117,7 +13119,8 @@ function PlayerPanel({
   );
   const adjustedRange = matchupAdjustedRange(player);
   const projectionValue = platformProjection;
-  const displayedScore = myTeamScore(platformProjection, liveScore);
+  const scheduledGame = context?.schedule?.weeks.find(item => item.week === week)?.games.find(game => game.home.abbreviation === player.team || game.away.abbreviation === player.team);
+  const displayedScore = playerPanelScore(platformProjection, liveScore, scheduledGame, player.projectionLocked);
   const showActualScore = displayedScore.label !== "PROJ";
   const rangeWidth = Math.max(1, adjustedRange.ceiling - adjustedRange.floor);
   const projectionPosition = projectionValue === null ? 50 : Math.max(4, Math.min(96, ((projectionValue - adjustedRange.floor) / rangeWidth) * 100));
@@ -13159,20 +13162,20 @@ function PlayerPanel({
         <section className="player-command-hero">
           <div className="player-verdict">
             <span>FANTASY HUB VERDICT</span>
-            <strong className={verdictTone}>{verdict}</strong>
-            <p>{statusRisk ? `${player.status} status overrides the current projection until availability is confirmed.` : projectionValue === null ? "Open a connected league with current weekly projections to see a fantasy-point estimate." : `${projectionPlatform} projects ${projectionValue.toFixed(1)} points with a ${player.matchupStrength?.label.toLowerCase() ?? "neutral"} positional matchup.`}</p>
+            <strong className={showActualScore ? "strong" : verdictTone}>{showActualScore ? displayedScore.label === 'FINAL' ? 'GAME COMPLETE' : 'GAME IN PROGRESS' : verdict}</strong>
+            <p>{showActualScore ? displayedScore.value == null ? 'Waiting for confirmed fantasy scoring.' : `${displayedScore.value.toFixed(1)} actual fantasy points${displayedScore.label === 'FINAL' ? ' · Final score' : ' · Updating live'}.` : statusRisk ? `${player.status} status overrides the current projection until availability is confirmed.` : projectionValue === null ? "Open a connected league with current weekly projections to see a fantasy-point estimate." : `${projectionPlatform} projects ${projectionValue.toFixed(1)} points with a ${player.matchupStrength?.label.toLowerCase() ?? "neutral"} positional matchup.`}</p>
           </div>
           <div className="player-projection-command">
             <span>{showActualScore ? `${displayedScore.label} SCORE` : `${projectionPlatform.toUpperCase()} PROJECTION`}</span>
             <strong>{displayedScore.value !== null ? displayedScore.value.toFixed(1) : "—"}</strong>
             <small>{showActualScore ? "Actual fantasy points" : "Expected fantasy points"}</small>
           </div>
-          <div className="player-range-command">
+          {!showActualScore && <div className="player-range-command">
             <header><span>WEEKLY OUTCOME RANGE</span><small>{(adjustedRange.ceiling - adjustedRange.floor).toFixed(1)} point spread</small></header>
             {player.gameLines && (player.gameLines.total != null || player.gameLines.favoredBy != null) && <small className="player-game-script">Pregame context: {player.gameLines.total != null ? `O/U ${player.gameLines.total}` : "Total unavailable"}{player.gameLines.favoredBy != null ? ` · ${player.gameLines.favoredBy === 0 ? "Even matchup" : `${player.gameLines.favoredBy > 0 ? "Favored" : "Underdog"} by ${Math.abs(player.gameLines.favoredBy)}`}` : ""}. Modest floor/ceiling adjustment; base projection unchanged.</small>}
             <div className="player-range-track"><i style={{ left: `${projectionPosition}%` }} /></div>
             <footer><span><b>{platformProjection === null ? "—" : adjustedRange.floor.toFixed(1)}</b> FLOOR</span><span><b>{projectionValue === null ? "—" : projectionValue.toFixed(1)}</b> PROJ</span><span><b>{platformProjection === null ? "—" : adjustedRange.ceiling.toFixed(1)}</b> CEILING</span></footer>
-          </div>
+          </div>}
         </section>
         <section className="player-decision-rail">
           <article><span>ROLE</span><strong>{formatRosterSlot(player.role)}</strong><small>{player.status}</small></article>

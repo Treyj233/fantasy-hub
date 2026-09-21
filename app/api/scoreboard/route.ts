@@ -30,7 +30,7 @@ function nflGameProgress(game: NflDataGame) {
   const remaining = Number.isFinite(remainingSeconds)
     ? Math.max(0, Math.min(900, remainingSeconds))
     : 900;
-  return Math.max(0, Math.min(1, ((Math.max(1, game.period) - 1) * 900 + (900 - remaining)) / 3600));
+  return Math.max(0.0001, Math.min(1, ((Math.max(1, game.period) - 1) * 900 + (900 - remaining)) / 3600));
 }
 
 function gameProgressByTeam(games: NflDataGame[]) {
@@ -212,5 +212,13 @@ export async function GET(request: Request) {
     nflGameInProgress,
     nflGames.length > 0 && nflGames.every(game => game.state === 'post'),
   );
-  return Response.json({ kickoffGames: week === calendar.currentWeek ? nflGames : [], league: { id: leagueId, name: league.name ?? "League", season, currentWeek: calendar.currentWeek, provider: "Sleeper", projectionSource: "Sleeper Projections", scoring: league.scoring_settings ?? {} }, week, updatedAt: new Date().toISOString(), scoringSource: "sleeper_official", sharedStatsRefreshedAt: statsSnapshot?.refreshedAt ?? null, playerDirectoryRefreshedAt: playerDirectory.refreshedAt, reconciliationIntervalSeconds: SLEEPER_SCOREBOARD_TTL_SECONDS.matchupReconciliation, matchups });
+  const requestedPlayerId = url.searchParams.get('playerId');
+  const requestedPlayer = requestedPlayerId ? playerDirectory.value.get(requestedPlayerId) : null;
+  const requestedStats = requestedPlayerId ? statsSnapshot?.value.get(requestedPlayerId) : null;
+  const playerScore = requestedPlayer && requestedPlayerId ? {
+    id: requestedPlayerId,
+    gameProgress: nflProgressByTeam.get(requestedPlayer.team),
+    points: requestedStats ? sleeperFantasyPoints(requestedStats, league.scoring_settings ?? {}, requestedPlayer.position) : null,
+  } : null;
+  return Response.json({ playerScore, kickoffGames: nflGames, league: { id: leagueId, name: league.name ?? "League", season, currentWeek: calendar.currentWeek, provider: "Sleeper", projectionSource: "Sleeper Projections", scoring: league.scoring_settings ?? {} }, week, updatedAt: new Date().toISOString(), scoringSource: "sleeper_official", sharedStatsRefreshedAt: statsSnapshot?.refreshedAt ?? null, playerDirectoryRefreshedAt: playerDirectory.refreshedAt, reconciliationIntervalSeconds: SLEEPER_SCOREBOARD_TTL_SECONDS.matchupReconciliation, matchups });
 }
