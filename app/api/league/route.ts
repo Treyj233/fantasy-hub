@@ -104,7 +104,7 @@ export async function GET(request: Request) {
       fetchCachedUpstream("https://api.sleeper.app/v1/players/nfl/trending/add?lookback_hours=24&limit=100", SHARED_TTL_SECONDS.trends).catch(() => null),
       fetchCachedUpstream("https://api.sleeper.app/v1/players/nfl/trending/drop?lookback_hours=24&limit=100", SHARED_TTL_SECONDS.trends).catch(() => null),
     ]);
-    if (!leagueResponse.ok || !rostersResponse.ok || !usersResponse.ok || !playersResponse.ok) throw new Error("League unavailable");
+    if (!leagueResponse.ok || !rostersResponse.ok || !usersResponse.ok || !playersResponse.ok) throw new Error(`League upstream status: ${[leagueResponse, rostersResponse, usersResponse, playersResponse].map(response => response.status).join(',')}`);
     const league = await leagueResponse.json() as { name?: string; status?: string; total_rosters?: number; season?: string; leg?: number; roster_positions?: string[]; scoring_settings?: Record<string, number>; settings?: { type?: number; draft_rounds?: number } };
     const rosters = await rostersResponse.json() as { roster_id?: number; owner_id?: string; players?: string[]; starters?: string[]; reserve?: string[]; taxi?: string[] }[];
     const users = await usersResponse.json() as { user_id?: string; display_name?: string; metadata?: { team_name?: string } }[];
@@ -372,7 +372,8 @@ export async function GET(request: Request) {
     const snapshot = { id: crypto.randomUUID(), userId, leagueKey: id, payloadJson: JSON.stringify(result), refreshedAt };
     await db.insert(leagueDataSnapshots).values(snapshot).onConflictDoUpdate({ target: [leagueDataSnapshots.userId, leagueDataSnapshots.leagueKey], set: { payloadJson: snapshot.payloadJson, refreshedAt } });
     return Response.json({ ...result, cache: { status: "refreshed", refreshedAt } });
-  } catch {
+  } catch (error) {
+    console.warn('League snapshot refresh failed', error instanceof Error ? error.message : 'Unknown refresh error');
     return Response.json({ error: "League unavailable" }, { status: 502 });
   }
 }
