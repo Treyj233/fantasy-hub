@@ -35,7 +35,7 @@ import DraftDashboard from "./DraftDashboard";
 import ScoreboardSectionNav from "./ScoreboardSectionNav";
 import ScrollingLeagueName from "./ScrollingLeagueName";
 import { myTeamScore } from "./my-team-score.mjs";
-import { portfolioProjectedFinish } from "./portfolio-live-projection.mjs";
+import { portfolioProjectedFinish, matchupProjectionStatus, matchupTeamForecast } from "./portfolio-live-projection.mjs";
 import { sundayPulseOutlooks } from "./sunday-pulse-outlook.mjs";
 import { gameLineRange, gameLineSummary } from "./game-line-range.mjs";
 import type { GameLines } from "./nfl-schedule-data";
@@ -799,17 +799,6 @@ function TeamRecord({ team }: { team: ScoreboardTeam }) {
   return team.record ? <span className="team-record" aria-label={`Season record ${team.record}`}>{team.record}</span> : null;
 }
 
-function projectedTeamTotal(team: ScoreboardTeam) {
-  const projectedStarters = team.topPlayers.filter(
-    (player) => player.isStarter && player.projection != null,
-  );
-  if (!projectedStarters.length) return null;
-  return projectedStarters.reduce(
-    (total, player) => total + (player.projection ?? 0),
-    0,
-  );
-}
-
 function ScoreWithProjection({
   team,
   precision = 2,
@@ -819,12 +808,13 @@ function ScoreWithProjection({
   precision?: number;
   status?: string;
 }) {
-  const projection = status ? portfolioProjectedFinish(team, status) : projectedTeamTotal(team);
-  const projectionLabel = status === "Final" ? "FINAL" : status && status !== "Scheduled" ? "LIVE PROJ" : "PROJ";
+  const currentStatus = matchupProjectionStatus(team, status);
+  const projection = portfolioProjectedFinish(team, currentStatus);
+  const projectionLabel = currentStatus === "Final" ? "FINAL" : currentStatus === "Live" ? "LIVE PROJ" : "PROJ";
   return (
     <span className="score-with-projection">
       <b>{team.points.toFixed(precision)}</b>
-      {projection != null && <small>{projectionLabel} {projection.toFixed(1)}</small>}
+      <small>{projectionLabel} {projection?.toFixed(1) ?? "—"}</small>
     </span>
   );
 }
@@ -834,6 +824,7 @@ type ScoreboardData = {
   updatedAt: string;
   matchups: { matchupId: number; status: string; teams: ScoreboardTeam[] }[];
 };
+const MatchupForecastContext = createContext<ScoreboardData | null>(null);
 type LivePlayContext = {
   id: string;
   gameId: string;
@@ -1952,6 +1943,7 @@ export default function FantasyHub({
     setPortfolioScansSavedAt(Date.now());
   }, []);
   const [liveMatchupCount, setLiveMatchupCount] = useState<number | null>(null);
+  const [matchupForecasts, setMatchupForecasts] = useState<{ week: number; scores: Record<string, ScoreboardData | null> }>({ week: 0, scores: {} });
   const [selectedMatchupId, setSelectedMatchupId] = useState<number | null>(
     null,
   );
@@ -2308,6 +2300,7 @@ export default function FantasyHub({
     const week = defaultGameWeek;
     const stopPolling = subscribeLiveScoreboards(leagues.map(league => league.id), week,
       (results: [string, ScoreboardData | null][]) => {
+        if (active) setMatchupForecasts(previous => ({ week, scores: reconcileScoreboards(previous.week === week ? previous.scores : {}, results) }));
         if (active) setLiveMatchupCount(results.filter(([, data]) => data?.matchups.some(matchup =>
           matchup.status === "Live" && matchup.teams.some(team => team.isMine))).length);
         if (!active || !entitlement.pro || week !== calendar.currentWeek) return;
@@ -3185,6 +3178,7 @@ export default function FantasyHub({
     <ProjectionSourceContext.Provider value={vegasMode.adapter}>
     <ProjectionPlatformContext.Provider value={vegasMode.enabled ? 'Vegas Implied' : leaguePlatform}>
     <PlayerOpenContext.Provider value={setSelectedPlayer}>
+    <MatchupForecastContext.Provider value={matchupForecasts.week === defaultGameWeek ? vegasMode.adapter.scoreboard(matchupForecasts.scores[leagueId] ?? null) : null}>
     <main
       className={`app-shell ${sidebarCollapsed ? "sidebar-collapsed" : ""} ${mobileNavOpen ? "mobile-nav-open" : ""} ${activeRivalryWeek ? "rivalry-week-active" : ""} ${onboardingTourOpen ? `onboarding-tour-active onboarding-tour-step-${onboardingTourStep}` : ""}`}
       data-release="scoreboard-render-fix-2"
@@ -4034,6 +4028,7 @@ export default function FantasyHub({
         />
       )}
     </main>
+    </MatchupForecastContext.Provider>
     </PlayerOpenContext.Provider>
     </ProjectionPlatformContext.Provider>
     </ProjectionSourceContext.Provider>
@@ -6291,7 +6286,7 @@ function AllLeagues({
                   <h3 data-no-auto-scroll><ScrollingLeagueName name={scan.league.name} /></h3>
                   <small>
                     {scan.teamName} · {scan.league.scoring}
-                    {!scan.preDraft && ` · ${scan.projection.toFixed(1)} projected points`}
+                    {!scan.preDraft && ` · ${livePortfolio(scan).mine?.toFixed(1) ?? "—"} projected finish`}
                   </small>
                 </div>
                 <b>
@@ -7003,8 +6998,8 @@ function AllLeagueScoreboard({
             const urgency = matchup.status === "live" && margin <= 12 ? "urgent" : matchup.status === "live" ? "live" : matchup.status;
             return <button className={`${urgency}${mobileOverflowClass}`} type="button" key={league.id} onClick={() => scrollToLeagueScore(league.id)}>
               <span><i /> {matchup.status === "live" ? "LIVE" : matchup.status === "final" ? "FINAL" : `WEEK ${week}`} · {league.name}</span>
-              <p><b>{matchup.mine.teamName} <TeamRecord team={matchup.mine} /></b><ScoreWithProjection team={matchup.mine} precision={1} /></p>
-              <p><b>{matchup.opponent.teamName} <TeamRecord team={matchup.opponent} /></b><ScoreWithProjection team={matchup.opponent} precision={1} /></p>
+              <p><b>{matchup.mine.teamName} <TeamRecord team={matchup.mine} /></b><ScoreWithProjection team={matchup.mine} status={matchup.status} precision={1} /></p>
+              <p><b>{matchup.opponent.teamName} <TeamRecord team={matchup.opponent} /></b><ScoreWithProjection team={matchup.opponent} status={matchup.status} precision={1} /></p>
               <small><em>{matchup.winProbability == null ? "WIN ODDS —" : `${matchup.winProbability}% WIN`}</em>{margin <= 12 && matchup.status === "live" ? "ONE-PLAY RANGE" : null}</small>
             </button>;
           })}
@@ -7109,7 +7104,7 @@ function AllLeagueScoreboard({
                     <div className={team.isMine ? "mine" : ""} key={team.rosterId}>
                       <span>{team.teamName.slice(0, 3).toUpperCase()}</span>
                       <p><strong>{team.teamName} <TeamRecord team={team} /></strong><small>{team.managerName}{team.isMine ? " · YOU" : ""}{leader === team.rosterId && <em className="score-leader"> · LEADING</em>}</small></p>
-                      <ScoreWithProjection team={team} />
+                      <ScoreWithProjection team={team} status={matchup.status} />
                     </div>
                   ))}
                   </div>
@@ -7292,7 +7287,7 @@ function Scoreboard({
                         {leader === team.rosterId && <em className="score-leader"> · LEADING</em>}
                       </small>
                     </p>
-                    <ScoreWithProjection team={team} />
+                    <ScoreWithProjection team={team} status={matchup.status} />
                   </div>
                 ))}
               </div>
@@ -8486,11 +8481,13 @@ function CommandCenter({
     ? null
     : leagueTeams.find((team) => team.id !== selectedTeam.id && team.matchupId === selectedTeam.matchupId) ?? null;
   const teamProjection = (team: LeagueTeam) => team.roster.filter(isStartingPlayer).reduce((sum, player) => sum + player.projection, 0);
-  const opponentProjection = opponentTeam ? teamProjection(opponentTeam) : null;
+  const liveForecast = useContext(MatchupForecastContext);
+  const currentProjection = matchupTeamForecast(liveForecast, selectedTeamId, totals.projection);
+  const opponentProjection = opponentTeam ? matchupTeamForecast(liveForecast, opponentTeam.id, teamProjection(opponentTeam)) : null;
   const projectedRank = leagueTeams.length
     ? [...leagueTeams].sort((a, b) => teamProjection(b) - teamProjection(a)).findIndex((team) => team.id === selectedTeamId) + 1
     : 0;
-  const projectedMargin = opponentProjection == null ? null : totals.projection - opponentProjection;
+  const projectedMargin = opponentProjection == null || currentProjection == null ? null : currentProjection - opponentProjection;
   const winProbability = projectedMargin == null
     ? null
     : Math.round(Math.max(8, Math.min(92, 50 + projectedMargin * 2.15)));
@@ -8591,8 +8588,8 @@ function CommandCenter({
           </div>
         </div>
         <div className="hero-score">
-          <small>{projectionPlatform.toUpperCase()} PROJECTION</small>
-          <strong>{totals.projection.toFixed(1)}</strong>
+          <small>PROJECTED FINISH</small>
+          <strong>{currentProjection?.toFixed(1) ?? "—"}</strong>
           <span>Current starting lineup</span>
         </div>
       </section>
@@ -8611,7 +8608,7 @@ function CommandCenter({
         <Metric
           label="Lineup range"
           value={`${lineupFloor.toFixed(0)}\u2009-\u2009${totals.ceiling.toFixed(0)}`}
-          detail={`${totals.projection.toFixed(1)} median projection`}
+          detail={`${currentProjection?.toFixed(1) ?? "—"} projected finish`}
         />
         <Metric
           label="Lineup readiness"
@@ -8621,7 +8618,7 @@ function CommandCenter({
         />
       </div>
       <section className="panel command-matchup-strip">
-        <div><span>THIS WEEK</span><strong>{selectedTeam?.teamName ?? "Your team"}</strong><b>{totals.projection.toFixed(1)}</b></div>
+        <div><span>PROJECTED FINISH</span><strong>{selectedTeam?.teamName ?? "Your team"}</strong><b>{currentProjection?.toFixed(1) ?? "—"}</b></div>
         <i><small>{projectedMargin == null ? "MATCHUP PENDING" : `${projectedMargin >= 0 ? "+" : ""}${projectedMargin.toFixed(1)} PROJECTED`}</small><em style={{ left: `${100 - (winProbability ?? 50)}%` }} /></i>
         <div className="opponent"><span>OPPONENT</span><strong>{opponentTeam?.teamName ?? "Awaiting opponent"}</strong><b>{opponentProjection?.toFixed(1) ?? "—"}</b></div>
       </section>
@@ -10315,15 +10312,17 @@ function StartSit({
       .filter(isStartingPlayer)
       .reduce((total, player) => total + (weeklyProjectionValue(player) ?? 0), 0) ??
     0;
-  const teamProjection = yourTeam
+  const pregameTeamProjection = yourTeam
     ? lineupProjection(yourTeam)
     : startSitPlayers
         .filter(isStartingPlayer)
         .reduce((total, player) => total + player.projection, 0);
+  const liveForecast = useContext(MatchupForecastContext);
+  const teamProjection = matchupTeamForecast(liveForecast, selectedTeamId, pregameTeamProjection);
   const opponentProjection = opponentTeam
-    ? lineupProjection(opponentTeam)
+    ? matchupTeamForecast(liveForecast, opponentTeam.id, lineupProjection(opponentTeam))
     : null;
-  const matchupGap = (opponentProjection ?? teamProjection) - teamProjection;
+  const matchupGap = opponentProjection == null || teamProjection == null ? 0 : opponentProjection - teamProjection;
   const recommendedAggression =
     opponentProjection == null
       ? 50
@@ -10395,7 +10394,8 @@ function StartSit({
             <input
               type="number"
               step="0.1"
-              value={teamProjection.toFixed(1)}
+              value={teamProjection?.toFixed(1) ?? ""}
+              placeholder="—"
               readOnly
             />
           </label>
