@@ -41,7 +41,7 @@ import { sundayPulseOutlooks } from "./sunday-pulse-outlook.mjs";
 import { gameLineRange, gameLineSummary } from "./game-line-range.mjs";
 import type { GameLines } from "./nfl-schedule-data";
 import { cacheActiveLeagueBootstrap, readSessionCache, safeLocalStorageSet, writeSessionCache } from "./local-storage";
-import { rememberLeaguePage, readLeaguePage } from "./league-page-cache.mjs";
+import { rememberLeaguePage, readLeaguePage, loadLeaguePage, restoreLeaguePages } from "./league-page-cache.mjs";
 import { portfolioStorage } from "./portfolio-storage.mjs";
 import { teamPositionStrength } from "./team-position-strength";
 import { lineupReadiness } from "./lineup-readiness";
@@ -2729,12 +2729,14 @@ export default function FantasyHub({
     } catch {
       window.localStorage.removeItem(`fantasy-hub-league-bootstrap:${requestedLeagueId}`);
     }
+    let networkApplied = false;
+    void restoreLeaguePages(accountUser?.email ?? '').then(() => {
+      if (networkApplied || requestNumber !== importRequest.current || requestedWeekRef.current !== importWeek) return;
+      const saved = readLeaguePage(accountUser?.email ?? '', requestedLeagueId, importWeek, Date.now(), true);
+      if (saved) applyCachedCore(saved);
+    });
     try {
-      const response = await fetch(
-        `/api/league?id=${encodeURIComponent(requestedLeagueId)}&week=${importWeek}${forceRefresh ? "&refresh=1" : ""}`,
-      );
-      if (!response.ok) throw new Error("League not found");
-      const data = (await response.json()) as {
+      const data = await loadLeaguePage(accountUser?.email ?? '', requestedLeagueId, importWeek, forceRefresh) as {
         league: {
           name: string;
           platform?: string;
@@ -2750,6 +2752,7 @@ export default function FantasyHub({
         cache?: { status?: string; refreshedAt?: string };
       };
       if (requestNumber !== importRequest.current || requestedWeekRef.current !== importWeek) return;
+      networkApplied = true;
       cacheActiveLeagueBootstrap(requestedLeagueId, JSON.stringify(data));
       rememberLeaguePage(accountUser?.email ?? '', requestedLeagueId, importWeek, data);
       safeLocalStorageSet("fantasy-hub-active-league", requestedLeagueId);
@@ -5675,15 +5678,12 @@ function AllLeagues({
         const readyScan = cachedAtScanStart.find(scan => scan.league.id === league.id && scan.week === selectedWeek && scan.status !== 'unavailable');
         if (refreshKey === 0 && readyScan && Date.now() - cachedScansSavedAt < MISSION_HUB_SCAN_TTL_MS) return { ...readyScan, league };
         try {
-          let leagueResponse: Response | null = null;
+          let leaguePayload: unknown = null;
           for (let attempt = 0; attempt < 3; attempt += 1) {
             try {
-              leagueResponse = await fetchWithTimeout(
-                `/api/league?id=${encodeURIComponent(league.id)}&week=${selectedWeek}${refreshKey > 0 ? "&refresh=1" : ""}`,
-                { signal: controller.signal },
-                30_000,
-              );
-              if (leagueResponse.ok) break;
+              leaguePayload = await loadLeaguePage(cacheIdentity, league.id, selectedWeek, refreshKey > 0);
+              if (controller.signal.aborted) throw new Error('Scan cancelled');
+              if (leaguePayload) break;
             } catch (error) {
               if (controller.signal.aborted) throw error;
             }
@@ -5692,8 +5692,8 @@ function AllLeagues({
                 window.setTimeout(resolve, 400 * (attempt + 1)),
               );
           }
-          if (!leagueResponse?.ok) throw new Error("League unavailable");
-          const payload = (await leagueResponse.json()) as {
+          if (!leaguePayload) throw new Error("League unavailable");
+          const payload = leaguePayload as {
             league: {
               currentWeek?: number;
               projectionWeek?: number;

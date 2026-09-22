@@ -55,17 +55,26 @@ export async function refreshActiveLeagueSnapshots(request: Request, cronSecret:
     if (calendar.completedWeek > 0) await getSleeperWeeklyStats(String(season), calendar.completedWeek).catch(() => null);
     let refreshed = 0, failed = 0;
     let cursor = 0;
-    const batch = due.slice(0, REFRESH.jobsPerTick);
+    // Reserve one bounded job per Monday tick for the upcoming week. Separate
+    // snapshot keys preserve this week's live data while Tuesday gets prepared.
+    const monday = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Chicago', weekday: 'short' }).format(new Date(now)) === 'Mon';
+    const nextWeek = week + 1;
+    const upcoming = monday && schedule.some(game => game.week === nextWeek)
+      ? eligible.filter(item => (jobTimes.get(`league:${item.record.userId}:${item.key}:${nextWeek}`) ?? 0) <= now)
+        .sort((a,b) => (jobTimes.get(`league:${a.record.userId}:${a.key}:${nextWeek}`) ?? 0) - (jobTimes.get(`league:${b.record.userId}:${b.key}:${nextWeek}`) ?? 0))
+        .slice(0, 1).map(item => ({ ...item, week: nextWeek, interval: REFRESH.portfolio }))
+      : [];
+    const batch = [...upcoming, ...due.map(item => ({ ...item, week }))].slice(0, REFRESH.jobsPerTick);
     // Full roster models are memory-heavy; serialize them within each tick.
     await Promise.all(Array.from({ length: 1 }, async () => {
       while (cursor < batch.length && Date.now() - now < 40_000) {
         const item = batch[cursor++];
-        const done = await claimRefresh(`league:${item.record.userId}:${item.key}:${week}`);
+        const done = await claimRefresh(`league:${item.record.userId}:${item.key}:${item.week}`);
         if (!done) continue;
         let ok = false;
         try {
           const url = new URL('/api/league', request.url);
-          url.search = new URLSearchParams({ id: item.key, week: String(week), refresh: '1' }).toString();
+          url.search = new URLSearchParams({ id: item.key, week: String(item.week), refresh: '1' }).toString();
           const response = await fetch(url, { headers: { authorization: `Bearer ${cronSecret}`, 'x-fantasy-hub-sync-user': item.record.userId }, signal: AbortSignal.timeout(18_000) });
           ok = response.ok;
           await response.body?.cancel();

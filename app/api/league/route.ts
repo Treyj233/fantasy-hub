@@ -3,7 +3,7 @@ import { loadCurrentSnapProfiles, snapProfileFor } from "../../snap-data";
 import { loadBlendedPlayerSeasonProfiles, loadBlendedTeamOffenseProfiles, playerSeasonProfileFor } from "../../season-history";
 import { fetchEspnLeagueForUser, normalizeEspnLeague } from "../espn";
 import { getChatGPTUser } from "../../chatgpt-auth";
-import { and, eq } from "drizzle-orm";
+import { and, eq, or, desc, sql } from "drizzle-orm";
 import { getDb } from "../../../db";
 import { leagueDataSnapshots } from "../../../db/schema";
 import { fetchCachedUpstream } from "../upstream-cache";
@@ -59,12 +59,13 @@ export async function GET(request: Request) {
   if (!id) return Response.json({ error: "Invalid league ID" }, { status: 400 });
   const db = await getDb();
   if (!forceRefresh) {
-    const [snapshot] = await db.select().from(leagueDataSnapshots).where(and(eq(leagueDataSnapshots.userId, userId), eq(leagueDataSnapshots.leagueKey, id))).limit(1);
+    const [snapshot] = await db.select().from(leagueDataSnapshots).where(and(eq(leagueDataSnapshots.userId, userId), selectedWeek ? and(or(eq(leagueDataSnapshots.leagueKey, id), eq(leagueDataSnapshots.leagueKey, `${id}:week:${selectedWeek}`)), sql`json_extract(${leagueDataSnapshots.payloadJson}, '$.league.projectionWeek') = ${selectedWeek}`) : eq(leagueDataSnapshots.leagueKey, id))).orderBy(desc(leagueDataSnapshots.refreshedAt)).limit(1);
     if (snapshot) {
       try {
         const cached = JSON.parse(snapshot.payloadJson) as { projectionsReady?: boolean; payloadVersion?: number; league?: { season?: string; projectionWeek?: number; currentWeek?: number } };
         const calendar = await currentFantasyWeek(Number(cached.league?.season), cached.league?.currentWeek);
-        if (cached.payloadVersion === LEAGUE_PAYLOAD_VERSION && cached.league?.projectionWeek === (selectedWeek ?? calendar.currentWeek) && cached.league?.currentWeek === calendar.currentWeek && (cached.projectionsReady !== false || Date.now() - new Date(snapshot.refreshedAt).getTime() < 60_000)) {
+        if (cached.payloadVersion === LEAGUE_PAYLOAD_VERSION && cached.league?.projectionWeek === (selectedWeek ?? calendar.currentWeek) && (cached.projectionsReady !== false || Date.now() - new Date(snapshot.refreshedAt).getTime() < 60_000)) {
+          cached.league.currentWeek = calendar.currentWeek;
           const fresh = Date.now() - new Date(snapshot.refreshedAt).getTime() < LEAGUE_SNAPSHOT_TTL_MS;
           let current = cached;
           if (/^\d{6,24}$/.test(id) && cached.league?.projectionWeek === calendar.currentWeek) {
@@ -88,7 +89,7 @@ export async function GET(request: Request) {
       const normalized = await normalizeEspnLeague(await fetchEspnLeagueForUser(userId, leagueId, Number(season), week), week);
       const result = await applyPostgameRankings({ ...normalized, league: { ...normalized.league, currentWeek: calendar.currentWeek }, payloadVersion: LEAGUE_PAYLOAD_VERSION });
       const refreshedAt = new Date().toISOString();
-      const snapshot = { id: crypto.randomUUID(), userId, leagueKey: id, payloadJson: JSON.stringify(result), refreshedAt };
+      const snapshot = { id: crypto.randomUUID(), userId, leagueKey: week === calendar.currentWeek ? id : `${id}:week:${week}`, payloadJson: JSON.stringify(result), refreshedAt };
       await db.insert(leagueDataSnapshots).values(snapshot).onConflictDoUpdate({ target: [leagueDataSnapshots.userId, leagueDataSnapshots.leagueKey], set: { payloadJson: snapshot.payloadJson, refreshedAt } });
       return Response.json({ ...result, cache: { status: "refreshed", refreshedAt } });
     } catch (error) {
@@ -373,7 +374,7 @@ export async function GET(request: Request) {
     const refreshedAt = new Date().toISOString();
     const games = (await loadNflSeasonSchedule(Number(league.season))).filter(game => game.week === projectionWeek);
     const preparedResult = { ...result, projectionsReady: weeklyCoverage(rankingPool, games).ready };
-    const snapshot = { id: crypto.randomUUID(), userId, leagueKey: id, payloadJson: JSON.stringify(preparedResult), refreshedAt };
+    const snapshot = { id: crypto.randomUUID(), userId, leagueKey: projectionWeek === calendar.currentWeek ? id : `${id}:week:${projectionWeek}`, payloadJson: JSON.stringify(preparedResult), refreshedAt };
     await db.insert(leagueDataSnapshots).values(snapshot).onConflictDoUpdate({ target: [leagueDataSnapshots.userId, leagueDataSnapshots.leagueKey], set: { payloadJson: snapshot.payloadJson, refreshedAt } });
     return Response.json({ ...preparedResult, cache: { status: "refreshed", refreshedAt } });
   } catch (error) {

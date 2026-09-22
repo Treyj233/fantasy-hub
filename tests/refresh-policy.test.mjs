@@ -21,16 +21,16 @@ test('active users refresh every 15 minutes, inactive users every six hours, bou
   assert.ok(retryDelay(5) > retryDelay(1));
   assert.equal(retryDelay(50), 6*3600_000);
 });
-test('preloaded pages survive navigation, but never cross account/week or exceed four entries', () => {
+test('preloaded pages survive navigation, but never cross account/week or exceed 32 entries', () => {
   const payload = { teams: [{ name: 'My team' }] };
   rememberLeaguePage('a', 'league', 2, payload, 1000);
   assert.equal(readLeaguePage('a', 'league', 2, 1001), payload);
   assert.equal(readLeaguePage('b', 'league', 2, 1001), null);
   assert.equal(readLeaguePage('a', 'league', 3, 1001), null);
   assert.equal(readLeaguePage('a', 'league', 2, 901000), null);
-  for(let i=0;i<5;i++) rememberLeaguePage('a', String(i), 2, payload, 1000);
+  for(let i=0;i<33;i++) rememberLeaguePage('a', String(i), 2, payload, 1000);
   assert.equal(readLeaguePage('a', '0', 2, 1001), null);
-  assert.equal(readLeaguePage('a', '4', 2, 1001), payload);
+  assert.equal(readLeaguePage('a', '32', 2, 1001), payload);
 });
 test('Mission Hub scan lifetime is account/week scoped, not navigation scoped', () => {
   const src = readFileSync(new URL('../app/FantasyHub.tsx', import.meta.url), 'utf8');
