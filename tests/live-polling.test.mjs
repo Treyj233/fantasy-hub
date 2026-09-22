@@ -1,6 +1,22 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { startVisiblePolling, subscribeLiveScoreboards, reconcileScoreboards, fetchLiveJson } from '../app/live-polling.mjs';
+import { startVisiblePolling, subscribeLiveScoreboards, reconcileScoreboards, fetchLiveJson, readLiveScoreboard } from '../app/live-polling.mjs';
+
+test('sign-in polling warms full leagues for immediate page reads and clears on disposal', async t => {
+  setup(t);
+  t.mock.method(globalThis, 'fetch', async url => {
+    assert.equal(new URL(url, 'https://test.local').searchParams.get('scope'), 'league');
+    return { ok: true, json: async () => ({ week: 3, matchups: [{ matchupId: 1, teams: [] }, { matchupId: 2, teams: [] }] }) };
+  });
+  const stop = subscribeLiveScoreboards(['warm-league'], 3, () => {});
+  t.after(stop);
+  await flush();
+  assert.equal(readLiveScoreboard('warm-league', 3).matchups.length, 2);
+  assert.equal(readLiveScoreboard('warm-league', 2), null);
+  assert.equal(readLiveScoreboard('other-league', 3), null);
+  stop();
+  assert.equal(readLiveScoreboard('warm-league', 3), null);
+});
 
 const flush = async () => { for (let i = 0; i < 30; i++) await Promise.resolve(); };
 function setup(t) {

@@ -24,7 +24,7 @@ import { randomOwnedLook } from "./random-owned-look.mjs";
 import { injuryTradePenalty } from "./postgame-value.mjs";
 import { hideFinishedWeeklyGame } from "./weekly-ranking-visibility.mjs";
 import { tradeMatchesTarget } from "./trade-target-fit.mjs";
-import { startVisiblePolling, subscribeLiveScoreboards, fetchLiveJson, reconcileScoreboards } from "./live-polling.mjs";
+import { startVisiblePolling, subscribeLiveScoreboards, fetchLiveJson, reconcileScoreboards, readLiveScoreboard } from "./live-polling.mjs";
 import { useVisibleAnimations } from "./use-visible-animations";
 import { useOverlayGuard } from "./use-overlay-guard";
 import { useProductMonitoring } from "./use-product-monitoring";
@@ -2295,7 +2295,7 @@ export default function FantasyHub({
     const leagues = availableLeagues.filter(
       (league) => !hiddenLeagueIds.includes(league.id),
     );
-    if (!leagues.length) return;
+    if (!accountUser?.email || !leagues.length) return;
     let active = true;
     const week = defaultGameWeek;
     const stopPolling = subscribeLiveScoreboards(leagues.map(league => league.id), week,
@@ -2323,7 +2323,7 @@ export default function FantasyHub({
       active = false;
       stopPolling();
     };
-  }, [availableLeagues, hiddenLeagueIds, defaultGameWeek, calendar.currentWeek, entitlement.pro, winPathSaver, vegasMode.adapter]);
+  }, [accountUser?.email, availableLeagues, hiddenLeagueIds, defaultGameWeek, calendar.currentWeek, entitlement.pro, winPathSaver, vegasMode.adapter]);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -6573,7 +6573,7 @@ function AllLeagueScoreboard({
     }
   }, [portfolioCacheKey]);
   const projectionSource=useProjectionSource();
-  const [rawScores, setScores] = useState<Record<string, ScoreboardData | null>>(() => initialPortfolioSnapshot?.scores ?? {});
+  const [rawScores, setScores] = useState<Record<string, ScoreboardData | null>>(() => Object.fromEntries(leagues.map(league => [league.id, readLiveScoreboard(league.id, week) ?? initialPortfolioSnapshot?.scores?.[league.id] ?? null])));
   const scores=useMemo(()=>Object.fromEntries(Object.entries(rawScores).map(([id,data])=>[id,projectionSource.scoreboard(data)])),[rawScores,projectionSource]);
   const [loading, setLoading] = useState(false);
   const [updatedAt, setUpdatedAt] = useState(() => initialPortfolioSnapshot?.updatedAt ?? "");
@@ -7151,7 +7151,7 @@ function Scoreboard({
   );
   const projectionSource=useProjectionSource();
   const [rawData, setData] = useState<ScoreboardData | null>(() =>
-    readSessionCache<ScoreboardData>(
+    readLiveScoreboard(leagueId, defaultWeek) ?? readSessionCache<ScoreboardData>(
       `fantasy-hub-scoreboard:${leagueId}:${defaultWeek >= 1 && defaultWeek <= 18 ? defaultWeek : 1}:all`,
     ),
   );
@@ -7162,7 +7162,7 @@ function Scoreboard({
   useEffect(() => {
     let active = true;
     const cacheKey = `fantasy-hub-scoreboard:${leagueId}:${week}:all`;
-    const cached = readSessionCache<ScoreboardData>(cacheKey);
+    const cached = readLiveScoreboard(leagueId, week) ?? readSessionCache<ScoreboardData>(cacheKey);
     let hasCached = Boolean(cached);
     if (cached) setData(cached);
     else setData(null);
@@ -12073,7 +12073,7 @@ function HeadToHeadMatchup({
 }) {
   const openPlayer = useContext(PlayerOpenContext);
   const initialCachedMatchup = useMemo(
-    () => readSessionCache<ScoreboardData>(`fantasy-hub-scoreboard:${leagueId}:${defaultWeek}:all`),
+    () => readLiveScoreboard(leagueId, defaultWeek) ?? readSessionCache<ScoreboardData>(`fantasy-hub-scoreboard:${leagueId}:${defaultWeek}:all`),
     [leagueId, defaultWeek],
   );
   const [week, setWeek] = useState(defaultWeek);
@@ -12095,7 +12095,7 @@ function HeadToHeadMatchup({
   useEffect(() => {
     let active = true;
     const cacheKey = `fantasy-hub-scoreboard:${leagueId}:${week}:all`;
-    const cached = readSessionCache<ScoreboardData>(cacheKey);
+    const cached = readLiveScoreboard(leagueId, week) ?? readSessionCache<ScoreboardData>(cacheKey);
     let hasCached = Boolean(cached);
     if (cached) {
       setData(cached);

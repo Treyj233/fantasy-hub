@@ -55,6 +55,14 @@ export async function fetchLiveJson(url, signal) {
 }
 
 const portfolios = new Map();
+// Read only currently subscribed, full-league snapshots. Nothing survives sign-out.
+export function readLiveScoreboard(leagueId, week) {
+  for (const entry of portfolios.values()) {
+    const data = entry.latest?.find(([id]) => id === leagueId)?.[1];
+    if (data && Number(data.week) === Number(week)) return data;
+  }
+  return null;
+}
 // Only mounted subscribers retain data. No cross-session or persistent cache.
 export function subscribeLiveScoreboards(leagueIds, week, listener, onRefreshStart) {
   const ids = [...new Set(leagueIds)].sort();
@@ -89,7 +97,7 @@ export function subscribeLiveScoreboards(leagueIds, week, listener, onRefreshSta
           const index = cursor++;
           const id = ids[index];
           try {
-            results[index] = [id, await fetchLiveJson(`/api/scoreboard?leagueId=${encodeURIComponent(id)}&week=${week}&scope=mine`, signal)];
+            results[index] = [id, await fetchLiveJson(`/api/scoreboard?leagueId=${encodeURIComponent(id)}&week=${week}&scope=league`, signal)];
           } catch { results[index] = [id, previous.get(id) ?? null]; }
           if (signal.aborted) return;
           finished++;
