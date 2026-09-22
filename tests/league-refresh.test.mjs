@@ -9,9 +9,9 @@ test('explicit discovery refresh also imports the active roster with cache bypas
   assert.match(refresh, /const defaultLeague = activeLeague \?\? selectableLeagues\[0\]/);
   assert.match(refresh, /await importLeague\(defaultLeague.id, data.connection\?\.sleeperUserId, defaultLeague.rosterId, forceRefresh, Boolean\(activeLeague\)\)/);
   const importer = source.split('async function importLeague(')[1].split('async function loadLeagues(')[0];
-  assert.match(importer, /forceRefresh \? "&refresh=1"/);
+  assert.match(importer, /loadLeaguePage\(accountUser\?\.email \?\? '', requestedLeagueId, importWeek, forceRefresh\)/);
   assert.match(importer, /setPlayers\(ownedTeam.roster\)/);
   const route = readFileSync(new URL('../app/api/league/route.ts', import.meta.url), 'utf8');
-  assert.match(route, /if \(!forceRefresh\)/);
+  assert.match(route, /if \(!forceRefresh\) return Response.json\(fallback/);
   assert.match(route, /rosters`, \{ cache: forceRefresh && user \? "reload" : "no-store" \}/);
 });

@@ -17,6 +17,7 @@ import { requestedFantasyWeek } from "../../fantasy-week.mjs";
 import { applyRosterSnapshot } from '../../roster-snapshot.mjs';
 import { weeklyCoverage } from '../../weekly-readiness.mjs';
 import { loadNflSeasonSchedule } from '../../nfl-schedule-data';
+import { claimRefresh } from '../../refresh-coordinator';
 
 type SourcePlayer = { player_id?: string; full_name?: string; first_name?: string; last_name?: string; position?: string; team?: string; injury_status?: string | null; search_rank?: number; age?: number; status?: string; depth_chart_order?: number | null; depth_chart_position?: string | null };
 type SourceProjection = { player_id?: string; stats?: Record<string, number> };
@@ -58,27 +59,41 @@ export async function GET(request: Request) {
   const selectedWeek = requestedFantasyWeek(url.searchParams.get("week"));
   if (!id) return Response.json({ error: "Invalid league ID" }, { status: 400 });
   const db = await getDb();
-  if (!forceRefresh) {
+  let fallback: Record<string, any> | null = null;
+  {
     const [snapshot] = await db.select().from(leagueDataSnapshots).where(and(eq(leagueDataSnapshots.userId, userId), selectedWeek ? and(or(eq(leagueDataSnapshots.leagueKey, id), eq(leagueDataSnapshots.leagueKey, `${id}:week:${selectedWeek}`)), sql`json_extract(${leagueDataSnapshots.payloadJson}, '$.league.projectionWeek') = ${selectedWeek}`) : eq(leagueDataSnapshots.leagueKey, id))).orderBy(desc(leagueDataSnapshots.refreshedAt)).limit(1);
     if (snapshot) {
       try {
         const cached = JSON.parse(snapshot.payloadJson) as { projectionsReady?: boolean; payloadVersion?: number; league?: { season?: string; projectionWeek?: number; currentWeek?: number } };
         const calendar = await currentFantasyWeek(Number(cached.league?.season), cached.league?.currentWeek);
-        if (cached.payloadVersion === LEAGUE_PAYLOAD_VERSION && cached.league?.projectionWeek === (selectedWeek ?? calendar.currentWeek) && (cached.projectionsReady !== false || Date.now() - new Date(snapshot.refreshedAt).getTime() < 60_000)) {
+        if (cached.payloadVersion === LEAGUE_PAYLOAD_VERSION && cached.league?.projectionWeek === (selectedWeek ?? calendar.currentWeek)) {
           cached.league.currentWeek = calendar.currentWeek;
-          const fresh = Date.now() - new Date(snapshot.refreshedAt).getTime() < LEAGUE_SNAPSHOT_TTL_MS;
-          let current = cached;
-          if (/^\d{6,24}$/.test(id) && cached.league?.projectionWeek === calendar.currentWeek) {
+          let fresh = Date.now() - new Date(snapshot.refreshedAt).getTime() < (cached.projectionsReady === false ? 60_000 : LEAGUE_SNAPSHOT_TTL_MS);
+          let current = cached, rosterRefreshedAt: string | null = null;
+          if (!forceRefresh && /^\d{6,24}$/.test(id) && cached.league?.projectionWeek === calendar.currentWeek) {
             try {
-              const rosters = await fetchCachedUpstream(`https://api.sleeper.app/v1/league/${id}/rosters`, 300);
-              if (rosters.ok) current = applyRosterSnapshot(cached, await rosters.json());
+              const rosters = await fetchCachedUpstream(`https://api.sleeper.app/v1/league/${id}/rosters`, 60);
+              if (rosters.ok) {
+                current = applyRosterSnapshot(cached, await rosters.json());
+                rosterRefreshedAt = new Date().toISOString();
+                if ((current as any).rosterNeedsRebuild) fresh = false;
+              }
             } catch { /* A temporary roster failure must not erase the snapshot. */ }
           }
-          return Response.json({ ...current, cache: { status: fresh ? "fresh" : "stale", refreshedAt: snapshot.refreshedAt, revalidateRecommended: !fresh } });
+          fallback = { ...current, cache: { status: fresh ? "fresh" : "stale", refreshedAt: snapshot.refreshedAt, rosterRefreshedAt, revalidateRecommended: !fresh } };
+          if (!forceRefresh) return Response.json(fallback, { headers: { 'Cache-Control': 'private, no-store' } });
         }
       } catch { /* Refresh malformed or outdated snapshots. */ }
     }
   }
+  // Browser, portfolio, and cron share a rebuild lease. One consumer's request
+  // cannot cause every page to rebuild the same expensive league model.
+  const release = await claimRefresh(`model:${userId}:${id}:${selectedWeek ?? 'current'}`, 90_000);
+  if (!release) return fallback
+    ? Response.json({ ...fallback, cache: { ...fallback.cache, status: 'stale', revalidateRecommended: true } }, { headers: { 'Cache-Control': 'private, no-store', 'Retry-After': '30' } })
+    : Response.json({ error: 'League refresh in progress' }, { status: 503, headers: { 'Retry-After': '30' } });
+  let modelSucceeded = false;
+  try {
   if (id?.startsWith("espn:")) {
     const [, season, leagueId] = id.split(":");
     if (!leagueId || !/^\d{4,24}$/.test(leagueId))
@@ -91,7 +106,8 @@ export async function GET(request: Request) {
       const refreshedAt = new Date().toISOString();
       const snapshot = { id: crypto.randomUUID(), userId, leagueKey: week === calendar.currentWeek ? id : `${id}:week:${week}`, payloadJson: JSON.stringify(result), refreshedAt };
       await db.insert(leagueDataSnapshots).values(snapshot).onConflictDoUpdate({ target: [leagueDataSnapshots.userId, leagueDataSnapshots.leagueKey], set: { payloadJson: snapshot.payloadJson, refreshedAt } });
-      return Response.json({ ...result, cache: { status: "refreshed", refreshedAt } });
+      modelSucceeded = true;
+      return Response.json({ ...result, cache: { status: "refreshed", refreshedAt } }, { headers: { 'Cache-Control': 'private, no-store', 'X-FH-Refresh': 'complete' } });
     } catch (error) {
       return Response.json({ error: error instanceof Error ? error.message : "ESPN league unavailable" }, { status: 502 });
     }
@@ -109,7 +125,7 @@ export async function GET(request: Request) {
     ]);
     if (!leagueResponse.ok || !rostersResponse.ok || !usersResponse.ok || !playersResponse.ok) throw new Error(`League upstream status: ${[leagueResponse, rostersResponse, usersResponse, playersResponse].map(response => response.status).join(',')}`);
     const league = await leagueResponse.json() as { name?: string; status?: string; total_rosters?: number; season?: string; leg?: number; roster_positions?: string[]; scoring_settings?: Record<string, number>; settings?: { type?: number; draft_rounds?: number } };
-    const rosters = await rostersResponse.json() as { roster_id?: number; owner_id?: string; players?: string[]; starters?: string[]; reserve?: string[]; taxi?: string[] }[];
+    const rosters = await rostersResponse.json() as { roster_id?: number; owner_id?: string; co_owners?: string[]; players?: string[]; starters?: string[]; reserve?: string[]; taxi?: string[] }[];
     const users = await usersResponse.json() as { user_id?: string; display_name?: string; metadata?: { team_name?: string } }[];
     const sourcePlayers = await playersResponse.json() as Record<string, SourcePlayer>;
     const tradedPicks = tradedPicksResponse?.ok ? await tradedPicksResponse.json().catch(() => []) as { season?: string; round?: number; roster_id?: number; owner_id?: number; previous_owner_id?: number }[] : [];
@@ -367,18 +383,28 @@ export async function GET(request: Request) {
       });
       const rosterId = roster.roster_id ?? rosterIndex + 1;
       const ownedPicks = draftPicks.filter((pick) => pick.ownerRosterId === rosterId).sort((a, b) => a.season - b.season || a.round - b.round);
-      return { id: String(rosterId), ownerId: roster.owner_id, managerName, teamName: owner?.metadata?.team_name ?? `${managerName}'s Team`, matchupId: matchupByRoster.get(rosterId) ?? null, roster: normalized, draftCapital: { score: Number(ownedPicks.reduce((sum, pick) => sum + pick.value, 0).toFixed(1)), picks: ownedPicks } };
+      return { id: String(rosterId), ownerId: roster.owner_id, coOwnerIds: roster.co_owners ?? [], managerName, teamName: owner?.metadata?.team_name ?? `${managerName}'s Team`, matchupId: matchupByRoster.get(rosterId) ?? null, roster: normalized, draftCapital: { score: Number(ownedPicks.reduce((sum, pick) => sum + pick.value, 0).toFixed(1)), picks: ownedPicks } };
     });
     const managers = users.flatMap((user, index) => user.user_id ? [{ id: user.user_id, name: user.display_name ?? `Manager ${index + 1}`, teamName: user.metadata?.team_name ?? `${user.display_name ?? `Manager ${index + 1}`}'s Team`, style: "Neutral" as const }] : []);
     const result = await applyPostgameRankings({ payloadVersion: LEAGUE_PAYLOAD_VERSION, league: { name: league.name ?? "Imported League", platform: "Sleeper", status: league.status ?? "unknown", teams: league.total_rosters, season: league.season, currentWeek: calendar.currentWeek, projectionWeek, managers: users.length }, teams, managers, rankingContext: { scoringRules: scoring, format, scoring: receptionLabel, teams: league.total_rosters ?? rosters.length, rosterSlots, positionDemand, tePremium: tePremiumValue, passTouchdown: scoring.pass_td ?? 4, interception: scoring.pass_int ?? -2, bonusRuleCount, scoringRuleCount: Object.values(scoring).filter((value) => value !== 0).length }, rankings: rankingPool, waiverPlayers, waiverTrending });
     const refreshedAt = new Date().toISOString();
     const games = (await loadNflSeasonSchedule(Number(league.season))).filter(game => game.week === projectionWeek);
     const preparedResult = { ...result, projectionsReady: weeklyCoverage(rankingPool, games).ready };
+    // A temporarily incomplete provider feed must not replace a complete week.
+    // Still apply verified lineup changes and leave the model's age untouched.
+    if (!preparedResult.projectionsReady && fallback?.projectionsReady === true) {
+      const retained = projectionWeek === calendar.currentWeek ? applyRosterSnapshot(fallback, rosters) : fallback;
+      return Response.json({ ...retained, cache: { ...fallback.cache, status: 'stale', revalidateRecommended: true } }, { headers: { 'Cache-Control': 'private, no-store', 'Retry-After': '60' } });
+    }
     const snapshot = { id: crypto.randomUUID(), userId, leagueKey: projectionWeek === calendar.currentWeek ? id : `${id}:week:${projectionWeek}`, payloadJson: JSON.stringify(preparedResult), refreshedAt };
     await db.insert(leagueDataSnapshots).values(snapshot).onConflictDoUpdate({ target: [leagueDataSnapshots.userId, leagueDataSnapshots.leagueKey], set: { payloadJson: snapshot.payloadJson, refreshedAt } });
-    return Response.json({ ...preparedResult, cache: { status: "refreshed", refreshedAt } });
+    modelSucceeded = true;
+    return Response.json({ ...preparedResult, cache: { status: "refreshed", refreshedAt } }, { headers: { 'Cache-Control': 'private, no-store', 'X-FH-Refresh': preparedResult.projectionsReady ? 'complete' : 'partial' } });
   } catch (error) {
     console.warn('League snapshot refresh failed', error instanceof Error ? error.message : 'Unknown refresh error');
     return Response.json({ error: "League unavailable" }, { status: 502 });
+  }
+  } finally {
+    await release(modelSucceeded, 30_000);
   }
 }

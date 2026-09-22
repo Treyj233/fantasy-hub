@@ -1,4 +1,4 @@
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, lt, sql } from 'drizzle-orm';
 import { getDb } from '../db';
 import { leagueDataSnapshots, managedLeagues, refreshJobs, userPreferences } from '../db/schema';
 import { claimRefresh } from './refresh-coordinator';
@@ -10,6 +10,7 @@ import { fantasyWeek } from './fantasy-week.mjs';
 import { vegasFeed } from './vegas-edge-server';
 import { fetchEspnLeague } from './api/espn';
 import { prepareWeeklyLeagueResult } from './prepared-weekly-recap';
+import { repairLeagueRosters } from './repair-league-rosters';
 
 export async function refreshActiveLeagueSnapshots(request: Request, cronSecret: string) {
   const release = await claimRefresh('portfolio-tick', 180_000);
@@ -27,6 +28,7 @@ export async function refreshActiveLeagueSnapshots(request: Request, cronSecret:
     if (!calendar.ready) return { deferred: 'schedule unavailable' };
     const week = calendar.currentWeek;
     const recent = new Map(preferences.filter(p => now - Date.parse(p.lastActiveAt ?? '') < 30 * 86400_000).map(p => [p.userId, p]));
+    await repairLeagueRosters(db, leagues.filter(record => recent.has(record.userId) && !record.rosterId).slice(0, 3));
     const snapshotTimes = new Map(snapshots.map(s => [`${s.userId}:${s.leagueKey}`, s.week === week ? Date.parse(s.refreshedAt) : 0]));
     const jobTimes = new Map(jobs.map(j => [j.id, Math.max(j.nextAttempt, j.leaseUntil)]));
     const eligible = leagues.flatMap(record => {
@@ -64,7 +66,15 @@ export async function refreshActiveLeagueSnapshots(request: Request, cronSecret:
         .sort((a,b) => (jobTimes.get(`league:${a.record.userId}:${a.key}:${nextWeek}`) ?? 0) - (jobTimes.get(`league:${b.record.userId}:${b.key}:${nextWeek}`) ?? 0))
         .slice(0, 1).map(item => ({ ...item, week: nextWeek, interval: REFRESH.portfolio }))
       : [];
-    const batch = [...upcoming, ...due.map(item => ({ ...item, week }))].slice(0, REFRESH.jobsPerTick);
+    // Sleeper league models contain public league-wide data, not account-specific
+    // preferences. Build once per league/week and fan out only to connected users.
+    // Private ESPN data is always isolated by account.
+    const seen = new Set<string>();
+    const batch = [...upcoming, ...due.map(item => ({ ...item, week }))].filter(item => {
+      const key = `${item.record.provider === 'sleeper' ? 'public' : item.record.userId}:${item.key}:${item.week}`;
+      if (seen.has(key)) return false;
+      seen.add(key); return true;
+    }).slice(0, REFRESH.jobsPerTick);
     // Full roster models are memory-heavy; serialize them within each tick.
     await Promise.all(Array.from({ length: 1 }, async () => {
       while (cursor < batch.length && Date.now() - now < 40_000) {
@@ -76,8 +86,16 @@ export async function refreshActiveLeagueSnapshots(request: Request, cronSecret:
           const url = new URL('/api/league', request.url);
           url.search = new URLSearchParams({ id: item.key, week: String(item.week), refresh: '1' }).toString();
           const response = await fetch(url, { headers: { authorization: `Bearer ${cronSecret}`, 'x-fantasy-hub-sync-user': item.record.userId }, signal: AbortSignal.timeout(18_000) });
-          ok = response.ok;
+          ok = response.ok && ['complete', 'partial'].includes(response.headers.get('X-FH-Refresh') ?? '');
           await response.body?.cancel();
+          if (ok && item.record.provider === 'sleeper') {
+            const snapshotKey = item.week === week ? item.key : `${item.key}:week:${item.week}`;
+            const [source] = await db.select().from(leagueDataSnapshots).where(and(eq(leagueDataSnapshots.userId, item.record.userId), eq(leagueDataSnapshots.leagueKey, snapshotKey))).limit(1);
+            if (source) for (const target of eligible.filter(candidate => candidate.key === item.key && candidate.record.userId !== item.record.userId)) {
+              await db.insert(leagueDataSnapshots).values({ ...source, id: crypto.randomUUID(), userId: target.record.userId })
+                .onConflictDoUpdate({ target: [leagueDataSnapshots.userId, leagueDataSnapshots.leagueKey], set: { payloadJson: source.payloadJson, refreshedAt: source.refreshedAt }, setWhere: lt(leagueDataSnapshots.refreshedAt, source.refreshedAt) });
+            }
+          }
         } catch { /* Preserve the last successful snapshot. */ }
         await done(ok, item.interval);
         if (ok) refreshed++; else failed++;
@@ -89,13 +107,14 @@ export async function refreshActiveLeagueSnapshots(request: Request, cronSecret:
       const elapsed = now - Date.parse(game.date);
       return elapsed >= 0 && elapsed < 6 * 3600_000 && !/final|finished|cancel|postpon/i.test(game.status ?? '');
     });
-    const nearKickoff = games.some(game => { const left = Date.parse(game.date) - now; return left > 0 && left <= 2 * 3600_000; });
     const keys = [...new Set(eligible.map(i => i.key))].sort((a,b) =>
       (jobTimes.get(`${live ? 'score' : 'roster'}:${a}:${week}`) ?? 0) - (jobTimes.get(`${live ? 'score' : 'roster'}:${b}:${week}`) ?? 0));
     let warmed = 0;
     cursor = 0;
     await Promise.all(Array.from({ length: 3 }, async () => {
-      while ((live || nearKickoff) && cursor < keys.length && Date.now() - now < 65_000) {
+      // Pregame roster changes matter all week, not just near kickoff. Keep
+      // their five-minute cadence and a bounded, oldest-due-first queue.
+      while (cursor < Math.min(keys.length, REFRESH.jobsPerTick) && Date.now() - now < 65_000) {
         const key = keys[cursor++];
         const kind = live ? 'score' : 'roster';
         const done = await claimRefresh(`${kind}:${key}:${week}`, 30_000);
@@ -117,6 +136,8 @@ export async function refreshActiveLeagueSnapshots(request: Request, cronSecret:
     if (live) await getSleeperWeeklyStats(String(season), week).catch(() => null);
     const vegas = await vegasFeed(true).catch(() => null);
     completed = true;
-    return { due: due.length, refreshed, failed, warmed, vegasUsage: vegas?.usage ?? null };
+    const result = { due: due.length, refreshed, failed, warmed, durationMs: Date.now() - now, vegasUsage: vegas?.usage ?? null };
+    console.info(JSON.stringify({ event: 'league_refresh_tick', ...result }));
+    return result;
   } finally { await release(completed, 0); }
 }

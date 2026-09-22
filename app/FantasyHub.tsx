@@ -41,7 +41,9 @@ import { sundayPulseOutlooks } from "./sunday-pulse-outlook.mjs";
 import { gameLineRange, gameLineSummary } from "./game-line-range.mjs";
 import type { GameLines } from "./nfl-schedule-data";
 import { cacheActiveLeagueBootstrap, readSessionCache, safeLocalStorageSet, writeSessionCache } from "./local-storage";
-import { rememberLeaguePage, readLeaguePage, loadLeaguePage, restoreLeaguePages } from "./league-page-cache.mjs";
+import { readLeaguePage, loadLeaguePage, restoreLeaguePages, subscribeLeaguePage } from "./league-page-cache.mjs";
+import { resolveLeagueOwner } from './league-owner.mjs';
+import { saveSeasonCalendar, savedSeasonCalendar } from './season-calendar-cache.mjs';
 import { portfolioStorage } from "./portfolio-storage.mjs";
 import { teamPositionStrength } from "./team-position-strength";
 import { lineupReadiness } from "./lineup-readiness";
@@ -141,7 +143,6 @@ const ProjectionPlatformContext = createContext("League platform");
 const PORTFOLIO_CACHE_VERSION = 2;
 const ACCOUNT_BOOTSTRAP_TTL_MS = 6 * 60 * 60 * 1000;
 const LEAGUE_DISCOVERY_TTL_MS = 24 * 60 * 60 * 1000;
-const MISSION_HUB_SCAN_TTL_MS = 15 * 60 * 1000;
 const weatherRequestCache = new Map<
   string,
   { expiresAt: number; request: Promise<WeatherData | null> }
@@ -189,7 +190,11 @@ function loadScheduleData(season: string | number) {
   if (pending?.request && pending.expiresAt > Date.now()) return pending.request;
   const request = fetch(`/api/nfl-schedule?season=${encodeURIComponent(key)}`)
     .then(async (response) => response.ok ? await response.json() as NflScheduleData : null)
-    .then((value) => value ? storeSharedDataCache(scheduleRequestCache, key, scheduleStorageKey(key), value, 5 * 60 * 1000) : null)
+    .then((value) => {
+      if (!value) return null;
+      saveSeasonCalendar(value);
+      return storeSharedDataCache(scheduleRequestCache, key, scheduleStorageKey(key), value, 5 * 60 * 1000);
+    })
     .catch(() => null);
   scheduleRequestCache.set(key, { expiresAt: Date.now() + 5 * 60 * 1000, request });
   return request;
@@ -496,6 +501,7 @@ async function mapWithConcurrency<T, R>(
   items: T[],
   limit: number,
   mapper: (item: T, index: number) => Promise<R>,
+  onResult?: (result: R, index: number) => void,
 ) {
   const results = new Array<R>(items.length);
   let nextIndex = 0;
@@ -506,6 +512,7 @@ async function mapWithConcurrency<T, R>(
         const index = nextIndex;
         nextIndex += 1;
         results[index] = await mapper(items[index], index);
+        onResult?.(results[index], index);
       }
     },
   );
@@ -987,6 +994,7 @@ type TradeSuggestion = {
   format: "Dynasty" | "Keeper" | "Redraft";
 };
 type LeagueScan = {
+  checkedAt?: number;
   projectionContext?: RankingContext;
   opponentRoster?: Player[];
   league: ConnectedLeague;
@@ -1890,7 +1898,7 @@ export default function FantasyHub({
   );
   const [selectedWeek, setSelectedWeek] = useState<number | null>(null);
   const [calendarNow, setCalendarNow] = useState(() => Date.now());
-  const [seasonSchedule, setSeasonSchedule] = useState<NflScheduleData | null>(null);
+  const [seasonSchedule, setSeasonSchedule] = useState<NflScheduleData | null>(() => readCachedScheduleData(String(new Date().getFullYear())));
   useEffect(() => {
     let active = true;
     void loadScheduleData(leagueSeason).then(schedule => { if (active) setSeasonSchedule(schedule); });
@@ -1904,7 +1912,7 @@ export default function FantasyHub({
     window.addEventListener('pageshow', resume);
     return () => { window.clearInterval(timer); document.removeEventListener('visibilitychange', resume); window.removeEventListener('pageshow', resume); };
   }, []);
-  const calendar = useMemo(() => fantasyWeek(seasonSchedule?.season === Number(leagueSeason) ? seasonSchedule.weeks.flatMap(w => w.games.map(g => ({ ...g, week: w.week }))) : [], calendarNow, leagueWeek), [seasonSchedule, leagueSeason, calendarNow, leagueWeek]);
+  const calendar = useMemo(() => fantasyWeek(seasonSchedule?.season === Number(leagueSeason) ? seasonSchedule.weeks.flatMap(w => w.games.map(g => ({ ...g, week: w.week }))) : savedSeasonCalendar(leagueSeason), calendarNow, leagueWeek), [seasonSchedule, leagueSeason, calendarNow, leagueWeek]);
   const defaultGameWeek = selectedWeek ?? calendar.currentWeek;
   const projectionWeek = defaultGameWeek;
   requestedWeekRef.current = defaultGameWeek;
@@ -2010,6 +2018,7 @@ export default function FantasyHub({
     position: "before" | "after";
   } | null>(null);
   const importRequest = useRef(0);
+  const applyActiveSnapshot = useRef<{ leagueId: string; week: number; apply: (data: any) => void } | null>(null);
   const preferenceSaveQueue = useRef<Promise<void>>(Promise.resolve());
   const leagueDragOccurred = useRef(false);
   const onboardingTourCheckedMode = useRef<"connection" | "product" | null>(null);
@@ -2292,15 +2301,19 @@ export default function FantasyHub({
     const response = await fetchWithTimeout('/api/decisions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
     if (!response.ok || !(await response.json()).saved) throw new Error('Win-path save not acknowledged');
   }), [accountUser?.email]);
+  const scoreboardLeagueKey = availableLeagues.filter(league => !hiddenLeagueIds.includes(league.id)).map(league => league.id).sort().join('|');
+  const liveOptions = useRef({ entitlement, calendar, vegasMode, winPathSaver });
+  liveOptions.current = { entitlement, calendar, vegasMode, winPathSaver };
   useEffect(() => {
     const leagues = availableLeagues.filter(
       (league) => !hiddenLeagueIds.includes(league.id),
     );
-    if (!accountUser?.email || !leagues.length) return;
+    if (!accountUser?.email || !leagues.length || !calendar.ready) return;
     let active = true;
     const week = defaultGameWeek;
     const stopPolling = subscribeLiveScoreboards(leagues.map(league => league.id), week,
       (results: [string, ScoreboardData | null][]) => {
+        const { entitlement, calendar, vegasMode, winPathSaver } = liveOptions.current;
         if (active) setMatchupForecasts(previous => ({ week, scores: reconcileScoreboards(previous.week === week ? previous.scores : {}, results) }));
         if (active) setLiveMatchupCount(results.filter(([, data]) => data?.matchups.some(matchup =>
           matchup.status === "Live" && matchup.teams.some(team => team.isMine))).length);
@@ -2324,7 +2337,7 @@ export default function FantasyHub({
       active = false;
       stopPolling();
     };
-  }, [accountUser?.email, availableLeagues, hiddenLeagueIds, defaultGameWeek, calendar.currentWeek, entitlement.pro, winPathSaver, vegasMode.adapter]);
+  }, [accountUser?.email, scoreboardLeagueKey, defaultGameWeek, calendar.ready]);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -2633,6 +2646,7 @@ export default function FantasyHub({
     forceRefresh = false,
     silent = false,
   ) {
+    if (!calendar.ready) return;
     const importWeek = requestedWeekRef.current;
     const requestedLeagueId = idOverride?.trim() || leagueId.trim();
     if (!requestedLeagueId) return;
@@ -2666,9 +2680,7 @@ export default function FantasyHub({
         (rosterId
           ? teams.find((team) => normalizeId(team.id) === rosterId)
           : undefined) ??
-        (ownerId
-          ? teams.find((team) => normalizeId(team.ownerId) === ownerId)
-          : undefined) ??
+        resolveLeagueOwner(teams, null, ownerId) ??
         (rememberedId
           ? teams.find((team) => normalizeId(team.id) === rememberedId)
           : undefined) ??
@@ -2721,8 +2733,11 @@ export default function FantasyHub({
       setLeagueRefreshedAt(data.cache?.refreshedAt ? new Date(data.cache.refreshedAt).getTime() : null);
       setImportState("success");
     };
+    applyActiveSnapshot.current = { leagueId: requestedLeagueId, week: importWeek, apply: data => {
+      if (requestNumber === importRequest.current && requestedWeekRef.current === importWeek) applyCachedCore(data);
+    } };
     try {
-      const cached = readLeaguePage(accountUser?.email ?? '', requestedLeagueId, importWeek) ?? JSON.parse(
+      const cached = readLeaguePage(accountUser?.email ?? '', requestedLeagueId, importWeek, Date.now(), true) ?? JSON.parse(
         window.localStorage.getItem(`fantasy-hub-league-bootstrap:${requestedLeagueId}`) ?? "null",
       ) as Parameters<typeof applyCachedCore>[0] | null;
       if (cached) applyCachedCore(cached);
@@ -2754,7 +2769,6 @@ export default function FantasyHub({
       if (requestNumber !== importRequest.current || requestedWeekRef.current !== importWeek) return;
       networkApplied = true;
       cacheActiveLeagueBootstrap(requestedLeagueId, JSON.stringify(data));
-      rememberLeaguePage(accountUser?.email ?? '', requestedLeagueId, importWeek, data);
       safeLocalStorageSet("fantasy-hub-active-league", requestedLeagueId);
       if (accountUser) void saveAccountPreferences({ activeLeagueId: requestedLeagueId });
       if (requestNumber !== importRequest.current) return;
@@ -2815,9 +2829,6 @@ export default function FantasyHub({
         readCachedScheduleData(season),
         readCachedMatchupStrengths(season, currentWeek),
       );
-      if (data.cache?.status === "stale" && !forceRefresh) {
-        void importLeague(requestedLeagueId, ownerIdOverride, rosterIdOverride, true, true);
-      }
       let weather: WeatherData | null = null;
       let schedule: NflScheduleData | null = null;
       let matchupStrengths: MatchupStrengthData | null = null;
@@ -3093,7 +3104,10 @@ export default function FantasyHub({
   const showWeekOneWelcome = weekOneWelcomeOpen && defaultGameWeek === 1 && calendar.currentWeek === 1;
   const importedWeek = useRef(defaultGameWeek);
   const backgroundImport = useRef(importLeague);
-  const weeklyProjectionReady = weeklyCoverage(platformRankings, seasonSchedule?.season === Number(leagueSeason) ? seasonSchedule.weeks.find(item => item.week === defaultGameWeek)?.games ?? [] : []).ready;
+  useEffect(() => subscribeLeaguePage(accountUser?.email ?? '', leagueId, defaultGameWeek, (data: unknown) => {
+    const target = applyActiveSnapshot.current;
+    if (target?.leagueId === leagueId && target.week === defaultGameWeek) target.apply(data);
+  }), [accountUser?.email, leagueId, defaultGameWeek]);
   useEffect(() => { backgroundImport.current = importLeague; });
   useEffect(() => {
     if (!accountUser || !leagueId) return;
@@ -3106,10 +3120,10 @@ export default function FantasyHub({
     };
     // Read the prewarmed server snapshot when entering a page, without clearing it.
     const first = window.setTimeout(() => void refresh(), 250);
-    const timer = window.setInterval(() => void refresh(), weeklyProjectionReady ? MISSION_HUB_SCAN_TTL_MS : 60_000);
+    const timer = window.setInterval(() => void refresh(), 60_000);
     document.addEventListener('visibilitychange', refresh);
     return () => { window.clearTimeout(first); window.clearInterval(timer); document.removeEventListener('visibilitychange', refresh); };
-  }, [accountUser?.email, leagueId, view, defaultGameWeek, connection?.sleeperUserId, weeklyProjectionReady]);
+  }, [accountUser?.email, leagueId, defaultGameWeek, connection?.sleeperUserId, calendar.ready]);
   useEffect(() => {
     if (importedWeek.current === defaultGameWeek) return;
     importedWeek.current = defaultGameWeek;
@@ -3707,7 +3721,8 @@ export default function FantasyHub({
             key={`portfolio-${accountUser.email}-${defaultGameWeek}`}
             active={view === "All Leagues"}
             cacheIdentity={accountUser.email}
-            cacheReady={portfolioCacheReady}
+            ownerId={connection?.sleeperUserId}
+            cacheReady={portfolioCacheReady && calendar.ready}
             selectedWeek={defaultGameWeek}
             leagues={visibleLeagues}
             cachedScans={portfolioScans}
@@ -5512,6 +5527,7 @@ function flexTimingSwapCandidates(
 }
 
 function AllLeagues({
+  ownerId,
   active,
   cacheIdentity,
   cacheReady,
@@ -5525,6 +5541,7 @@ function AllLeagues({
   onPersonalize,
   onScansChange,
 }: {
+  ownerId?: string;
   active: boolean;
   cacheIdentity: string;
   cacheReady: boolean;
@@ -5591,7 +5608,7 @@ function AllLeagues({
   const [scanCompleted, setScanCompleted] = useState(0);
   const lastAutomaticScan = useRef("");
   const cachedScansRef = useRef(cachedScans.filter(scan => scan.week === selectedWeek));
-  const leagueScanSignature = `${selectedWeek}:` + leagues.map((league) => league.id).sort().join(":");
+  const leagueScanSignature = `${selectedWeek}:${ownerId ?? ''}:` + leagues.map((league) => `${league.id}:${league.rosterId}`).sort().join(":");
   const scanIsActive = cacheReady && (loading || (refreshing && refreshKey > 0) || (leagues.length > 0 && scans.length === 0));
   const completedScanProgress =
     (scanCompleted / Math.max(1, leagues.length)) * 100;
@@ -5608,7 +5625,7 @@ function AllLeagues({
   useEffect(() => {
     const refreshIfDue = () => {
       if (document.visibilityState !== 'visible' || refreshing) return;
-      if (scans.some(scan => scan.status === 'unavailable') || Date.now() - cachedScansSavedAt >= MISSION_HUB_SCAN_TTL_MS) {
+      if (scans.some(scan => scan.status === 'unavailable' || Date.now() - (scan.checkedAt ?? 0) >= 60_000)) {
         lastAutomaticScan.current = '';
         setBackgroundTick(tick => tick + 1);
       }
@@ -5642,8 +5659,7 @@ function AllLeagues({
       cachedAtScanStart.every((scan) => leagueIds.has(scan.league.id) && scan.week === selectedWeek && scan.status !== 'unavailable');
     const cachedScanIsFresh =
       cacheMatches &&
-      cachedScansSavedAt > 0 &&
-      Date.now() - cachedScansSavedAt < MISSION_HUB_SCAN_TTL_MS;
+      cachedAtScanStart.every(scan => Date.now() - (scan.checkedAt ?? 0) < 60_000);
     // Navigating away from Mission Hub unmounts this view. Reuse a complete,
     // recent account snapshot when it mounts again instead of force-resyncing
     // every league on each return. The explicit refresh control bypasses this.
@@ -5671,27 +5687,16 @@ function AllLeagues({
           setScanCompleted(0);
           setLoading(true);
         }, 0);
+    const progressive = new Map(cachedAtScanStart.map(scan => [scan.league.id, scan]));
     void mapWithConcurrency(
       leagues,
-      1,
+      2,
       async (league): Promise<LeagueScan> => {
         const readyScan = cachedAtScanStart.find(scan => scan.league.id === league.id && scan.week === selectedWeek && scan.status !== 'unavailable');
-        if (refreshKey === 0 && readyScan && Date.now() - cachedScansSavedAt < MISSION_HUB_SCAN_TTL_MS) return { ...readyScan, league };
+        if (refreshKey === 0 && readyScan && Date.now() - (readyScan.checkedAt ?? 0) < 60_000) return { ...readyScan, league };
         try {
-          let leaguePayload: unknown = null;
-          for (let attempt = 0; attempt < 3; attempt += 1) {
-            try {
-              leaguePayload = await loadLeaguePage(cacheIdentity, league.id, selectedWeek, refreshKey > 0);
-              if (controller.signal.aborted) throw new Error('Scan cancelled');
-              if (leaguePayload) break;
-            } catch (error) {
-              if (controller.signal.aborted) throw error;
-            }
-            if (attempt < 2)
-              await new Promise((resolve) =>
-                window.setTimeout(resolve, 400 * (attempt + 1)),
-              );
-          }
+          const leaguePayload = await loadLeaguePage(cacheIdentity, league.id, selectedWeek, refreshKey > 0);
+          if (controller.signal.aborted) throw new Error('Scan cancelled');
           if (!leaguePayload) throw new Error("League unavailable");
           const payload = leaguePayload as {
             league: {
@@ -5703,8 +5708,6 @@ function AllLeagues({
             waiverPlayers?: WaiverPlayer[];
             rankingContext?: RankingContext;
           };
-          // Preload the same raw snapshot used by My Team, Start / Sit and reviews.
-          rememberLeaguePage(cacheIdentity, league.id, selectedWeek, payload);
           const week = Math.min(
             18,
             Math.max(
@@ -5717,18 +5720,17 @@ function AllLeagues({
               league.season ?? String(new Date().getUTCFullYear()),
               week,
             ),
-            8_000,
+            250,
             null,
           );
-          const team = payload.teams.find(
-            (item) => item.id === league.rosterId,
-          );
+          const team = resolveLeagueOwner(payload.teams, league.rosterId, ownerId) as LeagueTeam | null;
           if (!team) throw new Error("Roster unavailable");
           if (payload.league.status === "pre_draft") {
             return {
               league,
               teamName: team.teamName,
-              week: 1,
+              week: selectedWeek,
+              checkedAt: Date.now(),
               projection: 0,
               status: "review",
               health: 100,
@@ -5949,6 +5951,7 @@ function AllLeagues({
           return {
             league,
             teamName: team.teamName,
+            checkedAt: Date.now(),
             week,
             projection: Number(
               starters
@@ -5989,7 +5992,7 @@ function AllLeagues({
                 severity: "warning",
                 category: "Connection",
                 title: "League data is still syncing",
-                detail: "Fantasy Hub retried the initial scan. Refresh all leagues once the platform finishes syncing this roster.",
+                detail: "This league will retry automatically. Your other leagues remain available.",
               },
             ],
           };
@@ -5997,6 +6000,14 @@ function AllLeagues({
           if (!controller.signal.aborted)
             setScanCompleted((completed) => Math.min(leagues.length, completed + 1));
         }
+      },
+      (result) => {
+        if (controller.signal.aborted) return;
+        progressive.set(result.league.id, result);
+        const next = [...progressive.values()];
+        setScans(next);
+        setLoading(false);
+        onScansChange(next);
       },
     )
       .then((results) => {

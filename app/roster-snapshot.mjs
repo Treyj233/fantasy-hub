@@ -7,11 +7,12 @@ export function applyRosterSnapshot(payload, rosters) {
   ].map(player => [String(player.id), player]));
   const owned = new Set(rosters.flatMap(roster => roster.players ?? []));
   const slots = payload.rankingContext?.rosterSlots ?? [];
+  let needsRebuild = false;
   const teams = payload.teams.map(team => {
     const roster = rosters.find(row => String(row.roster_id) === String(team.id));
     if (!roster || !Array.isArray(roster.players) || !Array.isArray(roster.starters)) return team;
     // Unknown recent additions need a full import, never silently omit them.
-    if (roster.players.some(id => !players.has(String(id)))) return team;
+    if (roster.players.some(id => !players.has(String(id)))) { needsRebuild = true; return team; }
     const starters = roster.starters;
     const ids = [...starters.filter(id => id && id !== '0'), ...roster.players.filter(id => !starters.includes(id))];
     return { ...team, roster: ids.flatMap(id => {
@@ -22,5 +23,5 @@ export function applyRosterSnapshot(payload, rosters) {
       return [{ ...player, role }];
     }) };
   });
-  return { ...payload, teams, waiverPlayers: payload.waiverPlayers?.filter(player => !owned.has(String(player.id))) };
+  return { ...payload, teams, rosterNeedsRebuild: needsRebuild, waiverPlayers: payload.waiverPlayers?.filter(player => !owned.has(String(player.id))) };
 }

@@ -1,5 +1,6 @@
 import { and, desc, eq } from "drizzle-orm";
 import { repairLeagueNames } from "../../../repair-league-names";
+import { repairLeagueRosters } from "../../../repair-league-rosters";
 import { getDb } from "../../../../db";
 import { leagueDataSnapshots, managedLeagues, sleeperConnections, userPreferences } from "../../../../db/schema";
 import { getChatGPTUser, LOCAL_PREVIEW_USER_ID } from "../../../chatgpt-auth";
@@ -44,6 +45,7 @@ export async function GET(request: Request) {
   ]);
   const effectivePreferences = preferences ? normalizeThemePreferences(preferences, entitlement) : null;
   await repairLeagueNames(db, leagues);
+  await repairLeagueRosters(db, leagues);
   const [activeSnapshot] = preferences?.activeLeagueId
     ? await db.select().from(leagueDataSnapshots).where(
         and(eq(leagueDataSnapshots.userId, user.userId), eq(leagueDataSnapshots.leagueKey, preferences.activeLeagueId)),

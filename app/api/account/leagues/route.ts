@@ -1,5 +1,7 @@
 import { providerFetch as fetch } from "../../provider-fetch";
 import { repairLeagueNames } from "../../../repair-league-names";
+import { repairLeagueRosters } from "../../../repair-league-rosters";
+import { resolveLeagueOwner } from "../../../league-owner.mjs";
 import { and, eq } from "drizzle-orm";
 import { getDb } from "../../../../db";
 import { managedLeagues, sleeperConnections } from "../../../../db/schema";
@@ -15,6 +17,7 @@ export async function GET(request: Request) {
   const [connection] = await db.select().from(sleeperConnections).where(eq(sleeperConnections.userId, user.userId)).limit(1);
   const savedRecords = await db.select().from(managedLeagues).where(eq(managedLeagues.userId, user.userId));
   await repairLeagueNames(db, savedRecords);
+  await repairLeagueRosters(db, savedRecords);
   const forceRefresh = new URL(request.url).searchParams.get("refresh") === "1";
   const savedSleeper = savedRecords.filter((record) => record.provider === "sleeper" && record.status === "live" && record.identifierType === "league_id");
   const savedEspn = savedRecords.filter((record) => record.provider === "espn" && record.status === "live");
@@ -27,7 +30,7 @@ export async function GET(request: Request) {
     return Response.json({ connection: connection ?? null, leagues: [...savedSleeper.map(savedShape), ...savedEspn.map(savedShape)] });
   const currentSeason = new Date().getUTCFullYear();
   const currentLeagueResponse = connection
-    ? await fetch(`https://api.sleeper.app/v1/user/${connection.sleeperUserId}/leagues/nfl/${currentSeason}`, { cache: "no-store" })
+    ? await fetch(`https://api.sleeper.app/v1/user/${connection.sleeperUserId}/leagues/nfl/${currentSeason}`, { cache: "no-store" }).catch(() => null)
     : null;
   const leagueDiscoverySucceeded = Boolean(currentLeagueResponse?.ok);
   const currentLeagueRecords = currentLeagueResponse?.ok
@@ -40,9 +43,9 @@ export async function GET(request: Request) {
     .sort((a, b) => Number(b.season ?? 0) - Number(a.season ?? 0))
     .map(async (league) => {
     if (!league.league_id) return null;
-    const rosterResponse = await fetch(`https://api.sleeper.app/v1/league/${league.league_id}/rosters`, { cache: "no-store" });
-    const rosters = rosterResponse.ok ? await rosterResponse.json() as { roster_id?: number; owner_id?: string; players?: string[] }[] : [];
-    const myRoster = rosters.find((roster) => roster.owner_id === connection.sleeperUserId);
+    const rosterResponse = await fetch(`https://api.sleeper.app/v1/league/${league.league_id}/rosters`, { cache: "no-store" }).catch(() => null);
+    const rosters = rosterResponse?.ok ? await rosterResponse.json() as { roster_id?: number; owner_id?: string; players?: string[] }[] : [];
+    const myRoster = resolveLeagueOwner(rosters, null, connection?.sleeperUserId);
     if (!myRoster) return null;
     const receptionValue = league.scoring_settings?.rec ?? 0;
     return { id: league.league_id, name: league.name ?? "Unnamed League", season: league.season, teams: league.total_rosters ?? rosters.length, format: league.settings?.type === 2 ? "Dynasty" : league.settings?.type === 1 ? "Keeper" : "Redraft", scoring: receptionValue >= .75 ? "PPR" : receptionValue >= .25 ? "Half PPR" : "Standard", rosterId: String(myRoster.roster_id ?? ""), starterCount: (league.roster_positions ?? []).filter((slot) => slot !== "BN").length };
@@ -51,7 +54,8 @@ export async function GET(request: Request) {
   const now = new Date().toISOString();
   await Promise.all(sleeperLeagues.map((league) => db.insert(managedLeagues).values({ id: crypto.randomUUID(), userId: user.userId, provider: "sleeper", identifierType: "league_id", identifier: league.id, rosterId: league.rosterId, leagueName: league.name, season: league.season ?? null, leagueMetaJson: JSON.stringify({ teams: league.teams, format: league.format, scoring: league.scoring, starterCount: league.starterCount }), status: "live", createdAt: now, updatedAt: now }).onConflictDoUpdate({ target: [managedLeagues.userId, managedLeagues.provider, managedLeagues.identifierType, managedLeagues.identifier], set: { rosterId: league.rosterId, leagueName: league.name, season: league.season ?? null, leagueMetaJson: JSON.stringify({ teams: league.teams, format: league.format, scoring: league.scoring, starterCount: league.starterCount }), status: "live", updatedAt: now } })));
   if (leagueDiscoverySucceeded) {
-    const currentLeagueIds = new Set(sleeperLeagues.map((league) => league.id));
+    // A roster request failure is not proof that membership was removed.
+    const currentLeagueIds = new Set(uniqueLeagueRecords.map((league) => league.league_id));
     await Promise.all(savedSleeper
       .filter((record) => !currentLeagueIds.has(record.identifier))
       .map((record) => db.update(managedLeagues)
@@ -71,5 +75,8 @@ export async function GET(request: Request) {
       return record.leagueName && record.season ? { id: `espn:${record.season}:${record.identifier}`, sourceId: record.identifier, provider: "espn", name: record.leagueName, season: record.season, teams: 0, format: "Redraft", scoring: "ESPN scoring", rosterId: record.rosterId, starterCount: 0 } : null;
     }
   }))).filter((league): league is NonNullable<typeof league> => Boolean(league));
-  return Response.json({ connection: connection ?? null, leagues: [...sleeperLeagues.map((league) => ({ ...league, sourceId: league.id, provider: "sleeper" })), ...espnLeagues] });
+  const resolvedIds = new Set(sleeperLeagues.map(league => league.id));
+  const discoveredIds = new Set(uniqueLeagueRecords.map(league => league.league_id));
+  const retained = savedSleeper.filter(record => !resolvedIds.has(record.identifier) && (!leagueDiscoverySucceeded || discoveredIds.has(record.identifier)));
+  return Response.json({ connection: connection ?? null, leagues: [...sleeperLeagues.map((league) => ({ ...league, sourceId: league.id, provider: "sleeper" })), ...retained.map(savedShape), ...espnLeagues] });
 }

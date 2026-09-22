@@ -40,7 +40,7 @@ test('unavailable or blocked storage does not prevent startup', async () => {
 test('portfolio scanning waits for persistence restoration and saves under stable account identity', () => {
   const source = readFileSync(new URL('../app/FantasyHub.tsx', import.meta.url), 'utf8');
   assert.match(source, /if \(!cacheReady \|\| !leagues.length\) return/);
-  assert.match(source, /cacheReady=\{portfolioCacheReady\}/);
+  assert.match(source, /cacheReady=\{portfolioCacheReady && calendar.ready\}/);
   assert.match(source, /void portfolioStorage\(accountUser.email, \{/);
   assert.match(source, /cachedScansRef.current.filter\(scan => leagueIds.has\(scan.league.id\)\)/);
 });
