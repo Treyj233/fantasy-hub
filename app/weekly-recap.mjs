@@ -9,3 +9,7 @@ export function recapResult(data, week, rosterId) {
   // Use scoring precision, not rounded display scores, to determine outcomes.
   return { outcome: mine.points > opponent.points ? 'W' : mine.points < opponent.points ? 'L' : 'T', points: mine.points, opponentPoints: opponent.points };
 }
+
+export function recapReady(results, expected) {
+  return expected > 0 && results.length === expected && results.every(row => ['W', 'L', 'T', 'Bye', 'No matchup'].includes(row.outcome));
+}

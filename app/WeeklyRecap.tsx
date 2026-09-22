@@ -1,42 +1,42 @@
 "use client";
 import { useEffect, useRef, useState } from 'react';
-import { recapResult } from './weekly-recap.mjs';
+import { recapReady } from './weekly-recap.mjs';
+import { startVisiblePolling, fetchLiveJson } from './live-polling.mjs';
 
 type League = { id: string; name: string; season?: string; rosterId: string };
 type Result = { id: string; name: string; outcome: string; points?: number; opponentPoints?: number };
-export default function WeeklyRecap({ leagues, season, week, enabled }: { leagues: League[]; season: string; week: number; enabled: boolean }) {
+export default function WeeklyRecap({ leagues, season, week, enabled, prepare }: { leagues: League[]; season: string; week: number; enabled: boolean; prepare: boolean }) {
   const [results, setResults] = useState<Result[] | null>(null);
   const dialog = useRef<HTMLDialogElement>(null);
   const dismissed = useRef('');
   const recapKey = `${season}:${week}`;
   const leagueSignature = JSON.stringify(leagues.filter(l => !l.season || l.season === season).map(l => ({ id: l.id, name: l.name, rosterId: l.rosterId })));
   useEffect(() => {
-    if (!enabled || week < 1 || dismissed.current === recapKey) return;
+    setResults(null);
+    if (!prepare || week < 1 || dismissed.current === recapKey) return;
     const selected = JSON.parse(leagueSignature) as League[];
     if (!selected.length) return;
-    const controller = new AbortController();
-    const timeout = window.setTimeout(() => controller.abort(), 60_000);
-    void (async () => {
-      const account = await fetch('/api/account', { signal: controller.signal, cache: 'no-store' });
-      if (!account.ok) return;
-      const data = await account.json();
-      if (data.preferences?.weeklyRecapSeen === recapKey) return;
-      const collected: Result[] = [];
-      // Limit fan-out for managers with many leagues, without blocking sign-in.
-      for (let index = 0; index < selected.length; index += 3) {
-        const batch = await Promise.all(selected.slice(index, index + 3).map(async league => {
-          try {
-            const response = await fetch(`/api/scoreboard?leagueId=${encodeURIComponent(league.id)}&week=${week}&scope=mine`, { signal: controller.signal });
-            if (!response.ok) throw new Error('Scores unavailable');
-            return { id: league.id, name: league.name, ...recapResult(await response.json(), week, league.rosterId) };
-          } catch { return { id: league.id, name: league.name, outcome: 'Unavailable' }; }
-        }));
-        collected.push(...batch);
+    const collected = new Map<string, Result>();
+    let seenChecked = false;
+    let done = false;
+    return startVisiblePolling(async (signal: AbortSignal) => {
+      if (done || dismissed.current === recapKey) return;
+      if (!seenChecked) {
+        const data = await fetchLiveJson('/api/account', signal);
+        if (signal.aborted) return;
+        if (data.preferences?.weeklyRecapSeen === recapKey) { done = true; return; }
+        seenChecked = true;
       }
-      if (!controller.signal.aborted && collected.some(row => ['W','L','T'].includes(row.outcome))) setResults(collected);
-    })().catch(() => { /* Recap availability must never block the dashboard. */ }).finally(() => window.clearTimeout(timeout));
-    return () => { controller.abort(); window.clearTimeout(timeout); };
-  }, [enabled, week, recapKey, leagueSignature]);
+      const payload = await fetchLiveJson(`/api/account/weekly-recap?season=${encodeURIComponent(season)}&week=${week}`, signal);
+      if (signal.aborted) return;
+      for (const league of selected) {
+        const result = (payload.results ?? []).find((row: Result) => row.id === league.id);
+        if (result && recapReady([result], 1)) collected.set(league.id, { ...result, name: league.name });
+      }
+      const complete = selected.map(league => collected.get(league.id)).filter((row): row is Result => Boolean(row));
+      if (!signal.aborted && recapReady(complete, selected.length)) { setResults(complete); done = true; }
+    }, 30_000);
+  }, [prepare, season, week, recapKey, leagueSignature]);
   useEffect(() => { if (results && enabled && !dialog.current?.open) dialog.current?.showModal(); }, [results, enabled]);
   const close = () => {
     dismissed.current = recapKey;

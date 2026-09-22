@@ -23,6 +23,7 @@ import { nativeOpenLeague, nativePushSettings, syncDefaultNativePushNotification
 import { randomOwnedLook } from "./random-owned-look.mjs";
 import { injuryTradePenalty } from "./postgame-value.mjs";
 import { hideFinishedWeeklyGame } from "./weekly-ranking-visibility.mjs";
+import { weeklyCoverage } from "./weekly-readiness.mjs";
 import { tradeMatchesTarget } from "./trade-target-fit.mjs";
 import { startVisiblePolling, subscribeLiveScoreboards, fetchLiveJson, reconcileScoreboards, readLiveScoreboard } from "./live-polling.mjs";
 import { useVisibleAnimations } from "./use-visible-animations";
@@ -3089,6 +3090,7 @@ export default function FantasyHub({
   const showWeekOneWelcome = weekOneWelcomeOpen && defaultGameWeek === 1 && calendar.currentWeek === 1;
   const importedWeek = useRef(defaultGameWeek);
   const backgroundImport = useRef(importLeague);
+  const weeklyProjectionReady = weeklyCoverage(platformRankings, seasonSchedule?.season === Number(leagueSeason) ? seasonSchedule.weeks.find(item => item.week === defaultGameWeek)?.games ?? [] : []).ready;
   useEffect(() => { backgroundImport.current = importLeague; });
   useEffect(() => {
     if (!accountUser || !leagueId) return;
@@ -3101,10 +3103,10 @@ export default function FantasyHub({
     };
     // Read the prewarmed server snapshot when entering a page, without clearing it.
     const first = window.setTimeout(() => void refresh(), 250);
-    const timer = window.setInterval(() => void refresh(), MISSION_HUB_SCAN_TTL_MS);
+    const timer = window.setInterval(() => void refresh(), weeklyProjectionReady ? MISSION_HUB_SCAN_TTL_MS : 60_000);
     document.addEventListener('visibilitychange', refresh);
     return () => { window.clearTimeout(first); window.clearInterval(timer); document.removeEventListener('visibilitychange', refresh); };
-  }, [accountUser?.email, leagueId, view, defaultGameWeek, connection?.sleeperUserId]);
+  }, [accountUser?.email, leagueId, view, defaultGameWeek, connection?.sleeperUserId, weeklyProjectionReady]);
   useEffect(() => {
     if (importedWeek.current === defaultGameWeek) return;
     importedWeek.current = defaultGameWeek;
@@ -4004,7 +4006,7 @@ export default function FantasyHub({
         />
       )}
 
-      <WeeklyRecap key={accountUser?.email ?? 'signed-out'} leagues={availableLeagues} season={leagueSeason} week={calendar.completedWeek} enabled={Boolean(accountUser) && !accountLoading && importState === 'success' && !onboardingTourOpen && !showWeekOneWelcome && !selectedPlayer} />
+      <WeeklyRecap key={accountUser?.email ?? 'signed-out'} leagues={availableLeagues} season={leagueSeason} week={calendar.completedWeek} prepare={Boolean(accountUser) && !accountLoading} enabled={Boolean(accountUser) && !accountLoading && importState === 'success' && !onboardingTourOpen && !showWeekOneWelcome && !selectedPlayer} />
       <DailyMembershipOffer account={accountUser?.email??''} entitlement={entitlement} ready={!accountLoading&&!accountError&&importState==='success'&&!onboardingTourOpen&&!showWeekOneWelcome&&!selectedPlayer} onLearnMore={()=>setView('Fantasy Hub Pro')}/>
 
       {showWeekOneWelcome && (
@@ -5602,16 +5604,16 @@ function AllLeagues({
 
   useEffect(() => {
     const refreshIfDue = () => {
-      if (document.visibilityState !== 'visible') return;
-      if (Date.now() - cachedScansSavedAt >= MISSION_HUB_SCAN_TTL_MS) {
+      if (document.visibilityState !== 'visible' || refreshing) return;
+      if (scans.some(scan => scan.status === 'unavailable') || Date.now() - cachedScansSavedAt >= MISSION_HUB_SCAN_TTL_MS) {
         lastAutomaticScan.current = '';
         setBackgroundTick(tick => tick + 1);
       }
     };
-    const timer = window.setInterval(refreshIfDue, MISSION_HUB_SCAN_TTL_MS);
+    const timer = window.setInterval(refreshIfDue, 30_000);
     document.addEventListener('visibilitychange', refreshIfDue);
     return () => { window.clearInterval(timer); document.removeEventListener('visibilitychange', refreshIfDue); };
-  }, [cachedScansSavedAt]);
+  }, [cachedScansSavedAt, scans, refreshing]);
 
   useEffect(() => {
     if (!leagues.length || !cachedScans.length) return;
@@ -5634,7 +5636,7 @@ function AllLeagues({
     const cachedAtScanStart = cachedScansRef.current.filter(scan => leagueIds.has(scan.league.id));
     const cacheMatches =
       cachedAtScanStart.length === leagues.length &&
-      cachedAtScanStart.every((scan) => leagueIds.has(scan.league.id) && scan.week === selectedWeek);
+      cachedAtScanStart.every((scan) => leagueIds.has(scan.league.id) && scan.week === selectedWeek && scan.status !== 'unavailable');
     const cachedScanIsFresh =
       cacheMatches &&
       cachedScansSavedAt > 0 &&
@@ -5668,8 +5670,10 @@ function AllLeagues({
         }, 0);
     void mapWithConcurrency(
       leagues,
-      3,
+      1,
       async (league): Promise<LeagueScan> => {
+        const readyScan = cachedAtScanStart.find(scan => scan.league.id === league.id && scan.week === selectedWeek && scan.status !== 'unavailable');
+        if (refreshKey === 0 && readyScan && Date.now() - cachedScansSavedAt < MISSION_HUB_SCAN_TTL_MS) return { ...readyScan, league };
         try {
           let leagueResponse: Response | null = null;
           for (let attempt = 0; attempt < 3; attempt += 1) {
@@ -5677,7 +5681,7 @@ function AllLeagues({
               leagueResponse = await fetchWithTimeout(
                 `/api/league?id=${encodeURIComponent(league.id)}&week=${selectedWeek}${refreshKey > 0 ? "&refresh=1" : ""}`,
                 { signal: controller.signal },
-                15_000,
+                30_000,
               );
               if (leagueResponse.ok) break;
             } catch (error) {
@@ -5970,8 +5974,8 @@ function AllLeagues({
           if (savedScan) return { ...savedScan, league };
           return {
             league,
-            teamName: "Roster unavailable",
-            week: 1,
+            teamName: "League is syncing…",
+            week: selectedWeek,
             projection: 0,
             status: "unavailable",
             health: 0,
@@ -9989,6 +9993,8 @@ function WeeklyPlayerRankings({
       .slice(0, config.limit);
     return { ...config, ranked };
   });
+  const coverage = weeklyCoverage(players, schedule?.season === Number(season) ? schedule.weeks.find(item => item.week === week)?.games ?? [] : []);
+  if (!coverage.ready) return <section className="panel" role="status"><h3>Preparing Week {week} rankings</h3><p>{schedule ? 'Waiting for projections across the full weekly schedule. Partial rankings will not be shown.' : 'Loading this week’s schedule…'}</p></section>;
   return (
     <div className="weekly-rankings-view">
       <div className="weekly-position-grid">

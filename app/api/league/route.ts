@@ -15,6 +15,8 @@ import { applyPostgameRankings } from "../../postgame-rankings";
 import { currentFantasyWeek } from "../../current-fantasy-week";
 import { requestedFantasyWeek } from "../../fantasy-week.mjs";
 import { applyRosterSnapshot } from '../../roster-snapshot.mjs';
+import { weeklyCoverage } from '../../weekly-readiness.mjs';
+import { loadNflSeasonSchedule } from '../../nfl-schedule-data';
 
 type SourcePlayer = { player_id?: string; full_name?: string; first_name?: string; last_name?: string; position?: string; team?: string; injury_status?: string | null; search_rank?: number; age?: number; status?: string; depth_chart_order?: number | null; depth_chart_position?: string | null };
 type SourceProjection = { player_id?: string; stats?: Record<string, number> };
@@ -60,9 +62,9 @@ export async function GET(request: Request) {
     const [snapshot] = await db.select().from(leagueDataSnapshots).where(and(eq(leagueDataSnapshots.userId, userId), eq(leagueDataSnapshots.leagueKey, id))).limit(1);
     if (snapshot) {
       try {
-        const cached = JSON.parse(snapshot.payloadJson) as { payloadVersion?: number; league?: { season?: string; projectionWeek?: number; currentWeek?: number } };
+        const cached = JSON.parse(snapshot.payloadJson) as { projectionsReady?: boolean; payloadVersion?: number; league?: { season?: string; projectionWeek?: number; currentWeek?: number } };
         const calendar = await currentFantasyWeek(Number(cached.league?.season), cached.league?.currentWeek);
-        if (cached.payloadVersion === LEAGUE_PAYLOAD_VERSION && cached.league?.projectionWeek === (selectedWeek ?? calendar.currentWeek) && cached.league?.currentWeek === calendar.currentWeek) {
+        if (cached.payloadVersion === LEAGUE_PAYLOAD_VERSION && cached.league?.projectionWeek === (selectedWeek ?? calendar.currentWeek) && cached.league?.currentWeek === calendar.currentWeek && (cached.projectionsReady !== false || Date.now() - new Date(snapshot.refreshedAt).getTime() < 60_000)) {
           const fresh = Date.now() - new Date(snapshot.refreshedAt).getTime() < LEAGUE_SNAPSHOT_TTL_MS;
           let current = cached;
           if (/^\d{6,24}$/.test(id) && cached.league?.projectionWeek === calendar.currentWeek) {
@@ -369,9 +371,11 @@ export async function GET(request: Request) {
     const managers = users.flatMap((user, index) => user.user_id ? [{ id: user.user_id, name: user.display_name ?? `Manager ${index + 1}`, teamName: user.metadata?.team_name ?? `${user.display_name ?? `Manager ${index + 1}`}'s Team`, style: "Neutral" as const }] : []);
     const result = await applyPostgameRankings({ payloadVersion: LEAGUE_PAYLOAD_VERSION, league: { name: league.name ?? "Imported League", platform: "Sleeper", status: league.status ?? "unknown", teams: league.total_rosters, season: league.season, currentWeek: calendar.currentWeek, projectionWeek, managers: users.length }, teams, managers, rankingContext: { scoringRules: scoring, format, scoring: receptionLabel, teams: league.total_rosters ?? rosters.length, rosterSlots, positionDemand, tePremium: tePremiumValue, passTouchdown: scoring.pass_td ?? 4, interception: scoring.pass_int ?? -2, bonusRuleCount, scoringRuleCount: Object.values(scoring).filter((value) => value !== 0).length }, rankings: rankingPool, waiverPlayers, waiverTrending });
     const refreshedAt = new Date().toISOString();
-    const snapshot = { id: crypto.randomUUID(), userId, leagueKey: id, payloadJson: JSON.stringify(result), refreshedAt };
+    const games = (await loadNflSeasonSchedule(Number(league.season))).filter(game => game.week === projectionWeek);
+    const preparedResult = { ...result, projectionsReady: weeklyCoverage(rankingPool, games).ready };
+    const snapshot = { id: crypto.randomUUID(), userId, leagueKey: id, payloadJson: JSON.stringify(preparedResult), refreshedAt };
     await db.insert(leagueDataSnapshots).values(snapshot).onConflictDoUpdate({ target: [leagueDataSnapshots.userId, leagueDataSnapshots.leagueKey], set: { payloadJson: snapshot.payloadJson, refreshedAt } });
-    return Response.json({ ...result, cache: { status: "refreshed", refreshedAt } });
+    return Response.json({ ...preparedResult, cache: { status: "refreshed", refreshedAt } });
   } catch (error) {
     console.warn('League snapshot refresh failed', error instanceof Error ? error.message : 'Unknown refresh error');
     return Response.json({ error: "League unavailable" }, { status: 502 });
